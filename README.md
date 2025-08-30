@@ -1,36 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎤 Rhyme Lines
 
-## Getting Started
+_A minimalist Sublime-style lyric editor with syllables, rhymes, and rhythm._  
 
-First, run the development server:
+[![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v3-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)](https://vercel.com/)
 
+Rhyme Lines is a modern lyric-writing web app built with **Next.js 14**, **TypeScript**, and **Tailwind CSS**.  
+It gives rappers, poets, and songwriters a distraction-free space to write with **live syllable overlays** and **rhyme assistance**.
+
+---
+
+## ✨ Features
+- 📝 **Full-screen lyric editor** (Sublime-inspired, distraction-free)  
+- 🔢 **Live syllable counts** per word & line  
+- 🎨 **Dark & light themes** (toggleable)  
+- ⚡ **Ultra-responsive typing** (<10ms latency budget)  
+- ⏱️ **Auto-save to localStorage**  
+- 🎶 **Rhyme suggestions sidebar** (perfect, slant, near)  
+- ♿ **Accessible design** (keyboard shortcuts, ARIA roles)  
+
+---
+
+## 🛠️ Tech Stack
+- [Next.js 14](https://nextjs.org/) (App Router)
+- [TypeScript](https://www.typescriptlang.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [shadcn/ui](https://ui.shadcn.com/) (for UI components)
+- [Prisma](https://www.prisma.io/) (for future database work)
+- [PostgreSQL](https://www.postgresql.org/) (planned cloud storage)
+- [Vercel](https://vercel.com/) (deployment)
+
+---
+
+## 🚀 Getting Started
+
+Clone the repo:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/ClayTheMisfit/rhyme-lines.git
+cd rhyme-lines
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Run the dev server:
+```bash
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open in your browser:  
+👉 [http://localhost:3000](http://localhost:3000)
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 📸 Screenshots
+> _Coming soon: previews of the editor in action_
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔮 Roadmap
+- ✅ Core editor with syllable counts  
+- ⏳ Rhyme suggestion engine  
+- ⏳ Cloud sync & user accounts  
+- ⏳ Mobile-friendly layout  
+- ⏳ Collaboration (multi-user editing)  
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📜 License
+This project is licensed under the **MIT License**.  
+See [LICENSE](./LICENSE) for details.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## 🤝 Contributing
+Pull requests and feedback are welcome!  
+Open an issue for ideas, bugs, or feature requests.
+
+---
+
+## 🌐 Live Demo
+Soon on [Vercel](https://vercel.com/) — stay tuned!
