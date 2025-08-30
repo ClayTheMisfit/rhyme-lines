@@ -24,3 +24,19 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Placeholder for contentEditable that works reliably */
+[contenteditable][data-placeholder]::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0.5rem 0.25rem; /* matches your before:px-1 before:py-2 */
+  color: #6b7280;          /* gray-500 */
+  opacity: 0.6;
+  pointer-events: none;
+  display: none;           /* hidden by default */
+}
+[contenteditable].show-placeholder::before {
+  display: block;          /* shown only when we add the class */
+}

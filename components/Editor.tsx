@@ -5,8 +5,18 @@ import { useEffect, useRef } from 'react'
 export default function Editor() {
   const editorRef = useRef<HTMLDivElement>(null)
 
+  const updatePlaceholder = () => {
+    const el = editorRef.current
+    if (!el) return
+    const hasText = (el.textContent || '').trim().length > 0
+    el.classList.toggle('show-placeholder', !hasText)
+  }
+
   useEffect(() => {
-    editorRef.current?.focus()
+    const el = editorRef.current
+    if (!el) return
+    el.focus()
+    updatePlaceholder()
   }, [])
 
   return (
@@ -16,9 +26,12 @@ export default function Editor() {
         contentEditable
         suppressContentEditableWarning
         spellCheck={false}
-        className="relative outline-none whitespace-pre-wrap break-words w-full h-full text-lg leading-loose font-mono before:content-[attr(data-placeholder)] before:text-gray-500 before:absolute before:top-0 before:left-0 before:pointer-events-none before:opacity-50 empty:before:block"
         data-placeholder="Start writing..."
-      ></div>
+        onInput={updatePlaceholder}
+        onBlur={updatePlaceholder}
+        onKeyUp={updatePlaceholder}
+        className="relative outline-none whitespace-pre-wrap break-words w-full h-full text-lg leading-loose font-mono"
+      />
     </div>
   )
 }
