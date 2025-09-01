@@ -35,6 +35,8 @@ export default function Editor() {
 
   const [badges, setBadges] = useState<Badge[]>([])
   const [textSnapshot, setTextSnapshot] = useState<string>('')
+  const [lineTotals, setLineTotals] = useState<number[]>([])
+  const [showOverlays, setShowOverlays] = useState(true) // <-- new
 
   const updatePlaceholder = () => {
     const el = editorRef.current
@@ -58,28 +60,29 @@ export default function Editor() {
     saveTimer.current = window.setTimeout(saveNow, SAVE_DELAY_MS)
   }
 
-  const scheduleMeasure = useCallback(() => {
-    if (measureTimer.current) window.clearTimeout(measureTimer.current)
-    measureTimer.current = window.setTimeout(() => {
-      measureTimer.current = null
-      measureWords()
-    }, MEASURE_DEBOUNCE_MS)
+  const recomputeLineTotals = useCallback(() => {
+    const el = editorRef.current
+    if (!el) return
+    const lines = el.innerText.replace(/\u00A0/g, ' ').split(/\r?\n/)
+    const totals = lines.map(ln =>
+      ln
+        .split(/\s+/)
+        .filter(Boolean)
+        .reduce((sum, w) => sum + countSyllables(w), 0)
+    )
+    setLineTotals(totals)
   }, [])
 
-  const handleChange = () => {
-    updatePlaceholder()
-    scheduleSave()
-    scheduleMeasure()
-  }
-
   const measureWords = useCallback(() => {
+    if (!showOverlays) {
+      setBadges([])
+      return
+    }
     const root = editorRef.current
-    const overlay = overlayRef.current
-    if (!root || !overlay) return
+    if (!root) return
 
     const badgesNext: Badge[] = []
     const rootRect = root.getBoundingClientRect()
-
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
     let node: Node | null = walker.nextNode()
     const wordRegex = /[A-Za-z']+/g
@@ -102,17 +105,31 @@ export default function Editor() {
           const syl = countSyllables(word)
 
           const x = r.left - rootRect.left + r.width / 2
-          const y = r.top - rootRect.top + 1 // badges sit almost directly over the word
-
+          const y = r.top - rootRect.top - 1
           badgesNext.push({ x, y, text: String(syl) })
         }
         range.detach()
       }
       node = walker.nextNode()
     }
-
     setBadges(badgesNext)
-  }, [])
+  }, [showOverlays])
+
+  const scheduleMeasure = useCallback(() => {
+    if (measureTimer.current) window.clearTimeout(measureTimer.current)
+    measureTimer.current = window.setTimeout(() => {
+      measureTimer.current = null
+      measureWords()
+      recomputeLineTotals()
+    }, MEASURE_DEBOUNCE_MS)
+  }, [measureWords, recomputeLineTotals])
+
+  const handleChange = () => {
+    updatePlaceholder()
+    scheduleSave()
+    scheduleMeasure()
+    recomputeLineTotals()
+  }
 
   useEffect(() => {
     const el = editorRef.current
@@ -130,29 +147,44 @@ export default function Editor() {
     el.focus()
     requestAnimationFrame(() => {
       measureWords()
+      recomputeLineTotals()
     })
 
+    // flush on unload
     const onBeforeUnload = () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current)
       saveNow()
     }
     window.addEventListener('beforeunload', onBeforeUnload)
 
+    // hotkeys: Alt+R for overlays
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault()
+        setShowOverlays(v => !v)
+      }
+    }
+    // custom event from toolbar
+    const onToggleEvent = () => setShowOverlays(v => !v)
+
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
+
     return () => {
       window.removeEventListener('beforeunload', onBeforeUnload)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
       if (saveTimer.current) window.clearTimeout(saveTimer.current)
       if (measureTimer.current) window.clearTimeout(measureTimer.current)
     }
-  }, [measureWords])
+  }, [measureWords, recomputeLineTotals])
 
   useEffect(() => {
     const onResize = () => scheduleMeasure()
     window.addEventListener('resize', onResize)
-
     const scroller = containerRef.current
     const onScroll = () => scheduleMeasure()
     scroller?.addEventListener('scroll', onScroll, { passive: true })
-
     return () => {
       window.removeEventListener('resize', onResize)
       scroller?.removeEventListener('scroll', onScroll)
@@ -160,22 +192,15 @@ export default function Editor() {
   }, [scheduleMeasure])
 
   return (
-    <div className="flex w-full h-screen bg-black text-white">
-      {/* Left gutter with line totals */}
+    <div className="flex w-full h-screen">
+      {/* Left gutter */}
       <div className="w-14 shrink-0 border-r border-white/10 text-right pr-2 py-8 overflow-hidden select-none">
         <div className="text-xs text-gray-400 leading-9 font-mono whitespace-pre">
-          {textSnapshot.split(/\r?\n/).map((ln, i) => {
-            const total =
-              ln
-                .split(/\s+/)
-                .filter(Boolean)
-                .reduce((sum, w) => sum + countSyllables(w), 0) || ''
-            return (
-              <div key={i} className="h-9 leading-9">
-                {total}
-              </div>
-            )
-          })}
+          {lineTotals.map((total, i) => (
+            <div key={i} className="h-9 leading-9">
+              {total || ''}
+            </div>
+          ))}
         </div>
       </div>
 
@@ -183,21 +208,23 @@ export default function Editor() {
       <div ref={containerRef} className="relative flex-1 overflow-auto">
         <div className="p-8">
           {/* Overlay for syllable badges */}
-          <div
-            ref={overlayRef}
-            className="pointer-events-none absolute inset-8 z-10"
-            aria-hidden="true"
-          >
-            {badges.map((b, i) => (
-              <div
-                key={i}
-                className="absolute -translate-x-1/2 -translate-y-full text-[10px] font-semibold text-gray-300"
-                style={{ left: b.x, top: b.y }}
-              >
-                {b.text}
-              </div>
-            ))}
-          </div>
+          {showOverlays && (
+            <div
+              ref={overlayRef}
+              className="pointer-events-none absolute inset-8 z-10"
+              aria-hidden="true"
+            >
+              {badges.map((b, i) => (
+                <div
+                  key={i}
+                  className="absolute -translate-x-1/2 -translate-y-full text-[10px] font-semibold text-gray-300"
+                  style={{ left: b.x, top: b.y }}
+                >
+                  {b.text}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Editable area */}
           <div
@@ -216,3 +243,4 @@ export default function Editor() {
     </div>
   )
 }
+
