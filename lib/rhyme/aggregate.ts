@@ -2,6 +2,7 @@ import type { RhymeSuggestion } from './providers/datamuse'
 import { fetchPerfectRhymes, fetchSlantRhymes } from './providers/datamuse'
 import { fetchRhymeBrainRhymes } from './providers/rhymebrain'
 import { generateLocalRhymes } from './providers/local'
+import { fetchWordnikRelatedWords, fetchWordnikSimilarWords } from './providers/wordnik'
 
 export interface AggregatedSuggestion extends RhymeSuggestion {
   sources: string[]
@@ -18,10 +19,11 @@ export async function fetchRhymes(
   
   try {
     // Fetch from all sources in parallel
-    const [datamuseResults, rhymeBrainResults, localResults] = await Promise.allSettled([
+    const [datamuseResults, rhymeBrainResults, localResults, wordnikResults] = await Promise.allSettled([
       type === 'perfect' ? fetchPerfectRhymes(normalized) : fetchSlantRhymes(normalized),
       fetchRhymeBrainRhymes(normalized),
-      generateLocalRhymes(normalized)
+      generateLocalRhymes(normalized),
+      type === 'perfect' ? fetchWordnikRelatedWords(normalized) : fetchWordnikSimilarWords(normalized)
     ])
     
     // Collect successful results
@@ -37,6 +39,10 @@ export async function fetchRhymes(
     
     if (localResults.status === 'fulfilled') {
       allResults.push(...localResults.value)
+    }
+    
+    if (wordnikResults.status === 'fulfilled') {
+      allResults.push(...wordnikResults.value)
     }
     
     // Aggregate and deduplicate
@@ -100,7 +106,8 @@ function aggregateAndRank(
 function getSourceName(result: RhymeSuggestion): string {
   // This is a simplified approach - in a real app you'd track the actual source
   if (result.frequency !== undefined) return 'datamuse'
-  if (result.syllables !== undefined && result.score > 0) return 'rhymebrain'
+  if (result.syllables !== undefined && result.score > 0 && result.score < 80) return 'rhymebrain'
+  if (result.score >= 80 && result.score <= 100) return 'wordnik'
   return 'local'
 }
 
