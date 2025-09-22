@@ -1,7 +1,8 @@
 import type { RhymeSuggestion } from './datamuse'
 
 // Simple phonetic patterns for local rhyming
-const VOWEL_PATTERNS = /[aeiouy]+/gi
+const VOWEL_GROUP_PATTERN = /[aeiouy]+/gi
+const VOWEL_PRESENT_PATTERN = /[aeiouy]/i
 
 // Common English words that rhyme with each other
 const RHYME_GROUPS: Record<string, string[]> = {
@@ -207,7 +208,7 @@ function countCommonLetters(word1: string, word2: string): number {
 }
 
 function estimateSyllables(word: string): number {
-  const vowels = word.match(VOWEL_PATTERNS)
+  const vowels = word.match(VOWEL_GROUP_PATTERN)
   if (!vowels) return 1
   
   let count = vowels.length
@@ -229,7 +230,7 @@ function isValidWord(word: string): boolean {
   if (!/^[a-z]+$/i.test(word)) return false
   
   // Must have at least one vowel
-  return VOWEL_PATTERNS.test(word)
+  return VOWEL_PRESENT_PATTERN.test(word)
 }
 
 function isCommonWord(word: string): boolean {

@@ -1,12 +1,6 @@
 import type { RhymeSuggestion } from './datamuse'
 
-const WORDNIK_BASE = 'https://api.wordnik.com/v4'
-const WORDNIK_API_KEY = 'ht6r56caorqqp336gegazkmo2hmiarprpnn9vkjzc5l7n394y'
-
-export interface WordnikResponse {
-  word: string
-  id: number
-}
+const WORDNIK_API_ENDPOINT = '/api/wordnik'
 
 export interface WordnikRelatedResponse {
   word: string
@@ -15,80 +9,78 @@ export interface WordnikRelatedResponse {
   words: string[]
 }
 
+interface WordnikApiResult {
+  suggestions: RhymeSuggestion[]
+}
+
 export async function fetchWordnikRelatedWords(word: string): Promise<RhymeSuggestion[]> {
+  return fetchWordnikSuggestions(word, 'perfect')
+}
+
+export async function fetchWordnikSimilarWords(word: string): Promise<RhymeSuggestion[]> {
+  return fetchWordnikSuggestions(word, 'slant')
+}
+
+async function fetchWordnikSuggestions(
+  word: string,
+  type: 'perfect' | 'slant'
+): Promise<RhymeSuggestion[]> {
   if (!word.trim()) return []
-  
+
   try {
-    const url = new URL(`${WORDNIK_BASE}/word.json/${encodeURIComponent(word.toLowerCase())}/relatedWords`)
-    url.searchParams.set('api_key', WORDNIK_API_KEY)
-    url.searchParams.set('relationshipTypes', 'rhyme')
-    url.searchParams.set('limitPerRelationshipType', '50')
-    url.searchParams.set('useCanonical', 'true')
-    
-    const response = await fetch(url.toString())
+    const params = new URLSearchParams({
+      word: word.toLowerCase(),
+      type,
+    })
+
+    const response = await fetch(`${WORDNIK_API_ENDPOINT}?${params.toString()}`)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    
-    const data: WordnikRelatedResponse[] = await response.json()
-    
-    const suggestions: RhymeSuggestion[] = []
-    
-    for (const item of data) {
-      if (item.relationshipType === 'rhyme' && item.words) {
-        for (const relatedWord of item.words) {
-          suggestions.push({
-            word: relatedWord,
-            type: 'perfect', // Wordnik rhymes are typically perfect rhymes
-            score: calculateScore(word, relatedWord),
-            syllables: estimateSyllables(relatedWord),
-          })
-        }
-      }
+
+    const payload = (await response.json()) as WordnikApiResult
+    if (!payload || !Array.isArray(payload.suggestions)) {
+      return []
     }
-    
-    return suggestions.slice(0, 50) // Limit results
-    
+
+    return payload.suggestions
   } catch (error) {
-    console.warn('Wordnik related words failed:', error)
+    console.warn(`Wordnik ${type} words failed:`, error)
     return []
   }
 }
 
-export async function fetchWordnikSimilarWords(word: string): Promise<RhymeSuggestion[]> {
+export function buildWordnikSuggestions(
+  word: string,
+  data: WordnikRelatedResponse[],
+  type: 'perfect' | 'slant'
+): RhymeSuggestion[] {
   if (!word.trim()) return []
-  
-  try {
-    const url = new URL(`${WORDNIK_BASE}/word.json/${encodeURIComponent(word.toLowerCase())}/relatedWords`)
-    url.searchParams.set('api_key', WORDNIK_API_KEY)
-    url.searchParams.set('relationshipTypes', 'similar-to')
-    url.searchParams.set('limitPerRelationshipType', '30')
-    url.searchParams.set('useCanonical', 'true')
-    
-    const response = await fetch(url.toString())
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    
-    const data: WordnikRelatedResponse[] = await response.json()
-    
-    const suggestions: RhymeSuggestion[] = []
-    
-    for (const item of data) {
-      if (item.relationshipType === 'similar-to' && item.words) {
-        for (const similarWord of item.words) {
-          suggestions.push({
-            word: similarWord,
-            type: 'slant', // Similar words are slant rhymes
-            score: calculateScore(word, similarWord) * 0.7, // Lower score for slant rhymes
-            syllables: estimateSyllables(similarWord),
-          })
-        }
-      }
+
+  const normalized = word.toLowerCase()
+  const relationshipType = type === 'perfect' ? 'rhyme' : 'similar-to'
+  const maxResults = type === 'perfect' ? 50 : 30
+
+  const suggestions: RhymeSuggestion[] = []
+
+  for (const item of data) {
+    if (item.relationshipType !== relationshipType || !item.words) continue
+
+    for (const candidate of item.words) {
+      const baseScore = calculateScore(normalized, candidate)
+      const adjustedScore =
+        type === 'perfect'
+          ? baseScore
+          : Math.min(100, Math.max(0, baseScore * 0.7))
+
+      suggestions.push({
+        word: candidate,
+        type,
+        score: adjustedScore,
+        syllables: estimateSyllables(candidate),
+      })
     }
-    
-    return suggestions.slice(0, 30) // Limit results
-    
-  } catch (error) {
-    console.warn('Wordnik similar words failed:', error)
-    return []
   }
+
+  return suggestions.slice(0, maxResults)
 }
 
 function calculateScore(original: string, candidate: string): number {
