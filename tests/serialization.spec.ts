@@ -11,6 +11,9 @@ const createMockElement = (html: string): HTMLElement => {
   return div
 }
 
+const getLineContents = (el: HTMLElement): string[] =>
+  Array.from(el.querySelectorAll('.line')).map(line => line.innerHTML)
+
 describe('serializeFromEditor', () => {
   test('serializes single line text', () => {
     const el = createMockElement('Hello world')
@@ -71,37 +74,37 @@ describe('hydrateEditorFromText', () => {
   test('hydrates single line text', () => {
     const el = document.createElement('div')
     hydrateEditorFromText(el, 'Hello world')
-    expect(el.innerHTML).toBe('Hello world')
+    expect(getLineContents(el)).toEqual(['Hello world'])
   })
 
   test('hydrates multiple lines', () => {
     const el = document.createElement('div')
     hydrateEditorFromText(el, 'Line 1\nLine 2\nLine 3')
-    expect(el.innerHTML).toBe('Line 1<br>Line 2<br>Line 3')
+    expect(getLineContents(el)).toEqual(['Line 1', 'Line 2', 'Line 3'])
   })
 
   test('handles empty lines', () => {
     const el = document.createElement('div')
     hydrateEditorFromText(el, 'Line 1\n\nLine 3')
-    expect(el.innerHTML).toBe('Line 1<br><br><br>Line 3')
+    expect(getLineContents(el)).toEqual(['Line 1', '<br>', 'Line 3'])
   })
 
   test('handles trailing newline', () => {
     const el = document.createElement('div')
     hydrateEditorFromText(el, 'Line 1\nLine 2\n')
-    expect(el.innerHTML).toBe('Line 1<br>Line 2<br><br>')
+    expect(getLineContents(el)).toEqual(['Line 1', 'Line 2', '<br>'])
   })
 
   test('normalizes CRLF to LF', () => {
     const el = document.createElement('div')
     hydrateEditorFromText(el, 'Line 1\r\nLine 2\rLine 3')
-    expect(el.innerHTML).toBe('Line 1<br>Line 2<br>Line 3')
+    expect(getLineContents(el)).toEqual(['Line 1', 'Line 2', 'Line 3'])
   })
 
   test('handles emojis', () => {
     const el = document.createElement('div')
     hydrateEditorFromText(el, 'Hello 🌍\nWorld 🌎')
-    expect(el.innerHTML).toBe('Hello 🌍<br>World 🌎')
+    expect(getLineContents(el)).toEqual(['Hello 🌍', 'World 🌎'])
   })
 })
 
@@ -127,8 +130,7 @@ describe('serialize/hydrate round-trip', () => {
     const el = document.createElement('div')
     hydrateEditorFromText(el, original)
     const serialized = serializeFromEditor(el)
-    // The editor adds an extra newline for empty lines to ensure proper rendering
-    expect(serialized).toBe('Line 1\n\n\nLine 3')
+    expect(serialized).toBe('Line 1\n\nLine 3')
   })
 
   test('preserves trailing newline', () => {
@@ -161,8 +163,7 @@ describe('serialize/hydrate round-trip', () => {
     const el = document.createElement('div')
     hydrateEditorFromText(el, original)
     const serialized = serializeFromEditor(el)
-    // The editor adds extra newlines for empty lines to ensure proper rendering
-    expect(serialized).toBe('Line 1\n\n\n\n\nLine 4')
+    expect(serialized).toBe('Line 1\n\n\nLine 4')
   })
 
   test('preserves HTML escaping', () => {

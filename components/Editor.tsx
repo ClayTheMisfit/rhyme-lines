@@ -85,27 +85,96 @@ export default function Editor() {
     const el = editorRef.current
     if (!el) return
 
-    // Check if content already has line structure
-    const hasLineDivs = el.querySelector('.line')
-    if (hasLineDivs) return
+    const doc = el.ownerDocument || document
 
-    // If no line divs, wrap content in line divs
-    const content = el.innerHTML
-    if (content.trim() === '') {
-      el.innerHTML = '<div class="line"><br></div>'
+    const createLine = (): HTMLDivElement => {
+      const line = doc.createElement('div')
+      line.className = 'line'
+      return line
+    }
+
+    const ensureLineHasContent = (line: HTMLDivElement) => {
+      if (line.childNodes.length === 0) {
+        line.appendChild(doc.createElement('br'))
+      }
+    }
+
+    const wrapNodeWithLine = (node: Node): HTMLDivElement => {
+      const line = createLine()
+
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent ?? ''
+        if (text.trim() !== '') {
+          line.textContent = text
+        }
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as HTMLElement
+        while (element.firstChild) {
+          line.appendChild(element.firstChild)
+        }
+      }
+
+      ensureLineHasContent(line)
+      node.parentNode?.replaceChild(line, node)
+      return line
+    }
+
+    const childNodes = Array.from(el.childNodes)
+    if (childNodes.length === 0) {
+      const line = createLine()
+      line.appendChild(doc.createElement('br'))
+      el.appendChild(line)
       return
     }
 
-    // Split by <br> and wrap each part in a line div
-    const parts = content.split('<br>')
-    const wrappedParts = parts.map((part, index) => {
-      if (part.trim() === '') {
-        return '<div class="line"><br></div>'
+    let hasLine = false
+
+    childNodes.forEach(node => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as HTMLElement
+
+        if (element.tagName === 'DIV') {
+          element.classList.add('line')
+          ensureLineHasContent(element as HTMLDivElement)
+          hasLine = true
+          return
+        }
+
+        if (element.tagName === 'BR') {
+          const line = createLine()
+          line.appendChild(doc.createElement('br'))
+          el.replaceChild(line, element)
+          hasLine = true
+          return
+        }
+
+        const line = wrapNodeWithLine(element)
+        ensureLineHasContent(line)
+        hasLine = true
+        return
       }
-      return `<div class="line">${part}</div>`
+
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent ?? ''
+        if (text.trim() === '') {
+          node.parentNode?.removeChild(node)
+          return
+        }
+        const line = wrapNodeWithLine(node)
+        ensureLineHasContent(line)
+        hasLine = true
+        return
+      }
+
+      node.parentNode?.removeChild(node)
     })
-    
-    el.innerHTML = wrappedParts.join('')
+
+    if (!hasLine) {
+      el.innerHTML = ''
+      const line = createLine()
+      line.appendChild(doc.createElement('br'))
+      el.appendChild(line)
+    }
   }, [])
 
   const saveNow = () => {
