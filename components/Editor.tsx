@@ -1,8 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { serializeFromEditor, hydrateEditorFromText, migrateOldContent } from '@/lib/editor/serialization'
+import { useRhymePanelStore } from '@/store/rhymePanelStore'
 
 const STORAGE_KEY = 'rhyme-lines:doc:current'
+const STORAGE_KEY_V2 = 'rhyme-lines:doc:current:v2'
 const SAVE_DELAY_MS = 250
 const MEASURE_DEBOUNCE_MS = 50
 
@@ -34,9 +37,10 @@ export default function Editor() {
   const measureTimer = useRef<number | null>(null)
 
   const [badges, setBadges] = useState<Badge[]>([])
-  const [textSnapshot, setTextSnapshot] = useState<string>('')
   const [lineTotals, setLineTotals] = useState<number[]>([])
-  const [showOverlays, setShowOverlays] = useState(true) // <-- new
+  const [showOverlays, setShowOverlays] = useState(true)
+  
+  const { isOpen: isPanelOpen, panelWidth } = useRhymePanelStore()
 
   const updatePlaceholder = () => {
     const el = editorRef.current
@@ -45,18 +49,80 @@ export default function Editor() {
     el.classList.toggle('show-placeholder', !hasText)
   }
 
+  const updateCurrentLineHighlight = useCallback(() => {
+    const el = editorRef.current
+    if (!el) return
+
+    try {
+      const selection = window.getSelection()
+      if (!selection || selection.rangeCount === 0) return
+
+      const range = selection.getRangeAt(0)
+      
+      // Remove current-line class from all elements
+      el.querySelectorAll('.current-line').forEach(element => {
+        element.classList.remove('current-line')
+      })
+      
+      // Find the line containing the caret by walking up the DOM tree
+      let node: Node | null = range.startContainer
+      while (node && node !== el) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const element = node as Element
+          if (element.classList.contains('line')) {
+            element.classList.add('current-line')
+            break
+          }
+        }
+        node = node.parentNode
+      }
+    } catch (error) {
+      // Ignore errors
+    }
+  }, [])
+
+  const ensureLineStructure = useCallback(() => {
+    const el = editorRef.current
+    if (!el) return
+
+    // Check if content already has line structure
+    const hasLineDivs = el.querySelector('.line')
+    if (hasLineDivs) return
+
+    // If no line divs, wrap content in line divs
+    const content = el.innerHTML
+    if (content.trim() === '') {
+      el.innerHTML = '<div class="line"><br></div>'
+      return
+    }
+
+    // Split by <br> and wrap each part in a line div
+    const parts = content.split('<br>')
+    const wrappedParts = parts.map((part, index) => {
+      if (part.trim() === '') {
+        return '<div class="line"><br></div>'
+      }
+      return `<div class="line">${part}</div>`
+    })
+    
+    el.innerHTML = wrappedParts.join('')
+  }, [])
+
   const saveNow = () => {
     const el = editorRef.current
     if (!el) return
     try {
-      const text = (el.textContent || '').replace(/\u00A0/g, ' ')
-      localStorage.setItem(STORAGE_KEY, text)
-      setTextSnapshot(text)
+      const text = serializeFromEditor(el)
+      localStorage.setItem(STORAGE_KEY_V2, text)
+      // Emit save complete event
+      window.dispatchEvent(new CustomEvent('rhyme:save-complete'))
     } catch {}
   }
 
   const scheduleSave = () => {
     if (saveTimer.current) window.clearTimeout(saveTimer.current)
+    // Emit save start event
+    window.dispatchEvent(new CustomEvent('rhyme:save-start'))
     saveTimer.current = window.setTimeout(saveNow, SAVE_DELAY_MS)
   }
 
@@ -125,6 +191,8 @@ export default function Editor() {
   }, [measureWords, recomputeLineTotals])
 
   const handleChange = () => {
+    ensureLineStructure()
+    updateCurrentLineHighlight()
     updatePlaceholder()
     scheduleSave()
     scheduleMeasure()
@@ -136,18 +204,33 @@ export default function Editor() {
     if (!el) return
 
     try {
-      const saved = localStorage.getItem(STORAGE_KEY)
+      // Try new format first
+      let saved = localStorage.getItem(STORAGE_KEY_V2)
+      
+      // If no v2 content, try to migrate from old format
+      if (!saved) {
+        const oldContent = localStorage.getItem(STORAGE_KEY)
+        if (oldContent) {
+          saved = migrateOldContent(oldContent)
+          // Save migrated content to new format
+          if (saved) {
+            localStorage.setItem(STORAGE_KEY_V2, saved)
+          }
+        }
+      }
+      
       if (saved) {
-        el.textContent = saved
-        setTextSnapshot(saved)
+        hydrateEditorFromText(el, saved)
       }
     } catch {}
 
+    ensureLineStructure()
     updatePlaceholder()
     el.focus()
     requestAnimationFrame(() => {
       measureWords()
       recomputeLineTotals()
+      updateCurrentLineHighlight()
     })
 
     // flush on unload
@@ -167,13 +250,20 @@ export default function Editor() {
     // custom event from toolbar
     const onToggleEvent = () => setShowOverlays(v => !v)
 
+    // Track cursor movement for current line highlighting
+    const onSelectionChange = () => {
+      updateCurrentLineHighlight()
+    }
+
     window.addEventListener('keydown', onKey)
     window.addEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
+    document.addEventListener('selectionchange', onSelectionChange)
 
     return () => {
       window.removeEventListener('beforeunload', onBeforeUnload)
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
+      document.removeEventListener('selectionchange', onSelectionChange)
       if (saveTimer.current) window.clearTimeout(saveTimer.current)
       if (measureTimer.current) window.clearTimeout(measureTimer.current)
     }
@@ -194,7 +284,7 @@ export default function Editor() {
   return (
     <div className="flex w-full h-screen">
       {/* Left gutter */}
-      <div className="w-14 shrink-0 border-r border-white/10 text-right pr-2 py-8 overflow-hidden select-none">
+      <div className="w-14 shrink-0 border-r border-gray-600/30 text-right pr-2 py-8 overflow-hidden select-none">
         <div className="text-xs text-gray-400 leading-9 font-mono whitespace-pre">
           {lineTotals.map((total, i) => (
             <div key={i} className="h-9 leading-9">
@@ -205,7 +295,14 @@ export default function Editor() {
       </div>
 
       {/* Editor + overlay */}
-      <div ref={containerRef} className="relative flex-1 overflow-auto">
+      <div 
+        ref={containerRef} 
+        className="relative flex-1 overflow-auto transition-all duration-300"
+        style={{
+          marginRight: isPanelOpen ? `${panelWidth}px` : '0',
+          maxWidth: isPanelOpen ? `calc(100% - ${panelWidth}px)` : '100%'
+        }}
+      >
         <div className="p-8">
           {/* Overlay for syllable badges */}
           {showOverlays && (
@@ -229,6 +326,7 @@ export default function Editor() {
           {/* Editable area */}
           <div
             ref={editorRef}
+            id="lyric-editor"
             contentEditable
             suppressContentEditableWarning
             spellCheck={false}
@@ -236,7 +334,9 @@ export default function Editor() {
             onInput={handleChange}
             onKeyUp={handleChange}
             onBlur={handleChange}
-            className="relative outline-none whitespace-pre-wrap break-words w-full min-h-[70vh] text-lg leading-9 font-mono"
+            onKeyDown={handleChange}
+            onClick={handleChange}
+            className="rl-editor relative outline-none w-full min-h-[70vh] text-lg leading-9 font-mono"
           />
         </div>
       </div>

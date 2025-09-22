@@ -10,6 +10,15 @@ body {
   margin: 0;
 }
 
+/* Page background to match editor */
+body.bg-black {
+  background-color: #1e1e1e;  /* Same as editor background */
+}
+
+body.bg-white {
+  background-color: #ffffff;  /* Clean white for light theme */
+}
+
 /* Reliable placeholder for contentEditable */
 [contenteditable][data-placeholder]::before {
   content: attr(data-placeholder);
@@ -24,4 +33,117 @@ body {
 }
 [contenteditable].show-placeholder::before {
   display: block;          /* shown only when we add the class */
+}
+
+/* Editor line break preservation */
+.rl-editor {
+  white-space: pre-wrap;    /* Preserve whitespace and line breaks */
+  overflow-wrap: anywhere;   /* Break long words if needed */
+  word-break: break-word;    /* Fallback for older browsers */
+}
+
+/* Dark theme editor styling */
+body.bg-black .rl-editor {
+  background-color: #1e1e1e;  /* Rich dark gray background */
+  color: #d4d4d4;             /* High readability text color */
+  transition: background-color 150ms ease;
+}
+
+/* Current line highlighting (dark theme only) */
+body.bg-black .rl-editor .current-line {
+  background-color: #2a2a2a;  /* Subtle highlight for current line */
+  transition: background-color 150ms ease;
+}
+
+/* Light theme editor styling */
+body.bg-white .rl-editor {
+  background-color: #ffffff;  /* Clean white background */
+  color: #1a1a1a;            /* Dark text for light theme */
+  transition: background-color 150ms ease;
+}
+
+/* Current line highlighting (light theme) */
+body.bg-white .rl-editor .current-line {
+  background-color: #f5f5f5;  /* Subtle highlight for current line */
+  transition: background-color 150ms ease;
+}
+
+/* Line-based highlighting using CSS */
+body.bg-black .rl-editor .line {
+  display: block;
+  min-height: 2.25rem; /* leading-9 */
+  padding: 0;
+  margin: 0;
+  transition: background-color 150ms ease;
+}
+
+body.bg-white .rl-editor .line {
+  display: block;
+  min-height: 2.25rem; /* leading-9 */
+  padding: 0;
+  margin: 0;
+  transition: background-color 150ms ease;
+}
+
+/* Ensure line divs don't break the editor flow */
+.rl-editor .line {
+  position: relative;
+}
+
+/* Make sure empty lines still have height */
+.rl-editor .line:empty::after {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 2.25rem; /* leading-9 */
+}
+
+/* Custom scrollbar styles */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #1f2937; /* gray-800 */
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #4b5563; /* gray-600 */
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #6b7280; /* gray-500 */
+}
+
+/* Keep scroll inside the panel; prevents body scroll while list scrolls */
+.overscroll-contain { 
+  overscroll-behavior: contain; 
+}
+
+/* Thin themed scrollbar for rhyme suggestions panel */
+.thin-scrollbar {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: hsl(220 13% 46%) transparent; /* gray-500 */
+}
+
+.thin-scrollbar::-webkit-scrollbar { 
+  width: 8px; 
+}
+
+.thin-scrollbar::-webkit-scrollbar-track { 
+  background: transparent; 
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(220 13% 46%); /* gray-500 */
+  border-radius: 9999px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(220 9% 46%); /* gray-600 */
 }
