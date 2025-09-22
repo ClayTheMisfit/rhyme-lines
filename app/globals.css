@@ -49,6 +49,11 @@ body.bg-black .rl-editor {
   transition: background-color 150ms ease;
 }
 
+/* Current line highlighting (dark theme only) */
+body.bg-black .rl-editor .current-line {
+  background-color: #2a2a2a;  /* Subtle highlight for current line */
+  transition: background-color 150ms ease;
+}
 /* Light theme editor styling */
 body.bg-white .rl-editor {
   background-color: #ffffff;  /* Clean white background */
@@ -87,7 +92,7 @@ body.bg-white .rl-editor .current-line {
 }
 
 /* Line-based highlighting using CSS */
-.rl-editor .line {
+body.bg-black .rl-editor .line {
   display: block;
   min-height: 2.25rem; /* leading-9 */
   padding: 0;
@@ -96,6 +101,18 @@ body.bg-white .rl-editor .current-line {
   transition: background-color 150ms ease;
 }
 
+body.bg-white .rl-editor .line {
+  display: block;
+  min-height: 2.25rem; /* leading-9 */
+  padding: 0;
+  margin: 0;
+  transition: background-color 150ms ease;
+}
+
+/* Ensure line divs don't break the editor flow */
+.rl-editor .line {
+  position: relative;
+}
 /* Make sure empty lines still have height */
 .rl-editor .line:empty::after {
   content: '';
