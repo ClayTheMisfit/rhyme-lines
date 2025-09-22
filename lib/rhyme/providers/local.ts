@@ -1,8 +1,16 @@
 import type { RhymeSuggestion } from './datamuse'
 
 // Simple phonetic patterns for local rhyming
-const VOWEL_GROUP_PATTERN = /[aeiouy]+/gi
-const VOWEL_PRESENT_PATTERN = /[aeiouy]/i
+const VOWEL_CHARACTERS = '[aeiouy]'
+const SINGLE_VOWEL_REGEX = new RegExp(VOWEL_CHARACTERS, 'i')
+
+function createVowelGroupRegex(): RegExp {
+  return new RegExp(`${VOWEL_CHARACTERS}+`, 'gi')
+}
+
+function createDiphthongRegex(): RegExp {
+  return new RegExp(`${VOWEL_CHARACTERS}{2,}`, 'gi')
+}
 
 // Common English words that rhyme with each other
 const RHYME_GROUPS: Record<string, string[]> = {
@@ -210,18 +218,18 @@ function countCommonLetters(word1: string, word2: string): number {
 }
 
 function estimateSyllables(word: string): number {
-  const vowels = word.match(VOWEL_GROUP_PATTERN)
+  const vowels = word.match(createVowelGroupRegex())
   if (!vowels) return 1
-  
+
   let count = vowels.length
-  
+
   // Adjust for silent 'e'
   if (word.endsWith('e') && count > 1) count--
-  
+
   // Adjust for diphthongs
-  const diphthongs = word.match(/[aeiouy]{2,}/gi)
+  const diphthongs = word.match(createDiphthongRegex())
   if (diphthongs) count -= diphthongs.length - 1
-  
+
   const result = Math.max(1, count)
   return isNaN(result) ? 1 : result
 }
@@ -230,9 +238,9 @@ function isValidWord(word: string): boolean {
   // Basic validation - must be 2+ characters, only letters
   if (word.length < 2) return false
   if (!/^[a-z]+$/i.test(word)) return false
-  
+
   // Must have at least one vowel
-  return VOWEL_PRESENT_PATTERN.test(word)
+  return SINGLE_VOWEL_REGEX.test(word)
 }
 
 function isCommonWord(word: string): boolean {
@@ -244,3 +252,5 @@ function isCommonWord(word: string): boolean {
   }
   return false
 }
+
+export const __testables = { isValidWord }
