@@ -1,4 +1,10 @@
+import type { RhymeSuggestion } from './providers/datamuse'
+import { fetchPerfectRhymes, fetchSlantRhymes } from './providers/datamuse'
+import { fetchRhymeBrainRhymes } from './providers/rhymebrain'
+import { generateLocalRhymes } from './providers/local'
 
+export interface AggregatedSuggestion extends RhymeSuggestion {
+  sources: string[]
   editDistance: number
 }
 
@@ -12,7 +18,10 @@ export async function fetchRhymes(
   
   try {
     // Fetch from all sources in parallel
-    
+    const [datamuseResults, rhymeBrainResults, localResults] = await Promise.allSettled([
+      type === 'perfect' ? fetchPerfectRhymes(normalized) : fetchSlantRhymes(normalized),
+      fetchRhymeBrainRhymes(normalized),
+      Promise.resolve(generateLocalRhymes(normalized))
     ])
     
     // Collect successful results
@@ -30,7 +39,6 @@ export async function fetchRhymes(
       allResults.push(...localResults.value)
     }
     
-
     // Aggregate and deduplicate
     return aggregateAndRank(allResults, normalized, type)
     
@@ -52,12 +60,18 @@ function aggregateAndRank(
     const key = result.word.toLowerCase()
     const existing = wordMap.get(key)
     
-
     if (existing) {
       // Update with better score and add source
       if (result.score > existing.score) {
         existing.score = result.score
-
+      }
+      if (!existing.sources.includes(result.source || 'unknown')) {
+        existing.sources.push(result.source || 'unknown')
+      }
+    } else {
+      wordMap.set(key, {
+        ...result,
+        sources: [result.source || 'unknown'],
         editDistance: calculateEditDistance(originalWord, result.word),
       })
     }
@@ -83,8 +97,9 @@ function aggregateAndRank(
   return aggregated.slice(0, 50) // Limit to top 50 results
 }
 
-
-  return 'local'
+function getSourceName(source?: string): string {
+  if (!source) return 'local'
+  return source
 }
 
 function calculateEditDistance(str1: string, str2: string): number {

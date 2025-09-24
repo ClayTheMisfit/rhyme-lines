@@ -55,27 +55,91 @@ export default function Editor() {
 
     try {
       const selection = window.getSelection()
-      if (!selection || selection.rangeCount === 0) return
+      if (!selection || selection.rangeCount === 0) {
+        // Remove existing highlight if no selection
+        const existingHighlight = el.querySelector('.current-line-highlight')
+        if (existingHighlight) {
+          existingHighlight.remove()
+        }
+        return
+      }
 
       const range = selection.getRangeAt(0)
       
-      // Remove current-line class from all elements
-      el.querySelectorAll('.current-line').forEach(element => {
-        element.classList.remove('current-line')
-      })
+      // Remove existing highlight
+      const existingHighlight = el.querySelector('.current-line-highlight')
+      if (existingHighlight) {
+        existingHighlight.remove()
+      }
       
-      // Find the line containing the caret by walking up the DOM tree
+      // Find the line containing the caret
+      let lineElement: Element | null = null
       let node: Node | null = range.startContainer
+      
       while (node && node !== el) {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const element = node as Element
           if (element.classList.contains('line')) {
-            element.classList.add('current-line')
+            lineElement = element
             break
           }
         }
         node = node.parentNode
       }
+
+      if (!lineElement) return
+
+      // Create a range that spans the entire line content
+      const lineRange = document.createRange()
+      lineRange.selectNodeContents(lineElement)
+      
+      // Get the bounding rectangle of the line content
+      const rects = lineRange.getClientRects()
+      if (rects.length === 0) {
+        lineRange.detach()
+        return
+      }
+
+      // Calculate the highlight position relative to the editor
+      const editorRect = el.getBoundingClientRect()
+      const firstRect = rects[0]
+      const lastRect = rects[rects.length - 1]
+      
+      const highlightLeft = firstRect.left - editorRect.left
+      const highlightTop = firstRect.top - editorRect.top
+      const highlightWidth = lastRect.right - firstRect.left
+      const highlightHeight = firstRect.height
+
+      // Create the highlight element
+      const highlight = document.createElement('div')
+      highlight.className = 'current-line-highlight active'
+      highlight.style.left = `${highlightLeft}px`
+      highlight.style.top = `${highlightTop}px`
+      highlight.style.width = `${highlightWidth}px`
+      highlight.style.height = `${highlightHeight}px`
+
+      // Forward clicks to the underlying line element
+      highlight.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        
+        // Create a range at the end of the line content
+        const range = document.createRange()
+        range.selectNodeContents(lineElement)
+        range.collapse(false) // Collapse to end
+        
+        const selection = window.getSelection()
+        selection?.removeAllRanges()
+        selection?.addRange(range)
+        
+        // Update highlight after selection change
+        setTimeout(() => updateCurrentLineHighlight(), 0)
+      })
+
+      // Insert the highlight before the line element
+      lineElement.parentNode?.insertBefore(highlight, lineElement)
+      
+      lineRange.detach()
     } catch (error) {
       // Ignore errors
     }
@@ -268,6 +332,10 @@ export default function Editor() {
     recomputeLineTotals()
   }
 
+  const handleSelectionChange = () => {
+    updateCurrentLineHighlight()
+  }
+
   useEffect(() => {
     const el = editorRef.current
     if (!el) return
@@ -319,44 +387,45 @@ export default function Editor() {
     // custom event from toolbar
     const onToggleEvent = () => setShowOverlays(v => !v)
 
-    // Track cursor movement for current line highlighting
-    const onSelectionChange = () => {
-      updateCurrentLineHighlight()
-    }
-
     window.addEventListener('keydown', onKey)
     window.addEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
-    document.addEventListener('selectionchange', onSelectionChange)
+    document.addEventListener('selectionchange', handleSelectionChange)
 
     return () => {
       window.removeEventListener('beforeunload', onBeforeUnload)
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
-      document.removeEventListener('selectionchange', onSelectionChange)
+      document.removeEventListener('selectionchange', handleSelectionChange)
       if (saveTimer.current) window.clearTimeout(saveTimer.current)
       if (measureTimer.current) window.clearTimeout(measureTimer.current)
     }
   }, [measureWords, recomputeLineTotals])
 
   useEffect(() => {
-    const onResize = () => scheduleMeasure()
+    const onResize = () => {
+      scheduleMeasure()
+      updateCurrentLineHighlight()
+    }
     window.addEventListener('resize', onResize)
     const scroller = containerRef.current
-    const onScroll = () => scheduleMeasure()
+    const onScroll = () => {
+      scheduleMeasure()
+      updateCurrentLineHighlight()
+    }
     scroller?.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       window.removeEventListener('resize', onResize)
       scroller?.removeEventListener('scroll', onScroll)
     }
-  }, [scheduleMeasure])
+  }, [scheduleMeasure, updateCurrentLineHighlight])
 
   return (
     <div className="flex w-full h-screen">
       {/* Left gutter */}
       <div className="w-14 shrink-0 border-r border-gray-600/30 text-right pr-2 py-8 overflow-hidden select-none">
-        <div className="text-xs text-gray-400 leading-9 font-mono whitespace-pre">
+        <div className="text-xs text-gray-400 font-mono whitespace-pre" style={{ lineHeight: 'var(--editor-line-height, 1.5)' }}>
           {lineTotals.map((total, i) => (
-            <div key={i} className="h-9 leading-9">
+            <div key={i} style={{ height: 'calc(var(--editor-font-size, 16px) * var(--editor-line-height, 1.5))', lineHeight: 'var(--editor-line-height, 1.5)' }}>
               {total || ''}
             </div>
           ))}
@@ -405,7 +474,7 @@ export default function Editor() {
             onBlur={handleChange}
             onKeyDown={handleChange}
             onClick={handleChange}
-            className="rl-editor relative outline-none w-full min-h-[70vh] text-lg leading-9 font-mono"
+            className="rl-editor relative outline-none w-full min-h-[70vh] font-mono"
           />
         </div>
       </div>

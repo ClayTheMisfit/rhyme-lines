@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
+import EditorSettings from './EditorSettings'
 
 const THEME_KEY = 'rhyme-lines:theme'
 const DOCUMENT_TITLE_KEY = 'rhyme-lines:document-title'
@@ -180,6 +181,9 @@ export default function TopBar() {
         >
           🎵
         </button>
+
+        {/* Editor Settings */}
+        <EditorSettings />
       </div>
     </div>
   )
