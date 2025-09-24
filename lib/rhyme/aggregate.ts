@@ -1,10 +1,4 @@
-import type { RhymeSuggestion } from './providers/datamuse'
-import { fetchPerfectRhymes, fetchSlantRhymes } from './providers/datamuse'
-import { fetchRhymeBrainRhymes } from './providers/rhymebrain'
-import { generateLocalRhymes } from './providers/local'
 
-export interface AggregatedSuggestion extends RhymeSuggestion {
-  sources: string[]
   editDistance: number
 }
 
@@ -18,10 +12,7 @@ export async function fetchRhymes(
   
   try {
     // Fetch from all sources in parallel
-    const [datamuseResults, rhymeBrainResults, localResults] = await Promise.allSettled([
-      type === 'perfect' ? fetchPerfectRhymes(normalized) : fetchSlantRhymes(normalized),
-      fetchRhymeBrainRhymes(normalized),
-      generateLocalRhymes(normalized)
+    
     ])
     
     // Collect successful results
@@ -39,6 +30,7 @@ export async function fetchRhymes(
       allResults.push(...localResults.value)
     }
     
+
     // Aggregate and deduplicate
     return aggregateAndRank(allResults, normalized, type)
     
@@ -60,18 +52,12 @@ function aggregateAndRank(
     const key = result.word.toLowerCase()
     const existing = wordMap.get(key)
     
+
     if (existing) {
       // Update with better score and add source
       if (result.score > existing.score) {
         existing.score = result.score
-        existing.syllables = result.syllables || existing.syllables
-        existing.frequency = result.frequency || existing.frequency
-      }
-      existing.sources.push(getSourceName(result))
-    } else {
-      wordMap.set(key, {
-        ...result,
-        sources: [getSourceName(result)],
+
         editDistance: calculateEditDistance(originalWord, result.word),
       })
     }
@@ -97,10 +83,7 @@ function aggregateAndRank(
   return aggregated.slice(0, 50) // Limit to top 50 results
 }
 
-function getSourceName(result: RhymeSuggestion): string {
-  // This is a simplified approach - in a real app you'd track the actual source
-  if (result.frequency !== undefined) return 'datamuse'
-  if (result.syllables !== undefined && result.score > 0) return 'rhymebrain'
+
   return 'local'
 }
 

@@ -53,8 +53,18 @@ Run the dev server:
 npm run dev
 ```
 
-Open in your browser:  
+Open in your browser:
 👉 [http://localhost:3000](http://localhost:3000)
+
+### 🔐 Environment variables
+
+Create a `.env.local` file in the project root before running the app and provide your [Wordnik API key](https://developer.wordnik.com/):
+
+```bash
+WORDNIK_API_KEY=your_wordnik_key
+```
+
+The key is consumed only by the server-side proxy and is never bundled in client code.
 
 ---
 
