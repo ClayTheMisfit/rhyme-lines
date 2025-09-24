@@ -9,15 +9,18 @@ const dom = new JSDOM('<!doctype html><html><body></body></html>', {
 const { window } = dom
 
 function copyProps(src, target) {
-  Object.defineProperties(
-    target,
-    Object.getOwnPropertyNames(src)
-      .filter(prop => !(prop in target))
-      .reduce((result, prop) => {
-        result[prop] = Object.getOwnPropertyDescriptor(src, prop)
-        return result
-      }, {})
-  )
+  Object.getOwnPropertyNames(src)
+    .filter(prop => !(prop in target))
+    .forEach(prop => {
+      const descriptor = Object.getOwnPropertyDescriptor(src, prop)
+      if (descriptor) {
+        try {
+          Object.defineProperty(target, prop, descriptor)
+        } catch (error) {
+          // Ignore properties that can't be defined
+        }
+      }
+    })
 }
 
 global.window = window
