@@ -1,9 +1,12 @@
+export type RhymeSource = 'datamuse' | 'rhymebrain' | 'wordnik' | 'local'
+
 export interface RhymeSuggestion {
   word: string
   type: 'perfect' | 'slant'
   score: number
   syllables?: number
   frequency?: number
+  source?: RhymeSource
 }
 
 export interface DatamuseResponse {
@@ -35,6 +38,7 @@ export async function fetchPerfectRhymes(word: string): Promise<RhymeSuggestion[
       score: isNaN(item.score) ? 0 : item.score,
       syllables: isNaN(item.numSyllables || 0) ? undefined : item.numSyllables,
       frequency: extractFrequency(item.tags),
+      source: 'datamuse',
     }))
   } catch (error) {
     console.warn('Datamuse perfect rhymes failed:', error)
@@ -62,6 +66,7 @@ export async function fetchSlantRhymes(word: string): Promise<RhymeSuggestion[]>
       score: isNaN(item.score) ? 0 : item.score,
       syllables: isNaN(item.numSyllables || 0) ? undefined : item.numSyllables,
       frequency: extractFrequency(item.tags),
+      source: 'datamuse',
     }))
   } catch (error) {
     console.warn('Datamuse slant rhymes failed:', error)

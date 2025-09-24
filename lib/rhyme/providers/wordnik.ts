@@ -76,6 +76,7 @@ export function buildWordnikSuggestions(
         type,
         score: adjustedScore,
         syllables: estimateSyllables(candidate),
+        source: 'wordnik',
       })
     }
   }

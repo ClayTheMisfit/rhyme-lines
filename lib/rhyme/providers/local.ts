@@ -140,6 +140,7 @@ function generatePerfectRhymes(word: string): RhymeSuggestion[] {
             type: 'perfect',
             score: calculateScore(word, rhymeWord, 'perfect'),
             syllables: estimateSyllables(rhymeWord),
+            source: 'local',
           })
         }
       }
@@ -168,6 +169,7 @@ function generateSlantRhymes(word: string): RhymeSuggestion[] {
             type: 'slant',
             score: calculateScore(word, rhymeWord, 'slant'),
             syllables: estimateSyllables(rhymeWord),
+            source: 'local',
           })
         }
       }

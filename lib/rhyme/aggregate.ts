@@ -1,11 +1,11 @@
-import type { RhymeSuggestion } from './providers/datamuse'
+import type { RhymeSuggestion, RhymeSource } from './providers/datamuse'
 import { fetchPerfectRhymes, fetchSlantRhymes } from './providers/datamuse'
 import { fetchRhymeBrainRhymes } from './providers/rhymebrain'
 import { generateLocalRhymes } from './providers/local'
 import { fetchWordnikRelatedWords, fetchWordnikSimilarWords } from './providers/wordnik'
 
 export interface AggregatedSuggestion extends RhymeSuggestion {
-  sources: string[]
+  sources: RhymeSource[]
   editDistance: number
 }
 
@@ -66,18 +66,25 @@ function aggregateAndRank(
     const key = result.word.toLowerCase()
     const existing = wordMap.get(key)
     
+    const sourceName = getSourceName(result)
+
     if (existing) {
       // Update with better score and add source
       if (result.score > existing.score) {
         existing.score = result.score
-        existing.syllables = result.syllables || existing.syllables
-        existing.frequency = result.frequency || existing.frequency
+        existing.syllables = result.syllables ?? existing.syllables
+        existing.frequency = result.frequency ?? existing.frequency
+        existing.source = result.source ?? existing.source ?? sourceName
       }
-      existing.sources.push(getSourceName(result))
+
+      if (!existing.sources.includes(sourceName)) {
+        existing.sources.push(sourceName)
+      }
     } else {
       wordMap.set(key, {
         ...result,
-        sources: [getSourceName(result)],
+        source: result.source ?? sourceName,
+        sources: [sourceName],
         editDistance: calculateEditDistance(originalWord, result.word),
       })
     }
@@ -103,7 +110,9 @@ function aggregateAndRank(
   return aggregated.slice(0, 50) // Limit to top 50 results
 }
 
-function getSourceName(result: RhymeSuggestion): string {
+function getSourceName(result: RhymeSuggestion): RhymeSource {
+  if (result.source) return result.source
+
   // This is a simplified approach - in a real app you'd track the actual source
   if (result.frequency !== undefined) return 'datamuse'
   if (result.syllables !== undefined && result.score > 0 && result.score < 80) return 'rhymebrain'

@@ -27,6 +27,7 @@ export async function fetchRhymeBrainRhymes(word: string): Promise<RhymeSuggesti
       type: determineRhymeType(item.flags),
       score: isNaN(item.score) ? 0 : item.score,
       syllables: isNaN(item.syllables) ? undefined : item.syllables,
+      source: 'rhymebrain',
     }))
   } catch (error) {
     console.warn('RhymeBrain failed:', error)
