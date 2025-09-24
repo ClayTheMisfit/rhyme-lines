@@ -1,11 +1,4 @@
-import type { RhymeSuggestion, RhymeSource } from './providers/datamuse'
-import { fetchPerfectRhymes, fetchSlantRhymes } from './providers/datamuse'
-import { fetchRhymeBrainRhymes } from './providers/rhymebrain'
-import { generateLocalRhymes } from './providers/local'
-import { fetchWordnikRelatedWords, fetchWordnikSimilarWords } from './providers/wordnik'
 
-export interface AggregatedSuggestion extends RhymeSuggestion {
-  sources: RhymeSource[]
   editDistance: number
 }
 
@@ -19,11 +12,7 @@ export async function fetchRhymes(
   
   try {
     // Fetch from all sources in parallel
-    const [datamuseResults, rhymeBrainResults, localResults, wordnikResults] = await Promise.allSettled([
-      type === 'perfect' ? fetchPerfectRhymes(normalized) : fetchSlantRhymes(normalized),
-      fetchRhymeBrainRhymes(normalized),
-      generateLocalRhymes(normalized),
-      type === 'perfect' ? fetchWordnikRelatedWords(normalized) : fetchWordnikSimilarWords(normalized)
+    
     ])
     
     // Collect successful results
@@ -41,10 +30,7 @@ export async function fetchRhymes(
       allResults.push(...localResults.value)
     }
     
-    if (wordnikResults.status === 'fulfilled') {
-      allResults.push(...wordnikResults.value)
-    }
-    
+
     // Aggregate and deduplicate
     return aggregateAndRank(allResults, normalized, type)
     
@@ -66,25 +52,12 @@ function aggregateAndRank(
     const key = result.word.toLowerCase()
     const existing = wordMap.get(key)
     
-    const sourceName = getSourceName(result)
 
     if (existing) {
       // Update with better score and add source
       if (result.score > existing.score) {
         existing.score = result.score
-        existing.syllables = result.syllables ?? existing.syllables
-        existing.frequency = result.frequency ?? existing.frequency
-        existing.source = result.source ?? existing.source ?? sourceName
-      }
 
-      if (!existing.sources.includes(sourceName)) {
-        existing.sources.push(sourceName)
-      }
-    } else {
-      wordMap.set(key, {
-        ...result,
-        source: result.source ?? sourceName,
-        sources: [sourceName],
         editDistance: calculateEditDistance(originalWord, result.word),
       })
     }
@@ -110,13 +83,7 @@ function aggregateAndRank(
   return aggregated.slice(0, 50) // Limit to top 50 results
 }
 
-function getSourceName(result: RhymeSuggestion): RhymeSource {
-  if (result.source) return result.source
 
-  // This is a simplified approach - in a real app you'd track the actual source
-  if (result.frequency !== undefined) return 'datamuse'
-  if (result.syllables !== undefined && result.score > 0 && result.score < 80) return 'rhymebrain'
-  if (result.score >= 80 && result.score <= 100) return 'wordnik'
   return 'local'
 }
 

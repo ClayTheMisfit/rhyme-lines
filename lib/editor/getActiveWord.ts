@@ -5,8 +5,7 @@ export interface ActiveWord {
   isAtCaret: boolean
 }
 
-const WORD_REGEX_GLOBAL = /\b[\p{L}']+\b/gu
-const WORD_REGEX_SINGLE = /\b[\p{L}']+\b/u
+
 const THROTTLE_MS = 50
 
 let lastThrottleTime = 0
@@ -80,7 +79,7 @@ function getWordAtCaret(range: Range, editorElement: HTMLElement): ActiveWord | 
   
   const word = text.slice(startOffset, endOffset).trim()
   
-  if (!word || !WORD_REGEX_SINGLE.test(word)) return null
+
   
   return {
     word,
@@ -95,8 +94,7 @@ function getLastWord(editorElement: HTMLElement): ActiveWord | null {
   if (!text.trim()) return null
 
   // Find the last word in the text
-  WORD_REGEX_GLOBAL.lastIndex = 0
-  const words = Array.from(text.matchAll(WORD_REGEX_GLOBAL))
+
   if (words.length === 0) return null
 
   const lastMatch = words[words.length - 1]
