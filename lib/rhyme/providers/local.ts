@@ -20,7 +20,7 @@ export function generateLocalRhymes(word: string): RhymeSuggestion[] {
   const normalized = word.toLowerCase().trim()
   const suggestions: RhymeSuggestion[] = []
   
-  // Generate perfect rhymes
+
   const perfectRhymes = generatePerfectRhymes(normalized)
   suggestions.push(...perfectRhymes)
   
@@ -28,32 +28,13 @@ export function generateLocalRhymes(word: string): RhymeSuggestion[] {
   const slantRhymes = generateSlantRhymes(normalized)
   suggestions.push(...slantRhymes)
   
-  return suggestions
+
 }
 
 function generatePerfectRhymes(word: string): RhymeSuggestion[] {
   const rhymes: RhymeSuggestion[] = []
   
-  // Simple perfect rhyme generation based on ending patterns
-  const endings = ['ate', 'ite', 'ute', 'ake', 'ike', 'oke', 'ame', 'ime', 'one', 'ine']
-  
-  for (const ending of endings) {
-    if (word.endsWith(ending)) {
-      const base = word.slice(0, -ending.length)
-      const candidates = ['b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w', 'x', 'y', 'z']
-      
-      for (const prefix of candidates) {
-        const candidate = prefix + ending
-        if (candidate !== word && isValidWord(candidate)) {
-          rhymes.push({
-            word: candidate,
-            type: 'perfect',
-            score: calculateScore(word, candidate, 'perfect'),
-            syllables: estimateSyllables(candidate),
-            source: 'local',
-          })
-        }
-      }
+
     }
   }
   
@@ -63,23 +44,7 @@ function generatePerfectRhymes(word: string): RhymeSuggestion[] {
 function generateSlantRhymes(word: string): RhymeSuggestion[] {
   const rhymes: RhymeSuggestion[] = []
   
-  // Simple slant rhyme generation based on similar patterns
-  const patterns = ['ing', 'tion', 'sion', 'ness', 'ment', 'able', 'ible']
-  
-  for (const pattern of patterns) {
-    if (word.endsWith(pattern)) {
-      const base = word.slice(0, -pattern.length)
-      const candidates = ['b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w', 'x', 'y', 'z']
-      
-      for (const prefix of candidates) {
-        const candidate = prefix + pattern
-        if (candidate !== word && isValidWord(candidate)) {
-          rhymes.push({
-            word: candidate,
-            type: 'slant',
-            score: calculateScore(word, candidate, 'slant'),
-            syllables: estimateSyllables(candidate),
-            source: 'local',
+
           })
         }
       }
@@ -100,7 +65,7 @@ function calculateScore(original: string, candidate: string, type: 'perfect' | '
   const commonLetters = countCommonLetters(original, candidate)
   const letterBonus = commonLetters * 5
   
-  return baseScore + lengthBonus + letterBonus
+
 }
 
 function countCommonLetters(word1: string, word2: string): number {

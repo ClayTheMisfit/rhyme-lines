@@ -94,17 +94,16 @@ function getLastWord(editorElement: HTMLElement): ActiveWord | null {
   if (!text.trim()) return null
 
   // Find the last word in the text
-  const words = text.match(/\b[\p{L}']+\b/gu)
-  if (!words || words.length === 0) return null
+
+  if (words.length === 0) return null
 
   const lastMatch = words[words.length - 1]
   if (!lastMatch) return null
 
-  const lastIndex = text.lastIndexOf(lastMatch)
   return {
-    word: lastMatch,
-    startOffset: lastIndex,
-    endOffset: lastIndex + lastMatch.length,
+    word: lastMatch[0],
+    startOffset: lastMatch.index!,
+    endOffset: lastMatch.index! + lastMatch[0].length,
     isAtCaret: false,
   }
 }

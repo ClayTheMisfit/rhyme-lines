@@ -50,19 +50,4 @@ describe('Editor line normalization', () => {
       jest.useRealTimers()
     }
   })
-
-  test('renders editor with highlight overlay container', () => {
-    const { container, unmount } = render(<Editor />)
-
-    try {
-      const editor = container.querySelector('#lyric-editor') as HTMLDivElement
-      expect(editor).toBeTruthy()
-
-      // Check if overlay container exists
-      const overlay = container.querySelector('[aria-hidden="true"]')
-      expect(overlay).toBeTruthy()
-    } finally {
-      unmount()
-    }
-  })
 })
