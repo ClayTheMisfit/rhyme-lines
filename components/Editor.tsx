@@ -27,6 +27,7 @@ function countSyllables(wordRaw: string): number {
 }
 
 type Badge = { x: number; y: number; text: string }
+type HighlightPosition = { x: number; y: number; width: number; height: number }
 
 export default function Editor() {
   const editorRef = useRef<HTMLDivElement>(null)
@@ -39,6 +40,7 @@ export default function Editor() {
   const [badges, setBadges] = useState<Badge[]>([])
   const [lineTotals, setLineTotals] = useState<number[]>([])
   const [showOverlays, setShowOverlays] = useState(true)
+  const [highlightPosition, setHighlightPosition] = useState<HighlightPosition | null>(null)
   
   const { isOpen: isPanelOpen, panelWidth } = useRhymePanelStore()
 
@@ -55,29 +57,90 @@ export default function Editor() {
 
     try {
       const selection = window.getSelection()
-      if (!selection || selection.rangeCount === 0) return
+      if (!selection || selection.rangeCount === 0) {
+        setHighlightPosition(null)
+        return
+      }
 
       const range = selection.getRangeAt(0)
       
-      // Remove current-line class from all elements
-      el.querySelectorAll('.current-line').forEach(element => {
-        element.classList.remove('current-line')
-      })
-      
       // Find the line containing the caret by walking up the DOM tree
+      let lineElement: Element | null = null
       let node: Node | null = range.startContainer
+      
       while (node && node !== el) {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const element = node as Element
           if (element.classList.contains('line')) {
-            element.classList.add('current-line')
+            lineElement = element
             break
           }
         }
         node = node.parentNode
       }
+
+      if (!lineElement) {
+        setHighlightPosition(null)
+        return
+      }
+
+      // Get the text content of the line
+      const lineText = lineElement.textContent || ''
+      if (!lineText.trim()) {
+        setHighlightPosition(null)
+        return
+      }
+
+      // Create a temporary range to measure the text content
+      const tempRange = document.createRange()
+      
+      // Find all text nodes in the line
+      const walker = document.createTreeWalker(
+        lineElement,
+        NodeFilter.SHOW_TEXT,
+        null
+      )
+      
+      const textNodes: Text[] = []
+      let textNode: Node | null = walker.nextNode()
+      while (textNode) {
+        textNodes.push(textNode as Text)
+        textNode = walker.nextNode()
+      }
+      
+      if (textNodes.length === 0) {
+        setHighlightPosition(null)
+        return
+      }
+
+      // Set range to cover all text content in the line
+      const firstTextNode = textNodes[0]
+      const lastTextNode = textNodes[textNodes.length - 1]
+      
+      tempRange.setStart(firstTextNode, 0)
+      tempRange.setEnd(lastTextNode, lastTextNode.textContent?.length || 0)
+
+      // Get the bounding rectangle
+      const rect = tempRange.getBoundingClientRect()
+      const editorRect = el.getBoundingClientRect()
+
+      // Only show highlight if we have valid dimensions
+      if (rect.width > 0 && rect.height > 0) {
+        // Calculate position relative to editor
+        const x = rect.left - editorRect.left
+        const y = rect.top - editorRect.top
+        const width = rect.width
+        const height = rect.height
+
+        setHighlightPosition({ x, y, width, height })
+      } else {
+        setHighlightPosition(null)
+      }
+      
+      tempRange.detach()
     } catch (error) {
-      // Ignore errors
+      console.warn('Error updating line highlight:', error)
+      setHighlightPosition(null)
     }
   }, [])
 
@@ -256,16 +319,18 @@ export default function Editor() {
       measureTimer.current = null
       measureWords()
       recomputeLineTotals()
+      updateCurrentLineHighlight()
     }, MEASURE_DEBOUNCE_MS)
-  }, [measureWords, recomputeLineTotals])
+  }, [measureWords, recomputeLineTotals, updateCurrentLineHighlight])
 
   const handleChange = () => {
     ensureLineStructure()
-    updateCurrentLineHighlight()
     updatePlaceholder()
     scheduleSave()
     scheduleMeasure()
     recomputeLineTotals()
+    // Update highlight immediately for responsive feel
+    updateCurrentLineHighlight()
   }
 
   useEffect(() => {
@@ -373,24 +438,36 @@ export default function Editor() {
         }}
       >
         <div className="p-8">
-          {/* Overlay for syllable badges */}
-          {showOverlays && (
-            <div
-              ref={overlayRef}
-              className="pointer-events-none absolute inset-8 z-10"
-              aria-hidden="true"
-            >
-              {badges.map((b, i) => (
-                <div
-                  key={i}
-                  className="absolute -translate-x-1/2 -translate-y-full text-[10px] font-semibold text-gray-300"
-                  style={{ left: b.x, top: b.y }}
-                >
-                  {b.text}
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Overlay for syllable badges and line highlight */}
+          <div
+            ref={overlayRef}
+            className="pointer-events-none absolute inset-8 z-10"
+            aria-hidden="true"
+          >
+            {/* Current line highlight pill */}
+            {highlightPosition && (
+              <div
+                className="current-line-highlight active"
+                style={{
+                  left: highlightPosition.x,
+                  top: highlightPosition.y,
+                  width: highlightPosition.width,
+                  height: highlightPosition.height,
+                }}
+              />
+            )}
+            
+            {/* Syllable badges */}
+            {showOverlays && badges.map((b, i) => (
+              <div
+                key={i}
+                className="absolute -translate-x-1/2 -translate-y-full text-[10px] font-semibold text-gray-300"
+                style={{ left: b.x, top: b.y }}
+              >
+                {b.text}
+              </div>
+            ))}
+          </div>
 
           {/* Editable area */}
           <div
