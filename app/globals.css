@@ -49,40 +49,10 @@ body.bg-black .rl-editor {
   transition: background-color 150ms ease;
 }
 
-/* Pill-style current line highlighting */
-.current-line-highlight {
-  position: absolute;
-  border-radius: 6px;
-  padding: 2px 4px;
-  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease, width 0.15s ease;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Dark theme highlight - base state */
-body.bg-black .current-line-highlight {
-  background-color: rgba(255, 255, 255, 0.08);
-  box-shadow: none;
-}
-
-/* Dark theme highlight - active/hover state */
-body.bg-black .current-line-highlight:hover,
-body.bg-black .current-line-highlight.active {
-  background-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.15);
-}
-
-/* Light theme highlight - base state */
-body.bg-white .current-line-highlight {
-  background-color: rgba(0, 0, 0, 0.08);
-  box-shadow: none;
-}
-
-/* Light theme highlight - active/hover state */
-body.bg-white .current-line-highlight:hover,
-body.bg-white .current-line-highlight.active {
-  background-color: rgba(0, 0, 0, 0.15);
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
+/* Current line highlighting (dark theme only) */
+body.bg-black .rl-editor .current-line {
+  background-color: #2a2a2a;  /* Subtle highlight for current line */
+  transition: background-color 150ms ease;
 }
 
 /* Light theme editor styling */
@@ -92,13 +62,15 @@ body.bg-white .rl-editor {
   transition: background-color 150ms ease;
 }
 
+}
+
 /* Line-based highlighting using CSS */
 body.bg-black .rl-editor .line {
   display: block;
   min-height: 2.25rem; /* leading-9 */
   padding: 0;
   margin: 0;
-}
+
 
 body.bg-white .rl-editor .line {
   display: block;

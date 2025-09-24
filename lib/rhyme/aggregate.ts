@@ -1,16 +1,4 @@
 
-import { fetchPerfectRhymes, fetchSlantRhymes } from './providers/datamuse'
-import { fetchRhymeBrainRhymes } from './providers/rhymebrain'
-import { generateLocalRhymes } from './providers/local'
-import type { RhymeSuggestion } from './providers/datamuse'
-
-export interface AggregatedSuggestion {
-  word: string
-  type: 'perfect' | 'slant'
-  score: number
-  syllables?: number
-  frequency?: number
-  sources: string[]
   editDistance: number
 }
 
@@ -24,10 +12,7 @@ export async function fetchRhymes(
   
   try {
     // Fetch from all sources in parallel
-    const [datamuseResults, rhymeBrainResults, localResults] = await Promise.allSettled([
-      type === 'perfect' ? fetchPerfectRhymes(normalized) : fetchSlantRhymes(normalized),
-      fetchRhymeBrainRhymes(normalized),
-      generateLocalRhymes(normalized)
+    
     ])
     
     // Collect successful results
@@ -44,6 +29,7 @@ export async function fetchRhymes(
     if (localResults.status === 'fulfilled') {
       allResults.push(...localResults.value)
     }
+    
 
     // Aggregate and deduplicate
     return aggregateAndRank(allResults, normalized, type)
@@ -71,17 +57,7 @@ function aggregateAndRank(
       // Update with better score and add source
       if (result.score > existing.score) {
         existing.score = result.score
-        existing.editDistance = calculateEditDistance(originalWord, result.word)
-      }
-      existing.sources.push(result.source || 'unknown')
-    } else {
-      wordMap.set(key, {
-        word: result.word,
-        type: result.type,
-        score: result.score,
-        syllables: result.syllables,
-        frequency: result.frequency,
-        sources: [result.source || 'unknown'],
+
         editDistance: calculateEditDistance(originalWord, result.word),
       })
     }
@@ -107,8 +83,8 @@ function aggregateAndRank(
   return aggregated.slice(0, 50) // Limit to top 50 results
 }
 
-function getSourceName(source: string): string {
-  return source || 'local'
+
+  return 'local'
 }
 
 function calculateEditDistance(str1: string, str2: string): number {
