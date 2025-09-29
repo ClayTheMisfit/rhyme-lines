@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText, migrateOldContent } from '@/lib/editor/serialization'
+import { tokenizeKeepPunctuation } from '@/lib/tokenize'
+import Line, { Token } from './editor/Line'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
+import { useSettings } from '@/state/settings'
+import { useEditorHotkeys } from '@/hooks/useHotkeys'
 
 const STORAGE_KEY = 'rhyme-lines:doc:current'
 const STORAGE_KEY_V2 = 'rhyme-lines:doc:current:v2'
 const SAVE_DELAY_MS = 250
-const MEASURE_DEBOUNCE_MS = 50
-
 function countSyllables(wordRaw: string): number {
   const word = wordRaw.toLowerCase().replace(/[^a-z']/g, '')
   if (!word) return 0
@@ -26,28 +28,27 @@ function countSyllables(wordRaw: string): number {
   return Math.max(1, syl)
 }
 
-type Badge = { x: number; y: number; text: string }
-
 export default function Editor() {
   const editorRef = useRef<HTMLDivElement>(null)
-  const overlayRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const saveTimer = useRef<number | null>(null)
-  const measureTimer = useRef<number | null>(null)
 
-  const [badges, setBadges] = useState<Badge[]>([])
   const [lineTotals, setLineTotals] = useState<number[]>([])
-  const [showOverlays, setShowOverlays] = useState(true)
-  
+  const [lineTokens, setLineTokens] = useState<Token[][]>([])
+
+  const showCounts = useSettings(state => state.showSyllableCounts)
+  const toggleCounts = useSettings(state => state.toggleShowSyllableCounts)
   const { isOpen: isPanelOpen, panelWidth } = useRhymePanelStore()
 
-  const updatePlaceholder = () => {
+  useEditorHotkeys()
+
+  const updatePlaceholder = useCallback(() => {
     const el = editorRef.current
     if (!el) return
     const hasText = (el.textContent || '').trim().length > 0
     el.classList.toggle('show-placeholder', !hasText)
-  }
+  }, [])
 
   const updateCurrentLineHighlight = useCallback(() => {
     const el = editorRef.current
@@ -140,7 +141,7 @@ export default function Editor() {
       lineElement.parentNode?.insertBefore(highlight, lineElement)
       
       lineRange.detach()
-    } catch (error) {
+    } catch {
       // Ignore errors
     }
   }, [])
@@ -259,82 +260,63 @@ export default function Editor() {
     saveTimer.current = window.setTimeout(saveNow, SAVE_DELAY_MS)
   }
 
-  const recomputeLineTotals = useCallback(() => {
-    const el = editorRef.current
-    if (!el) return
-    const lines = el.innerText.replace(/\u00A0/g, ' ').split(/\r?\n/)
-    const totals = lines.map(ln =>
-      ln
-        .split(/\s+/)
-        .filter(Boolean)
-        .reduce((sum, w) => sum + countSyllables(w), 0)
-    )
-    setLineTotals(totals)
-  }, [])
-
-  const measureWords = useCallback(() => {
-    if (!showOverlays) {
-      setBadges([])
-      return
-    }
+  const updateSyllableLayout = useCallback(() => {
     const root = editorRef.current
     if (!root) return
 
-    const badgesNext: Badge[] = []
-    const rootRect = root.getBoundingClientRect()
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-    let node: Node | null = walker.nextNode()
-    const wordRegex = /[A-Za-z']+/g
-
-    while (node) {
-      const txt = node.textContent || ''
-      let match: RegExpExecArray | null
-      while ((match = wordRegex.exec(txt)) !== null) {
-        const start = match.index
-        const end = start + match[0].length
-
-        const range = document.createRange()
-        range.setStart(node, start)
-        range.setEnd(node, end)
-
-        const rects = range.getClientRects()
-        if (rects.length > 0) {
-          const r = rects[0]
-          const word = match[0]
-          const syl = countSyllables(word)
-
-          const x = r.left - rootRect.left + r.width / 2
-          const y = r.top - rootRect.top - 1
-          badgesNext.push({ x, y, text: String(syl) })
-        }
-        range.detach()
-      }
-      node = walker.nextNode()
+    const lineElements = Array.from(root.querySelectorAll<HTMLDivElement>('.line'))
+    if (lineElements.length === 0) {
+      setLineTokens([])
+      setLineTotals([])
+      return
     }
-    setBadges(badgesNext)
-  }, [showOverlays])
 
-  const scheduleMeasure = useCallback(() => {
-    if (measureTimer.current) window.clearTimeout(measureTimer.current)
-    measureTimer.current = window.setTimeout(() => {
-      measureTimer.current = null
-      measureWords()
-      recomputeLineTotals()
-    }, MEASURE_DEBOUNCE_MS)
-  }, [measureWords, recomputeLineTotals])
+    const totals: number[] = []
+    const tokenLines: Token[][] = lineElements.map(lineEl => {
+      const rawText = (lineEl.textContent || '').replace(/\u00A0/g, ' ')
+      if (!rawText) {
+        totals.push(0)
+        return []
+      }
+
+      const words = tokenizeKeepPunctuation(rawText)
+      const tokens: Token[] = []
+      let cursor = 0
+
+      for (const word of words) {
+        const index = rawText.indexOf(word, cursor)
+        const start = index === -1 ? cursor : index
+        if (start > cursor) {
+          tokens.push({ text: rawText.slice(cursor, start), syl: 0, kind: 'space' })
+        }
+        tokens.push({ text: word, syl: countSyllables(word), kind: 'word' })
+        cursor = start + word.length
+      }
+
+      if (cursor < rawText.length) {
+        tokens.push({ text: rawText.slice(cursor), syl: 0, kind: 'space' })
+      }
+
+      const total = tokens.reduce((sum, token) => (token.kind === 'word' ? sum + token.syl : sum), 0)
+      totals.push(total)
+      return tokens
+    })
+
+    setLineTotals(totals)
+    setLineTokens(tokenLines)
+  }, [])
 
   const handleChange = () => {
     ensureLineStructure()
     updateCurrentLineHighlight()
     updatePlaceholder()
     scheduleSave()
-    scheduleMeasure()
-    recomputeLineTotals()
+    updateSyllableLayout()
   }
 
-  const handleSelectionChange = () => {
+  const handleSelectionChange = useCallback(() => {
     updateCurrentLineHighlight()
-  }
+  }, [updateCurrentLineHighlight])
 
   useEffect(() => {
     const el = editorRef.current
@@ -365,8 +347,7 @@ export default function Editor() {
     updatePlaceholder()
     el.focus()
     requestAnimationFrame(() => {
-      measureWords()
-      recomputeLineTotals()
+      updateSyllableLayout()
       updateCurrentLineHighlight()
     })
 
@@ -377,39 +358,34 @@ export default function Editor() {
     }
     window.addEventListener('beforeunload', onBeforeUnload)
 
-    // hotkeys: Alt+R for overlays
-    const onKey = (e: KeyboardEvent) => {
-      if (e.altKey && (e.key === 'r' || e.key === 'R')) {
-        e.preventDefault()
-        setShowOverlays(v => !v)
-      }
-    }
     // custom event from toolbar
-    const onToggleEvent = () => setShowOverlays(v => !v)
+    const onToggleEvent = () => toggleCounts()
 
-    window.addEventListener('keydown', onKey)
     window.addEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
     document.addEventListener('selectionchange', handleSelectionChange)
 
     return () => {
       window.removeEventListener('beforeunload', onBeforeUnload)
-      window.removeEventListener('keydown', onKey)
       window.removeEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
       document.removeEventListener('selectionchange', handleSelectionChange)
       if (saveTimer.current) window.clearTimeout(saveTimer.current)
-      if (measureTimer.current) window.clearTimeout(measureTimer.current)
     }
-  }, [measureWords, recomputeLineTotals])
+  }, [
+    ensureLineStructure,
+    updatePlaceholder,
+    updateCurrentLineHighlight,
+    updateSyllableLayout,
+    toggleCounts,
+    handleSelectionChange,
+  ])
 
   useEffect(() => {
     const onResize = () => {
-      scheduleMeasure()
       updateCurrentLineHighlight()
     }
     window.addEventListener('resize', onResize)
     const scroller = containerRef.current
     const onScroll = () => {
-      scheduleMeasure()
       updateCurrentLineHighlight()
     }
     scroller?.addEventListener('scroll', onScroll, { passive: true })
@@ -417,7 +393,7 @@ export default function Editor() {
       window.removeEventListener('resize', onResize)
       scroller?.removeEventListener('scroll', onScroll)
     }
-  }, [scheduleMeasure, updateCurrentLineHighlight])
+  }, [updateCurrentLineHighlight])
 
   return (
     <div className="flex w-full h-screen">
@@ -442,40 +418,35 @@ export default function Editor() {
         }}
       >
         <div className="p-8">
-          {/* Overlay for syllable badges */}
-          {showOverlays && (
+          <div className="relative">
             <div
-              ref={overlayRef}
-              className="pointer-events-none absolute inset-8 z-10"
+              className="pointer-events-none select-none relative z-30"
               aria-hidden="true"
+              style={{ opacity: showCounts ? 1 : 0 }}
             >
-              {badges.map((b, i) => (
-                <div
-                  key={i}
-                  className="absolute -translate-x-1/2 -translate-y-full text-[10px] font-semibold text-gray-300"
-                  style={{ left: b.x, top: b.y }}
-                >
-                  {b.text}
-                </div>
-              ))}
+              <div className="rl-editor font-mono min-h-[70vh] text-transparent">
+                {lineTokens.map((tokens, index) => (
+                  <Line key={index} tokens={tokens} showCounts={showCounts} wordClassName="text-transparent" />
+                ))}
+              </div>
             </div>
-          )}
 
-          {/* Editable area */}
-          <div
-            ref={editorRef}
-            id="lyric-editor"
-            contentEditable
-            suppressContentEditableWarning
-            spellCheck={false}
-            data-placeholder="Start writing..."
-            onInput={handleChange}
-            onKeyUp={handleChange}
-            onBlur={handleChange}
-            onKeyDown={handleChange}
-            onClick={handleChange}
-            className="rl-editor relative outline-none w-full min-h-[70vh] font-mono"
-          />
+            <div
+              ref={editorRef}
+              id="lyric-editor"
+              contentEditable
+              suppressContentEditableWarning
+              spellCheck={false}
+              data-placeholder="Start writing..."
+              onInput={handleChange}
+              onKeyUp={handleChange}
+              onBlur={handleChange}
+              onKeyDown={handleChange}
+              onClick={handleChange}
+              className="rl-editor absolute inset-0 z-20 outline-none w-full min-h-[70vh] font-mono"
+              style={{ backgroundColor: 'transparent' }}
+            />
+          </div>
         </div>
       </div>
     </div>

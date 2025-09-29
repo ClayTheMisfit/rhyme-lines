@@ -35,6 +35,10 @@ body.bg-white {
   display: block;          /* shown only when we add the class */
 }
 
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Editor line break preservation */
 .rl-editor {
   white-space: pre-wrap;    /* Preserve whitespace and line breaks */
@@ -109,6 +113,13 @@ body.bg-white .rl-editor .line {
   padding: 2px 4px;
   margin: 0 -4px; /* Negative margin to compensate for padding */
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.rl-overlay-line {
+  display: block;
+  min-height: calc(var(--editor-font-size, 16px) * var(--editor-line-height, 1.5));
+  line-height: var(--editor-line-height, 1.5);
+  white-space: pre-wrap;
 }
 
 /* Enhanced hover effect when highlight is present */
