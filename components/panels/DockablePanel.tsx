@@ -2,8 +2,7 @@
 
 import React from "react"
 import { createPortal } from "react-dom"
-
-type RndComponent = typeof import("react-rnd").Rnd
+import { Rnd } from "react-rnd"
 
 type DockBounds = {
   x?: number
@@ -44,21 +43,6 @@ export function DockablePanel({
   children,
   className,
 }: Props) {
-  const [RndComponentRef, setRndComponentRef] = React.useState<RndComponent | null>(null)
-
-  React.useEffect(() => {
-    if (!isFloating || RndComponentRef) return
-    let isMounted = true
-    void import("react-rnd").then((mod) => {
-      if (isMounted) {
-        setRndComponentRef(() => mod.Rnd)
-      }
-    })
-    return () => {
-      isMounted = false
-    }
-  }, [RndComponentRef, isFloating])
-
   const header = (
     <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-slate-900/80 backdrop-blur">
       <h3 className="text-sm font-semibold tracking-wide text-white/90">{title}</h3>
@@ -96,43 +80,30 @@ export function DockablePanel({
 
   if (typeof window === "undefined") return null
 
-  const FloatingShell = () => (
-    <div className={panelClasses}>
-      {header}
-      <div className="flex-1 overflow-auto">{children}</div>
-    </div>
-  )
-
   const content = (
     <div className="fixed inset-0 z-[70] pointer-events-none">
-      {RndComponentRef ? (
-        <RndComponentRef
-          className="pointer-events-auto"
-          bounds="window"
-          minWidth={280}
-          minHeight={240}
-          size={{ width, height }}
-          position={{ x, y }}
-          onDragStop={(_, data) => onMoveResize({ x: data.x, y: data.y })}
-          onResizeStop={(_, __, ref, ___, position) =>
-            onMoveResize({
-              width: parseInt(ref.style.width, 10),
-              height: parseInt(ref.style.height, 10),
-              x: position.x,
-              y: position.y,
-            })
-          }
-        >
-          <FloatingShell />
-        </RndComponentRef>
-      ) : (
-        <div
-          className="pointer-events-auto"
-          style={{ width, height, position: "absolute", left: x, top: y }}
-        >
-          <FloatingShell />
+      <Rnd
+        className="pointer-events-auto"
+        bounds="window"
+        minWidth={280}
+        minHeight={240}
+        size={{ width, height }}
+        position={{ x, y }}
+        onDragStop={(_, data) => onMoveResize({ x: data.x, y: data.y })}
+        onResizeStop={(_, __, ref, ___, position) =>
+          onMoveResize({
+            width: parseInt(ref.style.width, 10),
+            height: parseInt(ref.style.height, 10),
+            x: position.x,
+            y: position.y,
+          })
+        }
+      >
+        <div className={panelClasses}>
+          {header}
+          <div className="flex-1 overflow-auto">{children}</div>
         </div>
-      )}
+      </Rnd>
     </div>
   )
 
