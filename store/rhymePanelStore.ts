@@ -1,5 +1,8 @@
+"use client"
+
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { useRhymePanel } from '@/lib/state/rhymePanel'
 
 export type RhymeType = 'perfect' | 'slant'
 
@@ -26,23 +29,32 @@ export const useRhymePanelStore = create<RhymePanelState>()(
   persist(
     (set, get) => ({
       // Initial state
-      isOpen: false,
+      isOpen: useRhymePanel.getState().isOpen,
       activeTab: 'perfect',
       searchQuery: '',
       selectedIndex: 0,
-      panelWidth: 320,
+      panelWidth: useRhymePanel.getState().width,
 
       // Actions
-      togglePanel: () => set((state) => ({ 
-        isOpen: !state.isOpen, 
-        selectedIndex: 0 
-      })),
-      
+      togglePanel: () => {
+        const { isOpen } = get()
+        if (isOpen) {
+          useRhymePanel.getState().close()
+          set({ isOpen: false, selectedIndex: 0 })
+        } else {
+          useRhymePanel.getState().open()
+          set({ isOpen: true, selectedIndex: 0 })
+        }
+      },
+
       setActiveTab: (tab) => set({ activeTab: tab, selectedIndex: 0 }),
       setSearchQuery: (query) => set({ searchQuery: query, selectedIndex: 0 }),
       setSelectedIndex: (index) => set({ selectedIndex: index }),
       resetSelection: () => set({ selectedIndex: 0 }),
-      setPanelWidth: (width) => set({ panelWidth: width }),
+      setPanelWidth: (width) => {
+        useRhymePanel.getState().setBounds({ width })
+        set({ panelWidth: width })
+      },
     }),
     {
       name: 'rhyme-panel-store',
@@ -54,3 +66,22 @@ export const useRhymePanelStore = create<RhymePanelState>()(
     }
   )
 )
+
+if (typeof window !== 'undefined') {
+  useRhymePanel.subscribe(
+    (state) => state.isOpen,
+    (isOpen) => {
+      useRhymePanelStore.setState({ isOpen })
+      if (!isOpen) {
+        useRhymePanelStore.setState({ selectedIndex: 0 })
+      }
+    }
+  )
+
+  useRhymePanel.subscribe(
+    (state) => state.width,
+    (width) => {
+      useRhymePanelStore.setState({ panelWidth: width })
+    }
+  )
+}

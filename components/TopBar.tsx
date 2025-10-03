@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
+import { useRhymePanel } from '@/lib/state/rhymePanel'
 import EditorSettings from './EditorSettings'
 
 const THEME_KEY = 'rhyme-lines:theme'
@@ -28,7 +29,15 @@ export default function TopBar() {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   
   const titleInputRef = useRef<HTMLInputElement>(null)
-  const { togglePanel, isOpen: isPanelOpen, activeTab, panelWidth, setActiveTab } = useRhymePanelStore()
+  const { togglePanel, isOpen: isPanelOpen, activeTab, setActiveTab } = useRhymePanelStore()
+  const { isOpen: panelVisible, isFloating, width: dockWidth, dock, undock, open: openPanel } = useRhymePanel((state) => ({
+    isOpen: state.isOpen,
+    isFloating: state.isFloating,
+    width: state.width,
+    dock: state.dock,
+    undock: state.undock,
+    open: state.open,
+  }))
 
   // Load saved preferences
   useEffect(() => {
@@ -113,12 +122,27 @@ export default function TopBar() {
     }
   }
 
+  const dockedWidth = panelVisible && !isFloating ? Math.max(0, dockWidth) : 0
+  const dockedOffset = panelVisible && !isFloating ? `calc(${Math.round(dockedWidth)}px + 1.5rem)` : '0px'
+  const dockedWidthValue = panelVisible && !isFloating ? `calc(100% - ${Math.round(dockedWidth)}px - 1.5rem)` : '100%'
+
+  const handleDockToggle = () => {
+    if (!panelVisible) {
+      openPanel()
+    }
+    if (isFloating) {
+      dock()
+    } else {
+      undock()
+    }
+  }
+
   return (
-    <div 
+    <div
       className="fixed top-0 left-0 h-12 bg-[#1e1e1e] border-b border-[#2c2c2c] z-50 flex items-center px-4 gap-2 sm:gap-4"
       style={{
-        right: isPanelOpen ? `${panelWidth}px` : '0',
-        width: isPanelOpen ? `calc(100% - ${panelWidth}px)` : '100%'
+        right: dockedOffset,
+        width: isPanelOpen && !isFloating ? dockedWidthValue : '100%'
       }}
     >
       {/* Left: Document Title */}
@@ -180,6 +204,15 @@ export default function TopBar() {
           title="Toggle rhyme panel"
         >
           🎵
+        </button>
+
+        {/* Docking Toggle */}
+        <button
+          onClick={handleDockToggle}
+          className="text-sm font-medium text-[#d4d4d4] hover:text-white transition-colors"
+          title={isFloating ? 'Dock rhyme panel' : 'Undock rhyme panel'}
+        >
+          {isFloating ? '⇤' : '⧉'}
         </button>
 
         {/* Editor Settings */}

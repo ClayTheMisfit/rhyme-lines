@@ -2,6 +2,11 @@
 
 /* ----- Custom styles below ----- */
 
+.text-2xs {
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
 /* Body defaults (optional; keep minimal) */
 html, body, #__next {
   height: 100%;

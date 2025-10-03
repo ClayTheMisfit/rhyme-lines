@@ -1,15 +1,26 @@
 'use client'
 
-import * as React from "react"
+import * as React from 'react'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
+import { useRhymePanel, type SyllableFilter } from '@/lib/state/rhymePanel'
+import { DockablePanel } from '@/components/panels/DockablePanel'
 import { useRhymeSuggestions } from '@/hooks/useRhymeSuggestions'
+import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 import type { ActiveWord } from '@/lib/editor/getActiveWord'
 import type { AggregatedSuggestion } from '@/lib/rhyme/aggregate'
 import SuggestionItem from './SuggestionItem'
 
 const MIN_WIDTH = 280
-const MAX_WIDTH = 600
-const DEFAULT_WIDTH = 320
+const MAX_WIDTH = 640
+
+const SYLLABLE_CHIPS: { label: string; value: SyllableFilter }[] = [
+  { label: 'Any', value: 0 },
+  { label: '1', value: 1 },
+  { label: '2', value: 2 },
+  { label: '3', value: 3 },
+  { label: '4', value: 4 },
+  { label: '5+', value: 5 },
+]
 
 type Props = {
   isOpen: boolean
@@ -17,35 +28,110 @@ type Props = {
   activeWord?: ActiveWord | null
 }
 
+function resolveSyllables(suggestion: AggregatedSuggestion): number {
+  const raw = (suggestion as unknown as { syllableCount?: number }).syllableCount
+  return (
+    suggestion.syllables ??
+    (typeof raw === 'number' ? raw : undefined) ??
+    estimateSyllables(suggestion.word)
+  )
+}
+
+function matchesFilter(suggestion: AggregatedSuggestion, filter: SyllableFilter): boolean {
+  if (filter === 0) return true
+  const syllableCount = resolveSyllables(suggestion)
+  if (filter === 5) return syllableCount >= 5
+  return syllableCount === filter
+}
+
 export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
   const searchRef = React.useRef<HTMLInputElement>(null)
   const suggestionsRef = React.useRef<AggregatedSuggestion[]>([])
-  const [isResizing, setIsResizing] = React.useState(false)
+
   const {
     activeTab,
     searchQuery,
     selectedIndex,
-    panelWidth,
     setActiveTab,
     setSearchQuery,
     setSelectedIndex,
-    setPanelWidth,
   } = useRhymePanelStore()
 
-  // Get rhyme suggestions
+  const {
+    isOpen: panelOpen,
+    open: openPanel,
+    close: closePanel,
+    isFloating,
+    filter,
+    x,
+    y,
+    width,
+    height,
+    setFilter,
+    setBounds,
+    dock,
+    undock,
+  } = useRhymePanel((state) => ({
+    isOpen: state.isOpen,
+    open: state.open,
+    close: state.close,
+    isFloating: state.isFloating,
+    filter: state.filter,
+    x: state.x,
+    y: state.y,
+    width: state.width,
+    height: state.height,
+    setFilter: state.setFilter,
+    setBounds: state.setBounds,
+    dock: state.dock,
+    undock: state.undock,
+  }))
+
+  React.useEffect(() => {
+    if (isOpen && !panelOpen) {
+      openPanel()
+    } else if (!isOpen && panelOpen) {
+      closePanel()
+    }
+  }, [isOpen, panelOpen, openPanel, closePanel])
+
   const { suggestions, isLoading, error } = useRhymeSuggestions({
     searchQuery,
     activeTab,
     activeWord: activeWord || null,
-    enabled: isOpen,
+    enabled: panelOpen,
   })
 
-  // Update suggestions ref
-  React.useEffect(() => {
-    suggestionsRef.current = suggestions
-  }, [suggestions])
+  const filteredSuggestions = React.useMemo(
+    () => suggestions.filter((item) => matchesFilter(item, filter)),
+    [suggestions, filter]
+  )
 
-  // Insert suggestion into editor
+  React.useEffect(() => {
+    suggestionsRef.current = filteredSuggestions
+  }, [filteredSuggestions])
+
+  React.useEffect(() => {
+    if (filteredSuggestions.length === 0) {
+      setSelectedIndex(0)
+      return
+    }
+
+    if (selectedIndex >= filteredSuggestions.length) {
+      setSelectedIndex(0)
+    }
+  }, [filteredSuggestions.length, selectedIndex, setSelectedIndex])
+
+  React.useEffect(() => {
+    setSelectedIndex(0)
+  }, [filter, setSelectedIndex])
+
+  React.useEffect(() => {
+    if (panelOpen) {
+      queueMicrotask(() => searchRef.current?.focus())
+    }
+  }, [panelOpen])
+
   const insertSuggestion = React.useCallback((suggestion: { word: string }) => {
     const editorElement = document.getElementById('lyric-editor')
     if (!editorElement) return
@@ -58,190 +144,152 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
       const textNode = document.createTextNode(suggestion.word)
       range.deleteContents()
       range.insertNode(textNode)
-      
-      // Move cursor after the inserted text
+
       range.setStartAfter(textNode)
       range.setEndAfter(textNode)
       selection.removeAllRanges()
       selection.addRange(range)
-
-      // Keep panel open for side panel behavior
-    } catch (error) {
-      console.error('Failed to insert suggestion:', error)
+    } catch (err) {
+      console.error('Failed to insert suggestion:', err)
     }
-  }, [onClose])
+  }, [])
 
-  // Autofocus the search when the panel opens
-  React.useEffect(() => {
-    if (isOpen) {
-      queueMicrotask(() => searchRef.current?.focus())
-    }
-  }, [isOpen])
-
-  // Handle keyboard navigation
   const handleKeyDown = React.useCallback((e: KeyboardEvent) => {
-    if (!isOpen) return
+    if (!panelOpen) return
+
+    const target = e.target as HTMLElement | null
+    const isTypingField = !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key >= '0' && e.key <= '5') {
+      if (isTypingField) return
+      e.preventDefault()
+      setFilter(Number(e.key) as SyllableFilter)
+      return
+    }
 
     if (e.key === 'Escape') {
+      e.preventDefault()
+      closePanel()
       onClose()
       return
     }
 
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setSelectedIndex(Math.min(selectedIndex + 1, suggestionsRef.current.length - 1))
+      const next = Math.min(
+        selectedIndex + 1,
+        Math.max(0, suggestionsRef.current.length - 1)
+      )
+      setSelectedIndex(next)
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setSelectedIndex(Math.max(selectedIndex - 1, 0))
+      const next = Math.max(selectedIndex - 1, 0)
+      setSelectedIndex(next)
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      if (suggestionsRef.current[selectedIndex]) {
-        insertSuggestion(suggestionsRef.current[selectedIndex])
+      const suggestion = suggestionsRef.current[selectedIndex]
+      if (suggestion) {
+        insertSuggestion(suggestion)
       }
     }
-  }, [isOpen, selectedIndex, setSelectedIndex, onClose, insertSuggestion])
+  }, [panelOpen, closePanel, insertSuggestion, onClose, selectedIndex, setFilter, setSelectedIndex])
 
   React.useEffect(() => {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
-  // Reset selection when suggestions change
-  React.useEffect(() => {
-    if (suggestions.length > 0 && selectedIndex >= suggestions.length) {
-      setSelectedIndex(0)
-    }
-  }, [suggestions.length, selectedIndex, setSelectedIndex])
+  if (!panelOpen) return null
 
-  // Resize handlers
-  const handleMouseDown = React.useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    setIsResizing(true)
-  }, [])
+  const dockedWidth = Math.min(Math.max(width, MIN_WIDTH), MAX_WIDTH)
 
-  const handleMouseMove = React.useCallback((e: MouseEvent) => {
-    if (!isResizing) return
-    
-    const newWidth = window.innerWidth - e.clientX
-    const clampedWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, newWidth))
-    setPanelWidth(clampedWidth)
-  }, [isResizing, setPanelWidth])
+  const handleClose = () => {
+    closePanel()
+    onClose()
+  }
 
-  const handleMouseUp = React.useCallback(() => {
-    setIsResizing(false)
-  }, [])
+  const panelContent = (
+    <div className="flex h-full flex-col">
+      <div className="space-y-3 border-b border-white/10 bg-slate-900/80 p-4">
+        <input
+          ref={searchRef}
+          type="text"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Search"
+          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/40 focus:border-blue-500 focus:outline-none"
+        />
 
-  // Add global mouse event listeners for resizing
-  React.useEffect(() => {
-    if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
-      document.body.style.cursor = 'col-resize'
-      document.body.style.userSelect = 'none'
-    }
+        <div className="flex flex-wrap items-center gap-2">
+          {SYLLABLE_CHIPS.map((chip) => {
+            const isActive = filter === chip.value
+            return (
+              <button
+                key={chip.value}
+                type="button"
+                onClick={() => setFilter(chip.value)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'bg-blue-500 text-white shadow'
+                    : 'bg-white/5 text-white/70 hover:bg-white/10'
+                }`}
+                aria-pressed={isActive}
+              >
+                {chip.label}
+              </button>
+            )
+          })}
+          <span className="text-[10px] uppercase tracking-wide text-white/40">keys 0–5</span>
+        </div>
 
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-  }, [isResizing, handleMouseMove, handleMouseUp])
-
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed top-0 right-0 h-full shadow-xl flex flex-col z-40" style={{ 
-      width: `${panelWidth}px`,
-      background: 'linear-gradient(135deg, #2d1b3d 0%, #3a2a4a 50%, #44345C 100%)', 
-      borderLeft: '1px solid #5a4a6c' 
-    }}>
-      {/* Resize handle */}
-      <div
-        className="absolute left-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 transition-colors"
-        onMouseDown={handleMouseDown}
-        style={{ zIndex: 50 }}
-      />
-      {/* Header / Search / Tabs (sticky) */}
-      <div className="sticky top-0 z-10 px-4 pt-4 pb-3 border-b" style={{ 
-        background: 'linear-gradient(135deg, #2d1b3d 0%, #3a2a4a 50%, #44345C 100%)', 
-        borderBottomColor: '#5a4a6c' 
-      }}>
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white">Rhyme Suggestions</h3>
+        <div className="flex gap-2 rounded-full bg-white/5 p-1 text-xs font-medium text-white/70">
           <button
             type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-white text-xl leading-none"
-            aria-label="Close panel"
+            onClick={() => setActiveTab('perfect')}
+            className={`flex-1 rounded-full px-3 py-1 transition-colors ${
+              activeTab === 'perfect'
+                ? 'bg-white/20 text-white shadow'
+                : 'hover:bg-white/10'
+            }`}
           >
-            ×
+            Perfect
           </button>
-        </div>
-
-        <div className="mt-3">
-          <input
-            ref={searchRef}
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search"
-            className="w-full rounded-md px-3 py-2 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 border"
-            style={{ backgroundColor: '#4a3a5a', borderColor: '#6b5b7c' }}
-          />
-        </div>
-
-        <div className="mt-3">
-          <div className="flex border-b" style={{ borderBottomColor: '#5a4a6c' }}>
-            <button
-              type="button"
-              onClick={() => setActiveTab('perfect')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === 'perfect'
-                  ? 'text-white border-b-2 border-blue-500'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Perfect
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('slant')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === 'slant'
-                  ? 'text-white border-b-2 border-blue-500'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Slant
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('slant')}
+            className={`flex-1 rounded-full px-3 py-1 transition-colors ${
+              activeTab === 'slant'
+                ? 'bg-white/20 text-white shadow'
+                : 'hover:bg-white/10'
+            }`}
+          >
+            Slant
+          </button>
         </div>
       </div>
 
-      {/* Scrollable results area */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain thin-scrollbar">
+      <div className="flex-1 overflow-y-auto p-2 thin-scrollbar">
         {isLoading && (
-          <div className="px-4 py-8 text-center text-gray-400">
+          <div className="px-3 py-6 text-center text-sm text-white/50">
             Loading suggestions...
           </div>
         )}
-        
+
         {error && (
-          <div className="px-4 py-8 text-center text-red-400">
+          <div className="px-3 py-6 text-center text-sm text-red-300">
             Error loading suggestions: {error.message}
           </div>
         )}
-        
-        {!isLoading && !error && suggestions.length === 0 && (
-          <div className="px-4 py-8 text-center text-gray-400">
+
+        {!isLoading && !error && filteredSuggestions.length === 0 && (
+          <div className="px-3 py-6 text-center text-sm text-white/50">
             No suggestions found
           </div>
         )}
-        
-        {!isLoading && !error && suggestions.length > 0 && (
-          <div className="py-2">
-            {suggestions.map((suggestion, index) => (
+
+        {!isLoading && !error && filteredSuggestions.length > 0 && (
+          <div className="space-y-1">
+            {filteredSuggestions.map((suggestion, index) => (
               <SuggestionItem
                 key={`${suggestion.word}-${index}`}
                 suggestion={suggestion}
@@ -255,6 +303,37 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
           </div>
         )}
       </div>
+    </div>
+  )
+
+  const panel = (
+    <DockablePanel
+      title="Rhyme Suggestions"
+      isFloating={isFloating}
+      x={x}
+      y={y}
+      width={dockedWidth}
+      height={height}
+      onMoveResize={setBounds}
+      onUndock={undock}
+      onDock={dock}
+      onClose={handleClose}
+      className="h-full w-full"
+    >
+      {panelContent}
+    </DockablePanel>
+  )
+
+  if (isFloating) {
+    return panel
+  }
+
+  return (
+    <div
+      className="fixed bottom-6 right-6 top-16 z-40 flex flex-col"
+      style={{ width: `${dockedWidth}px` }}
+    >
+      {panel}
     </div>
   )
 }
