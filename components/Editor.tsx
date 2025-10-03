@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText, migrateOldContent } from '@/lib/editor/serialization'
-import { useRhymePanelStore } from '@/store/rhymePanelStore'
+import { useRhymePanel } from '@/lib/state/rhymePanel'
 
 const STORAGE_KEY = 'rhyme-lines:doc:current'
 const STORAGE_KEY_V2 = 'rhyme-lines:doc:current:v2'
@@ -40,7 +40,11 @@ export default function Editor() {
   const [lineTotals, setLineTotals] = useState<number[]>([])
   const [showOverlays, setShowOverlays] = useState(true)
   
-  const { isOpen: isPanelOpen, panelWidth } = useRhymePanelStore()
+  const { isOpen: panelVisible, isFloating, width: dockWidth } = useRhymePanel((state) => ({
+    isOpen: state.isOpen,
+    isFloating: state.isFloating,
+    width: state.width,
+  }))
 
   const updatePlaceholder = () => {
     const el = editorRef.current
@@ -437,8 +441,14 @@ export default function Editor() {
         ref={containerRef} 
         className="relative flex-1 overflow-auto transition-all duration-300"
         style={{
-          marginRight: isPanelOpen ? `${panelWidth}px` : '0',
-          maxWidth: isPanelOpen ? `calc(100% - ${panelWidth}px)` : '100%'
+          marginRight:
+            panelVisible && !isFloating
+              ? `calc(${Math.round(Math.max(0, dockWidth))}px + 1.5rem)`
+              : '0px',
+          maxWidth:
+            panelVisible && !isFloating
+              ? `calc(100% - ${Math.round(Math.max(0, dockWidth))}px - 1.5rem)`
+              : '100%'
         }}
       >
         <div className="p-8">

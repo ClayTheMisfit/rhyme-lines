@@ -1,4 +1,5 @@
 import type { AggregatedSuggestion } from '@/lib/rhyme/aggregate'
+import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 
 interface SuggestionItemProps {
   suggestion: AggregatedSuggestion
@@ -6,12 +7,13 @@ interface SuggestionItemProps {
   onClick: () => void
 }
 
-export default function SuggestionItem({ 
-  suggestion, 
-  isSelected, 
-  onClick 
+export default function SuggestionItem({
+  suggestion,
+  isSelected,
+  onClick
 }: SuggestionItemProps) {
-  const { word, syllables, frequency, sources, score } = suggestion
+  const { word, syllables, frequency, score } = suggestion
+  const syllableCount = syllables ?? estimateSyllables(word)
 
   return (
     <button
@@ -25,31 +27,23 @@ export default function SuggestionItem({
     >
       <div className="flex items-center justify-between">
         <span className="font-medium text-white">{word}</span>
-        
+
         <div className="flex items-center gap-2 text-xs text-gray-400">
-          {syllables && (
-            <span className="px-1.5 py-0.5 rounded" style={{ backgroundColor: '#4a3a5a' }}>
-              {syllables}
-            </span>
-          )}
-          
+          <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-2xs uppercase tracking-wide">
+            {syllableCount}
+          </span>
+
           {frequency && !isNaN(frequency) && (
             <span className="text-gray-500">
               {frequency > 1000 ? `${Math.round(frequency / 1000)}k` : frequency}
             </span>
           )}
-          
+
           <span className="text-gray-600">
             {isNaN(score) ? '0' : Math.round(score)}
           </span>
         </div>
       </div>
-      
-      {sources.length > 1 && (
-        <div className="mt-1 text-xs text-gray-500">
-          {sources.join(', ')}
-        </div>
-      )}
     </button>
   )
 }
