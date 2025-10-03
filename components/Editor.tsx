@@ -423,9 +423,9 @@ export default function Editor() {
     <div className="flex w-full h-screen">
       {/* Left gutter */}
       <div className="w-14 shrink-0 border-r border-gray-600/30 text-right pr-2 py-8 overflow-hidden select-none">
-        <div className="text-xs text-gray-400 font-mono whitespace-pre" style={{ lineHeight: 'var(--editor-line-height, 1.5)' }}>
+        <div className="text-xs text-gray-400 font-mono whitespace-pre" style={{ lineHeight: 'var(--editor-line-height, 1.7)' }}>
           {lineTotals.map((total, i) => (
-            <div key={i} style={{ height: 'calc(var(--editor-font-size, 16px) * var(--editor-line-height, 1.5))', lineHeight: 'var(--editor-line-height, 1.5)' }}>
+            <div key={i} style={{ height: 'calc(var(--editor-font-size, 16px) * var(--editor-line-height, 1.7))', lineHeight: 'var(--editor-line-height, 1.7)' }}>
               {total || ''}
             </div>
           ))}
@@ -452,7 +452,7 @@ export default function Editor() {
               {badges.map((b, i) => (
                 <div
                   key={i}
-                  className="absolute -translate-x-1/2 -translate-y-full text-[10px] font-semibold text-gray-300"
+                  className="absolute -translate-x-1/2 -translate-y-full text-[8px] font-semibold text-gray-300"
                   style={{ left: b.x, top: b.y }}
                 >
                   {b.text}
