@@ -68,20 +68,14 @@ export const useRhymePanelStore = create<RhymePanelState>()(
 )
 
 if (typeof window !== 'undefined') {
-  useRhymePanel.subscribe(
-    (state) => state.isOpen,
-    (isOpen) => {
-      useRhymePanelStore.setState({ isOpen })
-      if (!isOpen) {
-        useRhymePanelStore.setState({ selectedIndex: 0 })
-      }
+  useRhymePanel.subscribe((state) => {
+    useRhymePanelStore.setState({ isOpen: state.isOpen })
+    if (!state.isOpen) {
+      useRhymePanelStore.setState({ selectedIndex: 0 })
     }
-  )
+  })
 
-  useRhymePanel.subscribe(
-    (state) => state.width,
-    (width) => {
-      useRhymePanelStore.setState({ panelWidth: width })
-    }
-  )
+  useRhymePanel.subscribe((state) => {
+    useRhymePanelStore.setState({ panelWidth: state.width })
+  })
 }
