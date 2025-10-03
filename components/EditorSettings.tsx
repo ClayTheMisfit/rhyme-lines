@@ -10,7 +10,7 @@ interface EditorPreferences {
 const STORAGE_KEY = 'editorPrefs'
 const DEFAULT_PREFS: EditorPreferences = {
   fontSize: 16,
-  lineHeight: 1.5,
+  lineHeight: 1.7,
 }
 
 const FONT_SIZE_MIN = 14
