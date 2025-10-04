@@ -12,7 +12,7 @@ export default function SuggestionItem({
   isSelected,
   onClick
 }: SuggestionItemProps) {
-  const { word, syllables, frequency, score } = suggestion
+  const { word, syllables } = suggestion
   const syllableCount = syllables ?? estimateSyllables(word)
 
   return (
@@ -28,19 +28,9 @@ export default function SuggestionItem({
       <div className="flex items-center justify-between">
         <span className="font-medium text-white">{word}</span>
 
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className="flex items-center text-xs text-gray-400">
           <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-2xs uppercase tracking-wide">
             {syllableCount}
-          </span>
-
-          {frequency && !isNaN(frequency) && (
-            <span className="text-gray-500">
-              {frequency > 1000 ? `${Math.round(frequency / 1000)}k` : frequency}
-            </span>
-          )}
-
-          <span className="text-gray-600">
-            {isNaN(score) ? '0' : Math.round(score)}
           </span>
         </div>
       </div>
