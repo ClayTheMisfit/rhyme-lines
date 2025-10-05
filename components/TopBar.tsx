@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { motion } from 'framer-motion'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import EditorSettings from './EditorSettings'
@@ -138,86 +139,97 @@ export default function TopBar() {
   }
 
   return (
-    <div
-      className="fixed top-0 left-0 h-12 bg-[#1e1e1e] border-b border-[#2c2c2c] z-50 flex items-center px-4 gap-2 sm:gap-4"
+    <header
+      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 py-2 bg-black/30 backdrop-blur-md border-b border-white/10 shadow-[0_1px_10px_rgba(255,255,255,0.05)] transition-all duration-300"
       style={{
         right: dockedOffset,
         width: isPanelOpen && !isFloating ? dockedWidthValue : '100%'
       }}
     >
-      {/* Left: Document Title */}
-      <div className="flex-1 min-w-0">
-        {isEditingTitle ? (
-          <input
-            ref={titleInputRef}
-            type="text"
-            value={documentTitle}
-            onChange={(e) => setDocumentTitle(e.target.value)}
-            onBlur={handleTitleSave}
-            onKeyDown={handleTitleKeyDown}
-            className="bg-transparent text-[#d4d4d4] text-sm font-medium outline-none border-none w-full"
-            style={{ fontFamily: 'inherit' }}
-          />
-        ) : (
-          <button
-            onClick={handleTitleEdit}
-            className="text-[#d4d4d4] text-sm font-medium hover:text-white transition-colors text-left truncate"
-          >
-            {documentTitle}
-          </button>
-        )}
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="min-w-0">
+          {isEditingTitle ? (
+            <input
+              ref={titleInputRef}
+              type="text"
+              value={documentTitle}
+              onChange={(e) => setDocumentTitle(e.target.value)}
+              onBlur={handleTitleSave}
+              onKeyDown={handleTitleKeyDown}
+              className="bg-transparent text-sm font-semibold text-white/90 tracking-tight outline-none border-none w-full placeholder:text-white/50 focus-visible:ring-2 focus-visible:ring-white/20"
+              style={{ fontFamily: 'inherit' }}
+            />
+          ) : (
+            <button
+              onClick={handleTitleEdit}
+              className="text-sm font-semibold text-white/80 hover:text-white/90 transition-colors text-left truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded"
+            >
+              {documentTitle}
+            </button>
+          )}
+        </div>
+        <span
+          className={`text-xs font-mono transition-opacity duration-300 ${getSaveStatusColor()} ${
+            saveStatus === 'saving' ? 'animate-pulse' : ''
+          }`}
+        >
+          {getSaveStatusText()}
+        </span>
       </div>
 
-      {/* Center: Save Status (hidden on mobile) */}
-      <div className={`text-xs transition-opacity duration-300 ${getSaveStatusColor()} hidden sm:block`}>
-        {getSaveStatusText()}
-      </div>
-
-      {/* Right: Controls */}
-      <div className="flex items-center gap-2 sm:gap-4">
-        {/* Rhyme Mode Toggle */}
-        <button
+      <div className="flex items-center gap-3 text-white/70">
+        <motion.button
+          whileHover={{ scale: 1.05, opacity: 1 }}
+          whileTap={{ scale: 0.95 }}
           onClick={toggleRhymeMode}
-          className={`text-sm font-medium transition-colors hover:text-white ${
-            activeTab === 'perfect' ? 'text-white' : 'text-[#d4d4d4]'
+          className={`text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded ${
+            activeTab === 'perfect' ? 'text-white' : 'text-white/70 hover:text-white/90'
           }`}
           title={`Rhyme mode: ${activeTab === 'perfect' ? 'Perfect' : 'Slant'}`}
         >
           {activeTab === 'perfect' ? '🎯' : '🎨'}
-        </button>
+        </motion.button>
 
-        {/* Theme Toggle */}
-        <button
+        <motion.button
+          whileHover={{ scale: 1.05, opacity: 1 }}
+          whileTap={{ scale: 0.95 }}
           onClick={toggleTheme}
-          className="text-sm font-medium text-[#d4d4d4] hover:text-white transition-colors"
+          className="text-sm font-medium text-white/70 hover:text-white/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded"
           title="Toggle theme"
         >
           {theme === 'dark' ? '☀️' : '🌙'}
-        </button>
+        </motion.button>
 
-        {/* Rhyme Panel Toggle */}
-        <button
+        <motion.button
+          whileHover={{ scale: 1.05, opacity: 1 }}
+          whileTap={{ scale: 0.95 }}
           onClick={togglePanel}
-          className={`text-sm font-medium transition-colors ${
-            isPanelOpen ? 'text-white' : 'text-[#d4d4d4] hover:text-white'
+          className={`text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded ${
+            isPanelOpen ? 'text-white' : 'text-white/70 hover:text-white/90'
           }`}
           title="Toggle rhyme panel"
         >
           🎵
-        </button>
+        </motion.button>
 
-        {/* Docking Toggle */}
-        <button
+        <motion.button
+          whileHover={{ scale: 1.05, opacity: 1 }}
+          whileTap={{ scale: 0.95 }}
           onClick={handleDockToggle}
-          className="text-sm font-medium text-[#d4d4d4] hover:text-white transition-colors"
+          className="text-sm font-medium text-white/70 hover:text-white/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded"
           title={isFloating ? 'Dock rhyme panel' : 'Undock rhyme panel'}
         >
           {isFloating ? '⇤' : '⧉'}
-        </button>
+        </motion.button>
 
-        {/* Editor Settings */}
-        <EditorSettings />
+        <motion.div
+          whileHover={{ scale: 1.02, opacity: 1 }}
+          whileTap={{ scale: 0.97 }}
+          className="flex"
+        >
+          <EditorSettings />
+        </motion.div>
       </div>
-    </div>
+    </header>
   )
 }
