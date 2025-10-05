@@ -179,10 +179,11 @@ export default function TopBar() {
 
       <div className="flex items-center gap-3 text-white/70">
         <motion.button
-          whileHover={{ scale: 1.05, opacity: 1 }}
+          whileHover={{ scale: 1.15, rotate: 2 }}
           whileTap={{ scale: 0.95 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           onClick={toggleRhymeMode}
-          className={`text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded ${
+          className={`text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded ${
             activeTab === 'perfect' ? 'text-white' : 'text-white/70 hover:text-white/90'
           }`}
           title={`Rhyme mode: ${activeTab === 'perfect' ? 'Perfect' : 'Slant'}`}
@@ -191,20 +192,22 @@ export default function TopBar() {
         </motion.button>
 
         <motion.button
-          whileHover={{ scale: 1.05, opacity: 1 }}
+          whileHover={{ scale: 1.15, rotate: 2 }}
           whileTap={{ scale: 0.95 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           onClick={toggleTheme}
-          className="text-sm font-medium text-white/70 hover:text-white/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded"
+          className="text-sm font-medium text-white/70 hover:text-white/90 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded"
           title="Toggle theme"
         >
           {theme === 'dark' ? '☀️' : '🌙'}
         </motion.button>
 
         <motion.button
-          whileHover={{ scale: 1.05, opacity: 1 }}
+          whileHover={{ scale: 1.15, rotate: 2 }}
           whileTap={{ scale: 0.95 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           onClick={togglePanel}
-          className={`text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded ${
+          className={`text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded ${
             isPanelOpen ? 'text-white' : 'text-white/70 hover:text-white/90'
           }`}
           title="Toggle rhyme panel"
@@ -213,18 +216,20 @@ export default function TopBar() {
         </motion.button>
 
         <motion.button
-          whileHover={{ scale: 1.05, opacity: 1 }}
+          whileHover={{ scale: 1.15, rotate: 2 }}
           whileTap={{ scale: 0.95 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           onClick={handleDockToggle}
-          className="text-sm font-medium text-white/70 hover:text-white/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded"
+          className="text-sm font-medium text-white/70 hover:text-white/90 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded"
           title={isFloating ? 'Dock rhyme panel' : 'Undock rhyme panel'}
         >
           {isFloating ? '⇤' : '⧉'}
         </motion.button>
 
         <motion.div
-          whileHover={{ scale: 1.02, opacity: 1 }}
-          whileTap={{ scale: 0.97 }}
+          whileHover={{ scale: 1.15, rotate: 2 }}
+          whileTap={{ scale: 0.95 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           className="flex"
         >
           <EditorSettings />

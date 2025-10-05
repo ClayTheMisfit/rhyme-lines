@@ -80,7 +80,7 @@ export default function EditorSettings() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="text-sm font-medium text-[#d4d4d4] hover:text-white transition-colors"
+        className="text-sm font-medium text-[#d4d4d4] hover:text-white transition-colors duration-200"
         title="Editor settings"
       >
         ⚙️
