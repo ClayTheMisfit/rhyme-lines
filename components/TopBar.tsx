@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
-import EditorSettings from './EditorSettings'
+import { useSettingsStore } from '@/store/settingsStore'
+import SettingsSheet from './settings/SettingsSheet'
 
-const THEME_KEY = 'rhyme-lines:theme'
 const DOCUMENT_TITLE_KEY = 'rhyme-lines:document-title'
 
 type SaveStatus = 'saved' | 'saving' | 'offline'
@@ -21,14 +21,17 @@ function applyTheme(theme: 'dark' | 'light') {
     body.classList.remove('bg-white', 'text-black')
     body.classList.add('bg-black', 'text-white')
   }
+  document.documentElement.dataset.theme = theme
 }
 
 export default function TopBar() {
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
   const [documentTitle, setDocumentTitle] = useState('Untitled Document')
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
   const [isEditingTitle, setIsEditingTitle] = useState(false)
-  
+
+  const theme = useSettingsStore((state) => state.theme)
+  const setTheme = useSettingsStore((state) => state.setTheme)
+
   const titleInputRef = useRef<HTMLInputElement>(null)
   const { togglePanel, isOpen: isPanelOpen, activeTab, setActiveTab } = useRhymePanelStore()
   const { isOpen: panelVisible, isFloating, width: dockWidth, dock, undock, open: openPanel } = useRhymePanel((state) => ({
@@ -42,13 +45,13 @@ export default function TopBar() {
 
   // Load saved preferences
   useEffect(() => {
-    const savedTheme = (localStorage.getItem(THEME_KEY) as 'dark' | 'light') || 'dark'
     const savedTitle = localStorage.getItem(DOCUMENT_TITLE_KEY) || 'Untitled Document'
-    
-    setTheme(savedTheme)
     setDocumentTitle(savedTitle)
-    applyTheme(savedTheme)
   }, [])
+
+  useEffect(() => {
+    applyTheme(theme)
+  }, [theme])
 
   // Listen for save events from editor
   useEffect(() => {
@@ -61,14 +64,16 @@ export default function TopBar() {
 
     window.addEventListener('rhyme:save-start', handleSaveStart)
     window.addEventListener('rhyme:save-complete', handleSaveComplete)
+    const handleOnline = () => setSaveStatus('saved')
+
     window.addEventListener('offline', handleOffline)
-    window.addEventListener('online', () => setSaveStatus('saved'))
+    window.addEventListener('online', handleOnline)
 
     return () => {
       window.removeEventListener('rhyme:save-start', handleSaveStart)
       window.removeEventListener('rhyme:save-complete', handleSaveComplete)
       window.removeEventListener('offline', handleOffline)
-      window.removeEventListener('online', () => setSaveStatus('saved'))
+      window.removeEventListener('online', handleOnline)
     }
   }, [])
 
@@ -93,12 +98,10 @@ export default function TopBar() {
     }
   }
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     const next = theme === 'dark' ? 'light' : 'dark'
     setTheme(next)
-    localStorage.setItem(THEME_KEY, next)
-    applyTheme(next)
-  }
+  }, [theme, setTheme])
 
   const toggleRhymeMode = () => {
     const next = activeTab === 'perfect' ? 'slant' : 'perfect'
@@ -232,7 +235,7 @@ export default function TopBar() {
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           className="flex"
         >
-          <EditorSettings />
+          <SettingsSheet />
         </motion.div>
       </div>
     </header>
