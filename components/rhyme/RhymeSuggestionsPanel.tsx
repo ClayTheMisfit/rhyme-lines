@@ -9,6 +9,8 @@ import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 import type { ActiveWord } from '@/lib/editor/getActiveWord'
 import type { AggregatedSuggestion } from '@/lib/rhyme/aggregate'
 import SuggestionItem from './SuggestionItem'
+import { useSettingsStore } from '@/store/settingsStore'
+import { shallow } from 'zustand/shallow'
 
 const MIN_WIDTH = 280
 const MAX_WIDTH = 640
@@ -87,6 +89,14 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
     undock: state.undock,
   }))
 
+  const { rhymeAutoRefresh, debounceMode } = useSettingsStore(
+    (state) => ({
+      rhymeAutoRefresh: state.rhymeAutoRefresh,
+      debounceMode: state.debounceMode,
+    }),
+    shallow
+  )
+
   React.useEffect(() => {
     if (isOpen && !panelOpen) {
       openPanel()
@@ -95,17 +105,27 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
     }
   }, [isOpen, panelOpen, openPanel, closePanel])
 
-  const { suggestions, isLoading, error } = useRhymeSuggestions({
+  const {
+    suggestions,
+    isLoading,
+    error,
+    query: resolvedQuery,
+    refetchSuggestions,
+  } = useRhymeSuggestions({
     searchQuery,
     activeTab,
     activeWord: activeWord || null,
     enabled: panelOpen,
+    autoRefresh: rhymeAutoRefresh,
+    debounceMode,
   })
 
   const filteredSuggestions = React.useMemo(
     () => suggestions.filter((item) => matchesFilter(item, filter)),
     [suggestions, filter]
   )
+
+  const canRefresh = React.useMemo(() => resolvedQuery.trim().length > 0, [resolvedQuery])
 
   React.useEffect(() => {
     suggestionsRef.current = filteredSuggestions
@@ -219,6 +239,33 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
           placeholder="Search"
           className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/40 focus:border-blue-500 focus:outline-none"
         />
+
+        <div className="flex items-center justify-between text-xs text-white/60">
+          <span className="flex items-center gap-2">
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${
+                rhymeAutoRefresh ? 'bg-white/10 text-white/80' : 'bg-amber-500/20 text-amber-100'
+              }`}
+            >
+              {rhymeAutoRefresh ? 'Auto refresh on' : 'Manual refresh'}
+            </span>
+            {!rhymeAutoRefresh && (
+              <span className="hidden sm:inline">Use refresh to pull the latest matches.</span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => refetchSuggestions()}
+            disabled={!canRefresh || isLoading}
+            className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 font-medium transition ${
+              !canRefresh || isLoading
+                ? 'cursor-not-allowed border-white/10 text-white/30'
+                : 'border-white/20 text-white/80 hover:border-blue-400 hover:text-white'
+            }`}
+          >
+            {isLoading ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {SYLLABLE_CHIPS.map((chip) => {
