@@ -45,8 +45,8 @@ body.bg-white {
   white-space: pre-wrap;    /* Preserve whitespace and line breaks */
   overflow-wrap: anywhere;   /* Break long words if needed */
   word-break: break-word;    /* Fallback for older browsers */
-  font-size: var(--editor-font-size, 16px);
-  line-height: var(--editor-line-height, 1.7);
+  font-size: var(--editor-font-size, 18px);
+  line-height: var(--editor-line-height, 1.6);
 }
 
 /* Dark theme editor styling */
@@ -99,12 +99,12 @@ body.bg-white .rl-editor {
 /* Line-based highlighting using CSS */
 body.bg-black .rl-editor .line {
   display: block;
-  min-height: calc(var(--editor-font-size, 16px) * var(--editor-line-height, 1.7));
+  min-height: calc(var(--editor-font-size, 18px) * var(--editor-line-height, 1.6));
 }
 
 body.bg-white .rl-editor .line {
   display: block;
-  min-height: calc(var(--editor-font-size, 16px) * var(--editor-line-height, 1.7));
+  min-height: calc(var(--editor-font-size, 18px) * var(--editor-line-height, 1.6));
 }
 
 /* Ensure line divs don't break the editor flow */
@@ -130,7 +130,7 @@ body.bg-white .rl-editor .line:hover .current-line-highlight {
   content: '';
   display: inline-block;
   width: 0;
-  height: calc(var(--editor-font-size, 16px) * var(--editor-line-height, 1.7));
+  height: calc(var(--editor-font-size, 18px) * var(--editor-line-height, 1.6));
 }
 
 /* Custom scrollbar styles */

@@ -1,8 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText, migrateOldContent } from '@/lib/editor/serialization'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
+import { useSettingsStore } from '@/store/settingsStore'
+import { shallow } from 'zustand/shallow'
 
 const STORAGE_KEY = 'rhyme-lines:doc:current'
 const STORAGE_KEY_V2 = 'rhyme-lines:doc:current:v2'
@@ -39,12 +41,45 @@ export default function Editor() {
   const [badges, setBadges] = useState<Badge[]>([])
   const [lineTotals, setLineTotals] = useState<number[]>([])
   const [showOverlays, setShowOverlays] = useState(true)
+
+  const { fontSize, lineHeight, badgeSize, showLineTotals, theme } = useSettingsStore(
+    (state) => ({
+      fontSize: state.fontSize,
+      lineHeight: state.lineHeight,
+      badgeSize: state.badgeSize,
+      showLineTotals: state.showLineTotals,
+      theme: state.theme,
+    }),
+    shallow
+  )
+
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty('--editor-font-size', `${fontSize}px`)
+    root.style.setProperty('--editor-line-height', lineHeight.toString())
+  }, [fontSize, lineHeight])
   
   const { isOpen: panelVisible, isFloating, width: dockWidth } = useRhymePanel((state) => ({
     isOpen: state.isOpen,
     isFloating: state.isFloating,
     width: state.width,
   }))
+
+  const badgeClassName = useMemo(() => {
+    const palette =
+      theme === 'light'
+        ? 'border-zinc-300 bg-white/90 text-zinc-800'
+        : 'border-white/20 bg-black/70 text-white/90'
+
+    const size =
+      badgeSize === 'xs'
+        ? 'px-1.5 py-0.5 text-[10px]'
+        : badgeSize === 'md'
+          ? 'px-2.5 py-1 text-xs'
+          : 'px-2 py-0.5 text-[11px]'
+
+    return `absolute -translate-x-1/2 -translate-y-full select-none rounded-full border font-semibold shadow-sm ${palette} ${size}`
+  }, [badgeSize, theme])
 
   const updatePlaceholder = () => {
     const el = editorRef.current
@@ -264,6 +299,10 @@ export default function Editor() {
   }
 
   const recomputeLineTotals = useCallback(() => {
+    if (!showLineTotals) {
+      setLineTotals([])
+      return
+    }
     const el = editorRef.current
     if (!el) return
     const lines = el.innerText.replace(/\u00A0/g, ' ').split(/\r?\n/)
@@ -274,7 +313,7 @@ export default function Editor() {
         .reduce((sum, w) => sum + countSyllables(w), 0)
     )
     setLineTotals(totals)
-  }, [])
+  }, [showLineTotals])
 
   const measureWords = useCallback(() => {
     if (!showOverlays) {
@@ -339,6 +378,18 @@ export default function Editor() {
   const handleSelectionChange = () => {
     updateCurrentLineHighlight()
   }
+
+  useEffect(() => {
+    if (showLineTotals) {
+      recomputeLineTotals()
+    } else {
+      setLineTotals([])
+    }
+  }, [showLineTotals, recomputeLineTotals])
+
+  useEffect(() => {
+    scheduleMeasure()
+  }, [fontSize, lineHeight, scheduleMeasure])
 
   useEffect(() => {
     const el = editorRef.current
@@ -426,14 +477,28 @@ export default function Editor() {
   return (
     <div className="flex w-full h-screen">
       {/* Left gutter */}
-      <div className="w-14 shrink-0 border-r border-gray-600/30 text-right pr-2 py-8 overflow-hidden select-none">
-        <div className="text-xs text-gray-400 font-mono whitespace-pre" style={{ lineHeight: 'var(--editor-line-height, 1.7)' }}>
-          {lineTotals.map((total, i) => (
-            <div key={i} style={{ height: 'calc(var(--editor-font-size, 16px) * var(--editor-line-height, 1.7))', lineHeight: 'var(--editor-line-height, 1.7)' }}>
-              {total || ''}
-            </div>
-          ))}
-        </div>
+      <div
+        className={`${showLineTotals ? 'w-14 border-r border-gray-600/30 pr-2' : 'w-6'} shrink-0 py-8 text-right`}
+        aria-hidden={!showLineTotals}
+      >
+        {showLineTotals && (
+          <div
+            className={`font-mono text-xs whitespace-pre ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}
+            style={{ lineHeight: 'var(--editor-line-height, 1.6)' }}
+          >
+            {lineTotals.map((total, i) => (
+              <div
+                key={i}
+                style={{
+                  height: 'calc(var(--editor-font-size, 18px) * var(--editor-line-height, 1.6))',
+                  lineHeight: 'var(--editor-line-height, 1.6)',
+                }}
+              >
+                {total || ''}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Editor + overlay */}
@@ -462,7 +527,7 @@ export default function Editor() {
               {badges.map((b, i) => (
                 <div
                   key={i}
-                  className="absolute -translate-x-1/2 -translate-y-full text-[8px] font-semibold text-gray-300"
+                  className={badgeClassName}
                   style={{ left: b.x, top: b.y }}
                 >
                   {b.text}
