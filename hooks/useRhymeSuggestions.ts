@@ -10,16 +10,17 @@ interface UseRhymeSuggestionsProps {
   activeTab: 'perfect' | 'slant'
   activeWord: ActiveWord | null
   enabled: boolean
+  autoRefresh: boolean
+  debounceMode: 'cursor-50' | 'typing-250'
 }
-
-const SEARCH_DEBOUNCE_MS = 250
-const CARET_DEBOUNCE_MS = 50
 
 export function useRhymeSuggestions({
   searchQuery,
   activeTab,
   activeWord,
   enabled,
+  autoRefresh,
+  debounceMode,
 }: UseRhymeSuggestionsProps) {
   const [query, setQuery] = useState('')
   const searchTimeoutRef = useRef<number | null>(null)
@@ -28,28 +29,34 @@ export function useRhymeSuggestions({
   // Determine the actual query to use
   const actualQuery = searchQuery.trim() || activeWord?.word || ''
 
+  const searchDelay = debounceMode === 'cursor-50' ? 50 : 250
+  const caretDelay = debounceMode === 'cursor-50' ? 50 : 250
+
   // Debounced query updates
   useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+      searchTimeoutRef.current = null
+    }
+    if (caretTimeoutRef.current) {
+      clearTimeout(caretTimeoutRef.current)
+      caretTimeoutRef.current = null
+    }
+
+    if (!autoRefresh) {
+      setQuery(actualQuery)
+      return
+    }
+
     if (searchQuery.trim()) {
-      // User is typing in search - use search query with debounce
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
-      
       searchTimeoutRef.current = window.setTimeout(() => {
         setQuery(searchQuery.trim())
-      }, SEARCH_DEBOUNCE_MS)
+      }, searchDelay)
     } else if (activeWord?.word) {
-      // No search query - use active word with shorter debounce
-      if (caretTimeoutRef.current) {
-        clearTimeout(caretTimeoutRef.current)
-      }
-      
       caretTimeoutRef.current = window.setTimeout(() => {
         setQuery(activeWord.word)
-      }, CARET_DEBOUNCE_MS)
+      }, caretDelay)
     } else {
-      // No query at all
       setQuery('')
     }
 
@@ -57,7 +64,7 @@ export function useRhymeSuggestions({
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
       if (caretTimeoutRef.current) clearTimeout(caretTimeoutRef.current)
     }
-  }, [searchQuery, activeWord?.word])
+  }, [autoRefresh, searchQuery, activeWord?.word, actualQuery, searchDelay, caretDelay])
 
   // Fetch rhymes using React Query
   const {
@@ -68,7 +75,7 @@ export function useRhymeSuggestions({
   } = useQuery({
     queryKey: ['rhymes', query, activeTab],
     queryFn: () => fetchRhymes(query, activeTab),
-    enabled: enabled && !!query.trim(),
+    enabled: enabled && autoRefresh && !!query.trim(),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 1,
@@ -84,6 +91,15 @@ export function useRhymeSuggestions({
   const clearCache = useCallback(() => {
     rhymeCache.clear()
   }, [])
+
+  const previousAutoRefresh = useRef(autoRefresh)
+
+  useEffect(() => {
+    if (autoRefresh && !previousAutoRefresh.current && query.trim()) {
+      refetch()
+    }
+    previousAutoRefresh.current = autoRefresh
+  }, [autoRefresh, query, refetch])
 
   return {
     suggestions,
