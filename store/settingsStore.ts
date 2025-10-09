@@ -1,7 +1,7 @@
 'use client'
 
 import { createWithEqualityFn } from 'zustand/traditional'
-import { persist, createJSONStorage, type PersistStorage } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 type Theme = 'light' | 'dark'
 type BadgeSize = 'xs' | 'sm' | 'md'
@@ -37,12 +37,12 @@ export const SETTINGS_DEFAULTS: Pick<SettingsState,
   debounceMode: 'typing-250',
 }
 
-const storage: PersistStorage<SettingsSnapshot> | undefined = typeof window === 'undefined'
+const storage = typeof window === 'undefined'
   ? undefined
-  : createJSONStorage<SettingsSnapshot>(() => window.localStorage)
+  : createJSONStorage<SettingsState>(() => window.localStorage)
 
 export const useSettingsStore = createWithEqualityFn<SettingsState>()(
-  persist<SettingsState, [], [], SettingsSnapshot>(
+  persist(
     (set) => ({
       ...SETTINGS_DEFAULTS,
       setTheme: (theme) => set({ theme }),
