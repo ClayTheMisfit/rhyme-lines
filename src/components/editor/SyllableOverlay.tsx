@@ -51,7 +51,6 @@ export function SyllableOverlay({
           return token.lineId === activeLineId
         case 'hoverLine':
           return token.lineId === activeLineId || (!!hoveredLineId && token.lineId === hoveredLineId)
-        case 'off':
         default:
           return false
       }
