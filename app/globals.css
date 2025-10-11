@@ -2,6 +2,10 @@
 
 /* ----- Custom styles below ----- */
 
+:root {
+  --line-offset: -1.05em;
+}
+
 .text-2xs {
   font-size: 0.65rem;
   line-height: 1;
@@ -114,6 +118,7 @@ body.bg-white .rl-editor .line {
   padding: 2px 4px;
   margin: 0 -4px; /* Negative margin to compensate for padding */
   transition: background-color 0.2s ease, color 0.2s ease;
+  line-height: var(--editor-line-height, 1.6);
 }
 
 /* Enhanced hover effect when highlight is present */
