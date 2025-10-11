@@ -1,10 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText, migrateOldContent } from '@/lib/editor/serialization'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
+import { useBadgeShortcuts } from '@/src/lib/shortcuts/badges'
+import { SyllableOverlay, type OverlayToken } from '@/src/components/editor/SyllableOverlay'
+import { useBadgeSettings } from '@/src/store/settings'
 
 const STORAGE_KEY = 'rhyme-lines:doc:current'
 const STORAGE_KEY_V2 = 'rhyme-lines:doc:current:v2'
@@ -28,25 +31,31 @@ function countSyllables(wordRaw: string): number {
   return Math.max(1, syl)
 }
 
-type Badge = { x: number; y: number; text: string }
-
 export default function Editor() {
   const editorRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const lineIdSeed = useRef(0)
+  const lineElementsRef = useRef<HTMLDivElement[]>([])
 
   const saveTimer = useRef<number | null>(null)
   const measureTimer = useRef<number | null>(null)
 
-  const [badges, setBadges] = useState<Badge[]>([])
+  const [tokens, setTokens] = useState<OverlayToken[]>([])
   const [lineTotals, setLineTotals] = useState<number[]>([])
   const [showOverlays, setShowOverlays] = useState(true)
+  const [activeLineId, setActiveLineId] = useState<string | null>(null)
+  const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
+  const [viewportRange, setViewportRange] = useState<{ start: number; end: number }>({
+    start: 0,
+    end: Number.POSITIVE_INFINITY,
+  })
+  const [lineVersion, setLineVersion] = useState(0)
 
-  const { fontSize, lineHeight, badgeSize, showLineTotals, theme } = useSettingsStore(
+  const { fontSize, lineHeight, showLineTotals, theme } = useSettingsStore(
     (state) => ({
       fontSize: state.fontSize,
       lineHeight: state.lineHeight,
-      badgeSize: state.badgeSize,
       showLineTotals: state.showLineTotals,
       theme: state.theme,
     }),
@@ -65,21 +74,9 @@ export default function Editor() {
     width: state.width,
   }))
 
-  const badgeClassName = useMemo(() => {
-    const palette =
-      theme === 'light'
-        ? 'border-zinc-300 bg-white/90 text-zinc-800'
-        : 'border-white/20 bg-black/70 text-white/90'
+  const badgeMode = useBadgeSettings((state) => state.badgeMode)
 
-    const size =
-      badgeSize === 'xs'
-        ? 'px-1.5 py-0.5 text-[10px]'
-        : badgeSize === 'md'
-          ? 'px-2.5 py-1 text-xs'
-          : 'px-2 py-0.5 text-[11px]'
-
-    return `absolute -translate-x-1/2 -translate-y-full select-none rounded-full border font-semibold shadow-sm ${palette} ${size}`
-  }, [badgeSize, theme])
+  useBadgeShortcuts()
 
   const updatePlaceholder = () => {
     const el = editorRef.current
@@ -100,6 +97,7 @@ export default function Editor() {
         if (existingHighlight) {
           existingHighlight.remove()
         }
+        setActiveLineId((prev) => (prev === null ? prev : null))
         return
       }
 
@@ -112,21 +110,31 @@ export default function Editor() {
       }
       
       // Find the line containing the caret
-      let lineElement: Element | null = null
+      let lineElement: HTMLElement | null = null
       let node: Node | null = range.startContainer
-      
+
       while (node && node !== el) {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const element = node as Element
           if (element.classList.contains('line')) {
-            lineElement = element
+            lineElement = element as HTMLElement
             break
           }
         }
         node = node.parentNode
       }
 
-      if (!lineElement) return
+      if (!lineElement) {
+        setActiveLineId((prev) => (prev === null ? prev : null))
+        return
+      }
+
+      if (!lineElement.dataset.lineId) {
+        lineElement.dataset.lineId = `line-${lineIdSeed.current++}`
+      }
+
+      const resolvedLineId = lineElement.dataset.lineId ?? null
+      setActiveLineId((prev) => (prev === resolvedLineId ? prev : resolvedLineId))
 
       // Create a range that spans the entire line content
       const lineRange = document.createRange()
@@ -179,7 +187,7 @@ export default function Editor() {
       lineElement.parentNode?.insertBefore(highlight, lineElement)
       
       lineRange.detach()
-    } catch (error) {
+    } catch {
       // Ignore errors
     }
   }, [])
@@ -316,23 +324,55 @@ export default function Editor() {
   }, [showLineTotals])
 
   const measureWords = useCallback(() => {
-    if (!showOverlays) {
-      setBadges([])
+    if (!showOverlays || badgeMode === 'off') {
+      setTokens([])
+      lineElementsRef.current = []
+      setLineVersion((v) => v + 1)
       return
     }
     const root = editorRef.current
     if (!root) return
 
-    const badgesNext: Badge[] = []
     const rootRect = root.getBoundingClientRect()
+    const lines = Array.from(root.querySelectorAll<HTMLDivElement>('.line'))
+    const lineOffsetMap = new Map<HTMLElement, number>()
+    const lineRectMap = new Map<HTMLElement, DOMRect>()
+
+    for (let index = 0; index < lines.length; index += 1) {
+      const lineEl = lines[index]
+      if (!lineEl.dataset.lineId) {
+        lineEl.dataset.lineId = `line-${lineIdSeed.current++}`
+      }
+      lineEl.dataset.lineIndex = index.toString()
+
+      const rect = lineEl.getBoundingClientRect()
+      lineRectMap.set(lineEl, rect)
+
+      const computed = window.getComputedStyle(lineEl)
+      let lineHeightPx = Number.parseFloat(computed.lineHeight)
+      if (!Number.isFinite(lineHeightPx)) {
+        const fontSizePx = Number.parseFloat(computed.fontSize) || 16
+        const numericLineHeight = Number.parseFloat(computed.lineHeight)
+        lineHeightPx =
+          Number.isFinite(numericLineHeight) && numericLineHeight > 0 ? numericLineHeight : fontSizePx * 1.6
+      }
+      const lineOffset = -0.92 * lineHeightPx
+      lineEl.style.setProperty('--line-offset', `${lineOffset}px`)
+      lineOffsetMap.set(lineEl, lineOffset)
+    }
+
+    lineElementsRef.current = lines
+
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
     let node: Node | null = walker.nextNode()
     const wordRegex = /[A-Za-z']+/g
+    const tokensNext: OverlayToken[] = []
+    let tokenId = 0
 
     while (node) {
-      const txt = node.textContent || ''
+      const text = node.textContent || ''
       let match: RegExpExecArray | null
-      while ((match = wordRegex.exec(txt)) !== null) {
+      while ((match = wordRegex.exec(text)) !== null) {
         const start = match.index
         const end = start + match[0].length
 
@@ -342,20 +382,49 @@ export default function Editor() {
 
         const rects = range.getClientRects()
         if (rects.length > 0) {
-          const r = rects[0]
-          const word = match[0]
-          const syl = countSyllables(word)
+          const rangeRect = rects[0]
+          let lineElement: HTMLElement | null = null
+          let current: Node | null = range.startContainer
+          while (current && current !== root) {
+            if (current instanceof HTMLElement && current.classList.contains('line')) {
+              lineElement = current
+              break
+            }
+            current = current.parentNode
+          }
 
-          const x = r.left - rootRect.left + r.width / 2
-          const y = r.top - rootRect.top - 1
-          badgesNext.push({ x, y, text: String(syl) })
+          if (lineElement) {
+            if (!lineElement.dataset.lineId) {
+              lineElement.dataset.lineId = `line-${lineIdSeed.current++}`
+            }
+            const lineId = lineElement.dataset.lineId || `line-${lineIdSeed.current++}`
+            const lineIndex = Number.parseInt(lineElement.dataset.lineIndex ?? '-1', 10)
+            const lineRect = lineRectMap.get(lineElement)
+            const topBase = lineRect ? lineRect.top - rootRect.top : rangeRect.top - rootRect.top
+            const centerX = rangeRect.left - rootRect.left + rangeRect.width / 2
+            const value = countSyllables(match[0])
+            const lineOffset = lineOffsetMap.get(lineElement) ?? -16
+
+            tokensNext.push({
+              id: `${lineId}-${tokenId++}`,
+              value,
+              lineId,
+              lineIndex,
+              lineOffset,
+              rect: {
+                top: topBase,
+                centerX,
+              },
+            })
+          }
         }
         range.detach()
       }
       node = walker.nextNode()
     }
-    setBadges(badgesNext)
-  }, [showOverlays])
+    setTokens(tokensNext)
+    setLineVersion((v) => v + 1)
+  }, [showOverlays, badgeMode])
 
   const scheduleMeasure = useCallback(() => {
     if (measureTimer.current) window.clearTimeout(measureTimer.current)
@@ -390,6 +459,10 @@ export default function Editor() {
   useEffect(() => {
     scheduleMeasure()
   }, [fontSize, lineHeight, scheduleMeasure])
+
+  useEffect(() => {
+    scheduleMeasure()
+  }, [badgeMode, scheduleMeasure])
 
   useEffect(() => {
     const el = editorRef.current
@@ -464,7 +537,6 @@ export default function Editor() {
     window.addEventListener('resize', onResize)
     const scroller = containerRef.current
     const onScroll = () => {
-      scheduleMeasure()
       updateCurrentLineHighlight()
     }
     scroller?.addEventListener('scroll', onScroll, { passive: true })
@@ -473,6 +545,109 @@ export default function Editor() {
       scroller?.removeEventListener('scroll', onScroll)
     }
   }, [scheduleMeasure, updateCurrentLineHighlight])
+
+  useEffect(() => {
+    const lines = lineElementsRef.current
+    if (!lines.length) {
+      setHoveredLineId(null)
+      return
+    }
+
+    const handleEnter = (event: Event) => {
+      const target = event.currentTarget as HTMLElement | null
+      const lineId = target?.dataset.lineId ?? null
+      setHoveredLineId(lineId)
+    }
+
+    const handleLeave = () => {
+      setHoveredLineId(null)
+    }
+
+    lines.forEach((line) => {
+      line.addEventListener('pointerenter', handleEnter)
+      line.addEventListener('pointerleave', handleLeave)
+    })
+
+    return () => {
+      lines.forEach((line) => {
+        line.removeEventListener('pointerenter', handleEnter)
+        line.removeEventListener('pointerleave', handleLeave)
+      })
+    }
+  }, [lineVersion])
+
+  useEffect(() => {
+    const container = containerRef.current
+    const lines = lineElementsRef.current
+    if (!container || !lines.length) {
+      setViewportRange({ start: 0, end: Number.POSITIVE_INFINITY })
+      return
+    }
+
+    const visible = new Set<number>()
+
+    const updateRange = () => {
+      if (!visible.size) {
+        setViewportRange({ start: 0, end: Number.POSITIVE_INFINITY })
+        return
+      }
+      const sorted = Array.from(visible).sort((a, b) => a - b)
+      setViewportRange({ start: sorted[0], end: sorted[sorted.length - 1] })
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let changed = false
+        for (const entry of entries) {
+          const element = entry.target as HTMLElement
+          const index = Number.parseInt(element.dataset.lineIndex ?? '-1', 10)
+          if (Number.isNaN(index)) continue
+          if (entry.isIntersecting && entry.intersectionRatio > 0) {
+            if (!visible.has(index)) {
+              visible.add(index)
+              changed = true
+            }
+          } else if (visible.delete(index)) {
+            changed = true
+          }
+        }
+        if (changed) {
+          updateRange()
+        }
+      },
+      {
+        root: container,
+        threshold: 0,
+      }
+    )
+
+    lines.forEach((line) => observer.observe(line))
+
+    let rafId = 0
+    if (typeof window !== 'undefined') {
+      rafId = window.requestAnimationFrame(() => {
+        const containerRect = container.getBoundingClientRect()
+        lines.forEach((line) => {
+          const rect = line.getBoundingClientRect()
+          const index = Number.parseInt(line.dataset.lineIndex ?? '-1', 10)
+          if (Number.isNaN(index)) return
+          if (rect.bottom >= containerRect.top && rect.top <= containerRect.bottom) {
+            visible.add(index)
+          } else {
+            visible.delete(index)
+          }
+        })
+        updateRange()
+      })
+    }
+
+    return () => {
+      observer.disconnect()
+      if (rafId && typeof window !== 'undefined') {
+        window.cancelAnimationFrame(rafId)
+      }
+    }
+  }, [lineVersion])
 
   return (
     <div className="flex w-full h-screen">
@@ -518,23 +693,20 @@ export default function Editor() {
       >
         <div className="p-8">
           {/* Overlay for syllable badges */}
-          {showOverlays && (
-            <div
-              ref={overlayRef}
-              className="pointer-events-none absolute inset-8 z-10"
-              aria-hidden="true"
-            >
-              {badges.map((b, i) => (
-                <div
-                  key={i}
-                  className={badgeClassName}
-                  style={{ left: b.x, top: b.y }}
-                >
-                  {b.text}
-                </div>
-              ))}
-            </div>
-          )}
+          <div
+            ref={overlayRef}
+            className="pointer-events-none absolute inset-8 z-10"
+            aria-hidden="true"
+          >
+            <SyllableOverlay
+              tokens={tokens}
+              activeLineId={activeLineId}
+              hoveredLineId={hoveredLineId}
+              viewportStart={viewportRange.start}
+              viewportEnd={viewportRange.end}
+              enabled={showOverlays}
+            />
+          </div>
 
           {/* Editable area */}
           <div
