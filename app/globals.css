@@ -2,10 +2,6 @@
 
 /* ----- Custom styles below ----- */
 
-:root {
-  --line-offset: -1.05em;
-}
-
 .text-2xs {
   font-size: 0.65rem;
   line-height: 1;
@@ -50,7 +46,7 @@ body.bg-white {
   overflow-wrap: anywhere;   /* Break long words if needed */
   word-break: break-word;    /* Fallback for older browsers */
   font-size: var(--editor-font-size, 18px);
-  line-height: var(--editor-line-height, 1.6);
+  line-height: max(var(--editor-line-height, 1.6), var(--min-leading, 1.35));
 }
 
 /* Dark theme editor styling */
@@ -103,12 +99,16 @@ body.bg-white .rl-editor {
 /* Line-based highlighting using CSS */
 body.bg-black .rl-editor .line {
   display: block;
-  min-height: calc(var(--editor-font-size, 18px) * var(--editor-line-height, 1.6));
+  min-height: calc(
+    var(--editor-font-size, 18px) * max(var(--editor-line-height, 1.6), var(--min-leading, 1.35))
+  );
 }
 
 body.bg-white .rl-editor .line {
   display: block;
-  min-height: calc(var(--editor-font-size, 18px) * var(--editor-line-height, 1.6));
+  min-height: calc(
+    var(--editor-font-size, 18px) * max(var(--editor-line-height, 1.6), var(--min-leading, 1.35))
+  );
 }
 
 /* Ensure line divs don't break the editor flow */
@@ -118,7 +118,7 @@ body.bg-white .rl-editor .line {
   padding: 2px 4px;
   margin: 0 -4px; /* Negative margin to compensate for padding */
   transition: background-color 0.2s ease, color 0.2s ease;
-  line-height: var(--editor-line-height, 1.6);
+  line-height: max(var(--editor-line-height, 1.6), var(--min-leading, 1.35));
 }
 
 /* Enhanced hover effect when highlight is present */
@@ -186,6 +186,62 @@ body.bg-white .rl-editor .line:hover .current-line-highlight {
 
 .thin-scrollbar::-webkit-scrollbar-thumb:hover {
   background: hsl(220 9% 46%); /* gray-600 */
+}
+
+@layer components {
+  /* Subtle, compact syllable badge */
+  .syllable-badge {
+    @apply pointer-events-none select-none rounded-full bg-muted/70 text-muted-foreground ring-1 ring-border/50 shadow-sm;
+    display: grid;
+    place-items: center;
+    --badge-size: clamp(0.9rem, 1.6vw, 1.05rem);
+    inline-size: var(--badge-size);
+    block-size: var(--badge-size);
+    line-height: var(--badge-size);
+    font-weight: 600;
+    font-size: calc(var(--badge-size) * 0.56);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    opacity: 0.75;
+    --badge-offset: 0.95em;
+    transform-origin: center top;
+    transition: opacity 0.15s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .syllable-badge[data-variant='dots'] {
+    font-size: calc(var(--badge-size) * 0.62);
+    letter-spacing: 0.08em;
+  }
+
+  [data-active-line='true'] .syllable-badge {
+    @apply bg-primary/15 ring-primary/50 text-primary;
+    opacity: 0.98;
+  }
+
+  [data-line-id]:hover .syllable-badge {
+    opacity: 0.95;
+  }
+
+  .leading-tight .syllable-badge {
+    --badge-offset: 0.9em;
+  }
+
+  [data-line-id] {
+    opacity: 0.82;
+    transition: opacity 0.2s ease;
+  }
+
+  [data-line-id][data-active-line='true'] {
+    opacity: 1;
+  }
+
+  .badges-active-only [data-line-id]:not([data-active-line='true']) .syllable-badge {
+    opacity: 0.15;
+  }
+
+  .editor-root .rl-editor {
+    --min-leading: 1.35;
+  }
 }
 
 /* Slider styling for editor settings */

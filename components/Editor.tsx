@@ -691,11 +691,15 @@ export default function Editor() {
               : '100%'
         }}
       >
-        <div className="p-8">
+        <div
+          className="editor-root relative px-8 pb-8"
+          style={{ paddingTop: 'calc(1.1em + 2rem)' }}
+        >
           {/* Overlay for syllable badges */}
           <div
             ref={overlayRef}
-            className="pointer-events-none absolute inset-8 z-10"
+            className="pointer-events-none absolute inset-x-8 bottom-8 z-10"
+            style={{ top: 'calc(1.1em + 2rem)' }}
             aria-hidden="true"
           >
             <SyllableOverlay
