@@ -349,16 +349,16 @@ export default function Editor() {
       lineRectMap.set(lineEl, rect)
 
       const computed = window.getComputedStyle(lineEl)
+      const fontSizePx = Number.parseFloat(computed.fontSize) || 16
       let lineHeightPx = Number.parseFloat(computed.lineHeight)
       if (!Number.isFinite(lineHeightPx)) {
-        const fontSizePx = Number.parseFloat(computed.fontSize) || 16
         const numericLineHeight = Number.parseFloat(computed.lineHeight)
         lineHeightPx =
           Number.isFinite(numericLineHeight) && numericLineHeight > 0 ? numericLineHeight : fontSizePx * 1.6
       }
-      const lineOffset = -0.92 * lineHeightPx
-      lineEl.style.setProperty('--line-offset', `${lineOffset}px`)
-      lineOffsetMap.set(lineEl, lineOffset)
+      const badgeOffsetEm = Math.min(Math.max(0.95 * (lineHeightPx / fontSizePx), 0.85), 1.25)
+      lineEl.style.setProperty('--badge-offset', `${badgeOffsetEm}em`)
+      lineOffsetMap.set(lineEl, badgeOffsetEm)
     }
 
     lineElementsRef.current = lines
@@ -403,7 +403,7 @@ export default function Editor() {
             const topBase = lineRect ? lineRect.top - rootRect.top : rangeRect.top - rootRect.top
             const centerX = rangeRect.left - rootRect.left + rangeRect.width / 2
             const value = countSyllables(match[0])
-            const lineOffset = lineOffsetMap.get(lineElement) ?? -16
+            const lineOffset = lineOffsetMap.get(lineElement) ?? 0.95
 
             tokensNext.push({
               id: `${lineId}-${tokenId++}`,
@@ -577,6 +577,19 @@ export default function Editor() {
   }, [lineVersion])
 
   useEffect(() => {
+    const lines = lineElementsRef.current
+    lines.forEach((line) => {
+      const id = line.dataset.lineId
+      if (!id) return
+      if (id === activeLineId) {
+        line.dataset.activeLine = 'true'
+      } else {
+        delete line.dataset.activeLine
+      }
+    })
+  }, [activeLineId, lineVersion])
+
+  useEffect(() => {
     const container = containerRef.current
     const lines = lineElementsRef.current
     if (!container || !lines.length) {
@@ -677,8 +690,8 @@ export default function Editor() {
       </div>
 
       {/* Editor + overlay */}
-      <div 
-        ref={containerRef} 
+      <div
+        ref={containerRef}
         className="relative flex-1 overflow-auto transition-all duration-300"
         style={{
           marginRight:
@@ -691,12 +704,13 @@ export default function Editor() {
               : '100%'
         }}
       >
-        <div className="p-8">
+        <div className="editor-root relative p-8">
           {/* Overlay for syllable badges */}
           <div
             ref={overlayRef}
-            className="pointer-events-none absolute inset-8 z-10"
+            className="pointer-events-none absolute left-8 right-8 bottom-8 z-10"
             aria-hidden="true"
+            style={{ top: 'calc(2rem + var(--editor-safe-offset, calc(1.1em + 8px)))' }}
           >
             <SyllableOverlay
               tokens={tokens}
