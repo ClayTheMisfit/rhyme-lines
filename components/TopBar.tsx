@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { motion } from 'framer-motion'
+import { useTheme } from 'next-themes'
+import { useMounted } from '@/hooks/useMounted'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -9,9 +11,11 @@ import SettingsSheet from './settings/SettingsSheet'
 
 const DOCUMENT_TITLE_KEY = 'rhyme-lines:document-title'
 
+const PANEL_SPACING_REM = '1.5rem'
+
 type SaveStatus = 'saved' | 'saving' | 'offline'
 
-function applyTheme(theme: 'dark' | 'light') {
+function applyBodyTheme(theme: 'dark' | 'light') {
   const body = document.body
   if (!body) return
   if (theme === 'light') {
@@ -21,20 +25,30 @@ function applyTheme(theme: 'dark' | 'light') {
     body.classList.remove('bg-white', 'text-black')
     body.classList.add('bg-black', 'text-white')
   }
-  document.documentElement.dataset.theme = theme
 }
 
 export default function TopBar() {
+  const mounted = useMounted()
   const [documentTitle, setDocumentTitle] = useState('Untitled Document')
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
   const [isEditingTitle, setIsEditingTitle] = useState(false)
 
-  const theme = useSettingsStore((state) => state.theme)
-  const setTheme = useSettingsStore((state) => state.setTheme)
-
   const titleInputRef = useRef<HTMLInputElement>(null)
+
+  const theme = useSettingsStore((state) => state.theme)
+  const setThemePreference = useSettingsStore((state) => state.setTheme)
+
+  const { resolvedTheme, setTheme: setResolvedTheme } = useTheme()
+
   const { togglePanel, isOpen: isPanelOpen, activeTab, setActiveTab } = useRhymePanelStore()
-  const { isOpen: panelVisible, isFloating, width: dockWidth, dock, undock, open: openPanel } = useRhymePanel((state) => ({
+  const {
+    isOpen: panelVisible,
+    isFloating,
+    width: dockWidth,
+    dock,
+    undock,
+    open: openPanel,
+  } = useRhymePanel((state) => ({
     isOpen: state.isOpen,
     isFloating: state.isFloating,
     width: state.width,
@@ -43,29 +57,101 @@ export default function TopBar() {
     open: state.open,
   }))
 
-  // Load saved preferences
   useEffect(() => {
-    const savedTitle = localStorage.getItem(DOCUMENT_TITLE_KEY) || 'Untitled Document'
-    setDocumentTitle(savedTitle)
+    if (!mounted) return
+
+    const root = document.documentElement
+    const measure = () => {
+      const editorRoot = document.querySelector<HTMLElement>('.editor-root')
+      if (!editorRoot) return false
+      const computed = window.getComputedStyle(editorRoot)
+      const paddingLeft = Number.parseFloat(computed.paddingLeft)
+      if (Number.isFinite(paddingLeft)) {
+        root.style.setProperty('--gutter-px', `${Math.round(paddingLeft)}px`)
+      }
+      return true
+    }
+
+    let observer: ResizeObserver | null = null
+    const connectObserver = () => {
+      if (observer || typeof ResizeObserver === 'undefined') return
+      const editorRoot = document.querySelector<HTMLElement>('.editor-root')
+      if (!editorRoot) return
+      observer = new ResizeObserver(() => {
+        window.requestAnimationFrame(measure)
+      })
+      observer.observe(editorRoot)
+    }
+
+    let rafId = 0
+    let attempts = 0
+    const MAX_ATTEMPTS = 30
+    const attemptMeasure = () => {
+      attempts += 1
+      const found = measure()
+      if (found) {
+        connectObserver()
+        return
+      }
+      if (attempts < MAX_ATTEMPTS) {
+        rafId = window.requestAnimationFrame(attemptMeasure)
+      }
+    }
+
+    rafId = window.requestAnimationFrame(attemptMeasure)
+
+    return () => {
+      window.cancelAnimationFrame(rafId)
+      observer?.disconnect()
+    }
+  }, [mounted])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const root = document.documentElement
+    const offset = panelVisible && !isFloating ? Math.max(0, dockWidth) : 0
+    const value = panelVisible && !isFloating
+      ? `calc(${Math.round(offset)}px + ${PANEL_SPACING_REM})`
+      : '0px'
+
+    const rafId = window.requestAnimationFrame(() => {
+      root.style.setProperty('--panel-right-offset', value)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(rafId)
+    }
+  }, [dockWidth, isFloating, panelVisible, mounted])
+
+  useEffect(() => {
+    const root = document.documentElement
+    return () => {
+      root.style.setProperty('--panel-right-offset', '0px')
+      root.style.setProperty('--gutter-px', '36px')
+    }
   }, [])
 
   useEffect(() => {
-    applyTheme(theme)
-  }, [theme])
+    if (!mounted) return
 
-  // Listen for save events from editor
+    const savedTitle = localStorage.getItem(DOCUMENT_TITLE_KEY) || 'Untitled Document'
+    setDocumentTitle(savedTitle)
+  }, [mounted])
+
   useEffect(() => {
+    if (!mounted) return undefined
+
     const handleSaveStart = () => setSaveStatus('saving')
     const handleSaveComplete = () => {
       setSaveStatus('saved')
-      setTimeout(() => setSaveStatus('saved'), 2000) // Keep "saved" visible for 2s
+      window.setTimeout(() => setSaveStatus('saved'), 2000)
     }
     const handleOffline = () => setSaveStatus('offline')
+    const handleOnline = () => setSaveStatus('saved')
 
     window.addEventListener('rhyme:save-start', handleSaveStart)
     window.addEventListener('rhyme:save-complete', handleSaveComplete)
-    const handleOnline = () => setSaveStatus('saved')
-
     window.addEventListener('offline', handleOffline)
     window.addEventListener('online', handleOnline)
 
@@ -75,11 +161,30 @@ export default function TopBar() {
       window.removeEventListener('offline', handleOffline)
       window.removeEventListener('online', handleOnline)
     }
-  }, [])
+  }, [mounted])
+
+  useEffect(() => {
+    if (!mounted) return
+    if (!resolvedTheme) return
+
+    const resolved = resolvedTheme === 'dark' ? 'dark' : 'light'
+    if (theme !== resolved) {
+      setThemePreference(resolved)
+    }
+    applyBodyTheme(resolved)
+  }, [mounted, resolvedTheme, setThemePreference, theme])
+
+  useEffect(() => {
+    if (!mounted) return
+    const targetTheme = theme === 'dark' ? 'dark' : 'light'
+    if (resolvedTheme !== targetTheme) {
+      setResolvedTheme(targetTheme)
+    }
+  }, [mounted, resolvedTheme, setResolvedTheme, theme])
 
   const handleTitleEdit = () => {
     setIsEditingTitle(true)
-    setTimeout(() => titleInputRef.current?.focus(), 0)
+    window.setTimeout(() => titleInputRef.current?.focus(), 0)
   }
 
   const handleTitleSave = () => {
@@ -87,12 +192,11 @@ export default function TopBar() {
     localStorage.setItem(DOCUMENT_TITLE_KEY, documentTitle)
   }
 
-  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+  const handleTitleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleTitleSave()
     } else if (e.key === 'Escape') {
       setIsEditingTitle(false)
-      // Restore original title
       const savedTitle = localStorage.getItem(DOCUMENT_TITLE_KEY) || 'Untitled Document'
       setDocumentTitle(savedTitle)
     }
@@ -100,8 +204,9 @@ export default function TopBar() {
 
   const toggleTheme = useCallback(() => {
     const next = theme === 'dark' ? 'light' : 'dark'
-    setTheme(next)
-  }, [theme, setTheme])
+    setThemePreference(next)
+    setResolvedTheme(next)
+  }, [setResolvedTheme, setThemePreference, theme])
 
   const toggleRhymeMode = () => {
     const next = activeTab === 'perfect' ? 'slant' : 'perfect'
@@ -110,25 +215,27 @@ export default function TopBar() {
 
   const getSaveStatusText = () => {
     switch (saveStatus) {
-      case 'saving': return 'Saving...'
-      case 'offline': return 'Offline'
-      case 'saved': return 'Saved'
-      default: return 'Saved'
+      case 'saving':
+        return 'Saving...'
+      case 'offline':
+        return 'Offline'
+      case 'saved':
+      default:
+        return 'Saved'
     }
   }
 
   const getSaveStatusColor = () => {
     switch (saveStatus) {
-      case 'saving': return 'text-yellow-400'
-      case 'offline': return 'text-red-400'
-      case 'saved': return 'text-green-400'
-      default: return 'text-green-400'
+      case 'saving':
+        return 'text-yellow-400'
+      case 'offline':
+        return 'text-red-400'
+      case 'saved':
+      default:
+        return 'text-green-400'
     }
   }
-
-  const dockedWidth = panelVisible && !isFloating ? Math.max(0, dockWidth) : 0
-  const dockedOffset = panelVisible && !isFloating ? `calc(${Math.round(dockedWidth)}px + 1.5rem)` : '0px'
-  const dockedWidthValue = panelVisible && !isFloating ? `calc(100% - ${Math.round(dockedWidth)}px - 1.5rem)` : '100%'
 
   const handleDockToggle = () => {
     if (!panelVisible) {
@@ -145,8 +252,8 @@ export default function TopBar() {
     <header
       className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 py-2 bg-black/30 backdrop-blur-md border-b border-white/10 shadow-[0_1px_10px_rgba(255,255,255,0.05)] transition-all duration-300"
       style={{
-        right: dockedOffset,
-        width: isPanelOpen && !isFloating ? dockedWidthValue : '100%'
+        right: 'var(--panel-right-offset, 0px)',
+        width: 'calc(100% - var(--panel-right-offset, 0px))',
       }}
     >
       <div className="flex items-center gap-3 min-w-0">
@@ -172,9 +279,7 @@ export default function TopBar() {
           )}
         </div>
         <span
-          className={`text-xs font-mono transition-opacity duration-300 ${getSaveStatusColor()} ${
-            saveStatus === 'saving' ? 'animate-pulse' : ''
-          }`}
+          className={`text-xs font-mono transition-opacity duration-300 ${getSaveStatusColor()} ${saveStatus === 'saving' ? 'animate-pulse' : ''}`}
         >
           {getSaveStatusText()}
         </span>
