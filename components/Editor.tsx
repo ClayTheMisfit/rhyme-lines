@@ -8,6 +8,7 @@ import { shallow } from 'zustand/shallow'
 import { useBadgeShortcuts } from '@/src/lib/shortcuts/badges'
 import { SyllableOverlay, type OverlayToken } from '@/src/components/editor/SyllableOverlay'
 import { useBadgeSettings } from '@/src/store/settings'
+import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
 
 const STORAGE_KEY = 'rhyme-lines:doc:current'
 const STORAGE_KEY_V2 = 'rhyme-lines:doc:current:v2'
@@ -201,6 +202,9 @@ export default function Editor() {
     const createLine = (): HTMLDivElement => {
       const line = doc.createElement('div')
       line.className = 'line'
+      if (!line.dataset.lineId) {
+        line.dataset.lineId = `line-${lineIdSeed.current++}`
+      }
       return line
     }
 
@@ -246,6 +250,9 @@ export default function Editor() {
 
         if (element.tagName === 'DIV') {
           element.classList.add('line')
+          if (!element.dataset.lineId) {
+            element.dataset.lineId = `line-${lineIdSeed.current++}`
+          }
           ensureLineHasContent(element as HTMLDivElement)
           hasLine = true
           return
@@ -664,34 +671,10 @@ export default function Editor() {
 
   return (
     <div className="flex w-full h-screen">
-      {/* Left gutter */}
-      <div
-        className={`${showLineTotals ? 'w-14 border-r border-gray-600/30 pr-2' : 'w-6'} shrink-0 py-8 text-right`}
-        aria-hidden={!showLineTotals}
-      >
-        {showLineTotals && (
-          <div
-            className={`font-mono text-xs whitespace-pre ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}
-            style={{ lineHeight: 'var(--editor-line-height, 1.6)' }}
-          >
-            {lineTotals.map((total, i) => (
-              <div
-                key={i}
-                style={{
-                  height: 'calc(var(--editor-font-size, 18px) * var(--editor-line-height, 1.6))',
-                  lineHeight: 'var(--editor-line-height, 1.6)',
-                }}
-              >
-                {total || ''}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* Editor + overlay */}
       <div
         ref={containerRef}
+        data-editor-scroll
         className="relative flex-1 overflow-auto transition-all duration-300"
         style={{
           marginRight:
@@ -704,11 +687,11 @@ export default function Editor() {
               : '100%'
         }}
       >
-        <div className="editor-root relative p-8">
+        <div className="editor-root relative p-8 pl-12">
           {/* Overlay for syllable badges */}
           <div
             ref={overlayRef}
-            className="pointer-events-none absolute left-8 right-8 bottom-8 z-10"
+            className="pointer-events-none absolute left-12 right-8 bottom-8 z-10"
             aria-hidden="true"
             style={{ top: 'calc(2rem + var(--editor-safe-offset, calc(1.1em + 8px)))' }}
           >
@@ -721,6 +704,15 @@ export default function Editor() {
               enabled={showOverlays}
             />
           </div>
+
+          {/* Line totals overlay */}
+          <LineTotalsOverlay
+            scrollContainerRef={containerRef}
+            editorRootRef={editorRef}
+            lineTotals={lineTotals}
+            showLineTotals={showLineTotals}
+            theme={theme}
+          />
 
           {/* Editable area */}
           <div
