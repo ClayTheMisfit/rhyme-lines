@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText, migrateOldContent } from '@/lib/editor/serialization'
-import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
 import { useBadgeShortcuts } from '@/src/lib/shortcuts/badges'
@@ -69,11 +68,6 @@ export default function Editor() {
     root.style.setProperty('--editor-line-height', lineHeight.toString())
   }, [fontSize, lineHeight])
   
-  const { isOpen: panelVisible, isFloating, width: dockWidth } = useRhymePanel((state) => ({
-    isOpen: state.isOpen,
-    isFloating: state.isFloating,
-    width: state.width,
-  }))
 
   const badgeMode = useBadgeSettings((state) => state.badgeMode)
 
@@ -677,14 +671,8 @@ export default function Editor() {
         data-editor-scroll
         className="relative flex-1 overflow-auto transition-all duration-300"
         style={{
-          marginRight:
-            panelVisible && !isFloating
-              ? `calc(${Math.round(Math.max(0, dockWidth))}px + 1.5rem)`
-              : '0px',
-          maxWidth:
-            panelVisible && !isFloating
-              ? `calc(100% - ${Math.round(Math.max(0, dockWidth))}px - 1.5rem)`
-              : '100%'
+          marginRight: 'var(--panel-right-offset, 0px)',
+          maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
         }}
       >
         <div className="editor-root relative p-8 pl-12">
