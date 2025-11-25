@@ -43,34 +43,17 @@
 
 @layer base {
   * {
-    border-color: theme('colors.border');
+     border-color: theme('colors.border');
   }
   body {
-    background-color: var(--rl-body-bg);
-    color: var(--rl-body-text);
+    background-color: theme('colors.background');
+    color: theme('colors.foreground');
   }
 }
 
 /* Editor-specific variables */
 :root {
   --editor-safe-offset: calc(1.1em + 8px);
-  /* Server defaults used for first paint (must match SSR output) */
-  --gutter-px: 36px;
-  --panel-right-offset: 0px;
-  --rl-body-bg: #1e1e1e;
-  --rl-body-text: #f3f4f6;
-}
-
-html.dark {
-  color-scheme: dark;
-  --rl-body-bg: #1e1e1e;
-  --rl-body-text: #f3f4f6;
-}
-
-html.light {
-  color-scheme: light;
-  --rl-body-bg: #ffffff;
-  --rl-body-text: #111827;
 }
 
 /* Ensure the overlay sits above the editor but doesn't eat clicks */
