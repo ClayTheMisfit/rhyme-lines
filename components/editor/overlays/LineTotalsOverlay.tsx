@@ -25,16 +25,24 @@ export default function LineTotalsOverlay({
 }: Props) {
   const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1
   const [positions, setPositions] = useState<Pos[]>([])
-  const rafId = useRef<number | null>(null)
+  type FrameHandle = number | ReturnType<typeof setTimeout>
+  const rafId = useRef<FrameHandle | null>(null)
   const measureQueued = useRef(false)
 
   const queueMeasure = (why: string) => {
+    void why
     if (measureQueued.current) return
     measureQueued.current = true
-    rafId.current = requestAnimationFrame(() => {
+    const schedule = () => {
       measureQueued.current = false
       measure()
-    })
+    }
+
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      rafId.current = window.requestAnimationFrame(() => schedule())
+    } else {
+      rafId.current = setTimeout(schedule, 16)
+    }
   }
 
   const measure = () => {
@@ -76,9 +84,14 @@ export default function LineTotalsOverlay({
     const root = editorRootRef.current
     if (!sc || !root) return
 
-    const ro = new ResizeObserver(() => queueMeasure("resize"))
-    ro.observe(sc)
-    ro.observe(root)
+    let ro: ResizeObserver | null = null
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => queueMeasure("resize"))
+      ro.observe(sc)
+      ro.observe(root)
+    } else {
+      queueMeasure("resize-observer-missing")
+    }
 
     const mo = new MutationObserver(() => queueMeasure("mutation"))
     mo.observe(root, { subtree: true, childList: true, characterData: true })
@@ -100,12 +113,22 @@ export default function LineTotalsOverlay({
     queueMeasure("mount")
     
     return () => {
-      ro.disconnect()
+      if (ro) ro.disconnect()
       mo.disconnect()
       sc.removeEventListener("scroll", onScroll)
       window.removeEventListener("resize", onWindowResize)
       document.removeEventListener("selectionchange", onSelectionChange)
-      if (rafId.current) cancelAnimationFrame(rafId.current)
+      if (rafId.current != null) {
+        if (
+          typeof window !== "undefined" &&
+          typeof window.cancelAnimationFrame === "function" &&
+          typeof rafId.current === "number"
+        ) {
+          window.cancelAnimationFrame(rafId.current)
+        } else {
+          clearTimeout(rafId.current as ReturnType<typeof setTimeout>)
+        }
+      }
     }
   }, [])
 

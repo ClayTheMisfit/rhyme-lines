@@ -600,7 +600,7 @@ export default function Editor() {
 
     const visible = new Set<number>()
 
-    const updateRange = () => {
+    const commitRange = () => {
       if (!visible.size) {
         setViewportRange({ start: 0, end: Number.POSITIVE_INFINITY })
         return
@@ -609,54 +609,103 @@ export default function Editor() {
       setViewportRange({ start: sorted[0], end: sorted[sorted.length - 1] })
     }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        let changed = false
-        for (const entry of entries) {
-          const element = entry.target as HTMLElement
-          const index = Number.parseInt(element.dataset.lineIndex ?? '-1', 10)
-          if (Number.isNaN(index)) continue
-          if (entry.isIntersecting && entry.intersectionRatio > 0) {
-            if (!visible.has(index)) {
-              visible.add(index)
-              changed = true
-            }
-          } else if (visible.delete(index)) {
+    const measureFromGeometry = () => {
+      let changed = false
+      const containerRect = container.getBoundingClientRect()
+      const seen = new Set<number>()
+
+      lines.forEach((line) => {
+        const rect = line.getBoundingClientRect()
+        const index = Number.parseInt(line.dataset.lineIndex ?? '-1', 10)
+        if (Number.isNaN(index)) return
+
+        const intersects = rect.bottom >= containerRect.top && rect.top <= containerRect.bottom
+        if (intersects) {
+          seen.add(index)
+          if (!visible.has(index)) {
+            visible.add(index)
             changed = true
           }
+        } else if (visible.delete(index)) {
+          changed = true
         }
-        if (changed) {
-          updateRange()
-        }
-      },
-      {
-        root: container,
-        threshold: 0,
-      }
-    )
+      })
 
-    lines.forEach((line) => observer.observe(line))
+      visible.forEach((index) => {
+        if (!seen.has(index) && visible.delete(index)) {
+          changed = true
+        }
+      })
+
+      if (changed || !visible.size) {
+        commitRange()
+      }
+    }
+
+    let observer: IntersectionObserver | null = null
+    let manualCleanup: (() => void) | null = null
+    if (typeof IntersectionObserver !== 'undefined') {
+      observer = new IntersectionObserver(
+        (entries) => {
+          let changed = false
+          for (const entry of entries) {
+            const element = entry.target as HTMLElement
+            const index = Number.parseInt(element.dataset.lineIndex ?? '-1', 10)
+            if (Number.isNaN(index)) continue
+            if (entry.isIntersecting && entry.intersectionRatio > 0) {
+              if (!visible.has(index)) {
+                visible.add(index)
+                changed = true
+              }
+            } else if (visible.delete(index)) {
+              changed = true
+            }
+          }
+          if (changed) {
+            commitRange()
+          }
+        },
+        {
+          root: container,
+          threshold: 0,
+        }
+      )
+
+      lines.forEach((line) => observer?.observe(line))
+    } else {
+      // Fallback for environments without IntersectionObserver (e.g. Jest)
+      const handleScroll = () => measureFromGeometry()
+      const handleResize = () => measureFromGeometry()
+
+      container.addEventListener('scroll', handleScroll, { passive: true })
+      if (typeof window !== 'undefined') {
+        window.addEventListener('resize', handleResize)
+      }
+
+      manualCleanup = () => {
+        container.removeEventListener('scroll', handleScroll)
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('resize', handleResize)
+        }
+      }
+
+      measureFromGeometry()
+    }
 
     let rafId = 0
     if (typeof window !== 'undefined') {
       rafId = window.requestAnimationFrame(() => {
-        const containerRect = container.getBoundingClientRect()
-        lines.forEach((line) => {
-          const rect = line.getBoundingClientRect()
-          const index = Number.parseInt(line.dataset.lineIndex ?? '-1', 10)
-          if (Number.isNaN(index)) return
-          if (rect.bottom >= containerRect.top && rect.top <= containerRect.bottom) {
-            visible.add(index)
-          } else {
-            visible.delete(index)
-          }
-        })
-        updateRange()
+        measureFromGeometry()
       })
     }
 
     return () => {
-      observer.disconnect()
+      if (observer) {
+        observer.disconnect()
+      }
+      if (manualCleanup) {
+        manualCleanup()
+      }
       if (rafId && typeof window !== 'undefined') {
         window.cancelAnimationFrame(rafId)
       }
