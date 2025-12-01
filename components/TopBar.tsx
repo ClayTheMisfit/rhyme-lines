@@ -34,6 +34,7 @@ export default function TopBar() {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
 
   const titleInputRef = useRef<HTMLInputElement>(null)
+  const headerRef = useRef<HTMLElement>(null)
 
   const theme = useSettingsStore((state) => state.theme)
   const setThemePreference = useSettingsStore((state) => state.setTheme)
@@ -131,6 +132,28 @@ export default function TopBar() {
       root.style.setProperty('--gutter-px', '36px')
     }
   }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    const header = headerRef.current
+    if (!header) return
+    
+    const root = document.documentElement
+    const updateHeight = () => {
+      const height = header.offsetHeight
+      root.style.setProperty('--header-height', `${height}px`)
+    }
+    
+    // Set initial height
+    updateHeight()
+    
+    const observer = new ResizeObserver(() => {
+      updateHeight()
+    })
+    observer.observe(header)
+    
+    return () => observer.disconnect()
+  }, [mounted])
 
   useEffect(() => {
     if (!mounted) return
@@ -250,11 +273,9 @@ export default function TopBar() {
 
   return (
     <header
+      ref={headerRef}
+      data-testid="editor-header"
       className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 py-2 bg-black/30 backdrop-blur-md border-b border-white/10 shadow-[0_1px_10px_rgba(255,255,255,0.05)] transition-all duration-300"
-      style={{
-        right: 'var(--panel-right-offset, 0px)',
-        width: 'calc(100% - var(--panel-right-offset, 0px))',
-      }}
     >
       <div className="flex items-center gap-3 min-w-0">
         <div className="min-w-0">
@@ -287,6 +308,7 @@ export default function TopBar() {
 
       <div className="flex items-center gap-3 text-white/70">
         <motion.button
+          suppressHydrationWarning
           whileHover={{ scale: 1.15, rotate: 2 }}
           whileTap={{ scale: 0.95 }}
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
@@ -300,6 +322,7 @@ export default function TopBar() {
         </motion.button>
 
         <motion.button
+          suppressHydrationWarning
           whileHover={{ scale: 1.15, rotate: 2 }}
           whileTap={{ scale: 0.95 }}
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
@@ -311,6 +334,8 @@ export default function TopBar() {
         </motion.button>
 
         <motion.button
+          suppressHydrationWarning
+          data-testid="toggle-rhyme-panel"
           whileHover={{ scale: 1.15, rotate: 2 }}
           whileTap={{ scale: 0.95 }}
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
@@ -324,6 +349,7 @@ export default function TopBar() {
         </motion.button>
 
         <motion.button
+          suppressHydrationWarning
           whileHover={{ scale: 1.15, rotate: 2 }}
           whileTap={{ scale: 0.95 }}
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
@@ -335,6 +361,7 @@ export default function TopBar() {
         </motion.button>
 
         <motion.div
+          suppressHydrationWarning
           whileHover={{ scale: 1.15, rotate: 2 }}
           whileTap={{ scale: 0.95 }}
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}

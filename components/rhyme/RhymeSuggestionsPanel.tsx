@@ -377,8 +377,12 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
 
   return (
     <div
-      className="fixed bottom-6 right-6 top-16 z-40 flex flex-col"
-      style={{ width: `${dockedWidth}px` }}
+      data-testid="rhyme-panel"
+      className="fixed bottom-6 right-6 z-40 flex flex-col"
+      style={{
+        width: `${dockedWidth}px`,
+        top: 'calc(var(--header-height, 48px) + 0.5rem)',
+      }}
     >
       {panel}
     </div>

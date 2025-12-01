@@ -713,7 +713,7 @@ export default function Editor() {
   }, [lineVersion])
 
   return (
-    <div className="flex w-full h-screen">
+    <div className="flex w-full h-full">
       {/* Editor + overlay */}
       <div
         ref={containerRef}

@@ -17,13 +17,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white min-h-screen flex flex-col`}>
         <Providers>
           <TopBar />
           <RhymePanel />
-          <div className="pt-12">
+          <main className="flex-1 flex min-h-0" style={{ paddingTop: 'var(--header-height, 48px)' }}>
             {children}
-          </div>
+          </main>
         </Providers>
       </body>
     </html>
