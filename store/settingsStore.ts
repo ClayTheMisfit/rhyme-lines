@@ -37,9 +37,13 @@ export const SETTINGS_DEFAULTS: Pick<SettingsState,
   debounceMode: 'typing-250',
 }
 
+type PersistedSettings = Pick<SettingsState,
+  'theme' | 'fontSize' | 'lineHeight' | 'badgeSize' | 'showLineTotals' | 'rhymeAutoRefresh' | 'debounceMode'
+>
+
 const storage = typeof window === 'undefined'
   ? undefined
-  : createJSONStorage<SettingsState>(() => window.localStorage)
+  : createJSONStorage<PersistedSettings>(() => window.localStorage)
 
 export const useSettingsStore = createWithEqualityFn<SettingsState>()(
   persist(

@@ -152,7 +152,7 @@ export default function LineTotalsOverlay({
         className="absolute top-0 left-0 w-[2.25rem] md:w-[2.5rem] text-right pr-1"
         data-line-totals-gutter
       >
-        {positions.map((p) => {
+        {positions.map((p, i) => {
           if (p.hidden || p.total == null) return null
           
           const badgeH = 18
@@ -160,7 +160,7 @@ export default function LineTotalsOverlay({
           
           return (
             <div
-              key={p.id}
+              key={`${p.id}-${i}`}
               className="absolute right-0 rounded px-1.5 h-[18px] leading-[18px] text-[11px] font-medium font-mono"
               style={{ transform: `translateY(${y}px)` }}
             >
