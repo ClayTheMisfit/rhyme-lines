@@ -5,7 +5,7 @@ import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useRhymePanel, type SyllableFilter } from '@/lib/state/rhymePanel'
 import { DockablePanel } from '@/components/panels/DockablePanel'
 import { useRhymeSuggestions } from '@/hooks/useRhymeSuggestions'
-import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
+import { countSyllables } from '@/lib/nlp/syllables'
 import type { ActiveWord } from '@/lib/editor/getActiveWord'
 import type { AggregatedSuggestion } from '@/lib/rhyme/aggregate'
 import SuggestionItem from './SuggestionItem'
@@ -35,7 +35,7 @@ function resolveSyllables(suggestion: AggregatedSuggestion): number {
   return (
     suggestion.syllables ??
     (typeof raw === 'number' ? raw : undefined) ??
-    estimateSyllables(suggestion.word)
+    countSyllables(suggestion.word)
   )
 }
 

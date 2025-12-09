@@ -4,32 +4,16 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText, migrateOldContent } from '@/lib/editor/serialization'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
-import { useBadgeShortcuts } from '@/src/lib/shortcuts/badges'
-import { SyllableOverlay, type OverlayToken } from '@/src/components/editor/SyllableOverlay'
-import { useBadgeSettings } from '@/src/store/settings'
+import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
+import { SyllableOverlay, type OverlayToken } from '@/components/editor/SyllableOverlay'
+import { useBadgeSettings } from '@/store/settings'
 import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
+import { countSyllables } from '@/lib/nlp/syllables'
 
 const STORAGE_KEY = 'rhyme-lines:doc:current'
 const STORAGE_KEY_V2 = 'rhyme-lines:doc:current:v2'
 const SAVE_DELAY_MS = 250
 const MEASURE_DEBOUNCE_MS = 50
-
-function countSyllables(wordRaw: string): number {
-  const word = wordRaw.toLowerCase().replace(/[^a-z']/g, '')
-  if (!word) return 0
-  const specials: Record<string, number> = {
-    the: 1, a: 1, i: 1, you: 1, are: 1, fire: 1, hour: 1, choir: 1,
-    people: 2, every: 2, evening: 3, queue: 1, queued: 1, queues: 1,
-  }
-  if (word in specials) return specials[word]
-  const core = word.replace(/e\b/, '')
-  const groups = core.match(/[aeiouy]+/g)?.length ?? 0
-  let syl = groups
-  if (/(ion|ian|ious|iest)\b/.test(word)) syl += 1
-  if (/[bcdfghjklmnpqrstvwxyz]le\b/.test(word)) syl += 1
-  if (/^[ai]$/.test(word)) syl = 1
-  return Math.max(1, syl)
-}
 
 export default function Editor() {
   const editorRef = useRef<HTMLDivElement>(null)
