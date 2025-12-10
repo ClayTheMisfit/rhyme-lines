@@ -1,8 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
-import { OverlayBadge } from '@/src/components/editor/OverlayBadge'
-import { useBadgeSettings } from '@/src/store/settings'
+import { OverlayBadge } from '@/components/editor/OverlayBadge'
+import { useBadgeSettings } from '@/store/settings'
 
 export type OverlayToken = {
   id: string

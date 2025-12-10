@@ -1,4 +1,5 @@
 import type { RhymeSuggestion } from './datamuse'
+import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 
 const WORDNIK_API_ENDPOINT = '/api/wordnik'
 
@@ -132,18 +133,3 @@ function calculateEndingSimilarity(word1: string, word2: string): number {
   return 0
 }
 
-function estimateSyllables(word: string): number {
-  const vowels = word.match(/[aeiouy]+/gi)
-  if (!vowels) return 1
-  
-  let count = vowels.length
-  
-  // Adjust for silent 'e'
-  if (word.endsWith('e') && count > 1) count--
-  
-  // Adjust for diphthongs
-  const diphthongs = word.match(/[aeiouy]{2,}/gi)
-  if (diphthongs) count -= diphthongs.length - 1
-  
-  return Math.max(1, count)
-}

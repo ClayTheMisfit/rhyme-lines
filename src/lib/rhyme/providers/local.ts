@@ -1,4 +1,5 @@
 import type { RhymeSuggestion } from './datamuse'
+import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 
 // Simple phonetic patterns for local rhyming
 const VOWEL_CHARACTERS = '[aeiouy]'
@@ -6,10 +7,6 @@ const SINGLE_VOWEL_REGEX = new RegExp(VOWEL_CHARACTERS, 'i')
 
 function createVowelGroupRegex(): RegExp {
   return new RegExp(`${VOWEL_CHARACTERS}+`, 'gi')
-}
-
-function createDiphthongRegex(): RegExp {
-  return new RegExp(`${VOWEL_CHARACTERS}{2,}`, 'gi')
 }
 
 // Simple word database for local rhyming
@@ -118,23 +115,6 @@ function countCommonLetters(word1: string, word2: string): number {
   }
   
   return common
-}
-
-function estimateSyllables(word: string): number {
-  const vowels = word.match(createVowelGroupRegex())
-  if (!vowels) return 1
-
-  let count = vowels.length
-
-  // Adjust for silent 'e'
-  if (word.endsWith('e') && count > 1) count--
-
-  // Adjust for diphthongs
-  const diphthongs = word.match(createDiphthongRegex())
-  if (diphthongs) count -= diphthongs.length - 1
-
-  const result = Math.max(1, count)
-  return isNaN(result) ? 1 : result
 }
 
 function isValidWord(word: string): boolean {
