@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from 'react'
 import clsx from 'clsx'
-import { useBadgeSettings } from '@/src/store/settings'
+import { useBadgeSettings } from '@/store/settings'
 
 type OverlayBadgeProps = {
   value: number

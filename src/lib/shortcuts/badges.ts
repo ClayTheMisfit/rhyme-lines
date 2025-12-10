@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { BADGE_MODE_ORDER, BADGE_VARIANT_ORDER, useBadgeSettings } from '@/src/store/settings'
+import { BADGE_MODE_ORDER, BADGE_VARIANT_ORDER, useBadgeSettings } from '@/store/settings'
 
 const cycleValue = <T,>(order: readonly T[], current: T): T => {
   const index = order.indexOf(current)
