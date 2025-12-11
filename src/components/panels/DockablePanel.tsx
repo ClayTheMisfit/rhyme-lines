@@ -24,6 +24,8 @@ type Props = {
   onClose?: () => void
   children: React.ReactNode
   className?: string
+  panelRef?: React.Ref<HTMLDivElement>
+  panelProps?: React.HTMLAttributes<HTMLDivElement>
 }
 
 const headerButtonClass =
@@ -42,6 +44,8 @@ export function DockablePanel({
   onClose,
   children,
   className,
+  panelRef,
+  panelProps,
 }: Props) {
   const header = (
     <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-slate-900/80 backdrop-blur">
@@ -65,13 +69,18 @@ export function DockablePanel({
     </div>
   )
 
-  const panelClasses =
+  const basePanelClasses =
     "border border-white/10 rounded-xl shadow-xl bg-slate-900 text-slate-100 flex flex-col" +
     (className ? ` ${className}` : "")
+  const panelClasses = panelProps?.className
+    ? `${basePanelClasses} ${panelProps.className}`
+    : basePanelClasses
+
+  const mergedPanelProps = panelProps ? { ...panelProps, className: panelClasses } : { className: panelClasses }
 
   if (!isFloating) {
     return (
-      <div className={panelClasses}>
+      <div ref={panelRef} {...mergedPanelProps}>
         {header}
         <div className="min-h-[200px] flex-1 overflow-hidden">{children}</div>
       </div>
@@ -99,7 +108,7 @@ export function DockablePanel({
           })
         }
       >
-        <div className={panelClasses}>
+        <div ref={panelRef} {...mergedPanelProps}>
           {header}
           <div className="flex-1 overflow-auto">{children}</div>
         </div>

@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { forwardRef, useEffect, useState } from 'react'
 import { setupCaretListener } from '@/lib/editor/getActiveWord'
 import type { ActiveWord } from '@/lib/editor/getActiveWord'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { RhymeSuggestionsPanel } from './rhyme/RhymeSuggestionsPanel'
 
-export default function RhymePanel() {
+const RhymePanel = forwardRef<HTMLDivElement>((_, ref) => {
   const { isOpen, close } = useRhymePanel((state) => ({
     isOpen: state.isOpen,
     close: state.close,
@@ -51,6 +51,11 @@ export default function RhymePanel() {
       isOpen={isOpen}
       onClose={handleClose}
       activeWord={activeWord}
+      ref={ref}
     />
   )
-}
+})
+
+RhymePanel.displayName = 'RhymePanel'
+
+export default RhymePanel
