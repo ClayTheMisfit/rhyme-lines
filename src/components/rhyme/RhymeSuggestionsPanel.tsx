@@ -5,6 +5,7 @@ import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useRhymePanel, type SyllableFilter } from '@/lib/state/rhymePanel'
 import { DockablePanel } from '@/components/panels/DockablePanel'
 import { useRhymeSuggestions } from '@/hooks/useRhymeSuggestions'
+import { useClickOutside } from '@/hooks/useClickOutside'
 import { countSyllables } from '@/lib/nlp/syllables'
 import type { ActiveWord } from '@/lib/editor/getActiveWord'
 import type { AggregatedSuggestion } from '@/lib/rhyme/aggregate'
@@ -175,6 +176,10 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
     }
   }, [])
 
+  const handleClose = React.useCallback(() => {
+    onClose()
+  }, [onClose])
+
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (!panelOpen) return
@@ -199,8 +204,7 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
 
       if (event.key === 'Escape') {
         event.preventDefault()
-        closePanel()
-        onClose()
+        handleClose()
         return
       }
 
@@ -231,16 +235,31 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
           return
       }
     },
-    [closePanel, insertSuggestion, onClose, panelOpen, selectedIndex, setFilter, setSelectedIndex]
+    [handleClose, insertSuggestion, panelOpen, selectedIndex, setFilter, setSelectedIndex]
   )
+
+  useClickOutside(panelRef, () => {
+    if (!panelOpen) return
+    handleClose()
+  })
+
+  const handleBlur = (event: React.FocusEvent<HTMLDivElement>) => {
+    const panelElement = panelRef.current
+    if (!panelElement) return
+
+    const nextFocus = event.relatedTarget as Node | null
+    if (nextFocus && panelElement.contains(nextFocus)) return
+
+    handleClose()
+  }
 
   if (!panelOpen) return null
 
   const dockedWidth = Math.min(Math.max(width, MIN_WIDTH), MAX_WIDTH)
 
-  const handleClose = () => {
+  const handleDockableClose = () => {
     closePanel()
-    onClose()
+    handleClose()
   }
 
   const panelContent = (
@@ -373,6 +392,7 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
       ref={panelRef}
       tabIndex={0}
       onKeyDown={handleKeyDown}
+      onBlur={handleBlur}
       className="focus:outline-none"
     >
       <DockablePanel
@@ -385,7 +405,7 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
         onMoveResize={setBounds}
         onUndock={undock}
         onDock={dock}
-        onClose={handleClose}
+        onClose={handleDockableClose}
         className="h-full w-full"
       >
         {panelContent}

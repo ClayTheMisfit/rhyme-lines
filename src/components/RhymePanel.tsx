@@ -13,6 +13,27 @@ export default function RhymePanel() {
   }))
   const [activeWord, setActiveWord] = useState<ActiveWord | null>(null)
 
+  const focusEditor = () => {
+    const editorElement = document.getElementById('lyric-editor')
+    if (!editorElement) return
+
+    editorElement.focus()
+
+    const selection = window.getSelection()
+    if (!selection) return
+
+    const range = document.createRange()
+    range.selectNodeContents(editorElement)
+    range.collapse(false)
+    selection.removeAllRanges()
+    selection.addRange(range)
+  }
+
+  const handleClose = () => {
+    close()
+    focusEditor()
+  }
+
   // Setup caret listener for active word detection
   useEffect(() => {
     const editorElement = document.getElementById('lyric-editor')
@@ -28,7 +49,7 @@ export default function RhymePanel() {
   return (
     <RhymeSuggestionsPanel
       isOpen={isOpen}
-      onClose={close}
+      onClose={handleClose}
       activeWord={activeWord}
     />
   )

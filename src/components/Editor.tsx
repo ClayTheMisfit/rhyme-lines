@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText, migrateOldContent } from '@/lib/editor/serialization'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
@@ -15,7 +15,7 @@ const STORAGE_KEY_V2 = 'rhyme-lines:doc:current:v2'
 const SAVE_DELAY_MS = 250
 const MEASURE_DEBOUNCE_MS = 50
 
-export default function Editor() {
+const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor(_, ref) {
   const editorRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -696,6 +696,21 @@ export default function Editor() {
     }
   }, [lineVersion])
 
+  const handleAssignEditorRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      editorRef.current = node
+
+      if (!ref) return
+      if (typeof ref === 'function') {
+        ref(node)
+        return
+      }
+
+      ref.current = node
+    },
+    [ref]
+  )
+
   return (
     <div className="flex w-full h-full">
       {/* Editor + overlay */}
@@ -737,7 +752,7 @@ export default function Editor() {
 
           {/* Editable area */}
           <div
-            ref={editorRef}
+            ref={handleAssignEditorRef}
             id="lyric-editor"
             contentEditable
             suppressContentEditableWarning
@@ -754,5 +769,9 @@ export default function Editor() {
       </div>
     </div>
   )
-}
+})
+
+Editor.displayName = 'Editor'
+
+export default Editor
 
