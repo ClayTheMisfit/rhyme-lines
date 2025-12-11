@@ -5,7 +5,6 @@ import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useRhymePanel, type SyllableFilter } from '@/lib/state/rhymePanel'
 import { DockablePanel } from '@/components/panels/DockablePanel'
 import { useRhymeSuggestions } from '@/hooks/useRhymeSuggestions'
-import { useClickOutside } from '@/hooks/useClickOutside'
 import { countSyllables } from '@/lib/nlp/syllables'
 import type { ActiveWord } from '@/lib/editor/getActiveWord'
 import type { AggregatedSuggestion } from '@/lib/rhyme/aggregate'
@@ -239,21 +238,6 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
     [handleClose, insertSuggestion, panelOpen, selectedIndex, setFilter, setSelectedIndex]
   )
 
-  useClickOutside(panelRef, () => {
-    if (!panelOpen) return
-    handleClose()
-  })
-
-  const handleBlur = (event: React.FocusEvent<HTMLDivElement>) => {
-    const panelElement = panelRef.current
-    if (!panelElement) return
-
-    const nextFocus = event.relatedTarget as Node | null
-    if (nextFocus && panelElement.contains(nextFocus)) return
-
-    handleClose()
-  }
-
   if (!panelOpen) return null
 
   const dockedWidth = Math.min(Math.max(width, MIN_WIDTH), MAX_WIDTH)
@@ -393,7 +377,6 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
       ref={panelRef}
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      onBlur={handleBlur}
       className="focus:outline-none"
     >
       <DockablePanel
