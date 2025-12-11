@@ -135,24 +135,18 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
 
   React.useEffect(() => {
     if (filteredSuggestions.length === 0) {
-      setSelectedIndex(0)
+      setSelectedIndex(null)
       return
     }
 
-    if (selectedIndex >= filteredSuggestions.length) {
+    if (selectedIndex == null || selectedIndex >= filteredSuggestions.length) {
       setSelectedIndex(0)
     }
   }, [filteredSuggestions.length, selectedIndex, setSelectedIndex])
 
   React.useEffect(() => {
-    setSelectedIndex(0)
-  }, [filter, setSelectedIndex])
-
-  React.useEffect(() => {
-    if (panelOpen) {
-      queueMicrotask(() => searchRef.current?.focus())
-    }
-  }, [panelOpen])
+    setSelectedIndex(filteredSuggestions.length > 0 ? 0 : null)
+  }, [filter, filteredSuggestions.length, setSelectedIndex])
 
   const insertSuggestion = React.useCallback((suggestion: { word: string }) => {
     const editorElement = document.getElementById('lyric-editor')
@@ -208,24 +202,31 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
         return
       }
 
+      const suggestions = suggestionsRef.current
+      if (suggestions.length === 0) return
+
       switch (event.key) {
         case 'ArrowDown': {
           event.preventDefault()
-          const next = Math.min(
-            selectedIndex + 1,
-            Math.max(0, suggestionsRef.current.length - 1)
-          )
+          const next =
+            selectedIndex == null
+              ? 0
+              : (selectedIndex + 1) % suggestions.length
           setSelectedIndex(next)
           return
         }
         case 'ArrowUp': {
           event.preventDefault()
-          const next = Math.max(selectedIndex - 1, 0)
+          const next =
+            selectedIndex == null
+              ? suggestions.length - 1
+              : (selectedIndex - 1 + suggestions.length) % suggestions.length
           setSelectedIndex(next)
           return
         }
         case 'Enter': {
-          const suggestion = suggestionsRef.current[selectedIndex]
+          if (selectedIndex == null) return
+          const suggestion = suggestions[selectedIndex]
           if (!suggestion) return
           event.preventDefault()
           insertSuggestion(suggestion)
