@@ -46,10 +46,24 @@ function matchesFilter(suggestion: AggregatedSuggestion, filter: SyllableFilter)
   return syllableCount === filter
 }
 
-export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
-  const searchRef = React.useRef<HTMLInputElement>(null)
-  const suggestionsRef = React.useRef<AggregatedSuggestion[]>([])
-  const panelRef = React.useRef<HTMLDivElement>(null)
+export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
+  ({ isOpen, onClose, activeWord }, forwardedRef) => {
+    const searchRef = React.useRef<HTMLInputElement>(null)
+    const suggestionsRef = React.useRef<AggregatedSuggestion[]>([])
+    const panelRef = React.useRef<HTMLDivElement>(null)
+
+    const setPanelRef = React.useCallback(
+      (node: HTMLDivElement | null) => {
+        panelRef.current = node
+
+        if (typeof forwardedRef === 'function') {
+          forwardedRef(node)
+        } else if (forwardedRef) {
+          ;(forwardedRef as React.MutableRefObject<HTMLDivElement | null>).current = node
+        }
+      },
+      [forwardedRef]
+    )
 
   const {
     activeTab,
@@ -373,28 +387,23 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
   )
 
   const panel = (
-    <div
-      ref={panelRef}
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-      className="focus:outline-none"
+    <DockablePanel
+      title="Rhyme Suggestions"
+      isFloating={isFloating}
+      x={x}
+      y={y}
+      width={dockedWidth}
+      height={height}
+      onMoveResize={setBounds}
+      onUndock={undock}
+      onDock={dock}
+      onClose={handleDockableClose}
+      className="h-full w-full"
+      panelRef={setPanelRef}
+      panelProps={{ tabIndex: 0, onKeyDown: handleKeyDown, className: 'focus:outline-none' }}
     >
-      <DockablePanel
-        title="Rhyme Suggestions"
-        isFloating={isFloating}
-        x={x}
-        y={y}
-        width={dockedWidth}
-        height={height}
-        onMoveResize={setBounds}
-        onUndock={undock}
-        onDock={dock}
-        onClose={handleDockableClose}
-        className="h-full w-full"
-      >
-        {panelContent}
-      </DockablePanel>
-    </div>
+      {panelContent}
+    </DockablePanel>
   )
 
   if (isFloating) {
@@ -413,4 +422,7 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
       {panel}
     </div>
   )
-}
+  }
+)
+
+RhymeSuggestionsPanel.displayName = 'RhymeSuggestionsPanel'
