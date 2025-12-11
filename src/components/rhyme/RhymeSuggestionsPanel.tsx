@@ -49,6 +49,7 @@ function matchesFilter(suggestion: AggregatedSuggestion, filter: SyllableFilter)
 export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
   const searchRef = React.useRef<HTMLInputElement>(null)
   const suggestionsRef = React.useRef<AggregatedSuggestion[]>([])
+  const panelRef = React.useRef<HTMLDivElement>(null)
 
   const {
     activeTab,
@@ -174,50 +175,64 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
     }
   }, [])
 
-  const handleKeyDown = React.useCallback((e: KeyboardEvent) => {
-    if (!panelOpen) return
+  const handleKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!panelOpen) return
 
-    const target = e.target as HTMLElement | null
-    const isTypingField = !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
-
-    if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key >= '0' && e.key <= '5') {
-      if (isTypingField) return
-      e.preventDefault()
-      setFilter(Number(e.key) as SyllableFilter)
-      return
-    }
-
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      closePanel()
-      onClose()
-      return
-    }
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      const next = Math.min(
-        selectedIndex + 1,
-        Math.max(0, suggestionsRef.current.length - 1)
-      )
-      setSelectedIndex(next)
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      const next = Math.max(selectedIndex - 1, 0)
-      setSelectedIndex(next)
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      const suggestion = suggestionsRef.current[selectedIndex]
-      if (suggestion) {
-        insertSuggestion(suggestion)
+      const target = event.target as HTMLElement | null
+      if (panelRef.current && target && !panelRef.current.contains(target)) {
+        return
       }
-    }
-  }, [panelOpen, closePanel, insertSuggestion, onClose, selectedIndex, setFilter, setSelectedIndex])
 
-  React.useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [handleKeyDown])
+      const isTypingField =
+        !!target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+
+      if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key >= '0' && event.key <= '5') {
+        if (isTypingField) return
+        event.preventDefault()
+        setFilter(Number(event.key) as SyllableFilter)
+        return
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closePanel()
+        onClose()
+        return
+      }
+
+      switch (event.key) {
+        case 'ArrowDown': {
+          event.preventDefault()
+          const next = Math.min(
+            selectedIndex + 1,
+            Math.max(0, suggestionsRef.current.length - 1)
+          )
+          setSelectedIndex(next)
+          return
+        }
+        case 'ArrowUp': {
+          event.preventDefault()
+          const next = Math.max(selectedIndex - 1, 0)
+          setSelectedIndex(next)
+          return
+        }
+        case 'Enter': {
+          const suggestion = suggestionsRef.current[selectedIndex]
+          if (!suggestion) return
+          event.preventDefault()
+          insertSuggestion(suggestion)
+          return
+        }
+        default:
+          return
+      }
+    },
+    [closePanel, insertSuggestion, onClose, panelOpen, selectedIndex, setFilter, setSelectedIndex]
+  )
 
   if (!panelOpen) return null
 
@@ -354,21 +369,28 @@ export function RhymeSuggestionsPanel({ isOpen, onClose, activeWord }: Props) {
   )
 
   const panel = (
-    <DockablePanel
-      title="Rhyme Suggestions"
-      isFloating={isFloating}
-      x={x}
-      y={y}
-      width={dockedWidth}
-      height={height}
-      onMoveResize={setBounds}
-      onUndock={undock}
-      onDock={dock}
-      onClose={handleClose}
-      className="h-full w-full"
+    <div
+      ref={panelRef}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      className="focus:outline-none"
     >
-      {panelContent}
-    </DockablePanel>
+      <DockablePanel
+        title="Rhyme Suggestions"
+        isFloating={isFloating}
+        x={x}
+        y={y}
+        width={dockedWidth}
+        height={height}
+        onMoveResize={setBounds}
+        onUndock={undock}
+        onDock={dock}
+        onClose={handleClose}
+        className="h-full w-full"
+      >
+        {panelContent}
+      </DockablePanel>
+    </div>
   )
 
   if (isFloating) {
