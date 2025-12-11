@@ -13,14 +13,14 @@ export interface RhymePanelState {
   // UI state
   activeTab: RhymeType
   searchQuery: string
-  selectedIndex: number
+  selectedIndex: number | null
   panelWidth: number
   
   // Actions
   togglePanel: () => void
   setActiveTab: (tab: RhymeType) => void
   setSearchQuery: (query: string) => void
-  setSelectedIndex: (index: number) => void
+  setSelectedIndex: (index: number | null) => void
   resetSelection: () => void
   setPanelWidth: (width: number) => void
 }
@@ -32,7 +32,7 @@ export const useRhymePanelStore = create<RhymePanelState>()(
       isOpen: useRhymePanel.getState().isOpen,
       activeTab: 'perfect',
       searchQuery: '',
-      selectedIndex: 0,
+      selectedIndex: null,
       panelWidth: useRhymePanel.getState().width,
 
       // Actions
@@ -40,7 +40,7 @@ export const useRhymePanelStore = create<RhymePanelState>()(
         const { isOpen } = get()
         if (isOpen) {
           useRhymePanel.getState().close()
-          set({ isOpen: false, selectedIndex: 0 })
+          set({ isOpen: false, selectedIndex: null })
         } else {
           useRhymePanel.getState().open()
           set({ isOpen: true, selectedIndex: 0 })
@@ -49,8 +49,8 @@ export const useRhymePanelStore = create<RhymePanelState>()(
 
       setActiveTab: (tab) => set({ activeTab: tab, selectedIndex: 0 }),
       setSearchQuery: (query) => set({ searchQuery: query, selectedIndex: 0 }),
-      setSelectedIndex: (index) => set({ selectedIndex: index }),
-      resetSelection: () => set({ selectedIndex: 0 }),
+      setSelectedIndex: (index: number | null) => set({ selectedIndex: index }),
+      resetSelection: () => set({ selectedIndex: null }),
       setPanelWidth: (width) => {
         useRhymePanel.getState().setBounds({ width })
         set({ panelWidth: width })
@@ -68,12 +68,12 @@ export const useRhymePanelStore = create<RhymePanelState>()(
 )
 
 if (typeof window !== 'undefined') {
-  useRhymePanel.subscribe((state) => {
-    useRhymePanelStore.setState({ isOpen: state.isOpen })
-    if (!state.isOpen) {
-      useRhymePanelStore.setState({ selectedIndex: 0 })
-    }
-  })
+    useRhymePanel.subscribe((state) => {
+      useRhymePanelStore.setState({ isOpen: state.isOpen })
+      if (!state.isOpen) {
+        useRhymePanelStore.setState({ selectedIndex: null })
+      }
+    })
 
   useRhymePanel.subscribe((state) => {
     useRhymePanelStore.setState({ panelWidth: state.width })
