@@ -1,4 +1,4 @@
-import { __testables } from '../lib/rhyme/providers/local'
+import { __testables } from '@/lib/rhyme/providers/local'
 
 describe('local rhyme provider validation', () => {
   it('keeps validating consecutive generated words with vowels', () => {

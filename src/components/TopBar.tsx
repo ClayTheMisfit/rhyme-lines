@@ -41,22 +41,16 @@ export default function TopBar() {
 
   const { resolvedTheme, setTheme: setResolvedTheme } = useTheme()
 
-  const { togglePanel, isOpen: isPanelOpen, activeTab, setActiveTab } = useRhymePanelStore()
-  const {
-    isOpen: panelVisible,
-    isFloating,
-    width: dockWidth,
-    dock,
-    undock,
-    open: openPanel,
-  } = useRhymePanel((state) => ({
-    isOpen: state.isOpen,
-    isFloating: state.isFloating,
+  const { togglePanel, activeTab, setActiveTab } = useRhymePanelStore()
+  const { mode, width: dockWidth, dock, undock, setMode } = useRhymePanel((state) => ({
+    mode: state.mode,
     width: state.width,
     dock: state.dock,
     undock: state.undock,
-    open: state.open,
+    setMode: state.setMode,
   }))
+  const panelVisible = mode !== 'hidden'
+  const isFloating = mode === 'detached'
 
   useEffect(() => {
     if (!mounted) return
@@ -262,8 +256,10 @@ export default function TopBar() {
 
   const handleDockToggle = () => {
     if (!panelVisible) {
-      openPanel()
+      setMode('docked')
+      return
     }
+
     if (isFloating) {
       dock()
     } else {
@@ -341,7 +337,7 @@ export default function TopBar() {
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           onClick={togglePanel}
           className={`text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded ${
-            isPanelOpen ? 'text-white' : 'text-white/70 hover:text-white/90'
+            panelVisible ? 'text-white' : 'text-white/70 hover:text-white/90'
           }`}
           title="Toggle rhyme panel"
         >
