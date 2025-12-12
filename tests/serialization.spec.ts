@@ -2,7 +2,7 @@
  * Unit tests for editor serialization utilities
  */
 
-import { serializeFromEditor, hydrateEditorFromText, migrateOldContent, hasLineBreaks } from '../lib/editor/serialization'
+import { serializeFromEditor, hydrateEditorFromText, migrateOldContent, hasLineBreaks } from '@/lib/editor/serialization'
 
 // Mock DOM environment
 const createMockElement = (html: string): HTMLElement => {

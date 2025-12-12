@@ -7,9 +7,9 @@ import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { RhymeSuggestionsPanel } from './rhyme/RhymeSuggestionsPanel'
 
 const RhymePanel = forwardRef<HTMLDivElement>((_, ref) => {
-  const { isOpen, close } = useRhymePanel((state) => ({
-    isOpen: state.isOpen,
-    close: state.close,
+  const { mode, setMode } = useRhymePanel((state) => ({
+    mode: state.mode,
+    setMode: state.setMode,
   }))
   const [activeWord, setActiveWord] = useState<ActiveWord | null>(null)
 
@@ -30,7 +30,7 @@ const RhymePanel = forwardRef<HTMLDivElement>((_, ref) => {
   }
 
   const handleClose = () => {
-    close()
+    setMode('hidden')
     focusEditor()
   }
 
@@ -48,7 +48,7 @@ const RhymePanel = forwardRef<HTMLDivElement>((_, ref) => {
 
   return (
     <RhymeSuggestionsPanel
-      isOpen={isOpen}
+      mode={mode}
       onClose={handleClose}
       activeWord={activeWord}
       ref={ref}

@@ -8,10 +8,22 @@ import { useRhymePanel } from '@/lib/state/rhymePanel'
 export default function EditorShell() {
   const shellRef = useRef<HTMLDivElement | null>(null)
   const floatingPanelRef = useRef<HTMLDivElement | null>(null)
-  const { isOpen, close } = useRhymePanel((state) => ({
-    isOpen: state.isOpen,
-    close: state.close,
+  const { mode, setMode } = useRhymePanel((state) => ({
+    mode: state.mode,
+    setMode: state.setMode,
   }))
+
+  const focusRhymePanel = useCallback(() => {
+    const panelElement = floatingPanelRef.current
+    if (panelElement) {
+      panelElement.focus()
+      return
+    }
+
+    window.requestAnimationFrame(() => {
+      floatingPanelRef.current?.focus()
+    })
+  }, [])
 
   const focusEditor = useCallback(() => {
     const editorElement = document.getElementById('lyric-editor')
@@ -30,13 +42,13 @@ export default function EditorShell() {
   }, [])
 
   const handleClickOutside = useCallback(() => {
-    if (!isOpen) return
-    close()
+    if (mode === 'hidden') return
+    setMode('hidden')
     focusEditor()
-  }, [close, focusEditor, isOpen])
+  }, [focusEditor, mode, setMode])
 
   useEffect(() => {
-    if (!isOpen) return
+    if (mode === 'hidden') return
 
     const handleDocumentClick = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node | null
@@ -60,7 +72,33 @@ export default function EditorShell() {
       document.removeEventListener('mousedown', handleDocumentClick)
       document.removeEventListener('touchstart', handleDocumentClick)
     }
-  }, [handleClickOutside, isOpen])
+  }, [handleClickOutside, mode])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!event.altKey || event.key.toLowerCase() !== 'r') return
+      event.preventDefault()
+
+      if (mode === 'hidden') {
+        setMode('docked')
+        window.requestAnimationFrame(() => {
+          focusRhymePanel()
+          window.requestAnimationFrame(() => {
+            focusRhymePanel()
+          })
+        })
+        return
+      }
+
+      focusRhymePanel()
+      window.requestAnimationFrame(() => {
+        focusRhymePanel()
+      })
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [focusRhymePanel, mode, setMode])
 
   return (
     <div ref={shellRef} className="relative flex h-full w-full">

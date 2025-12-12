@@ -29,7 +29,7 @@ export const useRhymePanelStore = create<RhymePanelState>()(
   persist(
     (set, get) => ({
       // Initial state
-      isOpen: useRhymePanel.getState().isOpen,
+      isOpen: useRhymePanel.getState().mode !== 'hidden',
       activeTab: 'perfect',
       searchQuery: '',
       selectedIndex: null,
@@ -39,10 +39,10 @@ export const useRhymePanelStore = create<RhymePanelState>()(
       togglePanel: () => {
         const { isOpen } = get()
         if (isOpen) {
-          useRhymePanel.getState().close()
+          useRhymePanel.getState().setMode('hidden')
           set({ isOpen: false, selectedIndex: null })
         } else {
-          useRhymePanel.getState().open()
+          useRhymePanel.getState().setMode('docked')
           set({ isOpen: true, selectedIndex: 0 })
         }
       },
@@ -68,12 +68,12 @@ export const useRhymePanelStore = create<RhymePanelState>()(
 )
 
 if (typeof window !== 'undefined') {
-    useRhymePanel.subscribe((state) => {
-      useRhymePanelStore.setState({ isOpen: state.isOpen })
-      if (!state.isOpen) {
-        useRhymePanelStore.setState({ selectedIndex: null })
-      }
-    })
+  useRhymePanel.subscribe((state) => {
+    useRhymePanelStore.setState((prev) => ({
+      isOpen: state.mode !== 'hidden',
+      selectedIndex: state.mode === 'hidden' ? null : prev.selectedIndex ?? 0,
+    }))
+  })
 
   useRhymePanel.subscribe((state) => {
     useRhymePanelStore.setState({ panelWidth: state.width })

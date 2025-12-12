@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
-import { useRhymePanel, type SyllableFilter } from '@/lib/state/rhymePanel'
+import { useRhymePanel, type RhymePanelMode, type SyllableFilter } from '@/lib/state/rhymePanel'
 import { DockablePanel } from '@/components/panels/DockablePanel'
 import { useRhymeSuggestions } from '@/hooks/useRhymeSuggestions'
 import { countSyllables } from '@/lib/nlp/syllables'
@@ -25,7 +25,7 @@ const SYLLABLE_CHIPS: { label: string; value: SyllableFilter }[] = [
 ]
 
 type Props = {
-  isOpen: boolean
+  mode: RhymePanelMode
   onClose: () => void
   activeWord?: ActiveWord | null
 }
@@ -47,7 +47,7 @@ function matchesFilter(suggestion: AggregatedSuggestion, filter: SyllableFilter)
 }
 
 export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
-  ({ isOpen, onClose, activeWord }, forwardedRef) => {
+  ({ mode, onClose, activeWord }, forwardedRef) => {
     const searchRef = React.useRef<HTMLInputElement>(null)
     const suggestionsRef = React.useRef<AggregatedSuggestion[]>([])
     const panelRef = React.useRef<HTMLDivElement>(null)
@@ -65,60 +65,36 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       [forwardedRef]
     )
 
-  const {
-    activeTab,
-    searchQuery,
-    selectedIndex,
-    setActiveTab,
-    setSearchQuery,
-    setSelectedIndex,
-  } = useRhymePanelStore()
+    const {
+      activeTab,
+      searchQuery,
+      selectedIndex,
+      setActiveTab,
+      setSearchQuery,
+      setSelectedIndex,
+    } = useRhymePanelStore()
 
-  const {
-    isOpen: panelOpen,
-    open: openPanel,
-    close: closePanel,
-    isFloating,
-    filter,
-    x,
-    y,
-    width,
-    height,
-    setFilter,
-    setBounds,
-    dock,
-    undock,
-  } = useRhymePanel((state) => ({
-    isOpen: state.isOpen,
-    open: state.open,
-    close: state.close,
-    isFloating: state.isFloating,
-    filter: state.filter,
-    x: state.x,
-    y: state.y,
-    width: state.width,
-    height: state.height,
-    setFilter: state.setFilter,
-    setBounds: state.setBounds,
-    dock: state.dock,
-    undock: state.undock,
-  }))
+    const { filter, x, y, width, height, setFilter, setBounds, dock, undock } = useRhymePanel(
+      (state) => ({
+        filter: state.filter,
+        x: state.x,
+        y: state.y,
+        width: state.width,
+        height: state.height,
+        setFilter: state.setFilter,
+        setBounds: state.setBounds,
+        dock: state.dock,
+        undock: state.undock,
+      })
+    )
 
-  const { rhymeAutoRefresh, debounceMode } = useSettingsStore(
-    (state) => ({
-      rhymeAutoRefresh: state.rhymeAutoRefresh,
-      debounceMode: state.debounceMode,
-    }),
-    shallow
-  )
-
-  React.useEffect(() => {
-    if (isOpen && !panelOpen) {
-      openPanel()
-    } else if (!isOpen && panelOpen) {
-      closePanel()
-    }
-  }, [isOpen, panelOpen, openPanel, closePanel])
+    const { rhymeAutoRefresh, debounceMode } = useSettingsStore(
+      (state) => ({
+        rhymeAutoRefresh: state.rhymeAutoRefresh,
+        debounceMode: state.debounceMode,
+      }),
+      shallow
+    )
 
   const {
     suggestions,
@@ -130,7 +106,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     searchQuery,
     activeTab,
     activeWord: activeWord || null,
-    enabled: panelOpen,
+    enabled: mode !== 'hidden',
     autoRefresh: rhymeAutoRefresh,
     debounceMode,
   })
@@ -189,7 +165,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (!panelOpen) return
+      if (mode === 'hidden') return
 
       const target = event.target as HTMLElement | null
       if (panelRef.current && target && !panelRef.current.contains(target)) {
@@ -249,15 +225,16 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           return
       }
     },
-    [handleClose, insertSuggestion, panelOpen, selectedIndex, setFilter, setSelectedIndex]
+    [handleClose, insertSuggestion, mode, selectedIndex, setFilter, setSelectedIndex]
   )
 
-  if (!panelOpen) return null
+  const isFloating = mode === 'detached'
+
+  if (mode === 'hidden') return null
 
   const dockedWidth = Math.min(Math.max(width, MIN_WIDTH), MAX_WIDTH)
 
   const handleDockableClose = () => {
-    closePanel()
     handleClose()
   }
 
@@ -386,42 +363,49 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     </div>
   )
 
-  const panel = (
-    <DockablePanel
-      title="Rhyme Suggestions"
-      isFloating={isFloating}
-      x={x}
-      y={y}
-      width={dockedWidth}
-      height={height}
-      onMoveResize={setBounds}
-      onUndock={undock}
-      onDock={dock}
-      onClose={handleDockableClose}
-      className="h-full w-full"
-      panelRef={setPanelRef}
-      panelProps={{ tabIndex: 0, onKeyDown: handleKeyDown, className: 'focus:outline-none' }}
-    >
-      {panelContent}
-    </DockablePanel>
-  )
+    const panelRootProps = {
+      tabIndex: 0,
+      onKeyDown: handleKeyDown,
+      className: 'focus:outline-none',
+      'data-testid': 'rhyme-panel-root',
+    }
 
-  if (isFloating) {
-    return panel
-  }
+    const panel = (
+      <DockablePanel
+        title="Rhyme Suggestions"
+        isFloating={isFloating}
+        x={x}
+        y={y}
+        width={dockedWidth}
+        height={height}
+        onMoveResize={setBounds}
+        onUndock={undock}
+        onDock={dock}
+        onClose={handleDockableClose}
+        className="h-full w-full"
+        panelRef={setPanelRef}
+        panelProps={panelRootProps}
+      >
+        {panelContent}
+      </DockablePanel>
+    )
 
-  return (
-    <div
-      data-testid="rhyme-panel"
-      className="fixed bottom-6 right-6 z-40 flex flex-col"
-      style={{
-        width: `${dockedWidth}px`,
-        top: 'calc(var(--header-height, 48px) + 0.5rem)',
-      }}
-    >
-      {panel}
-    </div>
-  )
+    if (isFloating) {
+      return panel
+    }
+
+    return (
+      <div
+        data-testid="rhyme-panel"
+        className="fixed bottom-6 right-6 z-40 flex flex-col"
+        style={{
+          width: `${dockedWidth}px`,
+          top: 'calc(var(--header-height, 48px) + 0.5rem)',
+        }}
+      >
+        {panel}
+      </div>
+    )
   }
 )
 

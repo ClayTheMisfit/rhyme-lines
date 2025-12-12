@@ -5,17 +5,16 @@ import { persist } from "zustand/middleware"
 
 export type SyllableFilter = 0 | 1 | 2 | 3 | 4 | 5
 
+export type RhymePanelMode = "hidden" | "docked" | "detached"
+
 type RhymePanelState = {
-  isOpen: boolean
-  isFloating: boolean
+  mode: RhymePanelMode
   filter: SyllableFilter
   x: number
   y: number
   width: number
   height: number
-  open: () => void
-  close: () => void
-  toggle: () => void
+  setMode: (mode: RhymePanelMode) => void
   dock: () => void
   undock: () => void
   setFilter: (f: SyllableFilter) => void
@@ -25,18 +24,15 @@ type RhymePanelState = {
 export const useRhymePanel = create<RhymePanelState>()(
   persist(
     (set) => ({
-      isOpen: true,
-      isFloating: false,
+      mode: "hidden",
       filter: 0,
       x: 96,
       y: 96,
       width: 360,
       height: 560,
-      open: () => set({ isOpen: true }),
-      close: () => set({ isOpen: false }),
-      toggle: () => set((state) => ({ isOpen: !state.isOpen })),
-      dock: () => set({ isFloating: false }),
-      undock: () => set({ isFloating: true }),
+      setMode: (mode) => set({ mode }),
+      dock: () => set({ mode: "docked" }),
+      undock: () => set({ mode: "detached" }),
       setFilter: (filter) => set({ filter }),
       setBounds: (bounds) =>
         set((state) => ({

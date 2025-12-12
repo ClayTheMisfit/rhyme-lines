@@ -49,7 +49,12 @@ export function DockablePanel({
 }: Props) {
   const header = (
     <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-slate-900/80 backdrop-blur">
-      <h3 className="text-sm font-semibold tracking-wide text-white/90">{title}</h3>
+      <div
+        className="rhyme-panel-drag-handle px-3 py-1 text-xs uppercase tracking-wide opacity-70 cursor-move select-none"
+        aria-label="Move rhyme panel"
+      >
+        {title}
+      </div>
       <div className="flex items-center gap-2">
         {!isFloating ? (
           <button type="button" className={headerButtonClass} onClick={onUndock} title="Undock panel">
@@ -93,6 +98,7 @@ export function DockablePanel({
     <div className="fixed inset-0 z-[70] pointer-events-none">
       <Rnd
         className="pointer-events-auto"
+        dragHandleClassName="rhyme-panel-drag-handle"
         bounds="window"
         minWidth={280}
         minHeight={240}

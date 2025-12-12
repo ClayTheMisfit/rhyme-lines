@@ -1,5 +1,5 @@
 import { act, render } from '@testing-library/react'
-import Editor from '../components/Editor'
+import Editor from '@/components/Editor'
 
 describe('Editor line normalization', () => {
   test('ensures new blocks receive line class after Enter', () => {
