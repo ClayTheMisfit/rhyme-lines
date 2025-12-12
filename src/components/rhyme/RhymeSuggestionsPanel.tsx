@@ -363,6 +363,13 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     </div>
   )
 
+    const panelRootProps = {
+      tabIndex: 0,
+      onKeyDown: handleKeyDown,
+      className: 'focus:outline-none',
+      'data-testid': 'rhyme-panel-root',
+    }
+
     const panel = (
       <DockablePanel
         title="Rhyme Suggestions"
@@ -377,12 +384,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         onClose={handleDockableClose}
         className="h-full w-full"
         panelRef={setPanelRef}
-        panelProps={{
-          tabIndex: 0,
-          onKeyDown: handleKeyDown,
-          className: 'focus:outline-none',
-          'data-testid': 'rhyme-panel-root',
-        }}
+        panelProps={panelRootProps}
       >
         {panelContent}
       </DockablePanel>
