@@ -490,9 +490,9 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
     }
     window.addEventListener('beforeunload', onBeforeUnload)
 
-    // hotkeys: Alt+R for overlays
+    // hotkeys: Alt+S for overlays (avoids conflict with Alt+R rhyme panel)
     const onKey = (e: KeyboardEvent) => {
-      if (e.altKey && (e.key === 'r' || e.key === 'R')) {
+      if (e.altKey && (e.key === 's' || e.key === 'S')) {
         e.preventDefault()
         setShowOverlays(v => !v)
       }
