@@ -2,6 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText, migrateOldContent } from '@/lib/editor/serialization'
+import { computeLineTotals } from '@/lib/editor/lineTotals'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
 import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
@@ -298,13 +299,9 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
     }
     const el = editorRef.current
     if (!el) return
-    const lines = el.innerText.replace(/\u00A0/g, ' ').split(/\r?\n/)
-    const totals = lines.map(ln =>
-      ln
-        .split(/\s+/)
-        .filter(Boolean)
-        .reduce((sum, w) => sum + countSyllables(w), 0)
-    )
+
+    const text = serializeFromEditor(el)
+    const totals = computeLineTotals(text)
     setLineTotals(totals)
   }, [showLineTotals])
 

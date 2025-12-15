@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 
 type Props = {
   scrollContainerRef: React.RefObject<HTMLElement | null>
@@ -8,12 +8,12 @@ type Props = {
   theme: 'light' | 'dark'
 }
 
-type Pos = { 
+type Pos = {
   id: string
   y: number
   h: number
   hidden?: boolean
-  total?: number
+  total: number
 }
 
 export default function LineTotalsOverlay({ 
@@ -60,18 +60,18 @@ export default function LineTotalsOverlay({
     lineElements.forEach((el, index) => {
       const lineId = el.dataset.lineId
       if (!lineId) return
-      
+
       const r = el.getBoundingClientRect()
       const top = r.top - scRect.top + sc.scrollTop
       const y = Math.round(top * dpr) / dpr
-      const total = lineTotals[index] || 0
-      
-      next.push({ 
-        id: lineId, 
-        y, 
-        h: r.height, 
+      const total = lineTotals[index] ?? 0
+
+      next.push({
+        id: lineId,
+        y,
+        h: r.height,
         hidden: r.height === 0,
-        total: total > 0 ? total : undefined
+        total,
       })
     })
     
@@ -153,18 +153,19 @@ export default function LineTotalsOverlay({
         data-line-totals-gutter
       >
         {positions.map((p, i) => {
-          if (p.hidden || p.total == null) return null
-          
+          if (p.hidden) return null
+
           const badgeH = 18
           const y = p.y + Math.max(0, (p.h - badgeH) / 2)
-          
+          const display = p.total === 0 ? '\u00A0' : p.total.toString()
+
           return (
             <div
               key={`${p.id}-${i}`}
               className="absolute right-0 rounded px-1.5 h-[18px] leading-[18px] text-[11px] font-medium font-mono"
               style={{ transform: `translateY(${y}px)` }}
             >
-              <span className="text-white/95">{p.total}</span>
+              <span className="text-white/95">{display}</span>
             </div>
           )
         })}
