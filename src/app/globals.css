@@ -273,6 +273,24 @@ body.bg-white .rl-editor .line:hover .current-line-highlight {
   height: calc(var(--editor-font-size, 18px) * var(--editor-line-height, 1.6));
 }
 
+.gutterMirror {
+  margin: 0;
+  padding: 2px 0.25rem;
+  white-space: pre;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  font-size: var(--editor-font-size, 18px);
+  line-height: var(--editor-line-height, 1.6);
+  pointer-events: none;
+}
+
+.gutterMirror-light {
+  color: #4b5563; /* gray-600 */
+}
+
+.gutterMirror-dark {
+  color: #9ca3af; /* gray-400 */
+}
+
 /* Custom scrollbar styles */
 .scrollbar-thin {
   scrollbar-width: thin;

@@ -11,14 +11,14 @@ test.describe('Line totals gutter', () => {
     await editor.press('Enter')
     await editor.type('spin test')
 
-    const gutterRows = page.locator('[data-line-totals-gutter] div')
-    await expect(gutterRows).toHaveCount(3)
-    await expect(gutterRows.nth(2)).toHaveText('2')
+    const gutter = page.locator('[data-line-totals-gutter]')
+    const editorLines = page.locator('.rl-editor .line')
 
-    const positions = await gutterRows.evaluateAll((nodes) =>
-      nodes.map((node) => node.getBoundingClientRect().y)
-    )
+    await expect(editorLines).toHaveCount(3)
 
-    expect(positions[2]).toBeGreaterThan(positions[0])
+    const gutterLines = (await gutter.innerText()).split('\n')
+
+    expect(gutterLines).toHaveLength(3)
+    expect(gutterLines[gutterLines.length - 1].trim()).toBe('2')
   })
 })
