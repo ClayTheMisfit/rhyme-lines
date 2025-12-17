@@ -120,8 +120,8 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
   )
 
   const editorIsMeaningfullyEmpty = useCallback((el: HTMLElement) => {
-    const lines = Array.from(el.querySelectorAll<HTMLDivElement>('.line')).filter(
-      (line) => !isPlaceholderLine(line)
+    const lines: HTMLDivElement[] = Array.from(el.querySelectorAll<HTMLDivElement>('.line')).filter(
+      (line): line is HTMLDivElement => !isPlaceholderLine(line)
     )
     if (lines.length === 0) return true
     return lines.every((line) => ((line.textContent || '').replace(/\u00A0/g, ' ').trim().length === 0))
