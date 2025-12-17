@@ -725,47 +725,49 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
           maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
         }}
       >
-        <div className="editor-root relative p-8 pl-12">
-          {/* Overlay for syllable badges */}
-          <div
-            ref={overlayRef}
-            className="pointer-events-none absolute left-12 right-8 bottom-8 z-10"
-            aria-hidden="true"
-            style={{ top: 'calc(2rem + var(--editor-safe-offset, calc(1.1em + 8px)))' }}
-          >
-            <SyllableOverlay
-              tokens={tokens}
-              activeLineId={activeLineId}
-              hoveredLineId={hoveredLineId}
-              viewportStart={viewportRange.start}
-              viewportEnd={viewportRange.end}
-              enabled={showOverlays}
+        <div className="editor-root relative">
+          <div className="rl-editor-grid">
+            <LineTotalsOverlay
+              lineTotals={lineTotals}
+              lines={lines}
+              showLineTotals={showLineTotals}
+              theme={theme}
             />
+
+            <div className="relative min-h-[70vh]">
+              {/* Overlay for syllable badges */}
+              <div
+                ref={overlayRef}
+                className="pointer-events-none absolute inset-0 z-10"
+                aria-hidden="true"
+              >
+                <SyllableOverlay
+                  tokens={tokens}
+                  activeLineId={activeLineId}
+                  hoveredLineId={hoveredLineId}
+                  viewportStart={viewportRange.start}
+                  viewportEnd={viewportRange.end}
+                  enabled={showOverlays}
+                />
+              </div>
+
+              {/* Editable area */}
+              <div
+                ref={handleAssignEditorRef}
+                id="lyric-editor"
+                contentEditable
+                suppressContentEditableWarning
+                spellCheck={false}
+                data-placeholder="Start writing..."
+                onInput={handleChange}
+                onKeyUp={handleChange}
+                onBlur={handleChange}
+                onKeyDown={handleChange}
+                onClick={handleChange}
+                className="rl-editor relative outline-none w-full min-h-[70vh] font-mono"
+              />
+            </div>
           </div>
-
-          {/* Line totals overlay */}
-          <LineTotalsOverlay
-            lineTotals={lineTotals}
-            lines={lines}
-            showLineTotals={showLineTotals}
-            theme={theme}
-          />
-
-          {/* Editable area */}
-          <div
-            ref={handleAssignEditorRef}
-            id="lyric-editor"
-            contentEditable
-            suppressContentEditableWarning
-            spellCheck={false}
-            data-placeholder="Start writing..."
-            onInput={handleChange}
-            onKeyUp={handleChange}
-            onBlur={handleChange}
-            onKeyDown={handleChange}
-            onClick={handleChange}
-            className="rl-editor relative outline-none w-full min-h-[70vh] font-mono"
-          />
         </div>
       </div>
     </div>
