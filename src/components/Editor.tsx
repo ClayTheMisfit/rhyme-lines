@@ -11,6 +11,7 @@ import { useBadgeSettings } from '@/store/settings'
 import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
 import { countSyllables } from '@/lib/nlp/syllables'
 
+const PLACEHOLDER_TEXT = 'Start writing...'
 const STORAGE_KEY = 'rhyme-lines:doc:current'
 const STORAGE_KEY_V2 = 'rhyme-lines:doc:current:v2'
 const SAVE_DELAY_MS = 250
@@ -59,12 +60,103 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
 
   useBadgeShortcuts()
 
-  const updatePlaceholder = () => {
+  const isPlaceholderLine = (element: Element | null): element is HTMLDivElement =>
+    !!element && element.getAttribute('data-placeholder-line') === 'true'
+
+  const createLineElement = useCallback(
+    (doc: Document, options?: { placeholder?: boolean }) => {
+      const line = doc.createElement('div')
+      line.className = 'line'
+      if (options?.placeholder) {
+        line.dataset.placeholderLine = 'true'
+        line.classList.add('placeholder-line')
+        const placeholder = doc.createElement('span')
+        placeholder.className = 'placeholder-text'
+        placeholder.setAttribute('aria-hidden', 'true')
+        placeholder.setAttribute('data-placeholder-content', 'true')
+        placeholder.textContent = PLACEHOLDER_TEXT
+        placeholder.contentEditable = 'false'
+        line.appendChild(placeholder)
+      }
+
+      if (!line.dataset.lineId) {
+        line.dataset.lineId = `line-${lineIdSeed.current++}`
+      }
+      return line
+    },
+    []
+  )
+
+  const ensureLineHasContent = useCallback(
+    (line: HTMLDivElement, doc: Document) => {
+      const hasBreak = Array.from(line.childNodes).some((node) => node.nodeName === 'BR')
+      if (!hasBreak) {
+        line.appendChild(doc.createElement('br'))
+      }
+    },
+    []
+  )
+
+  const setCaretToLineStart = useCallback((line: HTMLDivElement) => {
+    const selection = line.ownerDocument.getSelection()
+    if (!selection) return
+    const range = line.ownerDocument.createRange()
+    range.setStart(line, 0)
+    range.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(range)
+  }, [])
+
+  const replacePlaceholderWithEmptyLine = useCallback(
+    (placeholderLine: HTMLDivElement) => {
+      const doc = placeholderLine.ownerDocument
+      const replacement = createLineElement(doc)
+      replacement.dataset.lineId = placeholderLine.dataset.lineId ?? `line-${lineIdSeed.current++}`
+      ensureLineHasContent(replacement, doc)
+      placeholderLine.replaceWith(replacement)
+      return replacement
+    },
+    [createLineElement, ensureLineHasContent]
+  )
+
+  const editorIsMeaningfullyEmpty = useCallback((el: HTMLElement) => {
+    const lines = Array.from(el.querySelectorAll<HTMLDivElement>('.line')).filter(
+      (line) => !isPlaceholderLine(line)
+    )
+    if (lines.length === 0) return true
+    return lines.every((line) => ((line.textContent || '').replace(/\u00A0/g, ' ').trim().length === 0))
+  }, [])
+
+  const syncPlaceholderLine = useCallback(() => {
     const el = editorRef.current
     if (!el) return
-    const hasText = (el.textContent || '').trim().length > 0
-    el.classList.toggle('show-placeholder', !hasText)
-  }
+    const doc = el.ownerDocument || document
+    const placeholderLine = el.querySelector<HTMLDivElement>('[data-placeholder-line="true"]')
+    const hasContent = !editorIsMeaningfullyEmpty(el)
+
+    if (hasContent) {
+      if (placeholderLine) {
+        placeholderLine.remove()
+      }
+      return
+    }
+
+    if (placeholderLine) {
+      ensureLineHasContent(placeholderLine, doc)
+      if (document.activeElement === el) {
+        setCaretToLineStart(placeholderLine)
+      }
+      return
+    }
+
+    el.innerHTML = ''
+    const placeholder = createLineElement(doc, { placeholder: true })
+    ensureLineHasContent(placeholder, doc)
+    el.appendChild(placeholder)
+    if (document.activeElement === el) {
+      setCaretToLineStart(placeholder)
+    }
+  }, [createLineElement, editorIsMeaningfullyEmpty, ensureLineHasContent, setCaretToLineStart])
 
   const updateCurrentLineHighlight = useCallback(() => {
     const el = editorRef.current
@@ -99,6 +191,9 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
           const element = node as Element
           if (element.classList.contains('line')) {
             lineElement = element as HTMLElement
+            if (isPlaceholderLine(lineElement)) {
+              lineElement = null
+            }
             break
           }
         }
@@ -179,45 +274,10 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
 
     const doc = el.ownerDocument || document
 
-    const createLine = (): HTMLDivElement => {
-      const line = doc.createElement('div')
-      line.className = 'line'
-      if (!line.dataset.lineId) {
-        line.dataset.lineId = `line-${lineIdSeed.current++}`
-      }
-      return line
-    }
-
-    const ensureLineHasContent = (line: HTMLDivElement) => {
-      if (line.childNodes.length === 0) {
-        line.appendChild(doc.createElement('br'))
-      }
-    }
-
-    const wrapNodeWithLine = (node: Node): HTMLDivElement => {
-      const line = createLine()
-
-      if (node.nodeType === Node.TEXT_NODE) {
-        const text = node.textContent ?? ''
-        if (text.trim() !== '') {
-          line.textContent = text
-        }
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        const element = node as HTMLElement
-        while (element.firstChild) {
-          line.appendChild(element.firstChild)
-        }
-      }
-
-      ensureLineHasContent(line)
-      node.parentNode?.replaceChild(line, node)
-      return line
-    }
-
     const childNodes = Array.from(el.childNodes)
     if (childNodes.length === 0) {
-      const line = createLine()
-      line.appendChild(doc.createElement('br'))
+      const line = createLineElement(doc)
+      ensureLineHasContent(line, doc)
       el.appendChild(line)
       return
     }
@@ -230,24 +290,31 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
 
         if (element.tagName === 'DIV') {
           element.classList.add('line')
+          if (isPlaceholderLine(element)) {
+            element.classList.add('placeholder-line')
+          }
           if (!element.dataset.lineId) {
             element.dataset.lineId = `line-${lineIdSeed.current++}`
           }
-          ensureLineHasContent(element as HTMLDivElement)
+          ensureLineHasContent(element as HTMLDivElement, doc)
           hasLine = true
           return
         }
 
         if (element.tagName === 'BR') {
-          const line = createLine()
-          line.appendChild(doc.createElement('br'))
+          const line = createLineElement(doc)
+          ensureLineHasContent(line, doc)
           el.replaceChild(line, element)
           hasLine = true
           return
         }
 
-        const line = wrapNodeWithLine(element)
-        ensureLineHasContent(line)
+        const line = createLineElement(doc)
+        while (element.firstChild) {
+          line.appendChild(element.firstChild)
+        }
+        ensureLineHasContent(line, doc)
+        element.parentNode?.replaceChild(line, element)
         hasLine = true
         return
       }
@@ -258,8 +325,10 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
           node.parentNode?.removeChild(node)
           return
         }
-        const line = wrapNodeWithLine(node)
-        ensureLineHasContent(line)
+        const line = createLineElement(doc)
+        line.textContent = text
+        ensureLineHasContent(line, doc)
+        node.parentNode?.replaceChild(line, node)
         hasLine = true
         return
       }
@@ -269,11 +338,11 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
 
     if (!hasLine) {
       el.innerHTML = ''
-      const line = createLine()
-      line.appendChild(doc.createElement('br'))
+      const line = createLineElement(doc)
+      ensureLineHasContent(line, doc)
       el.appendChild(line)
     }
-  }, [])
+  }, [createLineElement, ensureLineHasContent, isPlaceholderLine])
 
   const saveNow = () => {
     const el = editorRef.current
@@ -321,7 +390,9 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
     if (!root) return
 
     const rootRect = root.getBoundingClientRect()
-    const lines = Array.from(root.querySelectorAll<HTMLDivElement>('.line'))
+    const lines = Array.from(root.querySelectorAll<HTMLDivElement>('.line')).filter(
+      (line) => !isPlaceholderLine(line)
+    )
     const lineOffsetMap = new Map<HTMLElement, number>()
     const lineRectMap = new Map<HTMLElement, DOMRect>()
 
@@ -357,6 +428,11 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
     let tokenId = 0
 
     while (node) {
+      const placeholderAncestor = node.parentElement?.closest('[data-placeholder-line="true"]')
+      if (placeholderAncestor) {
+        node = walker.nextNode()
+        continue
+      }
       const text = node.textContent || ''
       let match: RegExpExecArray | null
       while ((match = wordRegex.exec(text)) !== null) {
@@ -411,7 +487,7 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
     }
     setTokens(tokensNext)
     setLineVersion((v) => v + 1)
-  }, [showOverlays, badgeMode])
+  }, [showOverlays, badgeMode, isPlaceholderLine])
 
   const scheduleMeasure = useCallback(() => {
     if (measureTimer.current) window.clearTimeout(measureTimer.current)
@@ -424,11 +500,25 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
 
   const handleChange = () => {
     ensureLineStructure()
+    syncPlaceholderLine()
     updateCurrentLineHighlight()
-    updatePlaceholder()
     scheduleSave()
     scheduleMeasure()
     recomputeLineTotals()
+  }
+
+  const handleBeforeInput = (event: React.FormEvent<HTMLDivElement>) => {
+    const nativeEvent = event.nativeEvent as InputEvent
+    const inputType = typeof nativeEvent?.inputType === 'string' ? nativeEvent.inputType : ''
+    if (inputType && !inputType.startsWith('insert')) return
+
+    const el = editorRef.current
+    if (!el) return
+    const placeholderLine = el.querySelector<HTMLDivElement>('[data-placeholder-line="true"]')
+    if (!placeholderLine) return
+
+    const replacement = replacePlaceholderWithEmptyLine(placeholderLine)
+    setCaretToLineStart(replacement)
   }
 
   const handleSelectionChange = () => {
@@ -477,8 +567,9 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
     } catch {}
 
     ensureLineStructure()
-    updatePlaceholder()
+    syncPlaceholderLine()
     el.focus()
+    syncPlaceholderLine()
     requestAnimationFrame(() => {
       measureWords()
       recomputeLineTotals()
@@ -514,7 +605,7 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
       if (saveTimer.current) window.clearTimeout(saveTimer.current)
       if (measureTimer.current) window.clearTimeout(measureTimer.current)
     }
-  }, [measureWords, recomputeLineTotals])
+  }, [measureWords, recomputeLineTotals, syncPlaceholderLine])
 
   useEffect(() => {
     const onResize = () => {
@@ -758,7 +849,7 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
                 contentEditable
                 suppressContentEditableWarning
                 spellCheck={false}
-                data-placeholder="Start writing..."
+                onBeforeInput={handleBeforeInput}
                 onInput={handleChange}
                 onKeyUp={handleChange}
                 onBlur={handleChange}
