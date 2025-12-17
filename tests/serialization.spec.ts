@@ -68,6 +68,14 @@ describe('serializeFromEditor', () => {
     const result = serializeFromEditor(el)
     expect(result).toBe('supercalifragilisticexpialidocious\nword')
   })
+
+  test('ignores placeholder lines', () => {
+    const el = createMockElement(
+      '<div class="line" data-placeholder-line="true"><span data-placeholder-content="true">Start writing...</span><br></div><div class="line">Real line</div>'
+    )
+    const result = serializeFromEditor(el)
+    expect(result).toBe('Real line')
+  })
 })
 
 describe('hydrateEditorFromText', () => {
