@@ -390,8 +390,8 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
     if (!root) return
 
     const rootRect = root.getBoundingClientRect()
-    const lines = Array.from(root.querySelectorAll<HTMLDivElement>('.line')).filter(
-      (line) => !isPlaceholderLine(line)
+    const lines: HTMLDivElement[] = Array.from(root.querySelectorAll<HTMLDivElement>('.line')).filter(
+      (line): line is HTMLDivElement => !isPlaceholderLine(line)
     )
     const lineOffsetMap = new Map<HTMLElement, number>()
     const lineRectMap = new Map<HTMLElement, DOMRect>()
