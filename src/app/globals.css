@@ -56,23 +56,6 @@
   --editor-safe-offset: calc(1.1em + 8px);
 }
 
-/* Ensure the overlay sits above the editor but doesn't eat clicks */
-[data-editor-scroll] { 
-  position: relative; 
-}
-
-/* Line totals overlay positioning */
-.line-totals-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 0;
-  pointer-events: none;
-  z-index: 20;
-  transform: translateZ(0);
-}
-
 /* ----- Custom styles below ----- */
 
 @layer components {
@@ -173,19 +156,32 @@ body.bg-white {
 /* Editor line break preservation */
 .editor-root {
   position: relative;
-  padding-block-start: calc(2rem + var(--editor-safe-offset));
+  --rl-font: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  --rl-font-size: var(--editor-font-size, 18px);
+  --rl-line-height: max(var(--editor-line-height, 1.6), 1.35);
+  --rl-line-pad-y: 2px;
+  --rl-pad-top: calc(2rem + var(--editor-safe-offset));
+  --rl-pad-bottom: 2rem;
+  --rl-pad-inline: 2rem;
+  --rl-gutter-width: clamp(2.25rem, 3vw, 2.75rem);
 }
 
-.editor-root .rl-editor {
-  --min-leading: 1.35;
-  line-height: max(var(--editor-line-height, 1.6), var(--min-leading));
+.rl-editor-grid {
+  display: grid;
+  grid-template-columns: var(--rl-gutter-width) 1fr;
+  column-gap: 0.75rem;
+  padding-inline: var(--rl-pad-inline);
+  align-items: flex-start;
 }
 
 .rl-editor {
   white-space: pre-wrap;    /* Preserve whitespace and line breaks */
   overflow-wrap: anywhere;   /* Break long words if needed */
   word-break: break-word;    /* Fallback for older browsers */
-  font-size: var(--editor-font-size, 18px);
+  font-size: var(--rl-font-size);
+  font-family: var(--rl-font);
+  line-height: var(--rl-line-height);
+  padding-block: var(--rl-pad-top) var(--rl-pad-bottom);
 }
 
 /* Dark theme editor styling */
@@ -236,24 +232,20 @@ body.bg-white .rl-editor {
 }
 
 /* Line-based highlighting using CSS */
-body.bg-black .rl-editor .line {
-  display: block;
-  min-height: calc(var(--editor-font-size, 18px) * var(--editor-line-height, 1.6));
-}
-
+body.bg-black .rl-editor .line,
 body.bg-white .rl-editor .line {
   display: block;
-  min-height: calc(var(--editor-font-size, 18px) * var(--editor-line-height, 1.6));
+  min-height: calc(var(--rl-font-size) * var(--rl-line-height) + var(--rl-line-pad-y) * 2);
 }
 
 /* Ensure line divs don't break the editor flow */
 .rl-editor .line {
   position: relative;
   border-radius: 6px;
-  padding: 2px 4px;
-  margin: 0 -4px; /* Negative margin to compensate for padding */
+  padding: var(--rl-line-pad-y) 0.25rem;
+  margin: 0;
   transition: background-color 0.2s ease, color 0.2s ease;
-  line-height: var(--editor-line-height, 1.6);
+  line-height: var(--rl-line-height);
 }
 
 /* Enhanced hover effect when highlight is present */
@@ -270,17 +262,20 @@ body.bg-white .rl-editor .line:hover .current-line-highlight {
   content: '';
   display: inline-block;
   width: 0;
-  height: calc(var(--editor-font-size, 18px) * var(--editor-line-height, 1.6));
+  height: calc(var(--rl-font-size) * var(--rl-line-height) + var(--rl-line-pad-y) * 2);
 }
 
 .gutterMirror {
   margin: 0;
-  padding: 2px 0.25rem;
+  padding-inline: 0.25rem;
+  padding-block: var(--rl-pad-top) var(--rl-pad-bottom);
   white-space: pre;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
-  font-size: var(--editor-font-size, 18px);
-  line-height: var(--editor-line-height, 1.6);
+  font-family: var(--rl-font);
+  font-size: var(--rl-font-size);
+  line-height: calc(var(--rl-font-size) * var(--rl-line-height) + var(--rl-line-pad-y) * 2);
+  text-align: right;
   pointer-events: none;
+  user-select: none;
 }
 
 .gutterMirror-light {
