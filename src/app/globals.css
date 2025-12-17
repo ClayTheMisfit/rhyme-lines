@@ -137,22 +137,6 @@ body.bg-white {
   background-color: #ffffff;  /* Clean white for light theme */
 }
 
-/* Reliable placeholder for contentEditable */
-[contenteditable][data-placeholder]::before {
-  content: attr(data-placeholder);
-  position: absolute;
-  top: 0;
-  left: 0;
-  padding: 0.5rem 0.25rem; /* ~py-2 px-1 */
-  color: #6b7280;          /* gray-500 */
-  opacity: 0.6;
-  pointer-events: none;
-  display: none;           /* hidden by default */
-}
-[contenteditable].show-placeholder::before {
-  display: block;          /* shown only when we add the class */
-}
-
 /* Editor line break preservation */
 .editor-root {
   position: relative;
@@ -189,6 +173,22 @@ body.bg-black .rl-editor {
   background-color: #1e1e1e;  /* Rich dark gray background */
   color: #d4d4d4;             /* High readability text color */
   transition: background-color 150ms ease;
+}
+
+.rl-editor .placeholder-line {
+  color: #6b7280;
+  opacity: 0.7;
+}
+
+body.bg-black .rl-editor .placeholder-line {
+  color: #9ca3af;
+  opacity: 0.55;
+}
+
+.rl-editor .placeholder-line::before {
+  content: attr(data-placeholder);
+  pointer-events: none;
+  user-select: none;
 }
 
 /* Current line highlighting - pill style overlay */
