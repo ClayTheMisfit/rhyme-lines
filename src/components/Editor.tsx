@@ -2,7 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText, migrateOldContent } from '@/lib/editor/serialization'
-import { computeLineTotals } from '@/lib/editor/lineTotals'
+import { computeLineTotals, splitNormalizedLines } from '@/lib/editor/lineTotals'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
 import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
@@ -28,6 +28,7 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
 
   const [tokens, setTokens] = useState<OverlayToken[]>([])
   const [lineTotals, setLineTotals] = useState<number[]>([])
+  const [lines, setLines] = useState<string[]>([])
   const [showOverlays, setShowOverlays] = useState(true)
   const [activeLineId, setActiveLineId] = useState<string | null>(null)
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
@@ -295,13 +296,17 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
   const recomputeLineTotals = useCallback(() => {
     if (!showLineTotals) {
       setLineTotals([])
+      setLines([])
       return
     }
     const el = editorRef.current
     if (!el) return
 
     const text = serializeFromEditor(el)
-    const totals = computeLineTotals(text)
+    const normalizedLines = splitNormalizedLines(text)
+    const totals = computeLineTotals(text, normalizedLines)
+
+    setLines(normalizedLines)
     setLineTotals(totals)
   }, [showLineTotals])
 
@@ -740,9 +745,8 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
 
           {/* Line totals overlay */}
           <LineTotalsOverlay
-            scrollContainerRef={containerRef}
-            editorRootRef={editorRef}
             lineTotals={lineTotals}
+            lines={lines}
             showLineTotals={showLineTotals}
             theme={theme}
           />
@@ -771,4 +775,3 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
 Editor.displayName = 'Editor'
 
 export default Editor
-
