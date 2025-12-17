@@ -185,8 +185,7 @@ body.bg-black .rl-editor .placeholder-line {
   opacity: 0.55;
 }
 
-.rl-editor .placeholder-line::before {
-  content: attr(data-placeholder);
+.rl-editor .placeholder-text {
   pointer-events: none;
   user-select: none;
 }

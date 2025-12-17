@@ -70,7 +70,13 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
       if (options?.placeholder) {
         line.dataset.placeholderLine = 'true'
         line.classList.add('placeholder-line')
-        line.dataset.placeholder = PLACEHOLDER_TEXT
+        const placeholder = doc.createElement('span')
+        placeholder.className = 'placeholder-text'
+        placeholder.setAttribute('aria-hidden', 'true')
+        placeholder.setAttribute('data-placeholder-content', 'true')
+        placeholder.textContent = PLACEHOLDER_TEXT
+        placeholder.contentEditable = 'false'
+        line.appendChild(placeholder)
       }
 
       if (!line.dataset.lineId) {
