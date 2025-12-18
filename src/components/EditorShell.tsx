@@ -1,9 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import Editor from './Editor'
 import RhymePanel from './RhymePanel'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
+import TabBar from '@/components/tabs/TabBar'
+import { useTabsStore } from '@/store/tabsStore'
+import { shallow } from 'zustand/shallow'
 
 export default function EditorShell() {
   const shellRef = useRef<HTMLDivElement | null>(null)
@@ -12,6 +15,19 @@ export default function EditorShell() {
     mode: state.mode,
     setMode: state.setMode,
   }))
+  const { tabs, activeTabId, actions } = useTabsStore(
+    (state) => ({
+      tabs: state.tabs,
+      activeTabId: state.activeTabId,
+      actions: state.actions,
+    }),
+    shallow
+  )
+
+  const activeTab = useMemo(
+    () => tabs.find((tab) => tab.id === activeTabId) ?? tabs[0],
+    [activeTabId, tabs]
+  )
 
   const focusRhymePanel = useCallback(() => {
     const panelElement = floatingPanelRef.current
@@ -75,6 +91,10 @@ export default function EditorShell() {
   }, [handleClickOutside, mode])
 
   useEffect(() => {
+    actions.hydrate()
+  }, [actions])
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!event.altKey || event.key.toLowerCase() !== 'r') return
       event.preventDefault()
@@ -100,10 +120,42 @@ export default function EditorShell() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [focusRhymePanel, mode, setMode])
 
+  const handleTextChange = useCallback(
+    (text: string) => {
+      if (!activeTab) return
+      actions.updateSnapshot(activeTab.id, { text })
+      actions.markDirty(activeTab.id, true)
+    },
+    [actions, activeTab]
+  )
+
+  const handleDirtyChange = useCallback(
+    (dirty: boolean) => {
+      if (!activeTab) return
+      actions.markDirty(activeTab.id, dirty)
+    },
+    [actions, activeTab]
+  )
+
+  const handleRename = useCallback(
+    (id: string, title: string) => actions.renameTab(id, title),
+    [actions]
+  )
+
   return (
-    <div ref={shellRef} className="relative flex h-full w-full">
-      <Editor />
-      <RhymePanel ref={floatingPanelRef} />
+    <div ref={shellRef} className="relative flex h-full w-full flex-col">
+      <TabBar
+        tabs={tabs}
+        activeTabId={activeTabId}
+        onNew={actions.newTab}
+        onSelect={actions.setActive}
+        onClose={actions.closeTab}
+        onRename={handleRename}
+      />
+      <div className="flex h-full w-full flex-1 min-h-0">
+        <Editor text={activeTab?.snapshot.text ?? ''} onTextChange={handleTextChange} onDirtyChange={handleDirtyChange} />
+        <RhymePanel ref={floatingPanelRef} />
+      </div>
     </div>
   )
 }

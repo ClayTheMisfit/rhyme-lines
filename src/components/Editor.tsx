@@ -1,7 +1,7 @@
 'use client'
 
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
-import { serializeFromEditor, hydrateEditorFromText, migrateOldContent } from '@/lib/editor/serialization'
+import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
 import { computeLineTotals, splitNormalizedLines } from '@/lib/editor/lineTotals'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
@@ -12,20 +12,27 @@ import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
 import { countSyllables } from '@/lib/nlp/syllables'
 
 const PLACEHOLDER_TEXT = 'Start writing...'
-const STORAGE_KEY = 'rhyme-lines:doc:current'
-const STORAGE_KEY_V2 = 'rhyme-lines:doc:current:v2'
-const SAVE_DELAY_MS = 250
 const MEASURE_DEBOUNCE_MS = 50
+const SAVE_STATUS_DELAY_MS = 200
 
-const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor(_, ref) {
+type EditorProps = {
+  text: string
+  onTextChange: (text: string) => void
+  onDirtyChange?: (dirty: boolean) => void
+}
+
+const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, onTextChange, onDirtyChange }, ref) {
   const editorRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const lineIdSeed = useRef(0)
   const lineElementsRef = useRef<HTMLDivElement[]>([])
 
-  const saveTimer = useRef<number | null>(null)
   const measureTimer = useRef<number | null>(null)
+  const lastSerializedRef = useRef<string>('')
+  const lastHydratedTextRef = useRef<string>('')
+  const hasInitializedRef = useRef(false)
+  const saveStatusTimer = useRef<number | null>(null)
 
   const [tokens, setTokens] = useState<OverlayToken[]>([])
   const [lineTotals, setLineTotals] = useState<number[]>([])
@@ -60,8 +67,11 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
 
   useBadgeShortcuts()
 
-  const isPlaceholderLine = (element: Element | null): element is HTMLDivElement =>
-    !!element && element.getAttribute('data-placeholder-line') === 'true'
+  const isPlaceholderLine = useCallback(
+    (element: Element | null): element is HTMLDivElement =>
+      !!element && element.getAttribute('data-placeholder-line') === 'true',
+    []
+  )
 
   const createLineElement = useCallback(
     (doc: Document, options?: { placeholder?: boolean }) => {
@@ -125,7 +135,7 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
     )
     if (lines.length === 0) return true
     return lines.every((line) => ((line.textContent || '').replace(/\u00A0/g, ' ').trim().length === 0))
-  }, [])
+  }, [isPlaceholderLine])
 
   const syncPlaceholderLine = useCallback(() => {
     const el = editorRef.current
@@ -266,7 +276,7 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
     } catch {
       // Ignore errors
     }
-  }, [])
+  }, [isPlaceholderLine])
 
   const ensureLineStructure = useCallback(() => {
     const el = editorRef.current
@@ -344,23 +354,13 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
     }
   }, [createLineElement, ensureLineHasContent, isPlaceholderLine])
 
-  const saveNow = () => {
-    const el = editorRef.current
-    if (!el) return
-    try {
-      const text = serializeFromEditor(el)
-      localStorage.setItem(STORAGE_KEY_V2, text)
-      // Emit save complete event
-      window.dispatchEvent(new CustomEvent('rhyme:save-complete'))
-    } catch {}
-  }
-
-  const scheduleSave = () => {
-    if (saveTimer.current) window.clearTimeout(saveTimer.current)
-    // Emit save start event
+  const announceSave = useCallback(() => {
     window.dispatchEvent(new CustomEvent('rhyme:save-start'))
-    saveTimer.current = window.setTimeout(saveNow, SAVE_DELAY_MS)
-  }
+    if (saveStatusTimer.current) window.clearTimeout(saveStatusTimer.current)
+    saveStatusTimer.current = window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('rhyme:save-complete'))
+    }, SAVE_STATUS_DELAY_MS)
+  }, [])
 
   const recomputeLineTotals = useCallback(() => {
     if (!showLineTotals) {
@@ -502,9 +502,19 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
     ensureLineStructure()
     syncPlaceholderLine()
     updateCurrentLineHighlight()
-    scheduleSave()
     scheduleMeasure()
     recomputeLineTotals()
+
+    const el = editorRef.current
+    if (!el) return
+    const serialized = serializeFromEditor(el)
+    if (serialized !== lastSerializedRef.current) {
+      lastSerializedRef.current = serialized
+      lastHydratedTextRef.current = serialized
+      onTextChange(serialized)
+      onDirtyChange?.(true)
+      announceSave()
+    }
   }
 
   const handleBeforeInput = (event: React.FormEvent<HTMLDivElement>) => {
@@ -521,9 +531,9 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
     setCaretToLineStart(replacement)
   }
 
-  const handleSelectionChange = () => {
+  const handleSelectionChange = useCallback(() => {
     updateCurrentLineHighlight()
-  }
+  }, [updateCurrentLineHighlight])
 
   useEffect(() => {
     if (showLineTotals) {
@@ -544,68 +554,45 @@ const Editor = forwardRef<HTMLDivElement, Record<string, never>>(function Editor
   useEffect(() => {
     const el = editorRef.current
     if (!el) return
+    if (hasInitializedRef.current && text === lastHydratedTextRef.current) return
 
-    try {
-      // Try new format first
-      let saved = localStorage.getItem(STORAGE_KEY_V2)
-      
-      // If no v2 content, try to migrate from old format
-      if (!saved) {
-        const oldContent = localStorage.getItem(STORAGE_KEY)
-        if (oldContent) {
-          saved = migrateOldContent(oldContent)
-          // Save migrated content to new format
-          if (saved) {
-            localStorage.setItem(STORAGE_KEY_V2, saved)
-          }
-        }
-      }
-      
-      if (saved) {
-        hydrateEditorFromText(el, saved)
-      }
-    } catch {}
-
+    hydrateEditorFromText(el, text)
     ensureLineStructure()
     syncPlaceholderLine()
-    el.focus()
-    syncPlaceholderLine()
+    lastHydratedTextRef.current = text
+    lastSerializedRef.current = text
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true
+      el.focus()
+    }
     requestAnimationFrame(() => {
       measureWords()
       recomputeLineTotals()
       updateCurrentLineHighlight()
     })
+  }, [measureWords, recomputeLineTotals, syncPlaceholderLine, text, updateCurrentLineHighlight, ensureLineStructure])
 
-    // flush on unload
-    const onBeforeUnload = () => {
-      if (saveTimer.current) window.clearTimeout(saveTimer.current)
-      saveNow()
-    }
-    window.addEventListener('beforeunload', onBeforeUnload)
-
-    // hotkeys: Alt+S for overlays (avoids conflict with Alt+R rhyme panel)
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey && (e.key === 's' || e.key === 'S')) {
         e.preventDefault()
-        setShowOverlays(v => !v)
+        setShowOverlays((v) => !v)
       }
     }
-    // custom event from toolbar
-    const onToggleEvent = () => setShowOverlays(v => !v)
+    const onToggleEvent = () => setShowOverlays((v) => !v)
 
     window.addEventListener('keydown', onKey)
     window.addEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
     document.addEventListener('selectionchange', handleSelectionChange)
 
     return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload)
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
       document.removeEventListener('selectionchange', handleSelectionChange)
-      if (saveTimer.current) window.clearTimeout(saveTimer.current)
       if (measureTimer.current) window.clearTimeout(measureTimer.current)
+      if (saveStatusTimer.current) window.clearTimeout(saveStatusTimer.current)
     }
-  }, [measureWords, recomputeLineTotals, syncPlaceholderLine])
+  }, [handleSelectionChange])
 
   useEffect(() => {
     const onResize = () => {
