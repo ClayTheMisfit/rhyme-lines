@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import Editor from './Editor'
 import RhymePanel from './RhymePanel'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
-import TabBar from '@/components/tabs/TabBar'
 import { useTabsStore } from '@/store/tabsStore'
 import { shallow } from 'zustand/shallow'
 
@@ -137,21 +136,8 @@ export default function EditorShell() {
     [actions, activeTab]
   )
 
-  const handleRename = useCallback(
-    (id: string, title: string) => actions.renameTab(id, title),
-    [actions]
-  )
-
   return (
     <div ref={shellRef} className="relative flex h-full w-full flex-col">
-      <TabBar
-        tabs={tabs}
-        activeTabId={activeTabId}
-        onNew={actions.newTab}
-        onSelect={actions.setActive}
-        onClose={actions.closeTab}
-        onRename={handleRename}
-      />
       <div className="flex h-full w-full flex-1 min-h-0">
         <Editor text={activeTab?.snapshot.text ?? ''} onTextChange={handleTextChange} onDirtyChange={handleDirtyChange} />
         <RhymePanel ref={floatingPanelRef} />
