@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { Tab } from '@/store/tabsStore'
-import { cn } from '@/lib/utils'
+
+const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
 
 interface TabBarProps {
   tabs: Tab[]
@@ -59,7 +60,7 @@ export function TabBar({ tabs, activeTabId, onNew, onSelect, onClose, onRename }
               key={tab.id}
               role="tab"
               aria-selected={isActive}
-              className={cn(
+              className={cx(
                 'group relative flex items-center gap-2 rounded-md px-3 py-1 text-sm transition-colors whitespace-nowrap',
                 isActive ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5'
               )}
