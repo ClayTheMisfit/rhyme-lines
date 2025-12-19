@@ -166,12 +166,16 @@ body.bg-white {
   font-family: var(--rl-font);
   line-height: var(--rl-line-height);
   padding-block: var(--rl-pad-top) var(--rl-pad-bottom);
+  position: relative;
+  isolation: isolate;
+  caret-color: #f9fafb;
 }
 
 /* Dark theme editor styling */
 body.bg-black .rl-editor {
   background-color: #1e1e1e;  /* Rich dark gray background */
   color: #d4d4d4;             /* High readability text color */
+  caret-color: #f9fafb;
   transition: background-color 150ms ease;
 }
 
@@ -191,14 +195,16 @@ body.bg-black .rl-editor .placeholder-line {
 }
 
 /* Current line highlighting - pill style overlay */
+/* Layer order: highlight (z-0, pointer-events:none) -> text (z-10 via inline class) -> badges (z-20 overlay container) */
 .rl-editor .current-line-highlight {
   position: absolute;
   border-radius: 6px;
   padding: 2px 4px;
   transition: background-color 0.2s ease, box-shadow 0.2s ease;
-  pointer-events: auto;
-  z-index: 1;
-  cursor: text;
+  pointer-events: none;
+  z-index: 0;
+  inset-inline: 0;
+  isolation: isolate;
 }
 
 body.bg-black .rl-editor .current-line-highlight {
@@ -227,6 +233,7 @@ body.bg-white .rl-editor .current-line-highlight.active {
 body.bg-white .rl-editor {
   background-color: #ffffff;  /* Clean white background */
   color: #1a1a1a;            /* Dark text for light theme */
+  caret-color: #0f172a;
   transition: background-color 150ms ease;
 }
 
@@ -240,6 +247,7 @@ body.bg-white .rl-editor .line {
 /* Ensure line divs don't break the editor flow */
 .rl-editor .line {
   position: relative;
+  z-index: 1;
   border-radius: 6px;
   padding: var(--rl-line-pad-y) 0.25rem;
   margin: 0;

@@ -24,7 +24,7 @@ export default function LineTotalsOverlay({
     <pre
       aria-hidden
       data-line-totals-gutter
-      className={`gutterMirror ${themeClass} ${showLineTotals ? '' : 'opacity-0'}`}
+      className={`gutterMirror ${themeClass} ${showLineTotals ? '' : 'opacity-0'} pointer-events-none`}
     >
       {(showLineTotals ? gutterLines : ['\u00A0']).join('\n')}
     </pre>

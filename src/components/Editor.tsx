@@ -24,6 +24,7 @@ type EditorProps = {
 const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, onTextChange, onDirtyChange }, ref) {
   const editorRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
+  const highlightLayerRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const lineIdSeed = useRef(0)
   const lineElementsRef = useRef<HTMLDivElement[]>([])
@@ -170,27 +171,20 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, o
 
   const updateCurrentLineHighlight = useCallback(() => {
     const el = editorRef.current
-    if (!el) return
+    const highlightLayer = highlightLayerRef.current
+    if (!el || !highlightLayer) return
 
     try {
       const selection = window.getSelection()
       if (!selection || selection.rangeCount === 0) {
-        // Remove existing highlight if no selection
-        const existingHighlight = el.querySelector('.current-line-highlight')
-        if (existingHighlight) {
-          existingHighlight.remove()
-        }
+        highlightLayer.replaceChildren()
         setActiveLineId((prev) => (prev === null ? prev : null))
         return
       }
 
       const range = selection.getRangeAt(0)
-      
-      // Remove existing highlight
-      const existingHighlight = el.querySelector('.current-line-highlight')
-      if (existingHighlight) {
-        existingHighlight.remove()
-      }
+
+      highlightLayer.replaceChildren()
       
       // Find the line containing the caret
       let lineElement: HTMLElement | null = null
@@ -246,31 +240,17 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, o
       // Create the highlight element
       const highlight = document.createElement('div')
       highlight.className = 'current-line-highlight active'
+      highlight.setAttribute('aria-hidden', 'true')
+      highlight.setAttribute('data-editor-overlay', 'current-line')
+      highlight.tabIndex = -1
+      highlight.contentEditable = 'false'
+      highlight.style.pointerEvents = 'none'
       highlight.style.left = `${highlightLeft}px`
       highlight.style.top = `${highlightTop}px`
       highlight.style.width = `${highlightWidth}px`
       highlight.style.height = `${highlightHeight}px`
 
-      // Forward clicks to the underlying line element
-      highlight.addEventListener('click', (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        
-        // Create a range at the end of the line content
-        const range = document.createRange()
-        range.selectNodeContents(lineElement)
-        range.collapse(false) // Collapse to end
-        
-        const selection = window.getSelection()
-        selection?.removeAllRanges()
-        selection?.addRange(range)
-        
-        // Update highlight after selection change
-        setTimeout(() => updateCurrentLineHighlight(), 0)
-      })
-
-      // Insert the highlight before the line element
-      lineElement.parentNode?.insertBefore(highlight, lineElement)
+      highlightLayer.appendChild(highlight)
       
       lineRange.detach()
     } catch {
@@ -791,6 +771,14 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, o
     [ref]
   )
 
+  const ensureEditorFocus = useCallback(() => {
+    const node = editorRef.current
+    if (!node) return
+    if (document.activeElement !== node) {
+      node.focus({ preventScroll: true })
+    }
+  }, [])
+
   return (
     <div className="flex w-full h-full">
       {/* Editor + overlay */}
@@ -813,11 +801,22 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, o
             />
 
             <div className="relative min-h-[70vh]">
+              {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
+              <div
+                ref={highlightLayerRef}
+                className="pointer-events-none absolute inset-0 z-0"
+                aria-hidden="true"
+                data-layer="highlight"
+                contentEditable={false}
+              />
               {/* Overlay for syllable badges */}
               <div
                 ref={overlayRef}
-                className="pointer-events-none absolute inset-0 z-10"
+                className="pointer-events-none absolute inset-0 z-20"
                 aria-hidden="true"
+                tabIndex={-1}
+                data-layer="overlay"
+                contentEditable={false}
               >
                 <SyllableOverlay
                   tokens={tokens}
@@ -836,13 +835,19 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, o
                 contentEditable
                 suppressContentEditableWarning
                 spellCheck={false}
+                data-layer="editable"
                 onBeforeInput={handleBeforeInput}
                 onInput={handleChange}
                 onKeyUp={handleChange}
                 onBlur={handleChange}
                 onKeyDown={handleChange}
-                onClick={handleChange}
-                className="rl-editor relative outline-none w-full min-h-[70vh] font-mono"
+                onClick={(event) => {
+                  ensureEditorFocus()
+                  handleChange()
+                  event.stopPropagation()
+                }}
+                onPointerDown={ensureEditorFocus}
+                className="rl-editor relative z-10 outline-none w-full min-h-[70vh] font-mono pointer-events-auto"
               />
             </div>
           </div>
