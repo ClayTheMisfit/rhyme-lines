@@ -1,4 +1,4 @@
-import { countSyllables } from '@/lib/nlp/syllables'
+import { computeAnalysis, type LineInput } from '@/lib/analysis/compute'
 
 export function splitNormalizedLines(text: string): string[] {
   const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
@@ -7,11 +7,11 @@ export function splitNormalizedLines(text: string): string[] {
 
 export function computeLineTotals(text: string, lines?: string[]): number[] {
   const resolvedLines = lines ?? splitNormalizedLines(text)
+  const lineInputs: LineInput[] = resolvedLines.map((line, index) => ({
+    id: `line-${index}`,
+    text: line,
+  }))
 
-  return resolvedLines.map((line) => {
-    const words = line.split(/\s+/).filter((word) => word.length > 0)
-    if (words.length === 0) return 0
-
-    return words.reduce((sum, word) => sum + countSyllables(word), 0)
-  })
+  const analysis = computeAnalysis(lineInputs, { docId: 'line-totals', seq: 0 })
+  return lineInputs.map((line) => analysis.lineTotals[line.id] ?? 0)
 }

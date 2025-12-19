@@ -2,32 +2,37 @@
 
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
-import { computeLineTotals, splitNormalizedLines } from '@/lib/editor/lineTotals'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
 import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
 import { SyllableOverlay, type OverlayToken } from '@/components/editor/SyllableOverlay'
 import { useBadgeSettings } from '@/store/settings'
 import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
-import { countSyllables } from '@/lib/nlp/syllables'
+import { useAnalysisWorker } from '@/hooks/useAnalysisWorker'
+import type { LineInput } from '@/lib/analysis/compute'
 
 const PLACEHOLDER_TEXT = 'Start writing...'
 const MEASURE_DEBOUNCE_MS = 50
 const SAVE_STATUS_DELAY_MS = 200
+const ANALYSIS_DOC_ID = 'rhyme-editor'
 
 type EditorProps = {
-  text: string
-  onTextChange: (text: string) => void
+  text?: string
+  onTextChange?: (text: string) => void
   onDirtyChange?: (dirty: boolean) => void
 }
 
-const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, onTextChange, onDirtyChange }, ref) {
+const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
+  { text = '', onTextChange = () => {}, onDirtyChange },
+  ref
+) {
   const editorRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const highlightLayerRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const lineIdSeed = useRef(0)
   const lineElementsRef = useRef<HTMLDivElement[]>([])
+  const analysisLinesRef = useRef<LineInput[]>([])
 
   const measureTimer = useRef<number | null>(null)
   const lastSerializedRef = useRef<string>('')
@@ -67,6 +72,8 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, o
   const badgeMode = useBadgeSettings((state) => state.badgeMode)
 
   useBadgeShortcuts()
+
+  const { analysis, analysisMode, scheduleAnalysis, metrics } = useAnalysisWorker(ANALYSIS_DOC_ID)
 
   const isPlaceholderLine = useCallback(
     (element: Element | null): element is HTMLDivElement =>
@@ -334,6 +341,29 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, o
     }
   }, [createLineElement, ensureLineHasContent, isPlaceholderLine])
 
+  const collectLineInputs = useCallback((): { lines: LineInput[]; elements: HTMLDivElement[] } => {
+    const el = editorRef.current
+    if (!el) return { lines: [], elements: [] }
+
+    const elements = Array.from(el.querySelectorAll<HTMLDivElement>('.line')).filter(
+      (line): line is HTMLDivElement => !isPlaceholderLine(line)
+    )
+
+    const lines = elements.map((line, index) => {
+      const existingId = line.dataset.lineId
+      const lineId = existingId ?? `line-${lineIdSeed.current++}`
+      line.dataset.lineId = lineId
+      line.dataset.lineIndex = index.toString()
+      return {
+        id: lineId,
+        text: line.textContent ?? '',
+      }
+    })
+
+    lineElementsRef.current = elements
+    return { lines, elements }
+  }, [isPlaceholderLine])
+
   const announceSave = useCallback(() => {
     window.dispatchEvent(new CustomEvent('rhyme:save-start'))
     if (saveStatusTimer.current) window.clearTimeout(saveStatusTimer.current)
@@ -342,45 +372,71 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, o
     }, SAVE_STATUS_DELAY_MS)
   }, [])
 
-  const recomputeLineTotals = useCallback(() => {
-    if (!showLineTotals) {
-      setLineTotals([])
-      setLines([])
+  const measureWords = useCallback(() => {
+    const analysisResult = analysis
+    const root = editorRef.current
+
+    if (!root) return
+    const { elements: lines } = collectLineInputs()
+    if (!analysisResult) {
+      setTokens([])
+      setLineVersion((v) => v + 1)
       return
     }
-    const el = editorRef.current
-    if (!el) return
-
-    const text = serializeFromEditor(el)
-    const normalizedLines = splitNormalizedLines(text)
-    const totals = computeLineTotals(text, normalizedLines)
-
-    setLines(normalizedLines)
-    setLineTotals(totals)
-  }, [showLineTotals])
-
-  const measureWords = useCallback(() => {
     if (!showOverlays || badgeMode === 'off') {
       setTokens([])
       lineElementsRef.current = []
       setLineVersion((v) => v + 1)
       return
     }
-    const root = editorRef.current
-    if (!root) return
+    if (!lines.length) {
+      setTokens([])
+      setLineVersion((v) => v + 1)
+      return
+    }
 
     const rootRect = root.getBoundingClientRect()
-    const lines: HTMLDivElement[] = Array.from(root.querySelectorAll<HTMLDivElement>('.line')).filter(
-      (line): line is HTMLDivElement => !isPlaceholderLine(line)
-    )
     const lineOffsetMap = new Map<HTMLElement, number>()
     const lineRectMap = new Map<HTMLElement, DOMRect>()
 
+    const resolveRangeForSpan = (lineElement: HTMLDivElement, start: number, end: number) => {
+      const walker = document.createTreeWalker(lineElement, NodeFilter.SHOW_TEXT)
+      let node: Node | null = walker.nextNode()
+      let offset = 0
+      let startNode: Node | null = null
+      let endNode: Node | null = null
+      let startOffset = 0
+      let endOffset = 0
+
+      while (node) {
+        const length = node.textContent?.length ?? 0
+        const nextOffset = offset + length
+        if (!startNode && start >= offset && start <= nextOffset) {
+          startNode = node
+          startOffset = start - offset
+        }
+        if (!endNode && end >= offset && end <= nextOffset) {
+          endNode = node
+          endOffset = end - offset
+          break
+        }
+        offset = nextOffset
+        node = walker.nextNode()
+      }
+
+      if (startNode && endNode) {
+        const range = document.createRange()
+        range.setStart(startNode, Math.max(0, startOffset))
+        range.setEnd(endNode, Math.max(0, endOffset))
+        return range
+      }
+      return null
+    }
+
     for (let index = 0; index < lines.length; index += 1) {
       const lineEl = lines[index]
-      if (!lineEl.dataset.lineId) {
-        lineEl.dataset.lineId = `line-${lineIdSeed.current++}`
-      }
+      const lineId = lineEl.dataset.lineId ?? `line-${lineIdSeed.current++}`
+      lineEl.dataset.lineId = lineId
       lineEl.dataset.lineIndex = index.toString()
 
       const rect = lineEl.getBoundingClientRect()
@@ -399,98 +455,71 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, o
       lineOffsetMap.set(lineEl, badgeOffsetEm)
     }
 
-    lineElementsRef.current = lines
-
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-    let node: Node | null = walker.nextNode()
-    const wordRegex = /[A-Za-z']+/g
     const tokensNext: OverlayToken[] = []
     let tokenId = 0
 
-    while (node) {
-      const placeholderAncestor = node.parentElement?.closest('[data-placeholder-line="true"]')
-      if (placeholderAncestor) {
-        node = walker.nextNode()
-        continue
-      }
-      const text = node.textContent || ''
-      let match: RegExpExecArray | null
-      while ((match = wordRegex.exec(text)) !== null) {
-        const start = match.index
-        const end = start + match[0].length
+    for (const lineEl of lines) {
+      const lineId = lineEl.dataset.lineId
+      if (!lineId) continue
+      const syllableTokens = analysisResult.wordSyllables[lineId] ?? []
+      const lineIndex = Number.parseInt(lineEl.dataset.lineIndex ?? '-1', 10)
+      const lineRect = lineRectMap.get(lineEl)
 
-        const range = document.createRange()
-        range.setStart(node, start)
-        range.setEnd(node, end)
-
+      for (const span of syllableTokens) {
+        const range = resolveRangeForSpan(lineEl, span.start, span.end)
+        if (!range) continue
         const rects = range.getClientRects()
-        if (rects.length > 0) {
-          const rangeRect = rects[0]
-          let lineElement: HTMLElement | null = null
-          let current: Node | null = range.startContainer
-          while (current && current !== root) {
-            if (current instanceof HTMLElement && current.classList.contains('line')) {
-              lineElement = current
-              break
-            }
-            current = current.parentNode
-          }
-
-          if (lineElement) {
-            if (!lineElement.dataset.lineId) {
-              lineElement.dataset.lineId = `line-${lineIdSeed.current++}`
-            }
-            const lineId = lineElement.dataset.lineId || `line-${lineIdSeed.current++}`
-            const lineIndex = Number.parseInt(lineElement.dataset.lineIndex ?? '-1', 10)
-            const lineRect = lineRectMap.get(lineElement)
-            const topBase = lineRect ? lineRect.top - rootRect.top : rangeRect.top - rootRect.top
-            const centerX = rangeRect.left - rootRect.left + rangeRect.width / 2
-            const value = countSyllables(match[0])
-            const lineOffset = lineOffsetMap.get(lineElement) ?? 0.95
-
-            tokensNext.push({
-              id: `${lineId}-${tokenId++}`,
-              value,
-              lineId,
-              lineIndex,
-              lineOffset,
-              rect: {
-                top: topBase,
-                centerX,
-              },
-            })
-          }
+        if (!rects.length) {
+          range.detach()
+          continue
         }
+        const rangeRect = rects[0]
+        const topBase = lineRect ? lineRect.top - rootRect.top : rangeRect.top - rootRect.top
+        const centerX = rangeRect.left - rootRect.left + rangeRect.width / 2
+        const lineOffset = lineOffsetMap.get(lineEl) ?? 0.95
+
+        tokensNext.push({
+          id: `${lineId}-${tokenId++}`,
+          value: span.syllables,
+          lineId,
+          lineIndex,
+          lineOffset,
+          rect: {
+            top: topBase,
+            centerX,
+          },
+        })
         range.detach()
       }
-      node = walker.nextNode()
     }
+
     setTokens(tokensNext)
     setLineVersion((v) => v + 1)
-  }, [showOverlays, badgeMode, isPlaceholderLine])
+  }, [analysis, badgeMode, collectLineInputs, showOverlays])
 
   const scheduleMeasure = useCallback(() => {
     if (measureTimer.current) window.clearTimeout(measureTimer.current)
     measureTimer.current = window.setTimeout(() => {
       measureTimer.current = null
       measureWords()
-      recomputeLineTotals()
     }, MEASURE_DEBOUNCE_MS)
-  }, [measureWords, recomputeLineTotals])
+  }, [measureWords])
 
   const handleChange = () => {
     ensureLineStructure()
     syncPlaceholderLine()
     updateCurrentLineHighlight()
+    const { lines: collectedLines } = collectLineInputs()
+    analysisLinesRef.current = collectedLines
+    setLines(collectedLines.map((line) => line.text))
+    scheduleAnalysis(collectedLines, 'typing')
     scheduleMeasure()
-    recomputeLineTotals()
 
     const el = editorRef.current
     if (!el) return
     const serialized = serializeFromEditor(el)
     if (serialized !== lastSerializedRef.current) {
       lastSerializedRef.current = serialized
-      lastHydratedTextRef.current = serialized
       onTextChange(serialized)
       onDirtyChange?.(true)
       announceSave()
@@ -513,15 +542,20 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, o
 
   const handleSelectionChange = useCallback(() => {
     updateCurrentLineHighlight()
-  }, [updateCurrentLineHighlight])
+    if (analysisLinesRef.current.length) {
+      scheduleAnalysis(analysisLinesRef.current, 'caret')
+    }
+  }, [scheduleAnalysis, updateCurrentLineHighlight])
 
   useEffect(() => {
-    if (showLineTotals) {
-      recomputeLineTotals()
-    } else {
+    if (!showLineTotals) {
       setLineTotals([])
+      return
     }
-  }, [showLineTotals, recomputeLineTotals])
+    if (analysisLinesRef.current.length) {
+      scheduleAnalysis(analysisLinesRef.current, 'caret')
+    }
+  }, [scheduleAnalysis, showLineTotals])
 
   useEffect(() => {
     scheduleMeasure()
@@ -532,9 +566,35 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, o
   }, [badgeMode, scheduleMeasure])
 
   useEffect(() => {
+    if (analysis) {
+      scheduleMeasure()
+    }
+  }, [analysis, scheduleMeasure])
+
+  useEffect(() => {
+    if (!showLineTotals) return
+    if (!analysis || analysis.docId !== ANALYSIS_DOC_ID) return
+    if (!analysisLinesRef.current.length) return
+    const totals = analysisLinesRef.current.map((line) => analysis.lineTotals[line.id] ?? 0)
+    setLineTotals(totals)
+  }, [analysis, showLineTotals])
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production' && metrics) {
+      console.debug('[analysis] metrics', { mode: analysisMode, metrics })
+    }
+  }, [analysisMode, metrics])
+
+  useEffect(() => {
     const el = editorRef.current
     if (!el) return
     if (hasInitializedRef.current && text === lastHydratedTextRef.current) return
+    if (!hasInitializedRef.current && text === '' && el.querySelectorAll<HTMLDivElement>('.line').length > 0) {
+      hasInitializedRef.current = true
+      lastHydratedTextRef.current = text
+      lastSerializedRef.current = text
+      return
+    }
 
     hydrateEditorFromText(el, text)
     ensureLineStructure()
@@ -545,12 +605,17 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor({ text, o
       hasInitializedRef.current = true
       el.focus()
     }
+    const { lines: collectedLines } = collectLineInputs()
+    analysisLinesRef.current = collectedLines
+    setLines(collectedLines.map((line) => line.text))
+    if (collectedLines.length) {
+      scheduleAnalysis(collectedLines, 'typing')
+    }
     requestAnimationFrame(() => {
       measureWords()
-      recomputeLineTotals()
       updateCurrentLineHighlight()
     })
-  }, [measureWords, recomputeLineTotals, syncPlaceholderLine, text, updateCurrentLineHighlight, ensureLineStructure])
+  }, [collectLineInputs, measureWords, scheduleAnalysis, syncPlaceholderLine, text, updateCurrentLineHighlight, ensureLineStructure])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
