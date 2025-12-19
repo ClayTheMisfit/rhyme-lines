@@ -381,14 +381,21 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
       (line): line is HTMLDivElement => !isPlaceholderLine(line)
     )
 
+    const seenIds = new Set<string>()
+    const nextLineId = () => `line-${lineIdSeed.current++}`
+
     const lines = elements.map((line, index) => {
       const existingId = line.dataset.lineId
-      const lineId = existingId ?? `line-${lineIdSeed.current++}`
+      let lineId = existingId ?? nextLineId()
+      if (seenIds.has(lineId)) {
+        lineId = nextLineId()
+      }
+      seenIds.add(lineId)
       line.dataset.lineId = lineId
       line.dataset.lineIndex = index.toString()
       return {
         id: lineId,
-        text: line.textContent ?? '',
+        text: (line.innerText ?? line.textContent ?? '').replace(/\r\n?/g, '\n'),
       }
     })
 
@@ -546,8 +553,8 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
       childCount: el?.childNodes.length ?? 0,
     })
     if (!el) return
-    updateCurrentLineHighlight()
     const { lines: collectedLines } = collectLineInputs()
+    updateCurrentLineHighlight()
     analysisLinesRef.current = collectedLines
     setLines(collectedLines.map((line) => line.text))
     scheduleAnalysis(collectedLines, 'typing')
