@@ -8,9 +8,10 @@ type OverlayBadgeProps = {
   value: number
   active: boolean
   position: { left: number; top: number; lineOffset: number }
+  lineId: string
 }
 
-export function OverlayBadge({ value, active, position }: OverlayBadgeProps) {
+export function OverlayBadge({ value, active, position, lineId }: OverlayBadgeProps) {
   const { badgeScale, badgeVariant } = useBadgeSettings((state) => ({
     badgeScale: state.badgeScale,
     badgeVariant: state.badgeVariant,
@@ -40,6 +41,7 @@ export function OverlayBadge({ value, active, position }: OverlayBadgeProps) {
         'syllable-badge absolute',
         resolvedVariant === 'dots' && 'syllable-badge--dots'
       )}
+      data-line-id={lineId}
       style={style}
     >
       {content}

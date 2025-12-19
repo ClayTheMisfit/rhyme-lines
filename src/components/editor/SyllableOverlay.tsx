@@ -68,6 +68,7 @@ export function SyllableOverlay({
           key={token.id}
           value={token.value}
           active={token.lineId === activeLineId}
+          lineId={token.lineId}
           position={{
             left: token.rect.centerX,
             top: token.rect.top,
