@@ -10,11 +10,13 @@ import { useBadgeSettings } from '@/store/settings'
 import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
 import { useAnalysisWorker } from '@/hooks/useAnalysisWorker'
 import type { LineInput } from '@/lib/analysis/compute'
+import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
 
 const PLACEHOLDER_TEXT = 'Start writing...'
 const MEASURE_DEBOUNCE_MS = 50
 const SAVE_STATUS_DELAY_MS = 200
 const ANALYSIS_DOC_ID = 'rhyme-editor'
+const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 
 type EditorProps = {
   text?: string
@@ -37,8 +39,10 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
   const measureTimer = useRef<number | null>(null)
   const lastSerializedRef = useRef<string>('')
   const lastHydratedTextRef = useRef<string>('')
+  const lastPropTextRef = useRef<string | null>(null)
   const hasInitializedRef = useRef(false)
   const saveStatusTimer = useRef<number | null>(null)
+  const skipHydrateRef = useRef<string | null>(null)
 
   const [tokens, setTokens] = useState<OverlayToken[]>([])
   const [lineTotals, setLineTotals] = useState<number[]>([])
@@ -74,6 +78,29 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
   useBadgeShortcuts()
 
   const { analysis, analysisMode, scheduleAnalysis, metrics } = useAnalysisWorker(ANALYSIS_DOC_ID)
+
+  const captureSelectionSnapshot = useCallback(() => {
+    if (typeof window === 'undefined') return null
+    const selection = window.getSelection()
+    if (!selection) return null
+    return {
+      anchorOffset: selection.anchorOffset,
+      focusOffset: selection.focusOffset,
+      anchorNode: selection.anchorNode?.nodeName ?? null,
+      focusNode: selection.focusNode?.nodeName ?? null,
+      isCollapsed: selection.isCollapsed,
+    }
+  }, [])
+
+  const logDebugEvent = useCallback(
+    (type: string, payload: Record<string, unknown>) => {
+      if (!DEBUG_EDITOR) return
+      const selection = captureSelectionSnapshot()
+      // eslint-disable-next-line no-console
+      console.debug(`[editor:${type}]`, { ...payload, selection })
+    },
+    [captureSelectionSnapshot]
+  )
 
   const isPlaceholderLine = useCallback(
     (element: Element | null): element is HTMLDivElement =>
@@ -151,6 +178,11 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
     const doc = el.ownerDocument || document
     const placeholderLine = el.querySelector<HTMLDivElement>('[data-placeholder-line="true"]')
     const hasContent = !editorIsMeaningfullyEmpty(el)
+    logDebugEvent('sync-placeholder', {
+      hasContent,
+      placeholderPresent: !!placeholderLine,
+      lineCount: el.querySelectorAll('.line').length,
+    })
 
     if (hasContent) {
       if (placeholderLine) {
@@ -174,7 +206,7 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
     if (document.activeElement === el) {
       setCaretToLineStart(placeholder)
     }
-  }, [createLineElement, editorIsMeaningfullyEmpty, ensureLineHasContent, setCaretToLineStart])
+  }, [createLineElement, editorIsMeaningfullyEmpty, ensureLineHasContent, logDebugEvent, setCaretToLineStart])
 
   const updateCurrentLineHighlight = useCallback(() => {
     const el = editorRef.current
@@ -505,9 +537,15 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
     }, MEASURE_DEBOUNCE_MS)
   }, [measureWords])
 
-  const handleChange = () => {
+  const handleChange = useCallback(() => {
     ensureLineStructure()
     syncPlaceholderLine()
+    const el = editorRef.current
+    logDebugEvent('change', {
+      phase: 'post-structure',
+      childCount: el?.childNodes.length ?? 0,
+    })
+    if (!el) return
     updateCurrentLineHighlight()
     const { lines: collectedLines } = collectLineInputs()
     analysisLinesRef.current = collectedLines
@@ -515,30 +553,81 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
     scheduleAnalysis(collectedLines, 'typing')
     scheduleMeasure()
 
-    const el = editorRef.current
-    if (!el) return
     const serialized = serializeFromEditor(el)
     if (serialized !== lastSerializedRef.current) {
       lastSerializedRef.current = serialized
+      lastHydratedTextRef.current = serialized
+      skipHydrateRef.current = serialized
       onTextChange(serialized)
       onDirtyChange?.(true)
       announceSave()
     }
-  }
+  }, [
+    announceSave,
+    collectLineInputs,
+    ensureLineStructure,
+    logDebugEvent,
+    onDirtyChange,
+    onTextChange,
+    scheduleAnalysis,
+    scheduleMeasure,
+    syncPlaceholderLine,
+    updateCurrentLineHighlight,
+  ])
 
-  const handleBeforeInput = (event: React.FormEvent<HTMLDivElement>) => {
-    const nativeEvent = event.nativeEvent as InputEvent
-    const inputType = typeof nativeEvent?.inputType === 'string' ? nativeEvent.inputType : ''
-    if (inputType && !inputType.startsWith('insert')) return
+  const handleShortcutKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      logDebugEvent('keydown', {
+        key: event.key,
+        code: event.code,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        altKey: event.altKey,
+        shiftKey: event.shiftKey,
+        defaultPrevented: event.defaultPrevented,
+      })
+      const shortcut = resolveEditorShortcut(event)
+      if (!shortcut) return
+      event.preventDefault()
+      window.dispatchEvent(new CustomEvent('rhyme:editor-shortcut', { detail: shortcut }))
+    },
+    [logDebugEvent]
+  )
 
-    const el = editorRef.current
-    if (!el) return
-    const placeholderLine = el.querySelector<HTMLDivElement>('[data-placeholder-line="true"]')
-    if (!placeholderLine) return
+  const handleInputEvent = useCallback(
+    (event: React.FormEvent<HTMLDivElement>) => {
+      const nativeEvent = event.nativeEvent as InputEvent
+      logDebugEvent('input', {
+        inputType: typeof nativeEvent?.inputType === 'string' ? nativeEvent.inputType : '',
+        data: nativeEvent?.data ?? null,
+        defaultPrevented: nativeEvent?.defaultPrevented ?? event.isDefaultPrevented(),
+      })
+      handleChange()
+    },
+    [handleChange, logDebugEvent]
+  )
 
-    const replacement = replacePlaceholderWithEmptyLine(placeholderLine)
-    setCaretToLineStart(replacement)
-  }
+  const handleBeforeInput = useCallback(
+    (event: React.FormEvent<HTMLDivElement>) => {
+      const nativeEvent = event.nativeEvent as InputEvent
+      const inputType = typeof nativeEvent?.inputType === 'string' ? nativeEvent.inputType : ''
+      logDebugEvent('beforeinput', {
+        inputType,
+        data: nativeEvent?.data ?? null,
+        defaultPrevented: nativeEvent?.defaultPrevented ?? event.isDefaultPrevented(),
+      })
+      if (inputType && !inputType.startsWith('insert')) return
+
+      const el = editorRef.current
+      if (!el) return
+      const placeholderLine = el.querySelector<HTMLDivElement>('[data-placeholder-line="true"]')
+      if (!placeholderLine) return
+
+      const replacement = replacePlaceholderWithEmptyLine(placeholderLine)
+      setCaretToLineStart(replacement)
+    },
+    [logDebugEvent, replacePlaceholderWithEmptyLine, setCaretToLineStart]
+  )
 
   const handleSelectionChange = useCallback(() => {
     updateCurrentLineHighlight()
@@ -588,6 +677,15 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
   useEffect(() => {
     const el = editorRef.current
     if (!el) return
+    if (lastPropTextRef.current === text) return
+    lastPropTextRef.current = text
+    if (skipHydrateRef.current === text) {
+      lastHydratedTextRef.current = text
+      lastSerializedRef.current = text
+      skipHydrateRef.current = null
+      return
+    }
+    skipHydrateRef.current = null
     if (hasInitializedRef.current && text === lastHydratedTextRef.current) return
     if (!hasInitializedRef.current && text === '' && el.querySelectorAll<HTMLDivElement>('.line').length > 0) {
       hasInitializedRef.current = true
@@ -902,10 +1000,9 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
                 spellCheck={false}
                 data-layer="editable"
                 onBeforeInput={handleBeforeInput}
-                onInput={handleChange}
-                onKeyUp={handleChange}
+                onInput={handleInputEvent}
                 onBlur={handleChange}
-                onKeyDown={handleChange}
+                onKeyDown={handleShortcutKeyDown}
                 onClick={(event) => {
                   ensureEditorFocus()
                   handleChange()

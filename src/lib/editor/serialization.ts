@@ -96,13 +96,24 @@ export function hydrateEditorFromText(el: HTMLElement, text: string): void {
   // Ensure cursor is at the end
   const range = document.createRange()
   const sel = window.getSelection()
-  
-  if (el.lastChild) {
-    range.setStartAfter(el.lastChild)
-    range.collapse(true)
-    sel?.removeAllRanges()
-    sel?.addRange(range)
+
+  const walker = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+  let lastText: Text | null = null
+  while (walker.nextNode()) {
+    lastText = walker.currentNode as Text
   }
+
+  if (lastText) {
+    range.setStart(lastText, lastText.textContent?.length ?? 0)
+  } else if (el.lastChild) {
+    range.setStart(el.lastChild, el.lastChild.childNodes.length)
+  } else {
+    return
+  }
+
+  range.collapse(true)
+  sel?.removeAllRanges()
+  sel?.addRange(range)
 }
 
 /**
