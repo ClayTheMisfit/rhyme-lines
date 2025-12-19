@@ -13,12 +13,31 @@ test.describe('Line totals gutter', () => {
 
     const gutter = page.locator('[data-line-totals-gutter]')
     const editorLines = page.locator('.rl-editor .line')
+    const readGutter = async () => (await gutter.innerText()).split('\n').map((line) => line.trim())
 
     await expect(editorLines).toHaveCount(3)
 
-    const gutterLines = (await gutter.innerText()).split('\n')
+    await expect.poll(readGutter).toEqual(['2', '0', '2'])
+  })
 
-    expect(gutterLines).toHaveLength(3)
-    expect(gutterLines[gutterLines.length - 1].trim()).toBe('2')
+  test('persists per-line totals after inserting new lines', async ({ page }) => {
+    await page.goto('/')
+
+    const editor = page.locator('#lyric-editor')
+    await editor.click()
+    await editor.type('spin spin')
+
+    const gutter = page.locator('[data-line-totals-gutter]')
+    const readGutter = async () => (await gutter.innerText()).split('\n').map((line) => line.trim())
+
+    await expect.poll(readGutter).toEqual(['2'])
+
+    await editor.press('Enter')
+
+    await expect.poll(readGutter).toEqual(['2', '0'])
+
+    await editor.type('cat')
+
+    await expect.poll(readGutter).toEqual(['2', '1'])
   })
 })
