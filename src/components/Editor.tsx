@@ -5,11 +5,13 @@ import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/seriali
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
 import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
-import { SyllableOverlay, type OverlayToken } from '@/components/editor/SyllableOverlay'
+import { SyllableOverlay } from '@/components/editor/SyllableOverlay'
 import { useBadgeSettings } from '@/store/settings'
 import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
 import { useAnalysisWorker } from '@/hooks/useAnalysisWorker'
 import type { LineInput } from '@/lib/analysis/compute'
+import { useViewportWindow } from '@/hooks/useViewportWindow'
+import { useOverlayMeasurement } from '@/hooks/useOverlayMeasurement'
 
 const PLACEHOLDER_TEXT = 'Start writing...'
 const MEASURE_DEBOUNCE_MS = 50
@@ -39,10 +41,11 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
   const lastHydratedTextRef = useRef<string>('')
   const hasInitializedRef = useRef(false)
   const saveStatusTimer = useRef<number | null>(null)
+  const lastLineIdsRef = useRef<string[]>([])
 
-  const [tokens, setTokens] = useState<OverlayToken[]>([])
   const [lineTotals, setLineTotals] = useState<number[]>([])
   const [lines, setLines] = useState<string[]>([])
+  const [lineInputs, setLineInputs] = useState<LineInput[]>([])
   const [showOverlays, setShowOverlays] = useState(true)
   const [activeLineId, setActiveLineId] = useState<string | null>(null)
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
@@ -361,6 +364,14 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
     })
 
     lineElementsRef.current = elements
+    const ids = elements.map((element) => element.dataset.lineId ?? '')
+    const changed =
+      ids.length !== lastLineIdsRef.current.length ||
+      ids.some((id, index) => id !== lastLineIdsRef.current[index])
+    if (changed) {
+      lastLineIdsRef.current = ids
+      setLineVersion((v) => v + 1)
+    }
     return { lines, elements }
   }, [isPlaceholderLine])
 
@@ -372,138 +383,36 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
     }, SAVE_STATUS_DELAY_MS)
   }, [])
 
-  const measureWords = useCallback(() => {
-    const analysisResult = analysis
-    const root = editorRef.current
+  const { activeLineIds, activeRange } = useViewportWindow({
+    containerRef,
+    lineElementsRef,
+    buffer: 10,
+    version: lineVersion,
+  })
 
-    if (!root) return
-    const { elements: lines } = collectLineInputs()
-    if (!analysisResult) {
-      setTokens([])
-      setLineVersion((v) => v + 1)
-      return
-    }
-    if (!showOverlays || badgeMode === 'off') {
-      setTokens([])
-      lineElementsRef.current = []
-      setLineVersion((v) => v + 1)
-      return
-    }
-    if (!lines.length) {
-      setTokens([])
-      setLineVersion((v) => v + 1)
-      return
-    }
-
-    const rootRect = root.getBoundingClientRect()
-    const lineOffsetMap = new Map<HTMLElement, number>()
-    const lineRectMap = new Map<HTMLElement, DOMRect>()
-
-    const resolveRangeForSpan = (lineElement: HTMLDivElement, start: number, end: number) => {
-      const walker = document.createTreeWalker(lineElement, NodeFilter.SHOW_TEXT)
-      let node: Node | null = walker.nextNode()
-      let offset = 0
-      let startNode: Node | null = null
-      let endNode: Node | null = null
-      let startOffset = 0
-      let endOffset = 0
-
-      while (node) {
-        const length = node.textContent?.length ?? 0
-        const nextOffset = offset + length
-        if (!startNode && start >= offset && start <= nextOffset) {
-          startNode = node
-          startOffset = start - offset
-        }
-        if (!endNode && end >= offset && end <= nextOffset) {
-          endNode = node
-          endOffset = end - offset
-          break
-        }
-        offset = nextOffset
-        node = walker.nextNode()
-      }
-
-      if (startNode && endNode) {
-        const range = document.createRange()
-        range.setStart(startNode, Math.max(0, startOffset))
-        range.setEnd(endNode, Math.max(0, endOffset))
-        return range
-      }
-      return null
-    }
-
-    for (let index = 0; index < lines.length; index += 1) {
-      const lineEl = lines[index]
-      const lineId = lineEl.dataset.lineId ?? `line-${lineIdSeed.current++}`
-      lineEl.dataset.lineId = lineId
-      lineEl.dataset.lineIndex = index.toString()
-
-      const rect = lineEl.getBoundingClientRect()
-      lineRectMap.set(lineEl, rect)
-
-      const computed = window.getComputedStyle(lineEl)
-      const fontSizePx = Number.parseFloat(computed.fontSize) || 16
-      let lineHeightPx = Number.parseFloat(computed.lineHeight)
-      if (!Number.isFinite(lineHeightPx)) {
-        const numericLineHeight = Number.parseFloat(computed.lineHeight)
-        lineHeightPx =
-          Number.isFinite(numericLineHeight) && numericLineHeight > 0 ? numericLineHeight : fontSizePx * 1.6
-      }
-      const badgeOffsetEm = Math.min(Math.max(0.95 * (lineHeightPx / fontSizePx), 0.85), 1.25)
-      lineEl.style.setProperty('--badge-offset', `${badgeOffsetEm}em`)
-      lineOffsetMap.set(lineEl, badgeOffsetEm)
-    }
-
-    const tokensNext: OverlayToken[] = []
-    let tokenId = 0
-
-    for (const lineEl of lines) {
-      const lineId = lineEl.dataset.lineId
-      if (!lineId) continue
-      const syllableTokens = analysisResult.wordSyllables[lineId] ?? []
-      const lineIndex = Number.parseInt(lineEl.dataset.lineIndex ?? '-1', 10)
-      const lineRect = lineRectMap.get(lineEl)
-
-      for (const span of syllableTokens) {
-        const range = resolveRangeForSpan(lineEl, span.start, span.end)
-        if (!range) continue
-        const rects = range.getClientRects()
-        if (!rects.length) {
-          range.detach()
-          continue
-        }
-        const rangeRect = rects[0]
-        const topBase = lineRect ? lineRect.top - rootRect.top : rangeRect.top - rootRect.top
-        const centerX = rangeRect.left - rootRect.left + rangeRect.width / 2
-        const lineOffset = lineOffsetMap.get(lineEl) ?? 0.95
-
-        tokensNext.push({
-          id: `${lineId}-${tokenId++}`,
-          value: span.syllables,
-          lineId,
-          lineIndex,
-          lineOffset,
-          rect: {
-            top: topBase,
-            centerX,
-          },
-        })
-        range.detach()
-      }
-    }
-
-    setTokens(tokensNext)
-    setLineVersion((v) => v + 1)
-  }, [analysis, badgeMode, collectLineInputs, showOverlays])
+  const { tokens, scheduleMeasure: scheduleOverlayMeasure } = useOverlayMeasurement({
+    docId: ANALYSIS_DOC_ID,
+    editorRef,
+    containerRef,
+    lineElementsRef,
+    lineInputs,
+    analysis,
+    analysisMode,
+    badgeMode,
+    enabled: showOverlays,
+    activeLineIds,
+    fontSize,
+    lineHeight,
+    theme,
+  })
 
   const scheduleMeasure = useCallback(() => {
     if (measureTimer.current) window.clearTimeout(measureTimer.current)
     measureTimer.current = window.setTimeout(() => {
       measureTimer.current = null
-      measureWords()
+      scheduleOverlayMeasure()
     }, MEASURE_DEBOUNCE_MS)
-  }, [measureWords])
+  }, [scheduleOverlayMeasure])
 
   const handleChange = () => {
     ensureLineStructure()
@@ -511,6 +420,7 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
     updateCurrentLineHighlight()
     const { lines: collectedLines } = collectLineInputs()
     analysisLinesRef.current = collectedLines
+    setLineInputs(collectedLines)
     setLines(collectedLines.map((line) => line.text))
     scheduleAnalysis(collectedLines, 'typing')
     scheduleMeasure()
@@ -566,6 +476,14 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
   }, [badgeMode, scheduleMeasure])
 
   useEffect(() => {
+    scheduleMeasure()
+  }, [showOverlays, scheduleMeasure])
+
+  useEffect(() => {
+    scheduleMeasure()
+  }, [theme, scheduleMeasure])
+
+  useEffect(() => {
     if (analysis) {
       scheduleMeasure()
     }
@@ -611,11 +529,20 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
     if (collectedLines.length) {
       scheduleAnalysis(collectedLines, 'typing')
     }
+    setLineInputs(collectedLines)
     requestAnimationFrame(() => {
-      measureWords()
+      scheduleOverlayMeasure()
       updateCurrentLineHighlight()
     })
-  }, [collectLineInputs, measureWords, scheduleAnalysis, syncPlaceholderLine, text, updateCurrentLineHighlight, ensureLineStructure])
+  }, [
+    collectLineInputs,
+    scheduleOverlayMeasure,
+    scheduleAnalysis,
+    syncPlaceholderLine,
+    text,
+    updateCurrentLineHighlight,
+    ensureLineStructure,
+  ])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -655,6 +582,16 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
       scroller?.removeEventListener('scroll', onScroll)
     }
   }, [scheduleMeasure, updateCurrentLineHighlight])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(() => {
+      scheduleMeasure()
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [scheduleMeasure])
 
   useEffect(() => {
     const lines = lineElementsRef.current
@@ -700,126 +637,16 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
   }, [activeLineId, lineVersion])
 
   useEffect(() => {
-    const container = containerRef.current
-    const lines = lineElementsRef.current
-    if (!container || !lines.length) {
-      setViewportRange({ start: 0, end: Number.POSITIVE_INFINITY })
+    scheduleMeasure()
+  }, [activeLineIds, scheduleMeasure])
+
+  useEffect(() => {
+    if (activeRange.end < activeRange.start) {
+      setViewportRange({ start: 0, end: -1 })
       return
     }
-
-    const visible = new Set<number>()
-
-    const commitRange = () => {
-      if (!visible.size) {
-        setViewportRange({ start: 0, end: Number.POSITIVE_INFINITY })
-        return
-      }
-      const sorted = Array.from(visible).sort((a, b) => a - b)
-      setViewportRange({ start: sorted[0], end: sorted[sorted.length - 1] })
-    }
-
-    const measureFromGeometry = () => {
-      let changed = false
-      const containerRect = container.getBoundingClientRect()
-      const seen = new Set<number>()
-
-      lines.forEach((line) => {
-        const rect = line.getBoundingClientRect()
-        const index = Number.parseInt(line.dataset.lineIndex ?? '-1', 10)
-        if (Number.isNaN(index)) return
-
-        const intersects = rect.bottom >= containerRect.top && rect.top <= containerRect.bottom
-        if (intersects) {
-          seen.add(index)
-          if (!visible.has(index)) {
-            visible.add(index)
-            changed = true
-          }
-        } else if (visible.delete(index)) {
-          changed = true
-        }
-      })
-
-      visible.forEach((index) => {
-        if (!seen.has(index) && visible.delete(index)) {
-          changed = true
-        }
-      })
-
-      if (changed || !visible.size) {
-        commitRange()
-      }
-    }
-
-    let observer: IntersectionObserver | null = null
-    let manualCleanup: (() => void) | null = null
-    if (typeof IntersectionObserver !== 'undefined') {
-      observer = new IntersectionObserver(
-        (entries) => {
-          let changed = false
-          for (const entry of entries) {
-            const element = entry.target as HTMLElement
-            const index = Number.parseInt(element.dataset.lineIndex ?? '-1', 10)
-            if (Number.isNaN(index)) continue
-            if (entry.isIntersecting && entry.intersectionRatio > 0) {
-              if (!visible.has(index)) {
-                visible.add(index)
-                changed = true
-              }
-            } else if (visible.delete(index)) {
-              changed = true
-            }
-          }
-          if (changed) {
-            commitRange()
-          }
-        },
-        {
-          root: container,
-          threshold: 0,
-        }
-      )
-
-      lines.forEach((line) => observer?.observe(line))
-    } else {
-      // Fallback for environments without IntersectionObserver (e.g. Jest)
-      const handleScroll = () => measureFromGeometry()
-      const handleResize = () => measureFromGeometry()
-
-      container.addEventListener('scroll', handleScroll, { passive: true })
-      if (typeof window !== 'undefined') {
-        window.addEventListener('resize', handleResize)
-      }
-
-      manualCleanup = () => {
-        container.removeEventListener('scroll', handleScroll)
-        if (typeof window !== 'undefined') {
-          window.removeEventListener('resize', handleResize)
-        }
-      }
-
-      measureFromGeometry()
-    }
-
-    let rafId = 0
-    if (typeof window !== 'undefined') {
-      rafId = window.requestAnimationFrame(() => {
-        measureFromGeometry()
-      })
-    }
-
-    return () => {
-      if (observer) {
-        observer.disconnect()
-      }
-      if (manualCleanup) {
-        manualCleanup()
-      }
-      if (rafId && typeof window !== 'undefined') {
-        window.cancelAnimationFrame(rafId)
-      }
-    }
-  }, [lineVersion])
+    setViewportRange(activeRange)
+  }, [activeRange])
 
   const handleAssignEditorRef = useCallback(
     (node: HTMLDivElement | null) => {
