@@ -81,15 +81,18 @@ const schedulePersist = (state: SettingsState) => {
   }, PERSIST_DEBOUNCE_MS)
 }
 
-const hydrateFromStorage = (): SettingsSchema => {
+const hydrateFromStorage = (): SettingsState => {
   if (typeof window === 'undefined') {
-    return { ...DEFAULT_SETTINGS, rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters }, lastUpdatedAt: Date.now() }
+    return {
+      ...(applySettings({ ...DEFAULT_SETTINGS, rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters }, lastUpdatedAt: Date.now() }) as SettingsState),
+    }
   }
   const { data } = readWithMigrations('settings')
-  return applySettings(data)
+  const normalized = applySettings(data)
+  return { ...SETTINGS_DEFAULTS, ...normalized } as SettingsState
 }
 
-const initial = hydrateFromStorage()
+const initial: SettingsState = hydrateFromStorage()
 
 export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get) => ({
   ...initial,

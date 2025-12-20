@@ -13,6 +13,7 @@ import type { LineInput } from '@/lib/analysis/compute'
 import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
 import { useViewportWindow } from '@/hooks/useViewportWindow'
 import { useOverlayMeasurement } from '@/hooks/useOverlayMeasurement'
+import { resolveTheme } from '@/lib/theme/resolveTheme'
 
 const PLACEHOLDER_TEXT = 'Start writing...'
 const SAVE_STATUS_DELAY_MS = 200
@@ -715,7 +716,7 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
               lineTotals={lineTotals}
               lines={lines}
               showLineTotals={showLineTotals}
-              theme={theme}
+              theme={resolveTheme(theme)}
             />
 
             <div className="relative min-h-[70vh]">

@@ -66,11 +66,11 @@ const normalizeSettings = (value: unknown): SettingsSchema => {
     debounceModeValue === 'cursor-50' ? 'cursor-50' : DEFAULT_SETTINGS.debounceMode
 
   const keyboardShortcuts = isRecord(payload.keyboardShortcuts)
-    ? Object.fromEntries(
+    ? (Object.fromEntries(
         Object.entries(payload.keyboardShortcuts).filter(
           ([key, value]) => typeof key === 'string' && typeof value === 'string'
         )
-      )
+      ) as Record<string, string>)
     : undefined
 
   const rhymeFilters = normalizeRhymeFilters(payload.rhymeFilters)
