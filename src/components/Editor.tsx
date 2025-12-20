@@ -24,10 +24,11 @@ type EditorProps = {
   text?: string
   onTextChange?: (text: string) => void
   onDirtyChange?: (dirty: boolean) => void
+  hydrated?: boolean
 }
 
 const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
-  { text = '', onTextChange = () => {}, onDirtyChange },
+  { text = '', onTextChange = () => {}, onDirtyChange, hydrated = false },
   ref
 ) {
   const editorRef = useRef<HTMLDivElement>(null)
@@ -716,7 +717,7 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
               lineTotals={lineTotals}
               lines={lines}
               showLineTotals={showLineTotals}
-              theme={resolveTheme(theme)}
+              theme={resolveTheme(theme, { hydrated })}
             />
 
             <div className="relative min-h-[70vh]">

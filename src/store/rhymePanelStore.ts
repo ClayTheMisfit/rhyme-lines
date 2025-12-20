@@ -1,10 +1,12 @@
 "use client"
 
 import { create } from 'zustand'
-import { useRhymePanel } from '@/lib/state/rhymePanel'
+import { assertClientOnly } from '@/lib/env/assertClientOnly'
+import { isClient } from '@/lib/env/isClient'
+import { applyRhymePanelState, useRhymePanel, type RhymePanelMode } from '@/lib/state/rhymePanel'
 import type { RhymeQuality } from '@/lib/rhyme/aggregate'
 import { DEFAULT_PANEL_STATE, type PanelSchema } from '@/lib/persist/schema'
-import { readWithMigrations, writeVersioned } from '@/lib/persist/storage'
+import { writeVersioned } from '@/lib/persist/storage'
 
 export interface RhymePanelState {
   // Panel visibility
@@ -26,11 +28,7 @@ export interface RhymePanelState {
   setPanelWidth: (width: number) => void
 }
 
-const basePanelState =
-  typeof window === 'undefined'
-    ? DEFAULT_PANEL_STATE
-    : readWithMigrations('panel').data ?? DEFAULT_PANEL_STATE
-
+const basePanelState = DEFAULT_PANEL_STATE
 const initialFilters = basePanelState.filters ?? DEFAULT_PANEL_STATE.filters
 
 export const useRhymePanelStore = create<RhymePanelState>()((set, get) => ({
@@ -94,6 +92,12 @@ const buildPanelPersistPayload = (): PanelSchema => {
 }
 
 const schedulePersist = () => {
+  if (!isClient()) {
+    if (process.env.NODE_ENV === 'development') {
+      assertClientOnly('panel:persist')
+    }
+    return
+  }
   if (persistTimer) {
     window.clearTimeout(persistTimer)
   }
@@ -103,7 +107,7 @@ const schedulePersist = () => {
   }, PANEL_PERSIST_DEBOUNCE_MS)
 }
 
-if (typeof window !== 'undefined') {
+if (isClient()) {
   useRhymePanel.subscribe((state) => {
     useRhymePanelStore.setState((prev) => ({
       isOpen: state.mode !== 'hidden',
@@ -117,4 +121,26 @@ if (typeof window !== 'undefined') {
   })
 
   useRhymePanelStore.subscribe(() => schedulePersist())
+}
+
+export function hydrateRhymePanel(panel: PanelSchema) {
+  const filters = panel.filters ?? DEFAULT_PANEL_STATE.filters
+  const searchQuery = panel.searchQuery ?? panel.lastTargetWord ?? ''
+  const selectedIndex = panel.selectedIndex ?? null
+  const panelWidth = panel.rhymePanel.width ?? useRhymePanel.getState().width
+  const mode: RhymePanelMode = panel.rhymePanel.isOpen
+    ? panel.rhymePanel.isDetached
+      ? 'detached'
+      : 'docked'
+    : 'hidden'
+
+  applyRhymePanelState(panel)
+
+  useRhymePanelStore.setState({
+    isOpen: mode !== 'hidden',
+    filters,
+    searchQuery,
+    selectedIndex,
+    panelWidth,
+  })
 }

@@ -1,10 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Editor from './Editor'
 import RhymePanel from './RhymePanel'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
-import { useTabsStore } from '@/store/tabsStore'
+import { useTabsStore, hydrateTabsFromPersisted } from '@/store/tabsStore'
+import { hydrateSettingsStore } from '@/store/settingsStore'
+import { hydrateRhymePanel } from '@/store/rhymePanelStore'
+import { hydrateBadgeSettings } from '@/store/settings'
+import { loadPersistedAppState } from '@/lib/persist/appState'
 import { shallow } from 'zustand/shallow'
 import { useHydrated } from '@/hooks/useHydrated'
 
@@ -12,6 +16,8 @@ export default function EditorShell() {
   const shellRef = useRef<HTMLDivElement | null>(null)
   const floatingPanelRef = useRef<HTMLDivElement | null>(null)
   const hydrated = useHydrated()
+  const [appStateReady, setAppStateReady] = useState(false)
+  const ready = hydrated && appStateReady
   const { mode, setMode } = useRhymePanel((state) => ({
     mode: state.mode,
     setMode: state.setMode,
@@ -93,8 +99,19 @@ export default function EditorShell() {
 
   useEffect(() => {
     if (!hydrated) return
-    actions.hydrate()
-  }, [actions, hydrated])
+    let cancelled = false
+    const snapshot = loadPersistedAppState()
+    hydrateSettingsStore(snapshot.settings)
+    hydrateTabsFromPersisted(snapshot.drafts)
+    hydrateRhymePanel(snapshot.panel)
+    hydrateBadgeSettings()
+    if (!cancelled) {
+      setAppStateReady(true)
+    }
+    return () => {
+      cancelled = true
+    }
+  }, [hydrated])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -141,9 +158,16 @@ export default function EditorShell() {
 
   return (
     <div ref={shellRef} className="relative flex h-full w-full flex-col">
-      {!hydrated ? null : (
+      {!ready ? (
+        <div className="flex h-full w-full flex-1 min-h-0" aria-hidden />
+      ) : (
         <div className="flex h-full w-full flex-1 min-h-0">
-          <Editor text={activeTab?.snapshot.text ?? ''} onTextChange={handleTextChange} onDirtyChange={handleDirtyChange} />
+          <Editor
+            hydrated={ready}
+            text={activeTab?.snapshot.text ?? ''}
+            onTextChange={handleTextChange}
+            onDirtyChange={handleDirtyChange}
+          />
           <RhymePanel ref={floatingPanelRef} />
         </div>
       )}

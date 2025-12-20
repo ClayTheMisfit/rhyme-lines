@@ -1,3 +1,5 @@
+import { assertClientOnly } from '@/lib/env/assertClientOnly'
+import { isClient } from '@/lib/env/isClient'
 import {
   CURRENT_SCHEMA_VERSION,
   STORAGE_KEYS,
@@ -35,7 +37,14 @@ const migrationMap = {
 }
 
 const isClientStorageAvailable = (): boolean => {
-  if (typeof window === 'undefined' || !window.localStorage) return false
+  if (!isClient()) {
+    if (process.env.NODE_ENV === 'development') {
+      assertClientOnly('persist:storage')
+    }
+    return false
+  }
+  assertClientOnly('persist:storage-access')
+  if (!window.localStorage) return false
   try {
     const probeKey = '__rl_storage_probe__'
     window.localStorage.setItem(probeKey, probeKey)

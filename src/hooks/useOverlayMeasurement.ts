@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { assertClientOnly } from '@/lib/env/assertClientOnly'
+import { isClient } from '@/lib/env/isClient'
 import type { OverlayToken } from '@/components/editor/SyllableOverlay'
 import type { AnalysisResult } from '@/hooks/useAnalysisWorker'
 import type { LineInput } from '@/lib/analysis/compute'
@@ -109,10 +111,11 @@ export function useOverlayMeasurement({
   }, [activeLineIds, containerWidth, devicePixelRatio, fontSize, lineElementsRef, lineHeight, theme])
 
   useEffect(() => {
-    if (!enabled || !analysis || analysis.docId !== docId || typeof window === 'undefined') {
+    if (!enabled || !analysis || analysis.docId !== docId || !isClient()) {
       setTokens([])
       return
     }
+    assertClientOnly('overlay:measure')
     const root = editorRef.current
     const linesDom = lineElementsRef.current
     if (!root || !linesDom || !linesDom.length) {

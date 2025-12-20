@@ -1,6 +1,8 @@
 'use client'
 
 import { create } from 'zustand'
+import { assertClientOnly } from '@/lib/env/assertClientOnly'
+import { isClient } from '@/lib/env/isClient'
 import {
   createDefaultDraftCollection,
   createEmptyDraft,
@@ -8,7 +10,7 @@ import {
   type DraftLine,
   type DraftSchema,
 } from '@/lib/persist/schema'
-import { readWithMigrations, writeVersioned } from '@/lib/persist/storage'
+import { writeVersioned } from '@/lib/persist/storage'
 
 export type TabId = string
 
@@ -35,7 +37,7 @@ interface TabsState {
     renameTab: (id: TabId, title: string) => void
     updateSnapshot: (id: TabId, patch: Partial<EditorSnapshot>) => void
     markDirty: (id: TabId, dirty: boolean) => void
-    hydrate: () => void
+    hydrate: (payload: DraftCollection) => void
   }
 }
 
@@ -94,12 +96,6 @@ const buildDraftCollection = (state: TabsState, previous: DraftCollection | null
   }
 }
 
-const hydrateFromDrafts = (): DraftCollection => {
-  if (typeof window === 'undefined') return createDefaultDraftCollection()
-  const { data } = readWithMigrations('drafts')
-  return data
-}
-
 const draftCollectionToTabs = (collection: DraftCollection): { tabs: Tab[]; activeTabId: string } => {
   const tabs = collection.drafts.length ? collection.drafts.map(tabFromDraft) : [createDefaultTab()]
   const fallbackActive = tabs[0]?.id ?? createDefaultTab().id
@@ -109,7 +105,7 @@ const draftCollectionToTabs = (collection: DraftCollection): { tabs: Tab[]; acti
 
 let lastPersistedDrafts: DraftCollection | null = null
 
-const baseDrafts = hydrateFromDrafts()
+const baseDrafts = createDefaultDraftCollection()
 lastPersistedDrafts = baseDrafts
 const baseTabs = draftCollectionToTabs(baseDrafts)
 
@@ -135,7 +131,7 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
         if (index === -1) return state
 
         const target = state.tabs[index]
-        if (target.isDirty && typeof window !== 'undefined') {
+        if (target.isDirty && isClient()) {
           const confirmed = window.confirm('Discard unsaved changes for this tab?')
           if (!confirmed) return state
         }
@@ -209,11 +205,10 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
         ),
       }))
     },
-    hydrate: () => {
-      if (typeof window === 'undefined') return
-      const result = readWithMigrations('drafts')
-      lastPersistedDrafts = result.data
-      const hydrated = draftCollectionToTabs(result.data)
+    hydrate: (payload) => {
+      const safeDrafts = payload ?? createDefaultDraftCollection()
+      lastPersistedDrafts = safeDrafts
+      const hydrated = draftCollectionToTabs(safeDrafts)
       set((state) => ({
         ...state,
         tabs: hydrated.tabs,
@@ -224,13 +219,18 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
 }))
 
 const persistState = (state: TabsState) => {
-  if (typeof window === 'undefined') return
+  if (!isClient()) {
+    if (process.env.NODE_ENV === 'development') {
+      assertClientOnly('tabs:persist')
+    }
+    return
+  }
   const payload = buildDraftCollection(state, lastPersistedDrafts)
   writeVersioned('drafts', payload)
   lastPersistedDrafts = payload
 }
 
-if (typeof window !== 'undefined') {
+if (isClient()) {
   let timer: number | null = null
   useTabsStore.subscribe((state) => {
     if (timer) {
@@ -247,4 +247,8 @@ export const getActiveTab = (): Tab => {
   const state = useTabsStore.getState()
   const active = state.tabs.find((tab) => tab.id === state.activeTabId)
   return active ?? state.tabs[0]
+}
+
+export function hydrateTabsFromPersisted(drafts: DraftCollection) {
+  useTabsStore.getState().actions.hydrate(drafts)
 }
