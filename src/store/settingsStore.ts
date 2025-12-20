@@ -1,87 +1,170 @@
 'use client'
 
 import { createWithEqualityFn } from 'zustand/traditional'
-import { persist, createJSONStorage } from 'zustand/middleware'
-
-type Theme = 'light' | 'dark'
-type BadgeSize = 'xs' | 'sm' | 'md'
-type DebounceMode = 'cursor-50' | 'typing-250'
+import {
+  DEFAULT_SETTINGS,
+  type BadgeSize,
+  type DebounceMode,
+  type RhymeFilters,
+  type SettingsSchema,
+  type ThemeSetting,
+} from '@/lib/persist/schema'
+import { readWithMigrations, writeVersioned } from '@/lib/persist/storage'
 
 export type SettingsState = {
-  theme: Theme
+  theme: ThemeSetting
   fontSize: number
   lineHeight: number
   badgeSize: BadgeSize
   showLineTotals: boolean
   rhymeAutoRefresh: boolean
   debounceMode: DebounceMode
-  setTheme: (theme: Theme) => void
+  highContrast: boolean
+  rhymeFilters: RhymeFilters
+  lastUpdatedAt: number
+  setTheme: (theme: ThemeSetting) => void
   setFontSize: (fontSize: number) => void
   setLineHeight: (lineHeight: number) => void
   setBadgeSize: (size: BadgeSize) => void
   setShowLineTotals: (value: boolean) => void
   setRhymeAutoRefresh: (value: boolean) => void
   setDebounceMode: (mode: DebounceMode) => void
+  setHighContrast: (value: boolean) => void
+  setRhymeFilters: (filters: RhymeFilters) => void
   resetDefaults: () => void
 }
 
-export const SETTINGS_DEFAULTS: Pick<SettingsState,
-  'theme' | 'fontSize' | 'lineHeight' | 'badgeSize' | 'showLineTotals' | 'rhymeAutoRefresh' | 'debounceMode'
-> = {
-  theme: 'dark',
-  fontSize: 18,
-  lineHeight: 1.6,
-  badgeSize: 'sm',
-  showLineTotals: true,
-  rhymeAutoRefresh: true,
-  debounceMode: 'typing-250',
+const PERSIST_DEBOUNCE_MS = 250
+
+const clampValue = (value: number, fallback: number, min: number, max: number) => {
+  if (!Number.isFinite(value)) return fallback
+  return Math.min(max, Math.max(min, value))
 }
 
-type PersistedSettings = Pick<SettingsState,
-  'theme' | 'fontSize' | 'lineHeight' | 'badgeSize' | 'showLineTotals' | 'rhymeAutoRefresh' | 'debounceMode'
->
+const applySettings = (incoming: SettingsSchema): SettingsSchema => ({
+  ...DEFAULT_SETTINGS,
+  ...incoming,
+  rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters, ...incoming.rhymeFilters },
+  lastUpdatedAt: incoming.lastUpdatedAt || Date.now(),
+})
 
-const storage = typeof window === 'undefined'
-  ? undefined
-  : createJSONStorage<PersistedSettings>(() => window.localStorage)
+export const SETTINGS_DEFAULTS: SettingsSchema = applySettings({
+  ...DEFAULT_SETTINGS,
+  rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters },
+  lastUpdatedAt: Date.now(),
+})
 
-export const useSettingsStore = createWithEqualityFn<SettingsState>()(
-  persist(
-    (set) => ({
-      ...SETTINGS_DEFAULTS,
-      setTheme: (theme) => set({ theme }),
-      setFontSize: (fontSize) => set({ fontSize }),
-      setLineHeight: (lineHeight) => set({ lineHeight }),
-      setBadgeSize: (badgeSize) => set({ badgeSize }),
-      setShowLineTotals: (showLineTotals) => set({ showLineTotals }),
-      setRhymeAutoRefresh: (rhymeAutoRefresh) => set({ rhymeAutoRefresh }),
-      setDebounceMode: (debounceMode) => set({ debounceMode }),
-      resetDefaults: () => set({ ...SETTINGS_DEFAULTS }),
-    }),
-    {
-      name: 'rhyme-lines:settings',
-      storage,
-      version: 1,
-      partialize: (state) => ({
-        theme: state.theme,
-        fontSize: state.fontSize,
-        lineHeight: state.lineHeight,
-        badgeSize: state.badgeSize,
-        showLineTotals: state.showLineTotals,
-        rhymeAutoRefresh: state.rhymeAutoRefresh,
-        debounceMode: state.debounceMode,
-      }),
-    }
-  ),
-  Object.is
-)
+const persistSettings = (state: SettingsState) => {
+  const payload: SettingsSchema = {
+    theme: state.theme,
+    fontSize: state.fontSize,
+    lineHeight: state.lineHeight,
+    badgeSize: state.badgeSize,
+    showLineTotals: state.showLineTotals,
+    rhymeAutoRefresh: state.rhymeAutoRefresh,
+    debounceMode: state.debounceMode,
+    highContrast: state.highContrast,
+    rhymeFilters: state.rhymeFilters,
+    lastUpdatedAt: Date.now(),
+  }
+  writeVersioned('settings', payload)
+}
 
-export type SettingsSnapshot = Pick<SettingsState,
-  'theme' | 'fontSize' | 'lineHeight' | 'badgeSize' | 'showLineTotals' | 'rhymeAutoRefresh' | 'debounceMode'
+let persistTimer: number | null = null
+const schedulePersist = (state: SettingsState) => {
+  if (persistTimer) {
+    window.clearTimeout(persistTimer)
+  }
+  persistTimer = window.setTimeout(() => {
+    persistSettings(state)
+    persistTimer = null
+  }, PERSIST_DEBOUNCE_MS)
+}
+
+const hydrateFromStorage = (): SettingsSchema => {
+  if (typeof window === 'undefined') {
+    return { ...DEFAULT_SETTINGS, rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters }, lastUpdatedAt: Date.now() }
+  }
+  const { data } = readWithMigrations('settings')
+  return applySettings(data)
+}
+
+const initial = hydrateFromStorage()
+
+export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get) => ({
+  ...initial,
+  setTheme: (theme) => {
+    set({ theme, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
+  setFontSize: (fontSize) => {
+    set({ fontSize: clampValue(fontSize, DEFAULT_SETTINGS.fontSize, 12, 48), lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
+  setLineHeight: (lineHeight) => {
+    set({ lineHeight: clampValue(lineHeight, DEFAULT_SETTINGS.lineHeight, 1, 2.4), lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
+  setBadgeSize: (badgeSize) => {
+    set({ badgeSize, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
+  setShowLineTotals: (showLineTotals) => {
+    set({ showLineTotals, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
+  setRhymeAutoRefresh: (rhymeAutoRefresh) => {
+    set({ rhymeAutoRefresh, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
+  setDebounceMode: (debounceMode) => {
+    set({ debounceMode, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
+  setHighContrast: (highContrast) => {
+    set({ highContrast, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
+  setRhymeFilters: (rhymeFilters) => {
+    set({ rhymeFilters, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
+  resetDefaults: () => {
+    const resetState = applySettings({
+      ...DEFAULT_SETTINGS,
+      rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters },
+      lastUpdatedAt: Date.now(),
+    })
+    set(resetState)
+    schedulePersist(get())
+  },
+}), Object.is)
+
+export type SettingsSnapshot = Pick<
+  SettingsState,
+  | 'theme'
+  | 'fontSize'
+  | 'lineHeight'
+  | 'badgeSize'
+  | 'showLineTotals'
+  | 'rhymeAutoRefresh'
+  | 'debounceMode'
+  | 'highContrast'
+  | 'rhymeFilters'
 >
 
 export function getCurrentSettingsSnapshot(): SettingsSnapshot {
-  const { theme, fontSize, lineHeight, badgeSize, showLineTotals, rhymeAutoRefresh, debounceMode } = useSettingsStore.getState()
+  const {
+    theme,
+    fontSize,
+    lineHeight,
+    badgeSize,
+    showLineTotals,
+    rhymeAutoRefresh,
+    debounceMode,
+    highContrast,
+    rhymeFilters,
+  } = useSettingsStore.getState()
   return {
     theme,
     fontSize,
@@ -90,6 +173,8 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     showLineTotals,
     rhymeAutoRefresh,
     debounceMode,
+    highContrast,
+    rhymeFilters,
   }
 }
 
@@ -102,6 +187,8 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
     setShowLineTotals,
     setRhymeAutoRefresh,
     setDebounceMode,
+    setHighContrast,
+    setRhymeFilters,
   } = useSettingsStore.getState()
 
   setTheme(snapshot.theme)
@@ -111,5 +198,6 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
   setShowLineTotals(snapshot.showLineTotals)
   setRhymeAutoRefresh(snapshot.rhymeAutoRefresh)
   setDebounceMode(snapshot.debounceMode)
+  setHighContrast(snapshot.highContrast)
+  setRhymeFilters(snapshot.rhymeFilters)
 }
-

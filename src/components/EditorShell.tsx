@@ -6,10 +6,12 @@ import RhymePanel from './RhymePanel'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { useTabsStore } from '@/store/tabsStore'
 import { shallow } from 'zustand/shallow'
+import { useHydrated } from '@/hooks/useHydrated'
 
 export default function EditorShell() {
   const shellRef = useRef<HTMLDivElement | null>(null)
   const floatingPanelRef = useRef<HTMLDivElement | null>(null)
+  const hydrated = useHydrated()
   const { mode, setMode } = useRhymePanel((state) => ({
     mode: state.mode,
     setMode: state.setMode,
@@ -90,8 +92,9 @@ export default function EditorShell() {
   }, [handleClickOutside, mode])
 
   useEffect(() => {
+    if (!hydrated) return
     actions.hydrate()
-  }, [actions])
+  }, [actions, hydrated])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -138,10 +141,12 @@ export default function EditorShell() {
 
   return (
     <div ref={shellRef} className="relative flex h-full w-full flex-col">
-      <div className="flex h-full w-full flex-1 min-h-0">
-        <Editor text={activeTab?.snapshot.text ?? ''} onTextChange={handleTextChange} onDirtyChange={handleDirtyChange} />
-        <RhymePanel ref={floatingPanelRef} />
-      </div>
+      {!hydrated ? null : (
+        <div className="flex h-full w-full flex-1 min-h-0">
+          <Editor text={activeTab?.snapshot.text ?? ''} onTextChange={handleTextChange} onDirtyChange={handleDirtyChange} />
+          <RhymePanel ref={floatingPanelRef} />
+        </div>
+      )}
     </div>
   )
 }
