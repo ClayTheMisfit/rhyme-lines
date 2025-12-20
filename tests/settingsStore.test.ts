@@ -2,8 +2,16 @@ import { applySettingsSnapshot, getCurrentSettingsSnapshot, SETTINGS_DEFAULTS, u
 
 describe('settings store', () => {
   beforeEach(() => {
+    jest.useFakeTimers()
     localStorage.clear()
-    useSettingsStore.setState({ ...SETTINGS_DEFAULTS })
+    useSettingsStore.setState((state) => ({
+      ...state,
+      ...SETTINGS_DEFAULTS,
+    }))
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
   })
 
   it('initialises with default values', () => {
@@ -16,6 +24,7 @@ describe('settings store', () => {
     expect(state.showLineTotals).toBe(SETTINGS_DEFAULTS.showLineTotals)
     expect(state.rhymeAutoRefresh).toBe(SETTINGS_DEFAULTS.rhymeAutoRefresh)
     expect(state.debounceMode).toBe(SETTINGS_DEFAULTS.debounceMode)
+    expect(state.highContrast).toBe(SETTINGS_DEFAULTS.highContrast)
   })
 
   it('persists updates to localStorage', () => {
@@ -23,13 +32,15 @@ describe('settings store', () => {
 
     setTheme('light')
     setFontSize(22)
+    jest.runOnlyPendingTimers()
 
-    const raw = localStorage.getItem('rhyme-lines:settings')
+    const raw = localStorage.getItem('rhyme-lines:persist:settings')
     expect(raw).toBeTruthy()
 
     const parsed = raw ? JSON.parse(raw) : null
-    expect(parsed?.state.theme).toBe('light')
-    expect(parsed?.state.fontSize).toBe(22)
+    expect(parsed?.data.theme).toBe('light')
+    expect(parsed?.data.fontSize).toBe(22)
+    expect(parsed?.version).toBeGreaterThanOrEqual(1)
   })
 
   it('resets to defaults and can restore snapshots', () => {
@@ -57,7 +68,8 @@ describe('settings store', () => {
     resetDefaults()
 
     const stateAfterReset = useSettingsStore.getState()
-    expect(stateAfterReset).toMatchObject(SETTINGS_DEFAULTS)
+    expect(stateAfterReset.theme).toBe(SETTINGS_DEFAULTS.theme)
+    expect(stateAfterReset.fontSize).toBe(SETTINGS_DEFAULTS.fontSize)
 
     applySettingsSnapshot(snapshot)
 

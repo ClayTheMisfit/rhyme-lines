@@ -1,7 +1,14 @@
 'use client'
 
 import { create } from 'zustand'
-import { migrateOldContent } from '@/lib/editor/serialization'
+import {
+  createDefaultDraftCollection,
+  createEmptyDraft,
+  type DraftCollection,
+  type DraftLine,
+  type DraftSchema,
+} from '@/lib/persist/schema'
+import { readWithMigrations, writeVersioned } from '@/lib/persist/storage'
 
 export type TabId = string
 
@@ -32,10 +39,7 @@ interface TabsState {
   }
 }
 
-const STORAGE_KEY = 'rhyme-lines.tabs.v1'
-const LEGACY_STORAGE_KEY = 'rhyme-lines:doc:current:v2'
-const LEGACY_STORAGE_KEY_V1 = 'rhyme-lines:doc:current'
-const PERSIST_DEBOUNCE_MS = 200
+const PERSIST_DEBOUNCE_MS = 250
 
 const makeId = (): TabId => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -44,88 +48,74 @@ const makeId = (): TabId => {
   return `tab-${Math.random().toString(16).slice(2)}-${Date.now().toString(16)}`
 }
 
-const createDefaultTab = (): Tab => {
-  const now = Date.now()
+const tabFromDraft = (draft: DraftSchema): Tab => ({
+  id: draft.docId,
+  title: draft.title ?? 'Untitled',
+  snapshot: { text: draft.lines.map((line) => line.text).join('\n') },
+  isDirty: false,
+  createdAt: draft.createdAt,
+  updatedAt: draft.updatedAt,
+})
+
+const createDefaultTab = (): Tab => tabFromDraft(createEmptyDraft(makeId()))
+
+const reuseLineId = (existing: DraftLine | undefined, fallback: string) => existing?.id ?? fallback
+
+const buildDraftFromTab = (tab: Tab, previousDraft?: DraftSchema): DraftSchema => {
+  const linesFromSnapshot = tab.snapshot.text.split('\n')
+  const previousLines = previousDraft?.lines ?? []
+  const draftLines = linesFromSnapshot.map((text, index) => ({
+    id: reuseLineId(previousLines[index], `${tab.id}-line-${index}`),
+    text,
+  }))
+
   return {
-    id: makeId(),
-    title: 'Untitled',
-    snapshot: {
-      text: '',
-    },
-    isDirty: false,
-    createdAt: now,
-    updatedAt: now,
+    docId: tab.id,
+    title: tab.title,
+    createdAt: tab.createdAt,
+    updatedAt: Date.now(),
+    lines: draftLines.length ? draftLines : [{ id: `${tab.id}-line-0`, text: '' }],
+    selection: previousDraft?.selection,
   }
 }
 
-type PersistShape = Pick<TabsState, 'tabs' | 'activeTabId'>
+const buildDraftCollection = (state: TabsState, previous: DraftCollection | null): DraftCollection => {
+  const previousMap = new Map<string, DraftSchema>()
+  previous?.drafts.forEach((draft) => {
+    previousMap.set(draft.docId, draft)
+  })
 
-const isTabLike = (value: unknown): value is Tab => {
-  if (!value || typeof value !== 'object') return false
-  const candidate = value as Record<string, unknown>
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.title === 'string' &&
-    candidate.snapshot !== undefined &&
-    typeof (candidate.snapshot as { text?: unknown }).text === 'string' &&
-    typeof candidate.isDirty === 'boolean' &&
-    typeof candidate.createdAt === 'number' &&
-    typeof candidate.updatedAt === 'number'
-  )
-}
+  const drafts = state.tabs.map((tab) => buildDraftFromTab(tab, previousMap.get(tab.id)))
+  const activeId = drafts.find((draft) => draft.docId === state.activeTabId)?.docId ?? drafts[0]?.docId ?? ''
 
-const safeParsePersisted = (raw: string | null): PersistShape | null => {
-  if (!raw) return null
-  try {
-    const parsed = JSON.parse(raw) as unknown
-    if (!parsed || typeof parsed !== 'object') return null
-    const payload = parsed as Record<string, unknown>
-    const maybeTabs = payload.tabs
-    const maybeActiveId = payload.activeTabId
-    if (!Array.isArray(maybeTabs) || typeof maybeActiveId !== 'string') return null
-
-    const validTabs = maybeTabs.filter(isTabLike) as Tab[]
-    if (!validTabs.length) return null
-    return {
-      tabs: validTabs,
-      activeTabId: maybeActiveId,
-    }
-  } catch {
-    return null
-  }
-}
-
-const readLegacyTab = (): Tab | null => {
-  if (typeof window === 'undefined') return null
-  let legacyContent = window.localStorage.getItem(LEGACY_STORAGE_KEY)
-
-  if (!legacyContent) {
-    const oldContent = window.localStorage.getItem(LEGACY_STORAGE_KEY_V1)
-    if (oldContent) {
-      legacyContent = migrateOldContent(oldContent)
-    }
-  }
-
-  if (!legacyContent) return null
-
-  const now = Date.now()
   return {
-    id: makeId(),
-    title: 'Untitled',
-    snapshot: {
-      text: legacyContent,
-    },
-    isDirty: false,
-    createdAt: now,
-    updatedAt: now,
+    drafts,
+    activeId,
   }
 }
 
-const baseTab = createDefaultTab()
+const hydrateFromDrafts = (): DraftCollection => {
+  if (typeof window === 'undefined') return createDefaultDraftCollection()
+  const { data } = readWithMigrations('drafts')
+  return data
+}
+
+const draftCollectionToTabs = (collection: DraftCollection): { tabs: Tab[]; activeTabId: string } => {
+  const tabs = collection.drafts.length ? collection.drafts.map(tabFromDraft) : [createDefaultTab()]
+  const fallbackActive = tabs[0]?.id ?? createDefaultTab().id
+  const activeTabId = tabs.find((tab) => tab.id === collection.activeId)?.id ?? fallbackActive
+  return { tabs, activeTabId }
+}
+
+let lastPersistedDrafts: DraftCollection | null = null
+
+const baseDrafts = hydrateFromDrafts()
+lastPersistedDrafts = baseDrafts
+const baseTabs = draftCollectionToTabs(baseDrafts)
 
 export const useTabsStore = create<TabsState>()((set, get) => ({
-  tabs: [baseTab],
-  activeTabId: baseTab.id,
+  tabs: baseTabs.tabs,
+  activeTabId: baseTabs.activeTabId,
   actions: {
     newTab: () => {
       const tab = createDefaultTab()
@@ -221,24 +211,13 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
     },
     hydrate: () => {
       if (typeof window === 'undefined') return
-      const parsed = safeParsePersisted(window.localStorage.getItem(STORAGE_KEY))
-      if (!parsed) {
-        const legacy = readLegacyTab()
-        if (!legacy) return
-        set((state) => ({
-          ...state,
-          tabs: [legacy],
-          activeTabId: legacy.id,
-        }))
-        return
-      }
-
-      const tabs = parsed.tabs.length ? parsed.tabs : [createDefaultTab()]
-      const active = tabs.find((tab) => tab.id === parsed.activeTabId)?.id ?? tabs[0].id
+      const result = readWithMigrations('drafts')
+      lastPersistedDrafts = result.data
+      const hydrated = draftCollectionToTabs(result.data)
       set((state) => ({
         ...state,
-        tabs,
-        activeTabId: active,
+        tabs: hydrated.tabs,
+        activeTabId: hydrated.activeTabId,
       }))
     },
   },
@@ -246,11 +225,9 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
 
 const persistState = (state: TabsState) => {
   if (typeof window === 'undefined') return
-  const payload: PersistShape = {
-    tabs: state.tabs,
-    activeTabId: state.activeTabId,
-  }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+  const payload = buildDraftCollection(state, lastPersistedDrafts)
+  writeVersioned('drafts', payload)
+  lastPersistedDrafts = payload
 }
 
 if (typeof window !== 'undefined') {
