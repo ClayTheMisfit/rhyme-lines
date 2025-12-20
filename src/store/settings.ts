@@ -1,4 +1,6 @@
 import { createWithEqualityFn } from 'zustand/traditional'
+import { assertClientOnly } from '@/lib/env/assertClientOnly'
+import { isClient } from '@/lib/env/isClient'
 
 export type BadgeMode = 'always' | 'activeLine' | 'hoverLine' | 'off'
 export type BadgeVariant = 'numbers' | 'dots' | 'mixed'
@@ -14,36 +16,60 @@ type BadgeSettingsState = {
 
 const clampScale = (value: number) => Math.min(1.4, Math.max(0.8, Number.isFinite(value) ? value : 0.9))
 
+const DEFAULT_BADGE_MODE: BadgeMode = 'activeLine'
+const DEFAULT_BADGE_VARIANT: BadgeVariant = 'mixed'
+const DEFAULT_BADGE_SCALE = 0.9
+
 const readBadgeMode = (): BadgeMode => {
-  if (typeof window === 'undefined') return 'activeLine'
+  if (!isClient()) {
+    if (process.env.NODE_ENV === 'development') {
+      assertClientOnly('badge-mode:read')
+    }
+    return DEFAULT_BADGE_MODE
+  }
   const stored = window.localStorage.getItem('rl.badgeMode') as BadgeMode | null
-  return stored ?? 'activeLine'
+  return stored ?? DEFAULT_BADGE_MODE
 }
 
 const readBadgeVariant = (): BadgeVariant => {
-  if (typeof window === 'undefined') return 'mixed'
+  if (!isClient()) {
+    if (process.env.NODE_ENV === 'development') {
+      assertClientOnly('badge-variant:read')
+    }
+    return DEFAULT_BADGE_VARIANT
+  }
   const stored = window.localStorage.getItem('rl.badgeVariant') as BadgeVariant | null
-  return stored ?? 'mixed'
+  return stored ?? DEFAULT_BADGE_VARIANT
 }
 
 const readBadgeScale = (): number => {
-  if (typeof window === 'undefined') return 0.9
+  if (!isClient()) {
+    if (process.env.NODE_ENV === 'development') {
+      assertClientOnly('badge-scale:read')
+    }
+    return DEFAULT_BADGE_SCALE
+  }
   const stored = window.localStorage.getItem('rl.badgeScale')
   const parsed = stored ? Number.parseFloat(stored) : NaN
-  return clampScale(Number.isFinite(parsed) ? parsed : 0.9)
+  return clampScale(Number.isFinite(parsed) ? parsed : DEFAULT_BADGE_SCALE)
 }
 
 const persistValue = (key: string, value: string) => {
-  if (typeof window === 'undefined') return
+  if (!isClient()) {
+    if (process.env.NODE_ENV === 'development') {
+      assertClientOnly('badge-settings:persist')
+    }
+    return
+  }
   try {
     window.localStorage.setItem(key, value)
   } catch {}
 }
 
 export const useBadgeSettings = createWithEqualityFn<BadgeSettingsState>()((set, get) => ({
-  badgeMode: readBadgeMode(),
-  badgeVariant: readBadgeVariant(),
-  badgeScale: readBadgeScale(),
+  badgeMode: DEFAULT_BADGE_MODE,
+  badgeVariant: DEFAULT_BADGE_VARIANT,
+  badgeScale: DEFAULT_BADGE_SCALE,
   setBadgeMode: (badgeMode) => {
     persistValue('rl.badgeMode', badgeMode)
     set({ badgeMode })
@@ -61,3 +87,10 @@ export const useBadgeSettings = createWithEqualityFn<BadgeSettingsState>()((set,
 
 export const BADGE_MODE_ORDER: readonly BadgeMode[] = ['activeLine', 'hoverLine', 'always', 'off'] as const
 export const BADGE_VARIANT_ORDER: readonly BadgeVariant[] = ['numbers', 'mixed', 'dots'] as const
+
+export function hydrateBadgeSettings() {
+  const badgeMode = readBadgeMode()
+  const badgeVariant = readBadgeVariant()
+  const badgeScale = readBadgeScale()
+  useBadgeSettings.setState({ badgeMode, badgeVariant, badgeScale })
+}

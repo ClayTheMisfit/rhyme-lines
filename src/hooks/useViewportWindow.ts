@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { assertClientOnly } from '@/lib/env/assertClientOnly'
+import { isClient } from '@/lib/env/isClient'
 
 type Options = {
   bufferLines?: number
@@ -22,7 +24,8 @@ export function useViewportWindow(
   const [state, setState] = useState<WindowState>({ activeLineIds: EMPTY_SET, range: DEFAULT_RANGE })
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (!isClient()) return
+    assertClientOnly('viewport-window')
     const container = containerRef.current
     const lineElements = lineElementsRef.current
     if (!container || !lineElements || lineElements.length === 0) {

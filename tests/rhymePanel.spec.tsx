@@ -65,8 +65,10 @@ describe('Rhyme panel interactions', () => {
   })
 
   test('Alt+R refocuses an already open panel', async () => {
-    useRhymePanel.setState((state) => ({ ...state, mode: 'docked' }))
     await renderWithQueryClient()
+    act(() => {
+      useRhymePanel.getState().setMode('docked')
+    })
 
     const editor = document.getElementById('lyric-editor') as HTMLElement
     expect(editor).toBeInTheDocument()
@@ -85,8 +87,10 @@ describe('Rhyme panel interactions', () => {
   })
 
   test('Escape closes the panel and refocuses the editor', async () => {
-    useRhymePanel.setState((state) => ({ ...state, mode: 'docked' }))
     await renderWithQueryClient()
+    act(() => {
+      useRhymePanel.getState().setMode('docked')
+    })
 
     const panel = await screen.findByTestId('rhyme-panel-root')
     panel.focus()
@@ -108,8 +112,10 @@ describe('Rhyme panel interactions', () => {
   })
 
   test('Drag handle is visible in detached mode', async () => {
-    useRhymePanel.setState((state) => ({ ...state, mode: 'detached' }))
     await renderWithQueryClient()
+    act(() => {
+      useRhymePanel.getState().setMode('detached')
+    })
 
     await screen.findByTestId('rhyme-panel-root')
     const dragHandle = document.querySelector('.rhyme-panel-drag-handle')

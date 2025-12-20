@@ -1,5 +1,6 @@
 import { migrateDrafts, migrateSettings } from '@/lib/persist/migrations'
 import { CURRENT_SCHEMA_VERSION, DEFAULT_SETTINGS } from '@/lib/persist/schema'
+import { loadPersistedAppState } from '@/lib/persist/appState'
 import { useTabsStore } from '@/store/tabsStore'
 
 describe('persistence migrations', () => {
@@ -68,8 +69,9 @@ describe('persistence migrations', () => {
     }
     localStorage.setItem('rhyme-lines.tabs.v1', JSON.stringify(legacyDraft))
 
+    const persisted = loadPersistedAppState()
     const { actions } = useTabsStore.getState()
-    actions.hydrate()
+    actions.hydrate(persisted.drafts)
 
     const state = useTabsStore.getState()
     expect(state.activeTabId).toBe('draft-1')

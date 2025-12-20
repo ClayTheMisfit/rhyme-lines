@@ -1,6 +1,8 @@
 'use client'
 
 import { createWithEqualityFn } from 'zustand/traditional'
+import { assertClientOnly } from '@/lib/env/assertClientOnly'
+import { isClient } from '@/lib/env/isClient'
 import {
   DEFAULT_SETTINGS,
   type BadgeSize,
@@ -9,7 +11,8 @@ import {
   type SettingsSchema,
   type ThemeSetting,
 } from '@/lib/persist/schema'
-import { readWithMigrations, writeVersioned } from '@/lib/persist/storage'
+import { writeVersioned } from '@/lib/persist/storage'
+import { applySettingsDefaults, SETTINGS_DEFAULTS } from '@/lib/persist/settingsDefaults'
 
 export type SettingsState = {
   theme: ThemeSetting
@@ -41,19 +44,6 @@ const clampValue = (value: number, fallback: number, min: number, max: number) =
   return Math.min(max, Math.max(min, value))
 }
 
-const applySettings = (incoming: SettingsSchema): SettingsSchema => ({
-  ...DEFAULT_SETTINGS,
-  ...incoming,
-  rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters, ...incoming.rhymeFilters },
-  lastUpdatedAt: incoming.lastUpdatedAt || Date.now(),
-})
-
-export const SETTINGS_DEFAULTS: SettingsSchema = applySettings({
-  ...DEFAULT_SETTINGS,
-  rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters },
-  lastUpdatedAt: Date.now(),
-})
-
 const persistSettings = (state: SettingsState) => {
   const payload: SettingsSchema = {
     theme: state.theme,
@@ -72,6 +62,12 @@ const persistSettings = (state: SettingsState) => {
 
 let persistTimer: number | null = null
 const schedulePersist = (state: SettingsState) => {
+  if (!isClient()) {
+    if (process.env.NODE_ENV === 'development') {
+      assertClientOnly('settings:persist')
+    }
+    return
+  }
   if (persistTimer) {
     window.clearTimeout(persistTimer)
   }
@@ -81,21 +77,14 @@ const schedulePersist = (state: SettingsState) => {
   }, PERSIST_DEBOUNCE_MS)
 }
 
-const hydrateFromStorage = (): SettingsState => {
-  if (typeof window === 'undefined') {
-    return {
-      ...(applySettings({ ...DEFAULT_SETTINGS, rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters }, lastUpdatedAt: Date.now() }) as SettingsState),
-    }
-  }
-  const { data } = readWithMigrations('settings')
-  const normalized = applySettings(data)
-  return { ...SETTINGS_DEFAULTS, ...normalized } as SettingsState
-}
-
-const initial: SettingsState = hydrateFromStorage()
+const baseSettings: SettingsState = applySettingsDefaults({
+  ...DEFAULT_SETTINGS,
+  rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters },
+  lastUpdatedAt: Date.now(),
+}) as SettingsState
 
 export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get) => ({
-  ...initial,
+  ...baseSettings,
   setTheme: (theme) => {
     set({ theme, lastUpdatedAt: Date.now() })
     schedulePersist(get())
@@ -133,7 +122,7 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
     schedulePersist(get())
   },
   resetDefaults: () => {
-    const resetState = applySettings({
+    const resetState = applySettingsDefaults({
       ...DEFAULT_SETTINGS,
       rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters },
       lastUpdatedAt: Date.now(),
@@ -204,3 +193,10 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
   setHighContrast(snapshot.highContrast)
   setRhymeFilters(snapshot.rhymeFilters)
 }
+
+export function hydrateSettingsStore(payload: SettingsSchema) {
+  const normalized = applySettingsDefaults(payload)
+  useSettingsStore.setState(() => normalized as SettingsState, true)
+}
+
+export { SETTINGS_DEFAULTS }
