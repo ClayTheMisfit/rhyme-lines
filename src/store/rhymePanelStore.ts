@@ -3,22 +3,22 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
-
-export type RhymeType = 'perfect' | 'slant'
+import type { RhymeQuality } from '@/lib/rhyme/aggregate'
 
 export interface RhymePanelState {
   // Panel visibility
   isOpen: boolean
   
   // UI state
-  activeTab: RhymeType
+  filters: Record<RhymeQuality, boolean>
   searchQuery: string
   selectedIndex: number | null
   panelWidth: number
   
   // Actions
   togglePanel: () => void
-  setActiveTab: (tab: RhymeType) => void
+  setFilters: (filters: Record<RhymeQuality, boolean>) => void
+  toggleFilter: (quality: RhymeQuality) => void
   setSearchQuery: (query: string) => void
   setSelectedIndex: (index: number | null) => void
   resetSelection: () => void
@@ -30,7 +30,7 @@ export const useRhymePanelStore = create<RhymePanelState>()(
     (set, get) => ({
       // Initial state
       isOpen: useRhymePanel.getState().mode !== 'hidden',
-      activeTab: 'perfect',
+      filters: { perfect: true, near: true, slant: true },
       searchQuery: '',
       selectedIndex: null,
       panelWidth: useRhymePanel.getState().width,
@@ -46,8 +46,17 @@ export const useRhymePanelStore = create<RhymePanelState>()(
           set({ isOpen: true, selectedIndex: 0 })
         }
       },
-
-      setActiveTab: (tab) => set({ activeTab: tab, selectedIndex: 0 }),
+      setFilters: (filters) => set({ filters, selectedIndex: 0 }),
+      toggleFilter: (quality) =>
+        set((state) => {
+          const next = { ...state.filters, [quality]: !state.filters[quality] }
+          // Avoid disabling everything
+          const enabledCount = Object.values(next).filter(Boolean).length
+          if (enabledCount === 0) {
+            next[quality] = true
+          }
+          return { filters: next, selectedIndex: 0 }
+        }),
       setSearchQuery: (query) => set({ searchQuery: query, selectedIndex: 0 }),
       setSelectedIndex: (index: number | null) => set({ selectedIndex: index }),
       resetSelection: () => set({ selectedIndex: null }),
@@ -60,8 +69,8 @@ export const useRhymePanelStore = create<RhymePanelState>()(
       name: 'rhyme-panel-store',
       partialize: (state) => ({
         isOpen: state.isOpen,
-        activeTab: state.activeTab,
         panelWidth: state.panelWidth,
+        filters: state.filters,
       }),
     }
   )

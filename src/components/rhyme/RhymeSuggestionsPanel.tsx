@@ -7,7 +7,7 @@ import { DockablePanel } from '@/components/panels/DockablePanel'
 import { useRhymeSuggestions } from '@/hooks/useRhymeSuggestions'
 import { countSyllables } from '@/lib/nlp/syllables'
 import type { ActiveWord } from '@/lib/editor/getActiveWord'
-import type { AggregatedSuggestion } from '@/lib/rhyme/aggregate'
+import type { AggregatedSuggestion, RhymeQuality } from '@/lib/rhyme/aggregate'
 import SuggestionItem from './SuggestionItem'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
@@ -22,6 +22,12 @@ const SYLLABLE_CHIPS: { label: string; value: SyllableFilter }[] = [
   { label: '3', value: 3 },
   { label: '4', value: 4 },
   { label: '5+', value: 5 },
+]
+
+const QUALITY_CHIPS: { label: string; value: RhymeQuality }[] = [
+  { label: 'Perfect', value: 'perfect' },
+  { label: 'Near', value: 'near' },
+  { label: 'Slant', value: 'slant' },
 ]
 
 type Props = {
@@ -52,9 +58,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const suggestionsRef = React.useRef<AggregatedSuggestion[]>([])
     const panelRef = React.useRef<HTMLDivElement>(null)
 
-    const setPanelRef = React.useCallback(
-      (node: HTMLDivElement | null) => {
-        panelRef.current = node
+  const setPanelRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      panelRef.current = node
 
         if (typeof forwardedRef === 'function') {
           forwardedRef(node)
@@ -65,11 +71,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       [forwardedRef]
     )
 
-    const {
-      activeTab,
+  const {
+      filters,
       searchQuery,
       selectedIndex,
-      setActiveTab,
+      toggleFilter,
       setSearchQuery,
       setSelectedIndex,
     } = useRhymePanelStore()
@@ -98,13 +104,14 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
   const {
     suggestions,
-    isLoading,
+    status,
     error,
-    query: resolvedQuery,
+    target,
+    isOffline,
     refetchSuggestions,
   } = useRhymeSuggestions({
     searchQuery,
-    activeTab,
+    filters,
     activeWord: activeWord || null,
     enabled: mode !== 'hidden',
     autoRefresh: rhymeAutoRefresh,
@@ -116,7 +123,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     [suggestions, filter]
   )
 
-  const canRefresh = React.useMemo(() => resolvedQuery.trim().length > 0, [resolvedQuery])
+  const canRefresh = React.useMemo(() => !!target?.word, [target])
+  const isLoading = status === 'loading'
 
   React.useEffect(() => {
     suggestionsRef.current = filteredSuggestions
@@ -278,6 +286,25 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {QUALITY_CHIPS.map((chip) => {
+            const isActive = filters[chip.value]
+            return (
+              <button
+                key={chip.value}
+                type="button"
+                onClick={() => toggleFilter(chip.value)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  isActive ? 'bg-emerald-500 text-white shadow' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                }`}
+                aria-pressed={isActive}
+              >
+                {chip.label}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           {SYLLABLE_CHIPS.map((chip) => {
             const isActive = filter === chip.value
             return (
@@ -299,52 +326,47 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           <span className="text-[10px] uppercase tracking-wide text-white/40">keys 0–5</span>
         </div>
 
-        <div className="flex gap-2 rounded-full bg-white/5 p-1 text-xs font-medium text-white/70">
-          <button
-            type="button"
-            onClick={() => setActiveTab('perfect')}
-            className={`flex-1 rounded-full px-3 py-1 transition-colors ${
-              activeTab === 'perfect'
-                ? 'bg-white/20 text-white shadow'
-                : 'hover:bg-white/10'
-            }`}
-          >
-            Perfect
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('slant')}
-            className={`flex-1 rounded-full px-3 py-1 transition-colors ${
-              activeTab === 'slant'
-                ? 'bg-white/20 text-white shadow'
-                : 'hover:bg-white/10'
-            }`}
-          >
-            Slant
-          </button>
-        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 thin-scrollbar">
+        {isOffline && (
+          <div className="px-3 py-2 text-center text-xs text-amber-200">
+            Offline mode. Network providers paused; local/cache only.
+          </div>
+        )}
+
         {isLoading && (
           <div className="px-3 py-6 text-center text-sm text-white/50">
             Loading suggestions...
           </div>
         )}
 
-        {error && (
-          <div className="px-3 py-6 text-center text-sm text-red-300">
-            Error loading suggestions: {error.message}
+        {status === 'idle' && !isLoading && (
+          <div className="px-3 py-6 text-center text-sm text-white/50">
+            Type or move the caret to load rhymes.
           </div>
         )}
 
-        {!isLoading && !error && filteredSuggestions.length === 0 && (
+        {status === 'offline' && (
+          <div className="px-3 py-6 text-center text-sm text-amber-200">
+            Offline mode. Showing cached or local suggestions.
+          </div>
+        )}
+
+        {error && (
+          <div className="px-3 py-6 text-center text-sm text-red-300">
+            {status === 'error' ? 'Error loading suggestions: ' : 'Warning: '}
+            {error}
+          </div>
+        )}
+
+        {!isLoading && status !== 'idle' && filteredSuggestions.length === 0 && (
           <div className="px-3 py-6 text-center text-sm text-white/50">
             No suggestions found
           </div>
         )}
 
-        {!isLoading && !error && filteredSuggestions.length > 0 && (
+        {!isLoading && filteredSuggestions.length > 0 && (
           <div className="space-y-1">
             {filteredSuggestions.map((suggestion, index) => (
               <SuggestionItem
