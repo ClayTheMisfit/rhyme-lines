@@ -8,6 +8,7 @@ import { useRhymeSuggestions } from '@/hooks/useRhymeSuggestions'
 import { countSyllables } from '@/lib/nlp/syllables'
 import type { ActiveWord } from '@/lib/editor/getActiveWord'
 import type { AggregatedSuggestion, RhymeQuality } from '@/lib/rhyme/aggregate'
+import type { EditorHandle } from '@/components/Editor'
 import SuggestionItem from './SuggestionItem'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
@@ -35,6 +36,7 @@ type Props = {
   mode: RhymePanelMode
   onClose: () => void
   activeWord?: ActiveWord | null
+  editorRef?: React.RefObject<EditorHandle | null>
 }
 
 function resolveSyllables(suggestion: AggregatedSuggestion): number {
@@ -54,7 +56,7 @@ function matchesFilter(suggestion: AggregatedSuggestion, filter: SyllableFilter)
 }
 
 export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
-  ({ mode, onClose, activeWord }, forwardedRef) => {
+  ({ mode, onClose, activeWord, editorRef }, forwardedRef) => {
     const searchRef = React.useRef<HTMLInputElement>(null)
     const suggestionsRef = React.useRef<AggregatedSuggestion[]>([])
     const panelRef = React.useRef<HTMLDivElement>(null)
@@ -160,27 +162,44 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       }
     }, [filteredSuggestions.length])
 
-    const insertSuggestion = React.useCallback((suggestion: { word: string }) => {
-      const editorElement = document.getElementById('lyric-editor')
-      if (!editorElement) return
+    const insertSuggestion = React.useCallback(
+      (suggestion: { word: string }) => {
+        const editorApi = editorRef?.current
+        if (editorApi?.insertText) {
+          try {
+            const result = editorApi.insertText(suggestion.word)
+            if (!result) {
+              console.warn('Editor insertion returned false; falling back to DOM insertion.')
+            } else {
+              return
+            }
+          } catch (err) {
+            console.error('Failed to insert suggestion via editor API:', err)
+          }
+        }
 
-      try {
-        const selection = window.getSelection()
-        if (!selection || selection.rangeCount === 0) return
+        const editorElement = document.getElementById('lyric-editor')
+        if (!editorElement) return
 
-        const range = selection.getRangeAt(0)
-        const textNode = document.createTextNode(suggestion.word)
-        range.deleteContents()
-        range.insertNode(textNode)
+        try {
+          const selection = window.getSelection()
+          if (!selection || selection.rangeCount === 0) return
 
-        range.setStartAfter(textNode)
-        range.setEndAfter(textNode)
-        selection.removeAllRanges()
-        selection.addRange(range)
-      } catch (err) {
-        console.error('Failed to insert suggestion:', err)
-      }
-    }, [])
+          const range = selection.getRangeAt(0)
+          const textNode = document.createTextNode(suggestion.word)
+          range.deleteContents()
+          range.insertNode(textNode)
+
+          range.setStartAfter(textNode)
+          range.setEndAfter(textNode)
+          selection.removeAllRanges()
+          selection.addRange(range)
+        } catch (err) {
+          console.error('Failed to insert suggestion:', err)
+        }
+      },
+      [editorRef]
+    )
 
     const handleClose = React.useCallback(() => {
       onClose()

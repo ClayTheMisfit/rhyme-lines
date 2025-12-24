@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
@@ -27,7 +27,12 @@ type EditorProps = {
   hydrated?: boolean
 }
 
-const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
+export type EditorHandle = {
+  focus: () => void
+  insertText: (text: string) => boolean
+}
+
+const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   { text = '', onTextChange = () => {}, onDirtyChange, hydrated = false },
   ref
 ) {
@@ -676,21 +681,6 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
     })
   }, [activeLineId, lineVersion])
 
-  const handleAssignEditorRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      editorRef.current = node
-
-      if (!ref) return
-      if (typeof ref === 'function') {
-        ref(node)
-        return
-      }
-
-      ref.current = node
-    },
-    [ref]
-  )
-
   const ensureEditorFocus = useCallback(() => {
     const node = editorRef.current
     if (!node) return
@@ -698,6 +688,33 @@ const Editor = forwardRef<HTMLDivElement, EditorProps>(function Editor(
       node.focus({ preventScroll: true })
     }
   }, [])
+
+  const insertText = useCallback(
+    (textToInsert: string) => {
+      const node = editorRef.current
+      if (!node) return false
+      ensureEditorFocus()
+      if (typeof document.execCommand !== 'function') return false
+      return document.execCommand('insertText', false, textToInsert)
+    },
+    [ensureEditorFocus]
+  )
+
+  const handleAssignEditorRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      editorRef.current = node
+    },
+    []
+  )
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: ensureEditorFocus,
+      insertText,
+    }),
+    [ensureEditorFocus, insertText]
+  )
 
   return (
     <div className="flex w-full h-full">
