@@ -694,8 +694,27 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const node = editorRef.current
       if (!node) return false
       ensureEditorFocus()
-      if (typeof document.execCommand !== 'function') return false
-      return document.execCommand('insertText', false, textToInsert)
+      try {
+        const selection = window.getSelection()
+        if (!selection) return false
+        const range =
+          selection.rangeCount > 0 ? selection.getRangeAt(0) : document.createRange()
+        if (selection.rangeCount === 0) {
+          range.selectNodeContents(node)
+          range.collapse(false)
+        }
+        range.deleteContents()
+        const textNode = document.createTextNode(textToInsert)
+        range.insertNode(textNode)
+        range.setStartAfter(textNode)
+        range.setEndAfter(textNode)
+        selection.removeAllRanges()
+        selection.addRange(range)
+        return true
+      } catch (error) {
+        if (typeof document.execCommand !== 'function') return false
+        return document.execCommand('insertText', false, textToInsert)
+      }
     },
     [ensureEditorFocus]
   )
