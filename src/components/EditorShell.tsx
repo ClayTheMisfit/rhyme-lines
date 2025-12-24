@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Editor from './Editor'
+import Editor, { type EditorHandle } from './Editor'
 import RhymePanel from './RhymePanel'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { useTabsStore, hydrateTabsFromPersisted } from '@/store/tabsStore'
@@ -15,6 +15,7 @@ import { useHydrated } from '@/hooks/useHydrated'
 export default function EditorShell() {
   const shellRef = useRef<HTMLDivElement | null>(null)
   const floatingPanelRef = useRef<HTMLDivElement | null>(null)
+  const editorRef = useRef<EditorHandle | null>(null)
   const hydrated = useHydrated()
   const [appStateReady, setAppStateReady] = useState(false)
   const ready = hydrated && appStateReady
@@ -163,12 +164,13 @@ export default function EditorShell() {
       ) : (
         <div className="flex h-full w-full flex-1 min-h-0">
           <Editor
+            ref={editorRef}
             hydrated={ready}
             text={activeTab?.snapshot.text ?? ''}
             onTextChange={handleTextChange}
             onDirtyChange={handleDirtyChange}
           />
-          <RhymePanel ref={floatingPanelRef} />
+          <RhymePanel ref={floatingPanelRef} editorRef={editorRef} />
         </div>
       )}
     </div>

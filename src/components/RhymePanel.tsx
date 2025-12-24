@@ -1,12 +1,17 @@
 'use client'
 
-import { forwardRef, useEffect, useState } from 'react'
+import { forwardRef, useEffect, useState, type RefObject } from 'react'
 import { setupCaretListener } from '@/lib/editor/getActiveWord'
 import type { ActiveWord } from '@/lib/editor/getActiveWord'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { RhymeSuggestionsPanel } from './rhyme/RhymeSuggestionsPanel'
+import type { EditorHandle } from './Editor'
 
-const RhymePanel = forwardRef<HTMLDivElement>((_, ref) => {
+type RhymePanelProps = {
+  editorRef?: RefObject<EditorHandle | null>
+}
+
+const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, ref) => {
   const { mode, setMode } = useRhymePanel((state) => ({
     mode: state.mode,
     setMode: state.setMode,
@@ -14,6 +19,10 @@ const RhymePanel = forwardRef<HTMLDivElement>((_, ref) => {
   const [activeWord, setActiveWord] = useState<ActiveWord | null>(null)
 
   const focusEditor = () => {
+    if (editorRef?.current) {
+      editorRef.current.focus()
+      return
+    }
     const editorElement = document.getElementById('lyric-editor')
     if (!editorElement) return
 
@@ -51,6 +60,7 @@ const RhymePanel = forwardRef<HTMLDivElement>((_, ref) => {
       mode={mode}
       onClose={handleClose}
       activeWord={activeWord}
+      editorRef={editorRef}
       ref={ref}
     />
   )
