@@ -22,6 +22,7 @@ type Props = {
   onUndock: () => void
   onDock: () => void
   onClose?: () => void
+  headerActions?: React.ReactNode
   children: React.ReactNode
   className?: string
   panelRef?: React.Ref<HTMLDivElement>
@@ -29,7 +30,7 @@ type Props = {
 }
 
 const headerButtonClass =
-  "text-sm leading-none opacity-70 hover:opacity-100 transition-opacity"
+  "inline-flex h-8 w-8 items-center justify-center rounded-md text-sm leading-none text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white motion-reduce:transition-none dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-slate-100 dark:focus-visible:ring-offset-slate-900"
 
 export function DockablePanel({
   title,
@@ -42,31 +43,33 @@ export function DockablePanel({
   onUndock,
   onDock,
   onClose,
+  headerActions,
   children,
   className,
   panelRef,
   panelProps,
 }: Props) {
   const header = (
-    <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-slate-900/80 backdrop-blur">
+    <div className="flex h-11 items-center justify-between border-b border-slate-200/60 bg-white/70 px-2 backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/70">
       <div
-        className="rhyme-panel-drag-handle px-3 py-1 text-xs uppercase tracking-wide opacity-70 cursor-move select-none"
+        className="rhyme-panel-drag-handle px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500/90 dark:text-slate-300/80 cursor-move select-none"
         aria-label="Move rhyme panel"
       >
         {title}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
+        {headerActions}
         {!isFloating ? (
-          <button type="button" className={headerButtonClass} onClick={onUndock} title="Undock panel">
+          <button type="button" className={headerButtonClass} onClick={onUndock} aria-label="Detach panel">
             ⧉
           </button>
         ) : (
-          <button type="button" className={headerButtonClass} onClick={onDock} title="Dock panel">
+          <button type="button" className={headerButtonClass} onClick={onDock} aria-label="Dock panel">
             ⇤
           </button>
         )}
         {onClose ? (
-          <button type="button" className={headerButtonClass} onClick={onClose} title="Close panel">
+          <button type="button" className={headerButtonClass} onClick={onClose} aria-label="Close panel">
             ✕
           </button>
         ) : null}
@@ -75,7 +78,7 @@ export function DockablePanel({
   )
 
   const basePanelClasses =
-    "border border-white/10 rounded-xl shadow-xl bg-slate-900 text-slate-100 flex flex-col" +
+    "border border-slate-200/60 rounded-xl shadow-xl bg-white text-slate-900 flex flex-col dark:border-slate-700/60 dark:bg-slate-900 dark:text-slate-100" +
     (className ? ` ${className}` : "")
   const panelClasses = panelProps?.className
     ? `${basePanelClasses} ${panelProps.className}`
