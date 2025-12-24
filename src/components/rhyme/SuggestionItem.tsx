@@ -22,6 +22,16 @@ const qualityLabels: Record<AggregatedSuggestion['quality'], string> = {
   slant: 'Slant',
 }
 
+/**
+ * Renders a selectable suggestion button showing a word, its quality label, and syllable count.
+ *
+ * @param suggestion - Aggregated suggestion containing the word, quality, and optional syllables.
+ * @param isSelected - Whether this suggestion is currently selected (affects visual styling).
+ * @param onClick - Click handler for the suggestion button.
+ * @param index - Zero-based index of the suggestion (set as `data-index`).
+ * @param id - DOM id applied to the button element.
+ * @returns The suggestion button element.
+ */
 function SuggestionItem({
   suggestion,
   isSelected,
