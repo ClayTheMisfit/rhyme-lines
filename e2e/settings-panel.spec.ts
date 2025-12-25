@@ -28,7 +28,27 @@ test.describe('Settings panel', () => {
 
     await settingsButton.click()
     await expect(dialog).toBeVisible()
-    await page.getByTestId('settings-overlay').click()
+    const overlay = page.getByTestId('settings-overlay')
+    const overlayBox = await overlay.boundingBox()
+    const panelBox = await dialog.boundingBox()
+
+    if (!overlayBox || !panelBox) {
+      throw new Error('Missing overlay or panel bounds for settings panel')
+    }
+
+    const point = { x: overlayBox.x + 8, y: overlayBox.y + 8 }
+    const insidePanel =
+      point.x >= panelBox.x &&
+      point.x <= panelBox.x + panelBox.width &&
+      point.y >= panelBox.y &&
+      point.y <= panelBox.y + panelBox.height
+
+    if (insidePanel) {
+      point.x = overlayBox.x + overlayBox.width - 8
+      point.y = overlayBox.y + 8
+    }
+
+    await page.mouse.click(point.x, point.y)
     await expect(dialog).toBeHidden()
   })
 })
