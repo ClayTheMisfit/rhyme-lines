@@ -192,13 +192,14 @@ export function SettingsSheet() {
     if (!isOpen) return null
 
     return (
-      <div className="fixed inset-0 z-[60]" role="presentation">
+      <div className="fixed inset-0 z-[80]" role="presentation">
         <div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          className="absolute inset-0 z-0 bg-black/60 backdrop-blur-sm"
           aria-hidden="true"
-          onMouseDown={handleCancel}
+          onPointerDown={handleCancel}
+          data-testid="settings-backdrop"
         />
-        <div className="relative flex h-full w-full items-center justify-center md:items-stretch md:justify-end">
+        <div className="relative z-10 flex h-full w-full items-center justify-center md:items-stretch md:justify-end">
           <div
             ref={panelRef}
             role="dialog"
@@ -208,7 +209,7 @@ export function SettingsSheet() {
             id={panelId}
             tabIndex={-1}
             className="flex h-[92vh] w-full max-w-lg flex-col gap-6 rounded-t-3xl border border-white/10 bg-zinc-950/95 p-6 text-white shadow-2xl outline-none md:h-full md:max-w-[460px] md:rounded-none md:border-l md:border-white/20 md:p-8"
-            onMouseDown={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
           >
             <header className="space-y-2">
               <div className="flex items-start justify-between gap-3">
@@ -418,6 +419,7 @@ export function SettingsSheet() {
         type="button"
         onClick={openSheet}
         className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-white/5 text-sm font-medium text-white/70 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        aria-label="Open settings"
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-controls={isOpen ? panelId : undefined}
@@ -430,4 +432,3 @@ export function SettingsSheet() {
 }
 
 export default SettingsSheet
-
