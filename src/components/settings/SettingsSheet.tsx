@@ -44,6 +44,16 @@ function getFocusableElements(container: HTMLElement | null) {
   return Array.from(focusable).filter((el) => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'))
 }
 
+/**
+ * Render a dismissible settings sheet and its trigger button for adjusting editor preferences.
+ *
+ * The sheet is presented in a portal when mounted; it traps focus while open, restores focus when closed,
+ * prevents background scrolling, and supports Escape to cancel and Tab/Shift+Tab to navigate focusable elements.
+ * Controls inside the panel update persistent editor settings (theme, font size, line height, badge size, line totals,
+ * rhyme suggestion behavior, and debounce mode) and provide Reset, Cancel, and Save actions.
+ *
+ * @returns The SettingsSheet React element (trigger button plus portal-rendered sheet when open).
+ */
 export function SettingsSheet() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
