@@ -7,18 +7,18 @@ test.describe('Settings panel', () => {
   })
 
   test('allows interaction and closes via button, escape, and backdrop', async ({ page }) => {
-    const settingsButton = page.getByRole('button', { name: 'Open settings' })
+    const settingsButton = page.getByTestId('settings-trigger')
 
     await settingsButton.click()
-    const dialog = page.getByRole('dialog', { name: 'Editor settings' })
+    const dialog = page.getByTestId('settings-panel')
     await expect(dialog).toBeVisible()
 
-    const autoRefreshToggle = dialog.getByLabel('Auto refresh rhyme suggestions')
+    const autoRefreshToggle = dialog.getByTestId('settings-auto-refresh')
     const initialChecked = await autoRefreshToggle.isChecked()
     await autoRefreshToggle.click()
     await expect(autoRefreshToggle).toHaveJSProperty('checked', !initialChecked)
 
-    await dialog.getByRole('button', { name: 'Close settings' }).click()
+    await dialog.getByTestId('settings-close').click()
     await expect(dialog).toBeHidden()
 
     await settingsButton.click()
@@ -28,7 +28,7 @@ test.describe('Settings panel', () => {
 
     await settingsButton.click()
     await expect(dialog).toBeVisible()
-    await page.getByTestId('settings-backdrop').click()
+    await page.getByTestId('settings-overlay').click()
     await expect(dialog).toBeHidden()
   })
 })
