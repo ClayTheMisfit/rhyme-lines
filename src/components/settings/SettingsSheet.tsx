@@ -192,11 +192,19 @@ export function SettingsSheet() {
     if (!isOpen) return null
 
     return (
-      <div className="fixed inset-0 z-[80]" role="presentation">
+      <div
+        className="fixed inset-0 z-[80]"
+        role="presentation"
+        onPointerDown={(event) => {
+          if (event.target === event.currentTarget) {
+            handleCancel()
+          }
+        }}
+        data-testid="settings-overlay"
+      >
         <div
-          className="absolute inset-0 z-0 bg-black/60 backdrop-blur-sm"
+          className="pointer-events-none absolute inset-0 z-0 bg-black/60 backdrop-blur-sm"
           aria-hidden="true"
-          onPointerDown={handleCancel}
           data-testid="settings-backdrop"
         />
         <div className="relative z-10 flex h-full w-full items-center justify-center md:items-stretch md:justify-end">
@@ -210,6 +218,7 @@ export function SettingsSheet() {
             tabIndex={-1}
             className="flex h-[92vh] w-full max-w-lg flex-col gap-6 rounded-t-3xl border border-white/10 bg-zinc-950/95 p-6 text-white shadow-2xl outline-none md:h-full md:max-w-[460px] md:rounded-none md:border-l md:border-white/20 md:p-8"
             onPointerDown={(event) => event.stopPropagation()}
+            data-testid="settings-panel"
           >
             <header className="space-y-2">
               <div className="flex items-start justify-between gap-3">
@@ -224,6 +233,7 @@ export function SettingsSheet() {
                   onClick={handleCancel}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/20 bg-white/5 text-sm font-medium text-white/70 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   aria-label="Close settings"
+                  data-testid="settings-close"
                 >
                   ✕
                 </button>
@@ -339,6 +349,7 @@ export function SettingsSheet() {
                       checked={rhymeAutoRefresh}
                       onChange={(event) => setRhymeAutoRefresh(event.target.checked)}
                       aria-label="Auto refresh rhyme suggestions"
+                      data-testid="settings-auto-refresh"
                     />
                     <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
                   </span>
@@ -423,6 +434,7 @@ export function SettingsSheet() {
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-controls={isOpen ? panelId : undefined}
+        data-testid="settings-trigger"
       >
         ⚙️
       </button>
