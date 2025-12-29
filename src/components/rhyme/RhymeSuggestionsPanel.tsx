@@ -403,7 +403,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       <div className="mt-3 flex-1 overflow-y-auto px-2 pb-3 pt-0 thin-scrollbar">
         {isOffline && (
           <div className="px-3 py-2 text-center text-xs text-amber-500">
-            Offline mode. Network providers paused; local/cache only.
+            Offline mode. Local rhyme engine only.
           </div>
         )}
 
