@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import * as Dialog from '@radix-ui/react-dialog'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { shallow } from 'zustand/shallow'
 
 import {
@@ -36,24 +36,10 @@ const DEBOUNCE_OPTIONS: { value: 'cursor-50' | 'typing-250'; label: string; desc
   },
 ]
 
-function getFocusableElements(container: HTMLElement | null) {
-  if (!container) return []
-  const focusable = container.querySelectorAll<HTMLElement>(
-    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-  )
-  return Array.from(focusable).filter((el) => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'))
-}
-
 export function SettingsSheet() {
   const [isOpen, setIsOpen] = useState(false)
-  const [isMounted, setIsMounted] = useState(false)
-  const panelRef = useRef<HTMLDivElement | null>(null)
-  const previouslyFocusedRef = useRef<HTMLElement | null>(null)
   const snapshotRef = useRef(getCurrentSettingsSnapshot())
-
-  const headingId = useId()
-  const descriptionId = useId()
-  const panelId = useId()
+  const skipRestoreRef = useRef(false)
 
   const {
     theme,
@@ -95,351 +81,286 @@ export function SettingsSheet() {
     shallow
   )
 
-  useEffect(() => {
-    setIsMounted(true)
-    return () => {
-      setIsMounted(false)
+  const handleOpenChange = useCallback((nextOpen: boolean) => {
+    if (nextOpen) {
+      snapshotRef.current = getCurrentSettingsSnapshot()
+      setIsOpen(true)
+      return
     }
-  }, [])
 
-  const openSheet = useCallback(() => {
-    snapshotRef.current = getCurrentSettingsSnapshot()
-    previouslyFocusedRef.current = document.activeElement as HTMLElement | null
-    setIsOpen(true)
-  }, [])
+    if (skipRestoreRef.current) {
+      skipRestoreRef.current = false
+      setIsOpen(false)
+      return
+    }
 
-  const closeSheet = useCallback(() => {
+    applySettingsSnapshot(snapshotRef.current)
     setIsOpen(false)
   }, [])
 
   const handleCancel = useCallback(() => {
-    if (snapshotRef.current) {
-      applySettingsSnapshot(snapshotRef.current)
-    }
-    closeSheet()
-  }, [closeSheet])
+    handleOpenChange(false)
+  }, [handleOpenChange])
 
   const handleSave = useCallback(() => {
     snapshotRef.current = getCurrentSettingsSnapshot()
-    closeSheet()
-  }, [closeSheet])
-
-  useEffect(() => {
-    if (!isOpen) {
-      if (previouslyFocusedRef.current) {
-        previouslyFocusedRef.current.focus()
-      }
-      document.body.style.removeProperty('overflow')
-      return
-    }
-
-    document.body.style.setProperty('overflow', 'hidden')
-
-    const focusTimer = window.setTimeout(() => {
-      const focusables = getFocusableElements(panelRef.current)
-      if (focusables.length > 0) {
-        focusables[0].focus()
-      } else {
-        panelRef.current?.focus()
-      }
-    }, 0)
-
-    return () => {
-      window.clearTimeout(focusTimer)
-    }
-  }, [isOpen])
-
-  useEffect(() => {
-    if (!isOpen) return
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        handleCancel()
-        return
-      }
-
-      if (event.key === 'Tab') {
-        const focusables = getFocusableElements(panelRef.current)
-        if (focusables.length === 0) {
-          event.preventDefault()
-          panelRef.current?.focus()
-          return
-        }
-
-        const currentIndex = focusables.indexOf(document.activeElement as HTMLElement)
-        let nextIndex = currentIndex
-        if (event.shiftKey) {
-          nextIndex = currentIndex <= 0 ? focusables.length - 1 : currentIndex - 1
-        } else {
-          nextIndex = currentIndex === focusables.length - 1 ? 0 : currentIndex + 1
-        }
-
-        if (nextIndex !== currentIndex) {
-          event.preventDefault()
-          focusables[nextIndex].focus()
-        }
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, handleCancel])
+    skipRestoreRef.current = true
+    handleOpenChange(false)
+  }, [handleOpenChange])
 
   const badgeSizeLabel = BADGE_SIZE_LABEL[badgeSize]
 
-  const renderedSheet = useMemo(() => {
-    if (!isOpen) return null
-
-    return (
-      <div
-        className="fixed inset-0 z-[80]"
-        role="presentation"
-        onPointerDown={(event) => {
-          if (event.target === event.currentTarget) {
-            handleCancel()
-          }
-        }}
-        data-testid="settings-overlay"
-      >
-        <div
-          className="pointer-events-none absolute inset-0 z-0 bg-black/60 backdrop-blur-sm"
-          aria-hidden="true"
-          data-testid="settings-backdrop"
+  const dialogContent = useMemo(
+    () => (
+      <Dialog.Portal>
+        <Dialog.Overlay
+          className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm"
+          data-testid="settings-overlay"
         />
-        <div className="relative z-10 flex h-full w-full items-center justify-center md:items-stretch md:justify-end">
-          <div
-            ref={panelRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={headingId}
-            aria-describedby={descriptionId}
-            id={panelId}
-            tabIndex={-1}
-            className="flex h-[92vh] w-full max-w-lg flex-col gap-6 rounded-t-3xl border border-white/10 bg-zinc-950/95 p-6 text-white shadow-2xl outline-none md:h-full md:max-w-[460px] md:rounded-none md:border-l md:border-white/20 md:p-8"
-            onPointerDown={(event) => event.stopPropagation()}
-            data-testid="settings-panel"
-          >
-            <header className="space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <h2 id={headingId} className="text-lg font-semibold tracking-tight">Editor settings</h2>
-                  <p id={descriptionId} className="text-sm text-white/60">
-                    Tune the writing surface, rhyme helper, and accessibility defaults.
-                  </p>
-                </div>
+        <Dialog.Content
+          className="fixed inset-x-0 bottom-0 z-[81] flex h-[92vh] w-full flex-col gap-6 rounded-t-3xl border border-white/10 bg-zinc-950/95 p-6 text-white shadow-2xl outline-none md:inset-y-0 md:right-0 md:left-auto md:h-full md:max-w-[460px] md:rounded-none md:border-l md:border-white/20 md:p-8"
+          data-testid="settings-panel"
+        >
+          <header className="space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <Dialog.Title className="text-lg font-semibold tracking-tight">Editor settings</Dialog.Title>
+                <Dialog.Description className="text-sm text-white/60">
+                  Tune the writing surface, rhyme helper, and accessibility defaults.
+                </Dialog.Description>
+              </div>
+              <Dialog.Close asChild>
                 <button
                   type="button"
-                  onClick={handleCancel}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/20 bg-white/5 text-sm font-medium text-white/70 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   aria-label="Close settings"
                   data-testid="settings-close"
                 >
                   ✕
                 </button>
-              </div>
-            </header>
-
-            <div className="grid flex-1 grid-cols-1 gap-6 overflow-y-auto pb-4 pr-1 md:grid-cols-2">
-              <section className="space-y-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Theme</h3>
-                <div className="flex rounded-lg border border-white/10 bg-white/5 p-1">
-                  {(['dark', 'light'] as const).map((option) => {
-                    const isActive = theme === option
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => setTheme(option)}
-                        className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
-                          isActive
-                            ? 'bg-white text-black shadow'
-                            : 'text-white/70 hover:text-white hover:bg-white/10'
-                        }`}
-                        aria-pressed={isActive}
-                      >
-                        {option === 'dark' ? 'Dark' : 'Light'}
-                      </button>
-                    )
-                  })}
-                </div>
-              </section>
-
-              <section className="space-y-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Font size</h3>
-                <label className="text-sm font-medium text-white/80" htmlFor="font-size-slider">
-                  {fontSize.toFixed(0)} px
-                </label>
-                <input
-                  id="font-size-slider"
-                  type="range"
-                  min={14}
-                  max={28}
-                  step={1}
-                  value={fontSize}
-                  onChange={(event) => setFontSize(Number(event.target.value))}
-                  aria-valuemin={14}
-                  aria-valuemax={28}
-                  aria-valuenow={fontSize}
-                  aria-label="Editor font size"
-                  className="slider h-2 w-full cursor-pointer rounded-full bg-white/10"
-                />
-                <p className="text-xs text-white/50">Applies instantly across the editor and overlays.</p>
-              </section>
-
-              <section className="space-y-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Line height</h3>
-                <label className="text-sm font-medium text-white/80" htmlFor="line-height-slider">
-                  {lineHeight.toFixed(2)}
-                </label>
-                <input
-                  id="line-height-slider"
-                  type="range"
-                  min={1.2}
-                  max={2}
-                  step={0.05}
-                  value={lineHeight}
-                  onChange={(event) => setLineHeight(Number(event.target.value))}
-                  aria-valuemin={1.2}
-                  aria-valuemax={2}
-                  aria-valuenow={lineHeight}
-                  aria-label="Editor line height"
-                  className="slider h-2 w-full cursor-pointer rounded-full bg-white/10"
-                />
-                <p className="text-xs text-white/50">Adjust vertical rhythm for readability.</p>
-              </section>
-
-              <section className="space-y-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Syllable badges</h3>
-                <label className="text-sm font-medium text-white/80" htmlFor="badge-size-select">
-                  {badgeSizeLabel}
-                </label>
-                <select
-                  id="badge-size-select"
-                  value={badgeSize}
-                  onChange={(event) => setBadgeSize(event.target.value as 'xs' | 'sm' | 'md')}
-                  className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
-                >
-                  <option value="xs">Compact</option>
-                  <option value="sm">Comfortable</option>
-                  <option value="md">Spacious</option>
-                </select>
-                <label className="inline-flex items-center gap-3 text-sm font-medium text-white/80">
-                  <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
-                    <input
-                      type="checkbox"
-                      className="peer sr-only"
-                      checked={showLineTotals}
-                      onChange={(event) => setShowLineTotals(event.target.checked)}
-                      aria-label="Show line totals"
-                    />
-                    <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
-                  </span>
-                  Show line totals in the gutter
-                </label>
-              </section>
-
-              <section className="space-y-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Rhyme suggestions</h3>
-                <label className="inline-flex items-center gap-3 text-sm font-medium text-white/80">
-                  <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
-                    <input
-                      type="checkbox"
-                      className="peer sr-only"
-                      checked={rhymeAutoRefresh}
-                      onChange={(event) => setRhymeAutoRefresh(event.target.checked)}
-                      aria-label="Auto refresh rhyme suggestions"
-                      data-testid="settings-auto-refresh"
-                    />
-                    <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
-                  </span>
-                  Auto refresh while typing
-                </label>
-                <div className="space-y-2">
-                  {DEBOUNCE_OPTIONS.map((option) => {
-                    const isActive = debounceMode === option.value
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setDebounceMode(option.value)}
-                        className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
-                          isActive
-                            ? 'border-blue-400 bg-blue-500/20 text-white shadow'
-                            : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
-                        }`}
-                        aria-pressed={isActive}
-                      >
-                        <span className="block font-medium">{option.label}</span>
-                        <span className="block text-xs text-white/60">{option.description}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </section>
-
-              <section className="md:col-span-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Keyboard</h3>
-                <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/80 sm:grid-cols-2">
-                  {KEYBOARD_SHORTCUTS.map((shortcut) => (
-                    <div key={shortcut.combo} className="rounded-md bg-white/5 p-3">
-                      <p className="font-mono text-xs uppercase tracking-wide text-white/50">{shortcut.combo}</p>
-                      <p className="mt-1 text-sm text-white/80">{shortcut.description}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
+              </Dialog.Close>
             </div>
+          </header>
 
-            <footer className="flex flex-col gap-3 border-t border-white/10 pt-4 md:flex-row md:items-center md:justify-between">
+          <div className="grid flex-1 grid-cols-1 gap-6 overflow-y-auto pb-4 pr-1 md:grid-cols-2">
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Theme</h3>
+              <div className="flex rounded-lg border border-white/10 bg-white/5 p-1">
+                {(['dark', 'light'] as const).map((option) => {
+                  const isActive = theme === option
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setTheme(option)}
+                      className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
+                        isActive
+                          ? 'bg-white text-black shadow'
+                          : 'text-white/70 hover:text-white hover:bg-white/10'
+                      }`}
+                      aria-pressed={isActive}
+                    >
+                      {option === 'dark' ? 'Dark' : 'Light'}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Font size</h3>
+              <label className="text-sm font-medium text-white/80" htmlFor="font-size-slider">
+                {fontSize.toFixed(0)} px
+              </label>
+              <input
+                id="font-size-slider"
+                type="range"
+                min={14}
+                max={28}
+                step={1}
+                value={fontSize}
+                onChange={(event) => setFontSize(Number(event.target.value))}
+                aria-valuemin={14}
+                aria-valuemax={28}
+                aria-valuenow={fontSize}
+                aria-label="Editor font size"
+                className="slider h-2 w-full cursor-pointer rounded-full bg-white/10"
+              />
+              <p className="text-xs text-white/50">Applies instantly across the editor and overlays.</p>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Line height</h3>
+              <label className="text-sm font-medium text-white/80" htmlFor="line-height-slider">
+                {lineHeight.toFixed(2)}
+              </label>
+              <input
+                id="line-height-slider"
+                type="range"
+                min={1.2}
+                max={2}
+                step={0.05}
+                value={lineHeight}
+                onChange={(event) => setLineHeight(Number(event.target.value))}
+                aria-valuemin={1.2}
+                aria-valuemax={2}
+                aria-valuenow={lineHeight}
+                aria-label="Editor line height"
+                className="slider h-2 w-full cursor-pointer rounded-full bg-white/10"
+              />
+              <p className="text-xs text-white/50">Adjust vertical rhythm for readability.</p>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Syllable badges</h3>
+              <label className="text-sm font-medium text-white/80" htmlFor="badge-size-select">
+                {badgeSizeLabel}
+              </label>
+              <select
+                id="badge-size-select"
+                value={badgeSize}
+                onChange={(event) => setBadgeSize(event.target.value as 'xs' | 'sm' | 'md')}
+                className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
+              >
+                <option value="xs">Compact</option>
+                <option value="sm">Comfortable</option>
+                <option value="md">Spacious</option>
+              </select>
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-white/80">
+                <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={showLineTotals}
+                    onChange={(event) => setShowLineTotals(event.target.checked)}
+                    aria-label="Show line totals"
+                  />
+                  <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                </span>
+                Show line totals in the gutter
+              </label>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Rhyme suggestions</h3>
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-white/80">
+                <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={rhymeAutoRefresh}
+                    onChange={(event) => setRhymeAutoRefresh(event.target.checked)}
+                    aria-label="Auto refresh rhyme suggestions"
+                    data-testid="settings-auto-refresh"
+                  />
+                  <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                </span>
+                Auto refresh while typing
+              </label>
+              <div className="space-y-2">
+                {DEBOUNCE_OPTIONS.map((option) => {
+                  const isActive = debounceMode === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setDebounceMode(option.value)}
+                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
+                        isActive
+                          ? 'border-blue-400 bg-blue-500/20 text-white shadow'
+                          : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                      aria-pressed={isActive}
+                    >
+                      <span className="block font-medium">{option.label}</span>
+                      <span className="block text-xs text-white/60">{option.description}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+
+            <section className="md:col-span-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Keyboard</h3>
+              <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/80 sm:grid-cols-2">
+                {KEYBOARD_SHORTCUTS.map((shortcut) => (
+                  <div key={shortcut.combo} className="rounded-md bg-white/5 p-3">
+                    <p className="font-mono text-xs uppercase tracking-wide text-white/50">{shortcut.combo}</p>
+                    <p className="mt-1 text-sm text-white/80">{shortcut.description}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <footer className="flex flex-col gap-3 border-t border-white/10 pt-4 md:flex-row md:items-center md:justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                resetDefaults()
+              }}
+              className="text-sm font-medium text-white/70 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            >
+              Reset to defaults
+            </button>
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  resetDefaults()
-                }}
-                className="text-sm font-medium text-white/70 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                onClick={handleCancel}
+                className="inline-flex items-center justify-center rounded-md border border-white/20 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
-                Reset to defaults
+                Cancel
               </button>
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="inline-flex items-center justify-center rounded-md border border-white/20 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  className="inline-flex items-center justify-center rounded-md bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
-                >
-                  Save
-                </button>
-              </div>
-            </footer>
-          </div>
-        </div>
-      </div>
-    )
-  }, [isOpen, handleCancel, handleSave, headingId, descriptionId, panelId, theme, setTheme, fontSize, setFontSize, lineHeight, setLineHeight, badgeSize, badgeSizeLabel, setBadgeSize, showLineTotals, setShowLineTotals, rhymeAutoRefresh, setRhymeAutoRefresh, debounceMode, setDebounceMode, resetDefaults])
+              <button
+                type="button"
+                onClick={handleSave}
+                className="inline-flex items-center justify-center rounded-md bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+              >
+                Save
+              </button>
+            </div>
+          </footer>
+        </Dialog.Content>
+      </Dialog.Portal>
+    ),
+    [
+      badgeSize,
+      badgeSizeLabel,
+      debounceMode,
+      fontSize,
+      handleCancel,
+      handleSave,
+      lineHeight,
+      resetDefaults,
+      rhymeAutoRefresh,
+      setBadgeSize,
+      setDebounceMode,
+      setFontSize,
+      setLineHeight,
+      setRhymeAutoRefresh,
+      setShowLineTotals,
+      setTheme,
+      showLineTotals,
+      theme,
+    ]
+  )
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={openSheet}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-white/5 text-sm font-medium text-white/70 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-        aria-label="Open settings"
-        aria-haspopup="dialog"
-        aria-expanded={isOpen}
-        aria-controls={isOpen ? panelId : undefined}
-        data-testid="settings-trigger"
-      >
-        ⚙️
-      </button>
-      {isMounted && renderedSheet ? createPortal(renderedSheet, document.body) : null}
-    </>
+    <Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>
+      <Dialog.Trigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-white/5 text-sm font-medium text-white/70 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          aria-label="Open settings"
+          aria-haspopup="dialog"
+          aria-expanded={isOpen}
+          data-testid="settings-trigger"
+        >
+          ⚙️
+        </button>
+      </Dialog.Trigger>
+      {dialogContent}
+    </Dialog.Root>
   )
 }
 
