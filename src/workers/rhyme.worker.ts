@@ -1,3 +1,4 @@
+/// <reference lib="webworker" />
 import type { RhymeWorkerFilters, RhymeWorkerRequest, RhymeWorkerResponse, RhymeWorkerResult } from '@/lib/rhyme/workerTypes'
 
 type DictShard = Record<string, string[]>
