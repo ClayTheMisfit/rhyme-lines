@@ -154,8 +154,8 @@ export function useRhymeSuggestions({
         })
 
         if (controller.signal.aborted || currentRequestId !== requestId.current) return
-        const allProvidersFailed = result.providerStates.every((state) => !state.ok && !state.skipped)
-        const hadFailure = result.providerStates.some((state) => !state.ok && !state.skipped)
+        const allProvidersFailed = result.providerStates.every((state) => !state.ok)
+        const hadFailure = result.providerStates.some((state) => !state.ok)
         setCachedRhymes(key, result)
         setSuggestions(result.suggestions)
         setBuckets(result.buckets)
