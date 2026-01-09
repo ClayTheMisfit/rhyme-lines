@@ -142,38 +142,50 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
   }
 
   if (message.type === 'getRhymes') {
-    if (!runtimeDb) {
-      post({ type: 'getRhymes:err', requestId: message.requestId, error: 'Worker not initialized' })
-      return
+    const handleGetRhymes = async () => {
+      try {
+        await ensureInit()
+      } catch (error) {
+        const messageText = error instanceof Error ? error.message : 'Failed to initialize rhyme db'
+        post({ type: 'getRhymes:err', requestId: message.requestId, error: messageText })
+        return
+      }
+
+      if (!runtimeDb) {
+        post({ type: 'getRhymes:err', requestId: message.requestId, error: 'Worker not initialized' })
+        return
+      }
+
+      const caretToken = normalizeToken(message.targets.caret ?? '')
+      const lineLastToken = normalizeToken(message.targets.lineLast ?? '')
+      const cacheKey = `${message.mode}|${message.max}|c:${caretToken}|l:${lineLastToken}`
+
+      const cached = cache.get(cacheKey)
+      if (cached) {
+        post({
+          type: 'getRhymes:ok',
+          requestId: message.requestId,
+          mode: message.mode,
+          results: cached,
+        })
+        return
+      }
+
+      try {
+        const results = getRhymesForTargets(runtimeDb, message.targets, message.mode, message.max)
+        cache.set(cacheKey, results)
+        post({
+          type: 'getRhymes:ok',
+          requestId: message.requestId,
+          mode: message.mode,
+          results,
+        })
+      } catch (error) {
+        const messageText = error instanceof Error ? error.message : 'Failed to fetch rhymes'
+        post({ type: 'getRhymes:err', requestId: message.requestId, error: messageText })
+      }
     }
 
-    const caretToken = normalizeToken(message.targets.caret ?? '')
-    const lineLastToken = normalizeToken(message.targets.lineLast ?? '')
-    const cacheKey = `${message.mode}|${message.max}|c:${caretToken}|l:${lineLastToken}`
-
-    const cached = cache.get(cacheKey)
-    if (cached) {
-      post({
-        type: 'getRhymes:ok',
-        requestId: message.requestId,
-        mode: message.mode,
-        results: cached,
-      })
-      return
-    }
-
-    try {
-      const results = getRhymesForTargets(runtimeDb, message.targets, message.mode, message.max)
-      cache.set(cacheKey, results)
-      post({
-        type: 'getRhymes:ok',
-        requestId: message.requestId,
-        mode: message.mode,
-        results,
-      })
-    } catch (error) {
-      const messageText = error instanceof Error ? error.message : 'Failed to fetch rhymes'
-      post({ type: 'getRhymes:err', requestId: message.requestId, error: messageText })
-    }
+    void handleGetRhymes()
   }
 })
