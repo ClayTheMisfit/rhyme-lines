@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
-import { motion } from 'framer-motion'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useMounted } from '@/hooks/useMounted'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
@@ -13,10 +13,13 @@ import { shallow } from 'zustand/shallow'
 import SettingsSheet from './settings/SettingsSheet'
 
 const PANEL_SPACING_REM = '1.5rem'
+const SAVE_STATUS_START_DELAY_MS = 150
+const SAVE_STATUS_HIDE_DELAY_MS = 2000
 
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
 
 type ThemeChoice = 'dark' | 'light'
+type SaveStatus = 'saving' | 'saved' | null
 
 function applyBodyTheme(theme: ThemeChoice) {
   const body = document.body
@@ -33,6 +36,11 @@ function applyBodyTheme(theme: ThemeChoice) {
 export default function TopBar() {
   const mounted = useMounted()
   const headerRef = useRef<HTMLElement>(null)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>(null)
+  const saveStatusRef = useRef<SaveStatus>(null)
+  const saveStatusTimerRef = useRef<number | null>(null)
+  const saveStartDelayRef = useRef<number | null>(null)
+  const lastSaveTabIdRef = useRef<string | null>(null)
 
   const theme = useSettingsStore((state) => state.theme)
   const setThemePreference = useSettingsStore((state) => state.setTheme)
@@ -125,6 +133,70 @@ export default function TopBar() {
     }
   }, [mounted, resolvedTheme, setResolvedTheme, theme])
 
+  useEffect(() => {
+    saveStatusRef.current = saveStatus
+  }, [saveStatus])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const clearSaveStartDelay = () => {
+      if (saveStartDelayRef.current) {
+        window.clearTimeout(saveStartDelayRef.current)
+        saveStartDelayRef.current = null
+      }
+    }
+
+    const clearSaveStatusTimer = () => {
+      if (saveStatusTimerRef.current) {
+        window.clearTimeout(saveStatusTimerRef.current)
+        saveStatusTimerRef.current = null
+      }
+    }
+
+    const handleSaveStart = () => {
+      const { activeTabId } = useTabsStore.getState()
+      lastSaveTabIdRef.current = activeTabId
+      clearSaveStatusTimer()
+
+      if (saveStatusRef.current === 'saved') {
+        setSaveStatus(null)
+      }
+
+      if (saveStatusRef.current === 'saving' || saveStartDelayRef.current) return
+
+      saveStartDelayRef.current = window.setTimeout(() => {
+        setSaveStatus('saving')
+        saveStartDelayRef.current = null
+      }, SAVE_STATUS_START_DELAY_MS)
+    }
+
+    const handleSaveComplete = () => {
+      clearSaveStartDelay()
+      const { actions } = useTabsStore.getState()
+      const tabId = lastSaveTabIdRef.current ?? useTabsStore.getState().activeTabId
+      if (tabId) {
+        actions.markDirty(tabId, false)
+      }
+      setSaveStatus('saved')
+      clearSaveStatusTimer()
+      saveStatusTimerRef.current = window.setTimeout(() => {
+        setSaveStatus(null)
+        saveStatusTimerRef.current = null
+      }, SAVE_STATUS_HIDE_DELAY_MS)
+    }
+
+    window.addEventListener('rhyme:save-start', handleSaveStart)
+    window.addEventListener('rhyme:save-complete', handleSaveComplete)
+
+    return () => {
+      window.removeEventListener('rhyme:save-start', handleSaveStart)
+      window.removeEventListener('rhyme:save-complete', handleSaveComplete)
+      clearSaveStartDelay()
+      clearSaveStatusTimer()
+    }
+  }, [mounted])
+
   const toggleTheme = useCallback(() => {
     const next: ThemeChoice = theme === 'dark' ? 'light' : 'dark'
     setThemePreference(next)
@@ -165,6 +237,26 @@ export default function TopBar() {
       </div>
 
       <div className="ml-2 flex items-center gap-2">
+        <AnimatePresence mode="wait">
+          {saveStatus ? (
+            <motion.div
+              key={saveStatus}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70"
+            >
+              {saveStatus === 'saving' ? (
+                <span className="inline-flex h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white/80" />
+              ) : (
+                <span className="text-emerald-300">✓</span>
+              )}
+              <span>{saveStatus === 'saving' ? 'Saving...' : 'All changes saved'}</span>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
         <motion.button
           suppressHydrationWarning
           whileHover={{ scale: 1.05 }}
