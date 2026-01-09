@@ -17,6 +17,15 @@ const wordnikCache: Record<
   { data: { suggestions: RhymeSuggestion[] }; expiresAt: number }
 > = {}
 
+/**
+ * Handle GET requests to fetch rhyme suggestions for a given word from the Wordnik API, employing request throttling and in-memory caching.
+ *
+ * @param request - HTTP request whose URL search params must include `word` (the target word). Optional query param `type` accepts `perfect` or `slant` (defaults to `perfect`).
+ * @returns On success, a JSON object `{ suggestions }` where `suggestions` is an array of `RhymeSuggestion`. On error, a JSON object `{ error: string }` is returned with an appropriate HTTP status:
+ * - 400 when the `word` parameter is missing
+ * - 429 when rate limits are exceeded
+ * - 500 when the Wordnik API key is not configured or when fetching/processing fails
+ */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const word = searchParams.get('word')?.trim()
