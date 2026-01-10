@@ -4,7 +4,7 @@ module.exports = {
   testEnvironment: 'jsdom',
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testRegex: ['(tests|scripts)/.*\\.(spec|test)\\.[tj]sx?$'],
+  testRegex: ['(tests|scripts|src)/.*\\.(spec|test)\\.[tj]sx?$'],
   moduleNameMapper: {
     '^@/workers/createAnalysisWorker$': '<rootDir>/src/workers/createAnalysisWorker.mock.ts',
     '^@/lib/rhyme-db/rhymeWorkerClient$': '<rootDir>/src/lib/rhyme-db/rhymeWorkerClient.mock.ts',

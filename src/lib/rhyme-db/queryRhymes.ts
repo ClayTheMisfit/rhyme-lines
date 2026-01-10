@@ -1,9 +1,17 @@
 import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
+import {
+  codaSimilarity,
+  tailSimilarity,
+  vowelSimilarity,
+  type Tail,
+} from '@/lib/rhyme-db/arpabetFeatures'
 
-export type Mode = 'perfect' | 'near' | 'slant'
+export type Mode = 'perfect' | 'near' | 'slant' | 'Perfect' | 'Near' | 'Slant'
 
 export type RhymeDbRuntimeMaps = {
+  wordToId: Map<string, number>
   perfectKeysByWordId: string[][]
+  perfect2KeysByWordId?: string[][]
   vowelKeysByWordId: string[][]
   codaKeysByWordId: string[][]
 }
@@ -11,6 +19,14 @@ export type RhymeDbRuntimeMaps = {
 export type RhymeDbRuntime = RhymeDbV1 & {
   runtime?: RhymeDbRuntimeMaps
 }
+
+export type RhymeQueryContext = {
+  wordUsage?: Record<string, number>
+  desiredSyllables?: number
+  multiSyllable?: boolean
+}
+
+const normalizeMode = (mode: Mode) => mode.toLowerCase() as 'perfect' | 'near' | 'slant'
 
 const PUNCTUATION_REGEX = /^[.,!?;:"()\[\]{}<>]+|[.,!?;:"()\[\]{}<>]+$/g
 
@@ -42,10 +58,17 @@ const findWordIdExact = (words: string[], token: string) => {
   return -1
 }
 
-export const findWordId = (words: string[], token: string) => {
+export const findWordId = (db: RhymeDbRuntime, token: string) => {
+  const runtime = db.runtime
+  if (runtime?.wordToId) {
+    const directId = runtime.wordToId.get(token)
+    if (directId !== undefined) {
+      return directId
+    }
+  }
   const candidates = [token, token.toUpperCase(), token.toLowerCase()]
   for (const candidate of candidates) {
-    const id = findWordIdExact(words, candidate)
+    const id = findWordIdExact(db.words, candidate)
     if (id !== -1) {
       return id
     }
@@ -90,7 +113,11 @@ const getKeysForWordId = (db: RhymeDbRuntime, wordId: number, kind: keyof RhymeD
     return []
   }
 
-  return runtime[kind][wordId] ?? []
+  const keyList = runtime[kind]
+  if (!keyList) {
+    return []
+  }
+  return keyList[wordId] ?? []
 }
 
 const collectWordIds = (index: RhymeIndex, keys: string[]) => {
@@ -104,118 +131,236 @@ const collectWordIds = (index: RhymeIndex, keys: string[]) => {
   return results
 }
 
+const selectKey = (index: RhymeIndex, keys: string[]) => {
+  if (keys.length === 0) return null
+  let bestKey = keys[0]
+  let bestSize = -1
+  for (const key of keys) {
+    const postingSize = getPosting(index, key).length
+    if (postingSize > bestSize || (postingSize === bestSize && key < bestKey)) {
+      bestSize = postingSize
+      bestKey = key
+    }
+  }
+  return bestKey
+}
+
+const splitCodaKey = (key: string) => {
+  if (!key) return []
+  return key.split('-').filter(Boolean)
+}
+
+const buildTail = (vowelKey: string, codaKey: string) => {
+  const coda = splitCodaKey(codaKey)
+  return {
+    vowel: vowelKey,
+    coda,
+    lastConsonants: coda.slice(-3),
+  } satisfies Tail
+}
+
+const getNearVowelScore = (targetVowel: string, candidateVowel: string) => {
+  const similarity = vowelSimilarity(targetVowel, candidateVowel)
+  if (similarity === 1) return 1
+  if (similarity >= 0.5) return 0.7
+  return 0
+}
+
+const getBestVowelKey = (candidateKeys: string[], targetVowel: string) => {
+  if (candidateKeys.length === 0) return null
+  let bestKey = candidateKeys[0]
+  let bestScore = getNearVowelScore(targetVowel, bestKey)
+  for (const key of candidateKeys) {
+    const score = getNearVowelScore(targetVowel, key)
+    if (score > bestScore || (score === bestScore && key < bestKey)) {
+      bestScore = score
+      bestKey = key
+    }
+  }
+  return bestKey
+}
+
+const getBestCodaKey = (candidateKeys: string[], targetCoda: string[]) => {
+  if (candidateKeys.length === 0) return null
+  let bestKey = candidateKeys[0]
+  let bestScore = codaSimilarity(targetCoda, splitCodaKey(bestKey))
+  for (const key of candidateKeys) {
+    const score = codaSimilarity(targetCoda, splitCodaKey(key))
+    if (score > bestScore || (score === bestScore && key < bestKey)) {
+      bestScore = score
+      bestKey = key
+    }
+  }
+  return bestKey
+}
+
+const isTrivialInflection = (token: string, candidate: string) => {
+  const suffixes = ['s', 'es', 'ed', 'ing']
+  for (const suffix of suffixes) {
+    if (candidate === `${token}${suffix}`) return true
+    if (token === `${candidate}${suffix}`) return true
+  }
+  return false
+}
+
+const getSyllableFit = (db: RhymeDbRuntime, wordId: number, desired?: number) => {
+  if (typeof desired !== 'number' || Number.isNaN(desired)) {
+    return 0.5
+  }
+  const candidateSyllables = db.syllables[wordId] ?? 0
+  const diff = Math.abs(candidateSyllables - desired)
+  return 1 - Math.min(1, diff / 3)
+}
+
 const sortWords = (words: string[]) => words.sort((a, b) => a.localeCompare(b))
 
-export const getRhymesForToken = (db: RhymeDbV1, token: string, mode: Mode, max: number) => {
+const scoreEntry = (phoneticScore: number, freq: number, syllableFit: number) =>
+  phoneticScore * 0.55 + Math.log(freq + 1) * 0.3 + syllableFit * 0.15
+
+export const getRhymesForToken = (
+  db: RhymeDbV1,
+  token: string,
+  mode: Mode,
+  max: number,
+  context: RhymeQueryContext = {},
+) => {
   const normalized = normalizeToken(token)
   if (!normalized || max <= 0) {
     return []
   }
 
   const runtimeDb = db as RhymeDbRuntime
-  const wordId = findWordId(db.words, normalized)
+  const normalizedMode = normalizeMode(mode)
+  const wordId = findWordId(runtimeDb, normalized)
+  if (wordId === -1) {
+    return []
+  }
 
-  if (mode === 'perfect') {
-    if (wordId === -1) {
+  const vowelKeys = getKeysForWordId(runtimeDb, wordId, 'vowelKeysByWordId')
+  const codaKeys = getKeysForWordId(runtimeDb, wordId, 'codaKeysByWordId')
+  const targetVowelKey = selectKey(db.indexes.vowel, vowelKeys)
+  const targetCodaKey = selectKey(db.indexes.coda, codaKeys)
+
+  const targetVowel = targetVowelKey ?? ''
+  const targetCoda = splitCodaKey(targetCodaKey ?? '')
+
+  const usage = context.wordUsage ?? {}
+
+  if (normalizedMode === 'perfect') {
+    const perfectIndex = (db.indexes as { perfect2?: RhymeIndex }).perfect2 && context.multiSyllable
+      ? (db.indexes as { perfect2: RhymeIndex }).perfect2
+      : db.indexes.perfect
+    const perfectKeys = context.multiSyllable && runtimeDb.runtime?.perfect2KeysByWordId
+      ? getKeysForWordId(runtimeDb, wordId, 'perfect2KeysByWordId')
+      : getKeysForWordId(runtimeDb, wordId, 'perfectKeysByWordId')
+
+    const targetPerfectKey = selectKey(perfectIndex, perfectKeys)
+    if (!targetPerfectKey) {
       return []
     }
-    const keys = getKeysForWordId(runtimeDb, wordId, 'perfectKeysByWordId')
-    if (keys.length === 0) {
-      return []
-    }
 
-    const candidates = collectWordIds(db.indexes.perfect, keys)
-    candidates.delete(wordId)
+    const candidates = collectWordIds(perfectIndex, [targetPerfectKey])
+    const scored = Array.from(candidates)
+      .filter((id) => id !== wordId)
+      .map((id) => {
+        const word = db.words[id].toLowerCase()
+        const syllableFit = getSyllableFit(runtimeDb, id, context.desiredSyllables)
+        return {
+          word,
+          score: scoreEntry(1, usage[word] ?? 0, syllableFit),
+        }
+      })
+      .filter((entry) => !isTrivialInflection(normalized, entry.word))
 
-    const words = Array.from(candidates).map((id) => db.words[id].toLowerCase())
-    return sortWords(words).slice(0, max)
-  }
-
-  const vowelKeys = wordId === -1 ? [] : getKeysForWordId(runtimeDb, wordId, 'vowelKeysByWordId')
-  const codaKeys = wordId === -1 ? [] : getKeysForWordId(runtimeDb, wordId, 'codaKeysByWordId')
-
-  const vowelSet = collectWordIds(db.indexes.vowel, vowelKeys)
-  const codaSet = collectWordIds(db.indexes.coda, codaKeys)
-
-  if (mode === 'near') {
-    vowelSet.delete(wordId)
-    codaSet.delete(wordId)
-
-    const both: string[] = []
-    const only: string[] = []
-
-    for (const id of vowelSet) {
-      const word = db.words[id]
-      if (codaSet.has(id)) {
-        both.push(word.toLowerCase())
-      } else {
-        only.push(word.toLowerCase())
-      }
-    }
-
-    for (const id of codaSet) {
-      if (!vowelSet.has(id)) {
-        only.push(db.words[id].toLowerCase())
-      }
-    }
-
-    const sortedBoth = sortWords(both)
-    const sortedOnly = sortWords(only)
-
-    return [...sortedBoth, ...sortedOnly].slice(0, max)
-  }
-
-  const perfectKeys = wordId === -1 ? [] : getKeysForWordId(runtimeDb, wordId, 'perfectKeysByWordId')
-  const perfectSet = collectWordIds(db.indexes.perfect, perfectKeys)
-
-  const candidateSet = new Set<number>()
-  for (const id of vowelSet) {
-    candidateSet.add(id)
-  }
-  for (const id of codaSet) {
-    candidateSet.add(id)
-  }
-
-  const fallbackSet = new Set<number>()
-  if (normalized.length >= 3 && (wordId === -1 || candidateSet.size < max)) {
-    const suffix = normalized.slice(-3)
-    for (let index = 0; index < db.words.length && fallbackSet.size < 2000; index += 1) {
-      if (db.words[index].endsWith(suffix)) {
-        fallbackSet.add(index)
-      }
-    }
-  }
-
-  for (const id of fallbackSet) {
-    candidateSet.add(id)
-  }
-
-  const scored = Array.from(candidateSet)
-    .filter((id) => id !== wordId)
-    .map((id) => {
-      let score = 0
-      if (perfectSet.has(id)) {
-        score += 2
-      }
-      if (vowelSet.has(id)) {
-        score += 1
-      }
-      if (codaSet.has(id)) {
-        score += 1
-      }
-      if (fallbackSet.has(id)) {
-        score += 0.5
-      }
-      return {
-        word: db.words[id].toLowerCase(),
-        score,
-      }
+    scored.sort((a, b) => {
+      if (a.score !== b.score) return b.score - a.score
+      return a.word.localeCompare(b.word)
     })
 
+    return scored.slice(0, max).map((entry) => entry.word)
+  }
+
+  if (!targetVowelKey || !targetCodaKey) {
+    return []
+  }
+
+  const vowelSet = collectWordIds(db.indexes.vowel, [targetVowelKey])
+  const codaSet = collectWordIds(db.indexes.coda, [targetCodaKey])
+  const candidateSet = new Set<number>()
+
+  for (const id of vowelSet) candidateSet.add(id)
+  for (const id of codaSet) candidateSet.add(id)
+
+  if (normalizedMode === 'near') {
+    const scored = Array.from(candidateSet)
+      .filter((id) => id !== wordId)
+      .map((id) => {
+        const candidateVowelKeys = getKeysForWordId(runtimeDb, id, 'vowelKeysByWordId')
+        const candidateCodaKeys = getKeysForWordId(runtimeDb, id, 'codaKeysByWordId')
+        const bestVowelKey = getBestVowelKey(candidateVowelKeys, targetVowel)
+        const bestCodaKey = getBestCodaKey(candidateCodaKeys, targetCoda)
+        const vowelScore = bestVowelKey ? getNearVowelScore(targetVowel, bestVowelKey) : 0
+        const codaScore = bestCodaKey ? codaSimilarity(targetCoda, splitCodaKey(bestCodaKey)) : 0
+        const phoneticScore = 0.6 * vowelScore + 0.4 * codaScore
+        const word = db.words[id].toLowerCase()
+        const syllableFit = getSyllableFit(runtimeDb, id, context.desiredSyllables)
+        return {
+          word,
+          score: scoreEntry(phoneticScore, usage[word] ?? 0, syllableFit),
+          phoneticScore,
+        }
+      })
+      .filter((entry) => entry.phoneticScore > 0 && !isTrivialInflection(normalized, entry.word))
+
+    scored.sort((a, b) => {
+      if (a.score !== b.score) return b.score - a.score
+      return a.word.localeCompare(b.word)
+    })
+
+    return scored.slice(0, max).map((entry) => entry.word)
+  }
+
+  const candidateList = Array.from(candidateSet)
+    .filter((id) => id !== wordId)
+    .map((id) => db.words[id].toLowerCase())
+  const trimmedCandidates = candidateList
+    .map((word) => ({
+      word,
+      freq: usage[word] ?? 0,
+    }))
+    .sort((a, b) => {
+      if (a.freq !== b.freq) return b.freq - a.freq
+      return a.word.localeCompare(b.word)
+    })
+    .slice(0, 2000)
+    .map((entry) => entry.word)
+
+  const targetTail = buildTail(targetVowelKey, targetCodaKey)
+
+  const scored = trimmedCandidates
+    .map((word) => {
+      const id = findWordId(runtimeDb, word)
+      if (id === -1) return null
+      const candidateVowelKeys = getKeysForWordId(runtimeDb, id, 'vowelKeysByWordId')
+      const candidateCodaKeys = getKeysForWordId(runtimeDb, id, 'codaKeysByWordId')
+      const bestVowelKey = getBestVowelKey(candidateVowelKeys, targetVowel)
+      const bestCodaKey = getBestCodaKey(candidateCodaKeys, targetCoda)
+      if (!bestVowelKey || !bestCodaKey) return null
+      const candidateTail = buildTail(bestVowelKey, bestCodaKey)
+      const phoneticScore = tailSimilarity(targetTail, candidateTail)
+      if (phoneticScore < 0.62) return null
+      const syllableFit = getSyllableFit(runtimeDb, id, context.desiredSyllables)
+      return {
+        word,
+        score: scoreEntry(phoneticScore, usage[word] ?? 0, syllableFit),
+        phoneticScore,
+      }
+    })
+    .filter((entry): entry is { word: string; score: number; phoneticScore: number } => Boolean(entry))
+    .filter((entry) => !isTrivialInflection(normalized, entry.word))
+
   scored.sort((a, b) => {
-    if (a.score !== b.score) {
-      return b.score - a.score
-    }
+    if (a.score !== b.score) return b.score - a.score
     return a.word.localeCompare(b.word)
   })
 
@@ -227,15 +372,16 @@ export const getRhymesForTargets = (
   targets: { caret?: string; lineLast?: string },
   mode: Mode,
   max: number,
+  context?: RhymeQueryContext,
 ) => {
   const results: { caret?: string[]; lineLast?: string[] } = {}
 
   if (targets.caret !== undefined) {
-    results.caret = getRhymesForToken(db, targets.caret, mode, max)
+    results.caret = getRhymesForToken(db, targets.caret, mode, max, context)
   }
 
   if (targets.lineLast !== undefined) {
-    results.lineLast = getRhymesForToken(db, targets.lineLast, mode, max)
+    results.lineLast = getRhymesForToken(db, targets.lineLast, mode, max, context)
   }
 
   return results
