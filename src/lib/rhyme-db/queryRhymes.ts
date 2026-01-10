@@ -22,7 +22,7 @@ export const normalizeToken = (raw: string) => {
   return trimmed.replace(PUNCTUATION_REGEX, '')
 }
 
-export const findWordId = (words: string[], token: string) => {
+const findWordIdExact = (words: string[], token: string) => {
   let low = 0
   let high = words.length - 1
 
@@ -39,6 +39,17 @@ export const findWordId = (words: string[], token: string) => {
     }
   }
 
+  return -1
+}
+
+export const findWordId = (words: string[], token: string) => {
+  const candidates = [token, token.toUpperCase(), token.toLowerCase()]
+  for (const candidate of candidates) {
+    const id = findWordIdExact(words, candidate)
+    if (id !== -1) {
+      return id
+    }
+  }
   return -1
 }
 
@@ -116,7 +127,7 @@ export const getRhymesForToken = (db: RhymeDbV1, token: string, mode: Mode, max:
     const candidates = collectWordIds(db.indexes.perfect, keys)
     candidates.delete(wordId)
 
-    const words = Array.from(candidates).map((id) => db.words[id])
+    const words = Array.from(candidates).map((id) => db.words[id].toLowerCase())
     return sortWords(words).slice(0, max)
   }
 
@@ -136,15 +147,15 @@ export const getRhymesForToken = (db: RhymeDbV1, token: string, mode: Mode, max:
     for (const id of vowelSet) {
       const word = db.words[id]
       if (codaSet.has(id)) {
-        both.push(word)
+        both.push(word.toLowerCase())
       } else {
-        only.push(word)
+        only.push(word.toLowerCase())
       }
     }
 
     for (const id of codaSet) {
       if (!vowelSet.has(id)) {
-        only.push(db.words[id])
+        only.push(db.words[id].toLowerCase())
       }
     }
 
@@ -196,7 +207,7 @@ export const getRhymesForToken = (db: RhymeDbV1, token: string, mode: Mode, max:
         score += 0.5
       }
       return {
-        word: db.words[id],
+        word: db.words[id].toLowerCase(),
         score,
       }
     })
