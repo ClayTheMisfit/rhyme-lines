@@ -4,6 +4,7 @@ import {
   getRhymesForTargets,
   normalizeToken,
   type Mode,
+  type RhymeQueryContext,
   type RhymeDbRuntime,
   type RhymeDbRuntimeMaps,
 } from '@/lib/rhyme-db/queryRhymes'
@@ -16,6 +17,7 @@ type GetRhymesMsg = {
   targets: { caret?: string; lineLast?: string }
   mode: Mode
   max: number
+  context?: RhymeQueryContext
 }
 
 type InitOk = { type: 'init:ok' }
@@ -83,6 +85,14 @@ const buildKeysByWordId = (index: RhymeIndex, wordCount: number) => {
   return keysByWordId
 }
 
+const buildWordToId = (words: string[]) => {
+  const map = new Map<string, number>()
+  words.forEach((word, index) => {
+    map.set(word.toLowerCase(), index)
+  })
+  return map
+}
+
 const validateDb = (db: RhymeDbV1) => {
   if (!db.words || !db.indexes) {
     return 'Missing words or indexes'
@@ -115,9 +125,15 @@ const loadDb = async () => {
   }
 
   const runtimeMaps: RhymeDbRuntimeMaps = {
+    wordToId: buildWordToId(db.words),
     perfectKeysByWordId: buildKeysByWordId(db.indexes.perfect, db.words.length),
     vowelKeysByWordId: buildKeysByWordId(db.indexes.vowel, db.words.length),
     codaKeysByWordId: buildKeysByWordId(db.indexes.coda, db.words.length),
+  }
+
+  const perfect2 = (db.indexes as { perfect2?: RhymeIndex }).perfect2
+  if (perfect2) {
+    runtimeMaps.perfect2KeysByWordId = buildKeysByWordId(perfect2, db.words.length)
   }
 
   runtimeDb = Object.assign(db, { runtime: runtimeMaps })
@@ -165,7 +181,11 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
 
       const caretToken = normalizeToken(message.targets.caret ?? '')
       const lineLastToken = normalizeToken(message.targets.lineLast ?? '')
-      const cacheKey = `${message.mode}|${message.max}|c:${caretToken}|l:${lineLastToken}`
+      const normalizedMode = message.mode.toLowerCase() as Mode
+      const desiredSyllables =
+        typeof message.context?.desiredSyllables === 'number' ? message.context.desiredSyllables : 'none'
+      const multiSyllable = message.context?.multiSyllable ? '1' : '0'
+      const cacheKey = `${normalizedMode}|${message.max}|${desiredSyllables}|${multiSyllable}|c:${caretToken}|l:${lineLastToken}`
 
       const cached = cache.get(cacheKey)
       if (cached) {
@@ -179,7 +199,7 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
       }
 
       try {
-        const results = getRhymesForTargets(runtimeDb, message.targets, message.mode, message.max)
+        const results = getRhymesForTargets(runtimeDb, message.targets, normalizedMode, message.max, message.context)
         cache.set(cacheKey, results)
         post({
           type: 'getRhymes:ok',

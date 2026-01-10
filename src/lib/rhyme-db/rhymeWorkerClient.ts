@@ -1,4 +1,5 @@
 import type { Mode } from '@/lib/rhyme-db/queryRhymes'
+import type { RhymeQueryContext } from '@/lib/rhyme-db/queryRhymes'
 
 type InitOk = { type: 'init:ok' }
 
@@ -86,6 +87,7 @@ export const createRhymeWorkerClient = () => {
     targets: { caret?: string; lineLast?: string }
     mode: Mode
     max: number
+    context?: RhymeQueryContext
   }) => {
     await init()
     const requestId = `${Date.now()}-${requestCounter += 1}`
@@ -100,6 +102,7 @@ export const createRhymeWorkerClient = () => {
       targets: args.targets,
       mode: args.mode,
       max: args.max,
+      context: args.context,
     })
 
     return promise
