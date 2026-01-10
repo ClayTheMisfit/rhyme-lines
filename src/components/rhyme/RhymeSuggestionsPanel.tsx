@@ -2,31 +2,16 @@
 
 import * as React from 'react'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
-import { useRhymePanel, type RhymePanelMode, type SyllableFilter } from '@/lib/state/rhymePanel'
+import { useRhymePanel, type RhymePanelMode } from '@/lib/state/rhymePanel'
 import { DockablePanel } from '@/components/panels/DockablePanel'
-import { useRhymeSuggestions } from '@/hooks/useRhymeSuggestions'
-import { countSyllables } from '@/lib/nlp/syllables'
-import type { ActiveWord } from '@/lib/editor/getActiveWord'
-import type { AggregatedSuggestion, RhymeQuality } from '@/lib/rhyme/aggregate'
+import { useRhymeSuggestions } from '@/lib/rhyme-db/useRhymeSuggestions'
+import type { Mode } from '@/lib/rhyme-db/queryRhymes'
 import type { EditorHandle } from '@/components/Editor'
-import SuggestionItem from './SuggestionItem'
-import { useSettingsStore } from '@/store/settingsStore'
-import { shallow } from 'zustand/shallow'
+import { useState } from 'react'
 
 const MIN_WIDTH = 280
 const MAX_WIDTH = 640
-const MAX_VISIBLE_RESULTS = 30
-
-const SYLLABLE_CHIPS: { label: string; value: SyllableFilter }[] = [
-  { label: 'Any', value: 0 },
-  { label: '1', value: 1 },
-  { label: '2', value: 2 },
-  { label: '3', value: 3 },
-  { label: '4', value: 4 },
-  { label: '5+', value: 5 },
-]
-
-const QUALITY_CHIPS: { label: string; value: RhymeQuality }[] = [
+const QUALITY_CHIPS: { label: string; value: Mode }[] = [
   { label: 'Perfect', value: 'perfect' },
   { label: 'Near', value: 'near' },
   { label: 'Slant', value: 'slant' },
@@ -35,31 +20,19 @@ const QUALITY_CHIPS: { label: string; value: RhymeQuality }[] = [
 type Props = {
   mode: RhymePanelMode
   onClose: () => void
-  activeWord?: ActiveWord | null
+  text: string
+  caretIndex: number
+  currentLineText: string
   editorRef?: React.RefObject<EditorHandle | null>
 }
 
-function resolveSyllables(suggestion: AggregatedSuggestion): number {
-  const raw = (suggestion as unknown as { syllableCount?: number }).syllableCount
-  return (
-    suggestion.syllables ??
-    (typeof raw === 'number' ? raw : undefined) ??
-    countSyllables(suggestion.word)
-  )
-}
-
-function matchesFilter(suggestion: AggregatedSuggestion, filter: SyllableFilter): boolean {
-  if (filter === 0) return true
-  const syllableCount = resolveSyllables(suggestion)
-  if (filter === 5) return syllableCount >= 5
-  return syllableCount === filter
-}
-
 export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
-  ({ mode, onClose, activeWord, editorRef }, forwardedRef) => {
+  ({ mode, onClose, text, caretIndex, currentLineText, editorRef }, forwardedRef) => {
     const searchRef = React.useRef<HTMLInputElement>(null)
-    const suggestionsRef = React.useRef<AggregatedSuggestion[]>([])
+    const suggestionsRef = React.useRef<string[]>([])
     const panelRef = React.useRef<HTMLDivElement>(null)
+    const [activeTab, setActiveTab] = useState<'caret' | 'lineLast'>('caret')
+    const [rhymeMode, setRhymeMode] = useState<Mode>('perfect')
 
     const setPanelRef = React.useCallback(
       (node: HTMLDivElement | null) => {
@@ -74,100 +47,68 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       [forwardedRef]
     )
 
-    const {
-      filters,
-      searchQuery,
-      selectedIndex,
-      toggleFilter,
-      setSearchQuery,
-      setSelectedIndex,
-    } = useRhymePanelStore()
+    const { selectedIndex, setSelectedIndex } = useRhymePanelStore((state) => ({
+      selectedIndex: state.selectedIndex,
+      setSelectedIndex: state.setSelectedIndex,
+    }))
 
-    const { filter, x, y, width, height, setFilter, setBounds, dock, undock } = useRhymePanel(
+    const { x, y, width, height, setBounds, dock, undock } = useRhymePanel(
       (state) => ({
-        filter: state.filter,
         x: state.x,
         y: state.y,
         width: state.width,
         height: state.height,
-        setFilter: state.setFilter,
         setBounds: state.setBounds,
         dock: state.dock,
         undock: state.undock,
       })
     )
 
-    const { rhymeAutoRefresh, debounceMode, setRhymeAutoRefresh } = useSettingsStore(
-      (state) => ({
-        rhymeAutoRefresh: state.rhymeAutoRefresh,
-        debounceMode: state.debounceMode,
-        setRhymeAutoRefresh: state.setRhymeAutoRefresh,
-      }),
-      shallow
-    )
-
     const {
-      suggestions,
       status,
       error,
-      target,
-      isOffline,
-      refetchSuggestions,
+      results,
+      debug,
     } = useRhymeSuggestions({
-      searchQuery,
-      filters,
-      activeWord: activeWord || null,
+      text,
+      caretIndex,
+      currentLineText,
+      mode: rhymeMode,
+      max: 100,
       enabled: mode !== 'hidden',
-      autoRefresh: rhymeAutoRefresh,
-      debounceMode,
     })
 
-    const [showAllResults, setShowAllResults] = React.useState(false)
+    const caretSuggestions = results.caret ?? []
+    const lineSuggestions = results.lineLast ?? []
+    const activeSuggestions = activeTab === 'caret' ? caretSuggestions : lineSuggestions
 
-    const filteredSuggestions = React.useMemo(
-      () => suggestions.filter((item) => matchesFilter(item, filter)),
-      [suggestions, filter]
-    )
-
-    const visibleSuggestions = React.useMemo(() => {
-      if (showAllResults) return filteredSuggestions
-      return filteredSuggestions.slice(0, MAX_VISIBLE_RESULTS)
-    }, [filteredSuggestions, showAllResults])
-
-    const canRefresh = React.useMemo(() => !!target?.word, [target])
+    const caretToken = debug.caretToken
+    const lineLastToken = debug.lineLastToken
+    const activeToken = activeTab === 'caret' ? caretToken : lineLastToken
+    const activeTokenLabel = activeTab === 'caret' ? 'Caret' : 'Line End'
     const isLoading = status === 'loading'
 
     React.useEffect(() => {
-      suggestionsRef.current = visibleSuggestions
-    }, [visibleSuggestions])
+      suggestionsRef.current = activeSuggestions
+    }, [activeSuggestions])
 
     React.useEffect(() => {
-      if (visibleSuggestions.length === 0) {
+      if (activeSuggestions.length === 0) {
         setSelectedIndex(null)
         return
       }
 
-      if (selectedIndex == null || selectedIndex >= visibleSuggestions.length) {
+      if (selectedIndex == null || selectedIndex >= activeSuggestions.length) {
         setSelectedIndex(0)
       }
-    }, [selectedIndex, setSelectedIndex, visibleSuggestions.length])
-
-    React.useEffect(() => {
-      setSelectedIndex(visibleSuggestions.length > 0 ? 0 : null)
-    }, [filter, setSelectedIndex, visibleSuggestions.length])
-
-    React.useEffect(() => {
-      if (filteredSuggestions.length <= MAX_VISIBLE_RESULTS) {
-        setShowAllResults(false)
-      }
-    }, [filteredSuggestions.length])
+    }, [activeSuggestions.length, selectedIndex, setSelectedIndex])
 
     const insertSuggestion = React.useCallback(
-      (suggestion: { word: string }) => {
+      (word: string) => {
         const editorApi = editorRef?.current
         if (editorApi?.insertText) {
           try {
-            const result = editorApi.insertText(suggestion.word)
+            const result = editorApi.insertText(word)
             if (!result) {
               console.warn('Editor insertion returned false; falling back to DOM insertion.')
             } else {
@@ -186,7 +127,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           if (!selection || selection.rangeCount === 0) return
 
           const range = selection.getRangeAt(0)
-          const textNode = document.createTextNode(suggestion.word)
+          const textNode = document.createTextNode(word)
           range.deleteContents()
           range.insertNode(textNode)
 
@@ -211,19 +152,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
         const target = event.target as HTMLElement | null
         if (panelRef.current && target && !panelRef.current.contains(target)) {
-          return
-        }
-
-        const isTypingField =
-          !!target &&
-          (target.tagName === 'INPUT' ||
-            target.tagName === 'TEXTAREA' ||
-            target.isContentEditable)
-
-        if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key >= '0' && event.key <= '5') {
-          if (isTypingField) return
-          event.preventDefault()
-          setFilter(Number(event.key) as SyllableFilter)
           return
         }
 
@@ -267,7 +195,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             return
         }
       },
-      [handleClose, insertSuggestion, mode, selectedIndex, setFilter, setSelectedIndex]
+      [handleClose, insertSuggestion, mode, selectedIndex, setSelectedIndex]
     )
 
     const handleSuggestionClick = React.useCallback(
@@ -294,188 +222,162 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       handleClose()
     }
 
-  const panelContent = (
-    <div className="flex h-full flex-col">
-      <div className="px-3 pt-3">
-        <div className="space-y-2 rounded-lg border border-slate-200/70 bg-slate-50/80 p-3 text-[12px] text-slate-600 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/60 dark:text-slate-300">
-          <div className="space-y-1.5">
-            <label htmlFor="rhyme-search" className="sr-only">
-              Search rhymes
-            </label>
-            <input
-              ref={searchRef}
-              id="rhyme-search"
-              type="text"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search rhymes"
-              className="w-full rounded-md border border-slate-200/70 bg-white/80 px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white motion-reduce:transition-none dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus-visible:ring-offset-slate-900"
-            />
-          </div>
+    const panelContent = (
+      <div className="flex h-full flex-col">
+        <div className="px-3 pt-3">
+          <div className="space-y-2 rounded-lg border border-slate-200/70 bg-slate-50/80 p-3 text-[12px] text-slate-600 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/60 dark:text-slate-300">
+            <div className="space-y-1.5">
+              <label htmlFor="rhyme-search" className="sr-only">
+                Rhyme panel focus
+              </label>
+              <input
+                ref={searchRef}
+                id="rhyme-search"
+                type="text"
+                value=""
+                placeholder="Rhyme suggestions"
+                readOnly
+                className="w-full rounded-md border border-slate-200/70 bg-white/80 px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white motion-reduce:transition-none dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus-visible:ring-offset-slate-900"
+              />
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-[12px]">
-            <button
-              type="button"
-              onClick={() => setRhymeAutoRefresh(!rhymeAutoRefresh)}
-              className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
-                rhymeAutoRefresh
-                  ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-700 dark:text-emerald-200'
-                  : 'border-slate-200/70 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:text-slate-100'
-              }`}
-              aria-pressed={rhymeAutoRefresh}
-            >
-              Auto-refresh
-            </button>
-            <button
-              type="button"
-              onClick={() => refetchSuggestions()}
-              disabled={!canRefresh || isLoading}
-              className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
-                !canRefresh || isLoading
-                  ? 'cursor-not-allowed border-slate-200/60 text-slate-400 dark:border-slate-700/60 dark:text-slate-500'
-                  : 'border-slate-200/80 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-700/70 dark:text-slate-300 dark:hover:border-slate-500/80 dark:hover:text-slate-100'
-              }`}
-            >
-              <span aria-hidden>⟳</span>
-              Refresh
-            </button>
-            {isLoading && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
-                <span className="h-3 w-3 animate-spin rounded-full border border-slate-400/60 border-t-transparent motion-reduce:animate-none dark:border-slate-500/70" />
-                Updating…
-              </span>
-            )}
-          </div>
+            <div className="flex flex-wrap items-center gap-2 text-[12px]">
+              {isLoading && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span className="h-3 w-3 animate-spin rounded-full border border-slate-400/60 border-t-transparent motion-reduce:animate-none dark:border-slate-500/70" />
+                  Updating…
+                </span>
+              )}
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {QUALITY_CHIPS.map((chip) => {
-              const isActive = filters[chip.value]
-              const activeClasses =
-                chip.value === 'perfect'
-                  ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-200'
-                  : chip.value === 'near'
-                  ? 'border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-200'
-                  : 'border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-200'
-              return (
-                <button
-                  key={chip.value}
-                  type="button"
-                  onClick={() => toggleFilter(chip.value)}
-                  className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
-                    isActive
-                      ? activeClasses
-                      : 'border-slate-200/70 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:text-slate-100'
-                  }`}
-                  aria-pressed={isActive}
-                >
-                  {chip.label}
-                </button>
-              )
-            })}
-          </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {QUALITY_CHIPS.map((chip) => {
+                const isActive = rhymeMode === chip.value
+                const activeClasses =
+                  chip.value === 'perfect'
+                    ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-200'
+                    : chip.value === 'near'
+                    ? 'border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-200'
+                    : 'border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-200'
+                return (
+                  <button
+                    key={chip.value}
+                    type="button"
+                    onClick={() => setRhymeMode(chip.value)}
+                    className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                      isActive
+                        ? activeClasses
+                        : 'border-slate-200/70 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:text-slate-100'
+                    }`}
+                    aria-pressed={isActive}
+                  >
+                    {chip.label}
+                  </button>
+                )
+              })}
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {SYLLABLE_CHIPS.map((chip) => {
-              const isActive = filter === chip.value
-              return (
-                <button
-                  key={chip.value}
-                  type="button"
-                  onClick={() => setFilter(chip.value)}
-                  className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
-                    isActive
-                      ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-slate-200 dark:bg-slate-200 dark:text-slate-900'
-                      : 'border-slate-200/70 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:text-slate-100'
-                  }`}
-                  aria-pressed={isActive}
-                >
-                  {chip.label}
-                </button>
-              )
-            })}
-            <span className="text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              keys 0–5
-            </span>
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+              <button
+                type="button"
+                onClick={() => setActiveTab('caret')}
+                className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                  activeTab === 'caret'
+                    ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-slate-200 dark:bg-slate-200 dark:text-slate-900'
+                    : 'border-slate-200/70 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:text-slate-100'
+                }`}
+              >
+                Caret ({caretSuggestions.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('lineLast')}
+                className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                  activeTab === 'lineLast'
+                    ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-slate-200 dark:bg-slate-200 dark:text-slate-900'
+                    : 'border-slate-200/70 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:text-slate-100'
+                }`}
+              >
+                Line End ({lineSuggestions.length})
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mt-3 flex-1 overflow-y-auto px-2 pb-3 pt-0 thin-scrollbar">
-        {isOffline && (
-          <div className="px-3 py-2 text-center text-xs text-amber-500">
-            Offline mode. Network providers paused; local/cache only.
-          </div>
-        )}
+        <div className="mt-3 flex-1 overflow-y-auto px-2 pb-3 pt-0 thin-scrollbar">
+          {!isLoading && (
+            <div className="px-3 pb-2 text-[12px] text-slate-500 dark:text-slate-400">
+              {activeTokenLabel}: {activeToken ? `"${activeToken}"` : '—'}
+            </div>
+          )}
 
-        {isLoading && (
-          <div className="space-y-2 px-3 py-3">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <div
-                key={`skeleton-${index}`}
-                className="flex items-center justify-between rounded-lg border border-slate-200/60 bg-white/60 px-3 py-2 text-[13px] shadow-sm animate-pulse motion-reduce:animate-none dark:border-slate-700/60 dark:bg-slate-900/40"
-              >
-                <div className="h-4 w-32 rounded bg-slate-200/80 dark:bg-slate-700/60" />
-                <div className="h-4 w-12 rounded bg-slate-200/80 dark:bg-slate-700/60" />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {status === 'idle' && !isLoading && (
-          <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
-            Type or move the caret to load rhymes.
-          </div>
-        )}
-
-        {status === 'offline' && (
-          <div className="px-3 py-6 text-center text-[13px] text-amber-500">
-            Offline mode. Showing cached or local suggestions.
-          </div>
-        )}
-
-        {error && (
-          <div className="px-3 py-6 text-center text-[13px] text-rose-500">
-            {status === 'error' ? 'Error loading suggestions: ' : 'Warning: '}
-            {error}
-          </div>
-        )}
-
-        {!isLoading && status !== 'idle' && filteredSuggestions.length === 0 && (
-          <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
-            No rhymes found — try Near or Slant
-          </div>
-        )}
-
-        {!isLoading && visibleSuggestions.length > 0 && (
-          <>
-            <div role="listbox" aria-activedescendant={activeOptionId} aria-label="Rhyme suggestions" className="space-y-1">
-              {visibleSuggestions.map((suggestion, index) => (
-                <SuggestionItem
-                  key={`${suggestion.word}-${index}`}
-                  suggestion={suggestion}
-                  isSelected={index === selectedIndex}
-                  onClick={handleSuggestionClick}
-                  index={index}
-                  id={`rhyme-suggestion-${index}`}
-                />
+          {isLoading && (
+            <div className="space-y-2 px-3 py-3">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div
+                  key={`skeleton-${index}`}
+                  className="flex items-center justify-between rounded-lg border border-slate-200/60 bg-white/60 px-3 py-2 text-[13px] shadow-sm animate-pulse motion-reduce:animate-none dark:border-slate-700/60 dark:bg-slate-900/40"
+                >
+                  <div className="h-4 w-32 rounded bg-slate-200/80 dark:bg-slate-700/60" />
+                  <div className="h-4 w-12 rounded bg-slate-200/80 dark:bg-slate-700/60" />
+                </div>
               ))}
             </div>
-            {filteredSuggestions.length > MAX_VISIBLE_RESULTS && (
-              <div className="px-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAllResults((prev) => !prev)}
-                  className="w-full rounded-md border border-slate-200/70 bg-white px-3 py-2 text-[12px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:border-slate-500/80 dark:hover:text-slate-100 dark:focus-visible:ring-offset-slate-900"
-                >
-                  {showAllResults ? 'Show fewer' : `Show all (${filteredSuggestions.length})`}
-                </button>
+          )}
+
+          {status === 'idle' && !isLoading && (
+            <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
+              Type or move the caret to load rhymes.
+            </div>
+          )}
+
+          {error && (
+            <div className="px-3 py-6 text-center text-[13px] text-rose-500">
+              {status === 'error' ? 'Error loading suggestions: ' : 'Warning: '} {error}
+              <div className="mt-2 text-[12px] text-rose-400">
+                Verify public/rhyme-db/rhyme-db.v1.json exists (npm run build:rhyme-db).
               </div>
-            )}
-          </>
-        )}
+            </div>
+          )}
+
+          {!isLoading && status !== 'idle' && activeSuggestions.length === 0 && (
+            <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
+              No rhymes found — try Near or Slant
+            </div>
+          )}
+
+          {!isLoading && activeSuggestions.length > 0 && (
+            <div
+              role="listbox"
+              aria-activedescendant={activeOptionId}
+              aria-label="Rhyme suggestions"
+              className="space-y-1"
+            >
+              {activeSuggestions.map((suggestion, index) => (
+                <button
+                  key={`${suggestion}-${index}`}
+                  type="button"
+                  onClick={handleSuggestionClick}
+                  role="option"
+                  aria-selected={index === selectedIndex}
+                  data-index={index}
+                  id={`rhyme-suggestion-${index}`}
+                  className={`relative w-full rounded-lg border border-transparent px-3 py-2 text-left text-[13px] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                    index === selectedIndex
+                      ? 'border-sky-500/40 bg-sky-500/10 shadow-sm dark:border-sky-400/40 dark:bg-sky-400/10'
+                      : 'hover:bg-slate-100/70 active:bg-slate-200/60 dark:hover:bg-white/5 dark:active:bg-white/10'
+                  } ${index === selectedIndex ? "before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-sky-500 before:content-['']" : ''}`}
+                >
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                    {suggestion}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  )
+    )
 
     const panelRootProps = {
       tabIndex: 0,
@@ -496,21 +398,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         onUndock={undock}
         onDock={dock}
         onClose={handleDockableClose}
-        headerActions={
-          <button
-            type="button"
-            onClick={() => refetchSuggestions()}
-            disabled={!canRefresh || isLoading}
-            aria-label="Refresh rhymes"
-            className={`inline-flex h-8 w-8 items-center justify-center rounded-md text-sm transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
-              !canRefresh || isLoading
-                ? 'cursor-not-allowed text-slate-400 dark:text-slate-500'
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-slate-100'
-            }`}
-          >
-            ⟳
-          </button>
-        }
         className="h-full w-full"
         panelRef={setPanelRef}
         panelProps={panelRootProps}

@@ -58,6 +58,9 @@ export const createRhymeWorkerClient = () => {
 
   const init = () => {
     if (!initPromise) {
+      if (typeof window === 'undefined') {
+        return Promise.reject(new Error('Rhyme worker init requires a browser environment'))
+      }
       initPromise = new Promise<void>((resolve, reject) => {
         const onInitMessage = (event: MessageEvent<WorkerMessage>) => {
           const message = event.data
@@ -72,7 +75,7 @@ export const createRhymeWorkerClient = () => {
         }
 
         worker.addEventListener('message', onInitMessage)
-        worker.postMessage({ type: 'init' })
+        worker.postMessage({ type: 'init', baseUrl: window.location.origin })
       })
     }
 
