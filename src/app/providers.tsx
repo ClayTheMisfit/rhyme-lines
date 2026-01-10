@@ -2,6 +2,7 @@
 import type { ReactNode } from 'react'
 import { ThemeProvider } from 'next-themes'
 import QueryProvider from '@/components/providers/QueryProvider'
+import RhymeWorkerBootstrap from '@/components/RhymeWorkerBootstrap'
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -11,7 +12,10 @@ export function Providers({ children }: { children: ReactNode }) {
       enableSystem
       disableTransitionOnChange
     >
-      <QueryProvider>{children}</QueryProvider>
+      <QueryProvider>
+        <RhymeWorkerBootstrap />
+        {children}
+      </QueryProvider>
     </ThemeProvider>
   )
 }
