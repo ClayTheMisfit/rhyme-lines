@@ -1,4 +1,5 @@
 import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
+import { buildDbUrl } from '@/lib/rhyme-db/buildDbUrl'
 import {
   getRhymesForTargets,
   normalizeToken,
@@ -7,7 +8,7 @@ import {
   type RhymeDbRuntimeMaps,
 } from '@/lib/rhyme-db/queryRhymes'
 
-type InitMsg = { type: 'init' }
+type InitMsg = { type: 'init'; baseUrl: string }
 
 type GetRhymesMsg = {
   type: 'getRhymes'
@@ -96,11 +97,16 @@ const cache = new LruCache<string, { caret?: string[]; lineLast?: string[] }>(20
 
 let runtimeDb: RhymeDbRuntime | null = null
 let initPromise: Promise<void> | null = null
+let baseUrl: string | null = null
 
 const loadDb = async () => {
-  const response = await fetch('/rhyme-db/rhyme-db.v1.json')
+  if (!baseUrl) {
+    throw new Error('Missing baseUrl for rhyme DB fetch')
+  }
+  const dbUrl = buildDbUrl(baseUrl)
+  const response = await fetch(dbUrl)
   if (!response.ok) {
-    throw new Error(`Failed to load rhyme db: ${response.status}`)
+    throw new Error(`Failed to load rhyme DB (${response.status} ${response.statusText}) from ${dbUrl}`)
   }
   const db = (await response.json()) as RhymeDbV1
   const error = validateDb(db)
@@ -131,6 +137,7 @@ const post = (message: OutgoingMessage) => {
 self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
   const message = event.data
   if (message.type === 'init') {
+    baseUrl = message.baseUrl
     ensureInit()
       .then(() => {
         post({ type: 'init:ok' })

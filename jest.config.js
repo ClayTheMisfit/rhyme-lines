@@ -7,6 +7,7 @@ module.exports = {
   testRegex: ['(tests|scripts)/.*\\.(spec|test)\\.[tj]sx?$'],
   moduleNameMapper: {
     '^@/workers/createAnalysisWorker$': '<rootDir>/src/workers/createAnalysisWorker.mock.ts',
+    '^@/lib/rhyme-db/rhymeWorkerClient$': '<rootDir>/src/lib/rhyme-db/rhymeWorkerClient.mock.ts',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
