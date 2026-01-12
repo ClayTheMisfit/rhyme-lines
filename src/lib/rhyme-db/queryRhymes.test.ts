@@ -1,6 +1,6 @@
 /** @jest-environment node */
 import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
-import type { RhymeDbRuntimeMaps } from '@/lib/rhyme-db/queryRhymes'
+import type { RhymeDbRuntimeMaps, RhymeDbRuntimeLookups } from '@/lib/rhyme-db/queryRhymes'
 import { getRhymesForToken } from '@/lib/rhyme-db/queryRhymes'
 
 const buildIndex = (entries: Array<[string, number[]]>): RhymeIndex => {
@@ -55,10 +55,12 @@ const buildDb = () => {
   ])
 
   const runtime: RhymeDbRuntimeMaps = {
-    wordToId: new Map(words.map((word, index) => [word.toLowerCase(), index])),
     perfectKeysByWordId: buildKeysByWordId(perfect, words.length),
     vowelKeysByWordId: buildKeysByWordId(vowel, words.length),
     codaKeysByWordId: buildKeysByWordId(coda, words.length),
+  }
+  const runtimeLookups: RhymeDbRuntimeLookups = {
+    wordToId: new Map(words.map((word, index) => [word.toLowerCase(), index])),
   }
 
   const db: RhymeDbV1 = {
@@ -74,7 +76,7 @@ const buildDb = () => {
     },
   }
 
-  return Object.assign(db, { runtime })
+  return Object.assign(db, { runtime, runtimeLookups })
 }
 
 describe('queryRhymes', () => {

@@ -7,6 +7,7 @@ import {
   type RhymeQueryContext,
   type RhymeDbRuntime,
   type RhymeDbRuntimeMaps,
+  type RhymeDbRuntimeLookups,
 } from '@/lib/rhyme-db/queryRhymes'
 
 type InitMsg = { type: 'init'; baseUrl: string }
@@ -125,10 +126,12 @@ const loadDb = async () => {
   }
 
   const runtimeMaps: RhymeDbRuntimeMaps = {
-    wordToId: buildWordToId(db.words),
     perfectKeysByWordId: buildKeysByWordId(db.indexes.perfect, db.words.length),
     vowelKeysByWordId: buildKeysByWordId(db.indexes.vowel, db.words.length),
     codaKeysByWordId: buildKeysByWordId(db.indexes.coda, db.words.length),
+  }
+  const runtimeLookups: RhymeDbRuntimeLookups = {
+    wordToId: buildWordToId(db.words),
   }
 
   const perfect2 = (db.indexes as { perfect2?: RhymeIndex }).perfect2
@@ -136,7 +139,7 @@ const loadDb = async () => {
     runtimeMaps.perfect2KeysByWordId = buildKeysByWordId(perfect2, db.words.length)
   }
 
-  runtimeDb = Object.assign(db, { runtime: runtimeMaps })
+  runtimeDb = Object.assign(db, { runtime: runtimeMaps, runtimeLookups })
 }
 
 const ensureInit = async () => {

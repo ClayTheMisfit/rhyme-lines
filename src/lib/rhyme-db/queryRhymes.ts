@@ -9,15 +9,19 @@ import {
 export type Mode = 'perfect' | 'near' | 'slant' | 'Perfect' | 'Near' | 'Slant'
 
 export type RhymeDbRuntimeMaps = {
-  wordToId: Map<string, number>
   perfectKeysByWordId: string[][]
   perfect2KeysByWordId?: string[][]
   vowelKeysByWordId: string[][]
   codaKeysByWordId: string[][]
 }
 
-export type RhymeDbRuntime = RhymeDbV1 & {
+export type RhymeDbRuntimeLookups = {
+  wordToId: Map<string, number>
+}
+
+export type RhymeDbRuntime = Omit<RhymeDbV1, 'runtime'> & {
   runtime?: RhymeDbRuntimeMaps
+  runtimeLookups?: RhymeDbRuntimeLookups
 }
 
 export type RhymeQueryContext = {
@@ -59,9 +63,9 @@ const findWordIdExact = (words: string[], token: string) => {
 }
 
 export const findWordId = (db: RhymeDbRuntime, token: string) => {
-  const runtime = db.runtime
-  if (runtime?.wordToId) {
-    const directId = runtime.wordToId.get(token)
+  const lookups = db.runtimeLookups
+  if (lookups?.wordToId) {
+    const directId = lookups.wordToId.get(token)
     if (directId !== undefined) {
       return directId
     }
@@ -107,7 +111,9 @@ const getPosting = (index: RhymeIndex, key: string) => {
   return index.wordIds.slice(start, end)
 }
 
-const getKeysForWordId = (db: RhymeDbRuntime, wordId: number, kind: keyof RhymeDbRuntimeMaps) => {
+type KeysByWordIdKind = 'perfectKeysByWordId' | 'perfect2KeysByWordId' | 'vowelKeysByWordId' | 'codaKeysByWordId'
+
+const getKeysForWordId = (db: RhymeDbRuntime, wordId: number, kind: KeysByWordIdKind) => {
   const runtime = db.runtime
   if (!runtime) {
     return []
@@ -247,9 +253,9 @@ export const getRhymesForToken = (
   const usage = context.wordUsage ?? {}
 
   if (normalizedMode === 'perfect') {
-    const perfectIndex = (db.indexes as { perfect2?: RhymeIndex }).perfect2 && context.multiSyllable
-      ? (db.indexes as { perfect2: RhymeIndex }).perfect2
-      : db.indexes.perfect
+    const indexes = db.indexes as RhymeDbV1['indexes'] & { perfect2?: RhymeIndex }
+    const perfect2Index = 'perfect2' in indexes ? indexes.perfect2 : undefined
+    const perfectIndex = perfect2Index && context.multiSyllable ? perfect2Index : db.indexes.perfect
     const perfectKeys = context.multiSyllable && runtimeDb.runtime?.perfect2KeysByWordId
       ? getKeysForWordId(runtimeDb, wordId, 'perfect2KeysByWordId')
       : getKeysForWordId(runtimeDb, wordId, 'perfectKeysByWordId')
