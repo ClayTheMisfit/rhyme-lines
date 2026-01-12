@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Mode } from '@/lib/rhyme-db/queryRhymes'
 import { getRhymeClient, initRhymeClient } from '@/lib/rhyme-db/rhymeClientSingleton'
 import { getCaretWord, getLineLastWord } from '@/lib/rhyme-db/tokenize'
+import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 
 type Status = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -22,6 +23,7 @@ type UseRhymeSuggestionsArgs = {
   currentLineRange?: LineRange
   mode: Mode
   max?: number
+  multiSyllable?: boolean
   enabled: boolean
 }
 
@@ -32,17 +34,20 @@ export const useRhymeSuggestions = ({
   currentLineRange,
   mode,
   max,
+  multiSyllable,
   enabled,
 }: UseRhymeSuggestionsArgs) => {
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | undefined>(undefined)
   const [results, setResults] = useState<Results>({})
   const [debug, setDebug] = useState<DebugInfo>({})
+  const [wordUsage, setWordUsage] = useState<Record<string, number>>({})
 
   const caretIndexRef = useRef(caretIndex)
   const requestCounter = useRef(0)
   const typingTimer = useRef<number | null>(null)
   const caretTimer = useRef<number | null>(null)
+  const usageTimer = useRef<number | null>(null)
   const lastContentRef = useRef({ text: '', lineText: '' })
 
   useEffect(() => {
@@ -94,6 +99,9 @@ export const useRhymeSuggestions = ({
         return
       }
 
+      const desiredToken = lineLastToken ?? caretToken
+      const desiredSyllables = desiredToken ? estimateSyllables(desiredToken) : undefined
+
       try {
         const data = await getRhymeClient().getRhymes({
           targets: {
@@ -102,6 +110,11 @@ export const useRhymeSuggestions = ({
           },
           mode,
           max: maxResults,
+          context: {
+            wordUsage,
+            desiredSyllables,
+            multiSyllable: Boolean(multiSyllable),
+          },
         })
 
         if (requestId !== requestCounter.current) return
@@ -118,8 +131,47 @@ export const useRhymeSuggestions = ({
         setError(message)
       }
     },
-    [enabled, max, mode]
+    [enabled, max, mode, multiSyllable, wordUsage]
   )
+
+  useEffect(() => {
+    if (usageTimer.current) {
+      window.clearTimeout(usageTimer.current)
+    }
+
+    usageTimer.current = window.setTimeout(() => {
+      const tokens = text
+        .toLowerCase()
+        .match(/[a-z0-9']+/g)
+      if (!tokens) {
+        setWordUsage({})
+        return
+      }
+
+      const counts = new Map<string, number>()
+      for (const token of tokens) {
+        counts.set(token, (counts.get(token) ?? 0) + 1)
+      }
+
+      const entries = Array.from(counts.entries()).sort((a, b) => {
+        if (a[1] !== b[1]) return b[1] - a[1]
+        return a[0].localeCompare(b[0])
+      })
+
+      const limited = entries.slice(0, 5000)
+      const usage: Record<string, number> = {}
+      for (const [word, count] of limited) {
+        usage[word] = count
+      }
+      setWordUsage(usage)
+    }, 250)
+
+    return () => {
+      if (usageTimer.current) {
+        window.clearTimeout(usageTimer.current)
+      }
+    }
+  }, [text])
 
   useEffect(() => {
     if (!enabled) {
