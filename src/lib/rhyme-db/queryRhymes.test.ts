@@ -116,4 +116,42 @@ describe('queryRhymes', () => {
     const results = getRhymesForToken(db, 'fine', 'perfect', 10, { includeRare: false })
     expect(results).toEqual(['line'])
   })
+
+  it('ranks common time rhymes ahead of obscure entries when frequency is available', () => {
+    const words = ['time', 'rhyme', 'prime', 'dime', 'chyme']
+    const perfect = buildIndex([['AY-M', [0, 1, 2, 3, 4]]])
+    const empty = buildIndex([])
+    const runtime: RhymeDbRuntimeMaps = {
+      perfectKeysByWordId: buildKeysByWordId(perfect, words.length),
+      vowelKeysByWordId: buildKeysByWordId(empty, words.length),
+      codaKeysByWordId: buildKeysByWordId(empty, words.length),
+    }
+    const runtimeLookups: RhymeDbRuntimeLookups = {
+      wordToId: new Map(words.map((word, index) => [word.toLowerCase(), index])),
+    }
+
+    const dbWithFreq = Object.assign(
+      {
+        version: 1,
+        generatedAt: new Date(0).toISOString(),
+        source: { name: 'cmudict', path: 'fixture' },
+        words,
+        syllables: [1, 1, 1, 1, 1],
+        freqByWordId: [50, 80, 70, 60, 0],
+        indexes: {
+          perfect,
+          vowel: empty,
+          coda: empty,
+        },
+      } satisfies RhymeDbV1,
+      { runtime, runtimeLookups }
+    )
+
+    const commonOnly = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRare: false })
+    expect(commonOnly).toEqual(['rhyme', 'prime', 'dime'])
+
+    const includeRare = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRare: true })
+    expect(includeRare.slice(0, 3)).toEqual(['rhyme', 'prime', 'dime'])
+    expect(includeRare).toContain('chyme')
+  })
 })

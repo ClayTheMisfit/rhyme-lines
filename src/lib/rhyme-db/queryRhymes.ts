@@ -246,9 +246,10 @@ export const getRhymesForToken = (
 
   const runtimeDb = db as RhymeDbRuntime
   const normalizedMode = normalizeMode(mode)
-  const hasFrequency = Array.isArray(runtimeDb.freqByWordId)
-  const includeRare = hasFrequency ? context.includeRare ?? false : true
-  const getFrequency = (id: number) => runtimeDb.freqByWordId?.[id] ?? 0
+  const freqAvailable =
+    Array.isArray(runtimeDb.freqByWordId) && runtimeDb.freqByWordId.length === runtimeDb.words.length
+  const includeRare = context.includeRare ?? false
+  const getFrequency = (id: number) => (freqAvailable ? runtimeDb.freqByWordId?.[id] ?? 0 : 0)
 
   const wordId = findWordId(runtimeDb, normalized)
   if (wordId === -1) {
@@ -265,7 +266,7 @@ export const getRhymesForToken = (
         const candidate = word.toLowerCase()
         if (!candidate.endsWith(suffix)) return null
         const freq = getFrequency(id)
-        if (!includeRare && freq === 0) return null
+        if (!includeRare && freq <= 0 && freqAvailable) return null
         return {
           word: candidate,
           modeScore: 0,
@@ -307,7 +308,7 @@ export const getRhymesForToken = (
       .map((id) => {
         const word = db.words[id].toLowerCase()
         const freq = getFrequency(id)
-        if (!includeRare && freq === 0) return null
+        if (!includeRare && freq <= 0 && freqAvailable) return null
         return {
           word,
           modeScore: 1,
@@ -348,7 +349,7 @@ export const getRhymesForToken = (
         if (modeScore <= 0) return null
         const word = db.words[id].toLowerCase()
         const freq = getFrequency(id)
-        if (!includeRare && freq === 0) return null
+        if (!includeRare && freq <= 0 && freqAvailable) return null
         return {
           word,
           modeScore,
@@ -371,7 +372,7 @@ export const getRhymesForToken = (
       const freq = getFrequency(id)
       return { id, word, freq }
     })
-    .filter((candidate) => includeRare || candidate.freq > 0)
+    .filter((candidate) => includeRare || !freqAvailable || candidate.freq > 0)
     .sort((a, b) => {
       if (a.freq !== b.freq) return b.freq - a.freq
       return a.word.localeCompare(b.word)

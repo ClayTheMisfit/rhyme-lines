@@ -139,7 +139,8 @@ const loadDb = async () => {
     runtimeMaps.perfect2KeysByWordId = buildKeysByWordId(perfect2, db.words.length)
   }
 
-  runtimeDb = Object.assign(db, { runtime: runtimeMaps, runtimeLookups })
+  const freqAvailable = Array.isArray(db.freqByWordId) && db.freqByWordId.length === db.words.length
+  runtimeDb = Object.assign(db, { runtime: runtimeMaps, runtimeLookups, freqAvailable })
 }
 
 const ensureInit = async () => {
@@ -182,6 +183,7 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
         return
       }
 
+      const activeDb = runtimeDb
       const caretToken = normalizeToken(message.targets.caret ?? '')
       const lineLastToken = normalizeToken(message.targets.lineLast ?? '')
       const normalizedMode = message.mode.toLowerCase() as Mode
@@ -203,8 +205,25 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
       }
 
       try {
-        const results = getRhymesForTargets(runtimeDb, message.targets, normalizedMode, message.max, message.context)
+        const results = getRhymesForTargets(activeDb, message.targets, normalizedMode, message.max, message.context)
         cache.set(cacheKey, results)
+        if (process.env.NODE_ENV !== 'production') {
+          const wordsLength = activeDb.words.length
+          const freqLength = activeDb.freqByWordId?.length ?? 0
+          const freqAvailable = Array.isArray(activeDb.freqByWordId) && freqLength === wordsLength
+          const caretResults = results.caret ?? []
+          const topCaret = caretResults.slice(0, 10).map((word) => {
+            const id = activeDb.runtimeLookups?.wordToId.get(word.toLowerCase())
+            const freq = id !== undefined ? activeDb.freqByWordId?.[id] ?? 0 : 0
+            return { word, freq }
+          })
+          console.debug('[rhyme-db] freq availability', {
+            freqAvailable,
+            wordsLength,
+            freqLength,
+            caret: topCaret,
+          })
+        }
         post({
           type: 'getRhymes:ok',
           requestId: message.requestId,
