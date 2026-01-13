@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 
+const SETTINGS_STORAGE_KEY = 'rhyme-lines:persist:settings'
+
 test.describe('Settings panel', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
@@ -17,6 +19,33 @@ test.describe('Settings panel', () => {
     const initialChecked = await autoRefreshToggle.isChecked()
     await autoRefreshToggle.click()
     await expect(autoRefreshToggle).toHaveJSProperty('checked', !initialChecked)
+
+    const fontSizeSlider = dialog.locator('#font-size-slider')
+    const initialFontSize = Number(await fontSizeSlider.inputValue())
+    const nextFontSize = initialFontSize < 28 ? initialFontSize + 1 : initialFontSize - 1
+
+    await fontSizeSlider.evaluate((node, value) => {
+      const slider = node as HTMLInputElement
+      slider.value = String(value)
+      slider.dispatchEvent(new Event('input', { bubbles: true }))
+      slider.dispatchEvent(new Event('change', { bubbles: true }))
+    }, nextFontSize)
+
+    await expect(fontSizeSlider).toHaveJSProperty('value', String(nextFontSize))
+    await expect(dialog.locator('label[for="font-size-slider"]')).toHaveText(`${nextFontSize} px`)
+
+    await expect.poll(async () => {
+      const raw = await page.evaluate((key) => localStorage.getItem(key), SETTINGS_STORAGE_KEY)
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as { data?: { fontSize?: number; rhymeAutoRefresh?: boolean } }
+      return {
+        fontSize: parsed.data?.fontSize,
+        rhymeAutoRefresh: parsed.data?.rhymeAutoRefresh,
+      }
+    }).toEqual({
+      fontSize: nextFontSize,
+      rhymeAutoRefresh: !initialChecked,
+    })
 
     await dialog.getByTestId('settings-close').click()
     await expect(dialog).toBeHidden()
