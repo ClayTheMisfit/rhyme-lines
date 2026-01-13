@@ -2,6 +2,7 @@
 
 import React from "react"
 import { createPortal } from "react-dom"
+import { layers } from "@/lib/layers"
 import { Rnd } from "react-rnd"
 
 type DockBounds = {
@@ -98,7 +99,7 @@ export function DockablePanel({
   if (typeof window === "undefined") return null
 
   const content = (
-    <div className="fixed inset-0 z-[70] pointer-events-none">
+    <div className="fixed inset-0 pointer-events-none" style={{ zIndex: layers.panelDock }}>
       <Rnd
         className="pointer-events-auto"
         dragHandleClassName="rhyme-panel-drag-handle"

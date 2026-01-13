@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
+import { layers } from '@/lib/layers'
 import { useRhymePanel, type RhymePanelMode } from '@/lib/state/rhymePanel'
 import { DockablePanel } from '@/components/panels/DockablePanel'
 import { useRhymeSuggestions } from '@/lib/rhyme-db/useRhymeSuggestions'
@@ -427,8 +428,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     return (
       <div
         data-testid="rhyme-panel"
-        className="fixed bottom-6 right-6 z-40 flex flex-col"
+        className="fixed bottom-6 right-6 flex flex-col"
         style={{
+          zIndex: layers.rhymePanel,
           width: `${dockedWidth}px`,
           top: 'calc(var(--header-height, 48px) + 0.5rem)',
         }}

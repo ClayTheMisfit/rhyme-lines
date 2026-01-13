@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useMounted } from '@/hooks/useMounted'
+import { resolveTheme } from '@/lib/theme/resolveTheme'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -11,6 +12,7 @@ import { useTabsStore } from '@/store/tabsStore'
 import TabBar from '@/components/tabs/TabBar'
 import { shallow } from 'zustand/shallow'
 import SettingsSheet from './settings/SettingsSheet'
+import { layers } from '@/lib/layers'
 
 const PANEL_SPACING_REM = '1.5rem'
 const SAVE_STATUS_START_DELAY_MS = 150
@@ -116,20 +118,11 @@ export default function TopBar() {
 
   useEffect(() => {
     if (!mounted) return
-    if (!resolvedTheme) return
 
-    const resolved = resolvedTheme === 'dark' ? 'dark' : 'light'
-    if (theme !== resolved) {
-      setThemePreference(resolved)
-    }
+    const resolved = resolveTheme(theme, { hydrated: mounted })
     applyBodyTheme(resolved)
-  }, [mounted, resolvedTheme, setThemePreference, theme])
-
-  useEffect(() => {
-    if (!mounted) return
-    const targetTheme: ThemeChoice = theme === 'dark' ? 'dark' : 'light'
-    if (resolvedTheme !== targetTheme) {
-      setResolvedTheme(targetTheme)
+    if (resolvedTheme !== resolved) {
+      setResolvedTheme(resolved)
     }
   }, [mounted, resolvedTheme, setResolvedTheme, theme])
 
@@ -223,7 +216,8 @@ export default function TopBar() {
     <header
       ref={headerRef}
       data-testid="editor-header"
-      className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between gap-3 border-b border-white/10 bg-black/30 px-4 py-2 shadow-[0_1px_10px_rgba(255,255,255,0.05)] backdrop-blur-md"
+      className="fixed left-0 right-0 top-0 flex items-center justify-between gap-3 border-b border-white/10 bg-black/30 px-4 py-2 shadow-[0_1px_10px_rgba(255,255,255,0.05)] backdrop-blur-md"
+      style={{ zIndex: layers.topBar }}
     >
       <div className="min-w-0 flex-1">
         <TabBar

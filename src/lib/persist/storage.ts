@@ -1,5 +1,6 @@
 import { assertClientOnly } from '@/lib/env/assertClientOnly'
 import { isClient } from '@/lib/env/isClient'
+import { safeJsonParse } from '@/lib/storage/safeJson'
 import {
   CURRENT_SCHEMA_VERSION,
   STORAGE_KEYS,
@@ -36,6 +37,19 @@ const migrationMap = {
   panel: migratePanel,
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === 'object' && !Array.isArray(value)
+
+const settingsPayloadSchema = {
+  safeParse(value: unknown) {
+    if (!isRecord(value)) return { success: false, error: 'Not an object' }
+    if ('data' in value) {
+      return isRecord(value.data) ? { success: true, data: value } : { success: false, error: 'Invalid data shape' }
+    }
+    return { success: true, data: value }
+  },
+}
+
 const isClientStorageAvailable = (): boolean => {
   if (!isClient()) {
     if (process.env.NODE_ENV === 'development') {
@@ -62,6 +76,15 @@ const collectCandidates = (key: StorageKey): StoredValueCandidate[] => {
   for (const storageKey of keys) {
     const value = window.localStorage.getItem(storageKey)
     if (value !== null) {
+      if (key === 'settings') {
+        const parsed = safeJsonParse(value)
+        const parsedResult = settingsPayloadSchema.safeParse(parsed)
+        if (!parsedResult.success) {
+          // Repro: set theme to light, reload; invalid stored payload can trigger a client-side exception.
+          window.localStorage.removeItem(storageKey)
+          continue
+        }
+      }
       candidates.push({ key: storageKey, value })
     }
   }
