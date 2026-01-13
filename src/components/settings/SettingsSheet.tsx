@@ -9,6 +9,7 @@ import {
   useSettingsStore,
 } from '@/store/settingsStore'
 import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTrigger } from '@/components/ui/dialog'
+import { useSettingsClickDebug } from '@/lib/dev/useSettingsClickDebug'
 
 const BADGE_SIZE_LABEL: Record<'xs' | 'sm' | 'md', string> = {
   xs: 'Compact',
@@ -120,15 +121,25 @@ export function SettingsSheet() {
   useEffect(() => {
     if (!isOpen) {
       document.body.style.removeProperty('overflow')
+      document.body.style.removeProperty('pointer-events')
       return
     }
 
     document.body.style.setProperty('overflow', 'hidden')
+    document.body.style.setProperty('pointer-events', 'auto')
+    const rafId = window.requestAnimationFrame(() => {
+      document.body.style.setProperty('pointer-events', 'auto')
+    })
 
     return () => {
+      window.cancelAnimationFrame(rafId)
       document.body.style.removeProperty('overflow')
+      document.body.style.removeProperty('pointer-events')
     }
   }, [isOpen])
+
+  useSettingsClickDebug(isOpen)
+
 
   const badgeSizeLabel = BADGE_SIZE_LABEL[badgeSize]
 
@@ -144,7 +155,6 @@ export function SettingsSheet() {
           id={panelId}
           data-testid="settings-panel"
           className="left-1/2 top-1/2 flex h-[92vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col gap-6 rounded-t-3xl border border-white/10 bg-zinc-950/95 p-6 text-white shadow-2xl outline-none md:inset-y-0 md:right-0 md:left-auto md:h-full md:max-w-[460px] md:translate-x-0 md:translate-y-0 md:rounded-none md:border-l md:border-white/20 md:p-8"
-          onPointerDown={(event) => event.stopPropagation()}
         >
           <header className="space-y-2">
             <div className="flex items-start justify-between gap-3">

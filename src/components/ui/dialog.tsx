@@ -3,6 +3,7 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import type { ComponentPropsWithoutRef, ElementRef } from 'react'
 import { forwardRef } from 'react'
+import { layers } from '@/lib/layers'
 
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
 
@@ -16,7 +17,8 @@ const DialogOverlay = forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
-    className={cx('fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm', className)}
+    className={cx('fixed inset-0 bg-black/60 backdrop-blur-sm', className)}
+    style={{ zIndex: layers.modalBackdrop }}
     {...props}
   />
 ))
@@ -28,7 +30,8 @@ const DialogContent = forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Content
     ref={ref}
-    className={cx('fixed z-[90] pointer-events-auto', className)}
+    className={cx('fixed pointer-events-auto', className)}
+    style={{ zIndex: layers.modalContent }}
     {...props}
   />
 ))

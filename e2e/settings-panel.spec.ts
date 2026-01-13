@@ -17,7 +17,7 @@ test.describe('Settings panel', () => {
 
     const autoRefreshToggle = dialog.getByTestId('settings-auto-refresh')
     const initialChecked = await autoRefreshToggle.isChecked()
-    await autoRefreshToggle.click()
+    await dialog.getByText('Auto refresh while typing').click()
     await expect(autoRefreshToggle).toHaveJSProperty('checked', !initialChecked)
 
     const fontSizeSlider = dialog.locator('#font-size-slider')
@@ -46,6 +46,17 @@ test.describe('Settings panel', () => {
       fontSize: nextFontSize,
       rhymeAutoRefresh: !initialChecked,
     })
+
+    const resetButton = dialog.getByRole('button', { name: 'Reset to defaults' })
+    const resetBounds = await resetButton.boundingBox()
+    if (!resetBounds) {
+      throw new Error('Missing reset button bounds for settings panel')
+    }
+    await page.mouse.click(
+      resetBounds.x + resetBounds.width / 2,
+      resetBounds.y + resetBounds.height / 2
+    )
+    await expect(fontSizeSlider).toHaveJSProperty('value', '18')
 
     await dialog.getByTestId('settings-close').click()
     await expect(dialog).toBeHidden()

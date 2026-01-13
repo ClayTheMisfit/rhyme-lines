@@ -196,7 +196,10 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
 
 export function hydrateSettingsStore(payload: SettingsSchema) {
   const normalized = applySettingsDefaults(payload)
-  useSettingsStore.setState(() => normalized as SettingsState, true)
+  useSettingsStore.setState((state) => ({
+    ...state,
+    ...(normalized as SettingsState),
+  }))
 }
 
 export { SETTINGS_DEFAULTS }
