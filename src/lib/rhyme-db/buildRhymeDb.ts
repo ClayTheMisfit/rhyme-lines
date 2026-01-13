@@ -1,3 +1,6 @@
+import commonWordRanks from '@/lib/rhyme-db/frequency/commonWordRanks.json'
+import { normalizeLexeme } from '@/lib/rhyme-db/normalizeLexeme'
+
 export type ParsedEntry = {
   word: string
   phonemes: string[]
@@ -18,6 +21,7 @@ export type RhymeDbV1 = {
   }
   words: string[]
   syllables: number[]
+  freqByWordId?: number[]
   indexes: {
     perfect: RhymeIndex
     vowel: RhymeIndex
@@ -121,7 +125,10 @@ export const parseCmuDict = (content: string): ParsedEntry[] => {
     }
 
     const rawWord = parts[0]
-    const word = rawWord.replace(/\(\d+\)$/, '')
+    const word = normalizeLexeme(rawWord)
+    if (!word) {
+      continue
+    }
     const phonemes = parts.slice(1)
 
     if (countSyllables(phonemes) === 0) {
@@ -198,6 +205,7 @@ const buildIndex = (entries: ParsedEntry[], wordIds: Map<string, number>) => {
 }
 
 export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
+  const rankMap: Record<string, number> = commonWordRanks
   const pronunciationsByWord = new Map<string, ParsedEntry[]>()
   for (const entry of entries) {
     const existing = pronunciationsByWord.get(entry.word)
@@ -223,6 +231,8 @@ export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
     return Number.isFinite(minSyllables) ? minSyllables : 0
   })
 
+  const freqByWordId = words.map((word) => rankMap[word] ?? 0)
+
   return {
     version: 1,
     generatedAt: new Date(0).toISOString(),
@@ -232,6 +242,7 @@ export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
     },
     words,
     syllables,
+    freqByWordId,
     indexes: buildIndex(entries, wordIds),
   }
 }

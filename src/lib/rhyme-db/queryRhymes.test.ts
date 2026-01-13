@@ -30,8 +30,9 @@ const buildKeysByWordId = (index: RhymeIndex, wordCount: number) => {
 }
 
 const buildDb = () => {
-  const words = ['FIND', 'FINE', 'LINE', 'MINE', 'MOON', 'TIDE', 'TIME', 'TIMES']
+  const words = ['find', 'fine', 'line', 'mine', 'moon', 'tide', 'time', 'times']
   const syllables = [1, 1, 1, 1, 1, 1, 1, 1]
+  const freqByWordId = [40, 60, 80, 0, 0, 30, 90, 10]
 
   const perfect = buildIndex([
     ['AY-D', [5]],
@@ -69,6 +70,7 @@ const buildDb = () => {
     source: { name: 'cmudict', path: 'fixture' },
     words,
     syllables,
+    freqByWordId,
     indexes: {
       perfect,
       vowel,
@@ -83,32 +85,35 @@ describe('queryRhymes', () => {
   const db = buildDb()
 
   it('returns perfect rhymes deterministically', () => {
-    const results = getRhymesForToken(db, 'fine', 'perfect', 10)
+    const results = getRhymesForToken(db, 'fine', 'perfect', 10, { includeRare: true })
     expect(results).toEqual(['line', 'mine'])
   })
 
   it('normalizes mode casing', () => {
-    const results = getRhymesForToken(db, 'fine', 'Perfect', 10)
+    const results = getRhymesForToken(db, 'fine', 'Perfect', 10, { includeRare: true })
     expect(results).toEqual(['line', 'mine'])
   })
 
   it('ranks near rhymes with matching vowel and coda higher', () => {
-    const results = getRhymesForToken(db, 'fine', 'near', 10)
+    const results = getRhymesForToken(db, 'fine', 'near', 10, { includeRare: true })
     expect(results.indexOf('line')).toBeGreaterThanOrEqual(0)
     expect(results.indexOf('mine')).toBeGreaterThanOrEqual(0)
     expect(results.indexOf('time')).toBeGreaterThan(results.indexOf('line'))
   })
 
   it('filters slant rhymes by threshold and sorts deterministically', () => {
-    const results = getRhymesForToken(db, 'fine', 'slant', 10, {
-      wordUsage: { find: 10, line: 2, mine: 1, time: 1, tide: 1, moon: 1, times: 1 },
-    })
-    expect(results[0]).toBe('find')
+    const results = getRhymesForToken(db, 'fine', 'slant', 10, { includeRare: true })
+    expect(results[0]).toBe('line')
     expect(results).not.toContain('moon')
   })
 
   it('removes trivial inflections', () => {
     const results = getRhymesForToken(db, 'time', 'perfect', 10)
     expect(results).toEqual([])
+  })
+
+  it('filters zero-frequency rhymes when includeRare is false', () => {
+    const results = getRhymesForToken(db, 'fine', 'perfect', 10, { includeRare: false })
+    expect(results).toEqual(['line'])
   })
 })
