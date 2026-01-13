@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useMounted } from '@/hooks/useMounted'
+import { resolveTheme } from '@/lib/theme/resolveTheme'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -117,20 +118,11 @@ export default function TopBar() {
 
   useEffect(() => {
     if (!mounted) return
-    if (!resolvedTheme) return
 
-    const resolved = resolvedTheme === 'dark' ? 'dark' : 'light'
-    if (theme !== resolved) {
-      setThemePreference(resolved)
-    }
+    const resolved = resolveTheme(theme, { hydrated: mounted })
     applyBodyTheme(resolved)
-  }, [mounted, resolvedTheme, setThemePreference, theme])
-
-  useEffect(() => {
-    if (!mounted) return
-    const targetTheme: ThemeChoice = theme === 'dark' ? 'dark' : 'light'
-    if (resolvedTheme !== targetTheme) {
-      setResolvedTheme(targetTheme)
+    if (resolvedTheme !== resolved) {
+      setResolvedTheme(resolved)
     }
   }, [mounted, resolvedTheme, setResolvedTheme, theme])
 
