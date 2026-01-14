@@ -1,5 +1,6 @@
 /** @jest-environment node */
-import { RHYME_DB_VERSION, type RhymeDbV1, type RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
+import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
+import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
 import {
   getRhymesForTargets,
   getRhymesForToken,
@@ -68,8 +69,7 @@ const createTestDb = (): RhymeDbRuntime => {
   ])
 
   const db: RhymeDbV1 = {
-    version: 1,
-    rhymeDbVersion: RHYME_DB_VERSION,
+    version: RHYME_DB_VERSION,
     generatedAt: new Date(0).toISOString(),
     source: { name: 'cmudict', path: 'data/cmudict/cmudict.dict' },
     words,

@@ -371,6 +371,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             <div className="px-3 py-6 text-center text-[13px] text-rose-500">
               {status === 'error' ? 'Error loading suggestions: ' : 'Warning: '} {error}
               <div className="mt-2 text-[12px] text-rose-400">
+                Details: {error}
+              </div>
+              <div className="mt-2 text-[12px] text-rose-400">
                 Verify public/rhyme-db/rhyme-db.v1.json exists (npm run build:rhyme-db).
               </div>
             </div>

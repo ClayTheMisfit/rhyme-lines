@@ -1,5 +1,6 @@
 /** @jest-environment node */
-import { RHYME_DB_VERSION, type RhymeDbV1, type RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
+import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
+import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
 import type { RhymeDbRuntimeMaps, RhymeDbRuntimeLookups } from '@/lib/rhyme-db/queryRhymes'
 import { getRhymesForToken } from '@/lib/rhyme-db/queryRhymes'
 
@@ -65,8 +66,7 @@ const buildDb = () => {
   }
 
   const db: RhymeDbV1 = {
-    version: 1,
-    rhymeDbVersion: RHYME_DB_VERSION,
+    version: RHYME_DB_VERSION,
     generatedAt: new Date(0).toISOString(),
     source: { name: 'cmudict', path: 'fixture' },
     words,
@@ -133,8 +133,7 @@ describe('queryRhymes', () => {
 
     const dbWithFreq = Object.assign(
       {
-        version: 1,
-        rhymeDbVersion: RHYME_DB_VERSION,
+        version: RHYME_DB_VERSION,
         generatedAt: new Date(0).toISOString(),
         source: { name: 'cmudict', path: 'fixture' },
         words,
@@ -172,8 +171,7 @@ describe('queryRhymes', () => {
 
     const dbWithFreq = Object.assign(
       {
-        version: 1,
-        rhymeDbVersion: RHYME_DB_VERSION,
+        version: RHYME_DB_VERSION,
         generatedAt: new Date(0).toISOString(),
         source: { name: 'cmudict', path: 'fixture' },
         words,

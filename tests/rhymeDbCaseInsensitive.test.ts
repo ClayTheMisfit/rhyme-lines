@@ -1,4 +1,5 @@
-import { RHYME_DB_VERSION, type RhymeDbV1, type RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
+import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
+import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
 import { getRhymesForToken } from '@/lib/rhyme-db/queryRhymes'
 
 const buildIndex = (keys: string[], wordIds: number[]): RhymeIndex => ({
@@ -12,7 +13,7 @@ describe('getRhymesForToken', () => {
     const perfectIndex = buildIndex(['AYN'], [0, 1, 2])
     const emptyIndex = buildIndex([], [])
     const db = {
-      rhymeDbVersion: RHYME_DB_VERSION,
+      version: RHYME_DB_VERSION,
       words: ['FINE', 'LINE', 'TIME'],
       indexes: {
         perfect: perfectIndex,

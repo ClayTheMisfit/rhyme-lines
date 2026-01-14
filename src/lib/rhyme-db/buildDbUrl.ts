@@ -1,4 +1,4 @@
-import { RHYME_DB_VERSION } from '@/lib/rhyme-db/buildRhymeDb'
+import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
 
 export const buildDbUrl = (baseUrl: string) => {
   const url = new URL('/rhyme-db/rhyme-db.v1.json', baseUrl)

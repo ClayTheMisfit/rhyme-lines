@@ -1,5 +1,6 @@
 import commonWordRanks from '@/lib/rhyme-db/frequency/commonWordRanks.json'
 import { normalizeLexeme } from '@/lib/rhyme-db/normalizeLexeme'
+import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
 
 export type ParsedEntry = {
   word: string
@@ -12,11 +13,8 @@ export type RhymeIndex = {
   wordIds: number[]
 }
 
-export const RHYME_DB_VERSION = 1
-
 export type RhymeDbV1 = {
-  version: 1
-  rhymeDbVersion: number
+  version: number
   generatedAt: string
   source: {
     name: 'cmudict'
@@ -237,8 +235,7 @@ export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
   const freqByWordId = words.map((word) => rankMap[word] ?? 0)
 
   return {
-    version: 1,
-    rhymeDbVersion: RHYME_DB_VERSION,
+    version: RHYME_DB_VERSION,
     generatedAt: new Date(0).toISOString(),
     source: {
       name: 'cmudict',

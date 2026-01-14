@@ -1,5 +1,7 @@
-import { RHYME_DB_VERSION, type RhymeDbV1, type RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
+import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
 import { buildDbUrl } from '@/lib/rhyme-db/buildDbUrl'
+import { parseRhymeDbPayload, type ParsedRhymeDb } from '@/lib/rhyme-db/loadRhymeDb'
+import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
 import {
   getRhymesForTargets,
   normalizeToken,
@@ -101,9 +103,6 @@ const validateDb = (db: RhymeDbV1) => {
   if (!db.indexes.perfect || !db.indexes.vowel || !db.indexes.coda) {
     return 'Missing indexes'
   }
-  if (db.rhymeDbVersion !== RHYME_DB_VERSION) {
-    return `Unexpected rhyme DB version ${db.rhymeDbVersion}`
-  }
   return null
 }
 
@@ -120,6 +119,7 @@ const loadDb = async () => {
   const dbUrl = buildDbUrl(baseUrl)
   const cacheKey = 'rhyme-db-cache'
   let cachedDb: RhymeDbV1 | null = null
+  let cachedParse: ParsedRhymeDb | null = null
 
   if ('caches' in self) {
     const cache = await caches.open(cacheKey)
@@ -127,8 +127,9 @@ const loadDb = async () => {
     if (cachedResponse) {
       try {
         const cachedPayload = (await cachedResponse.clone().json()) as RhymeDbV1
-        if (cachedPayload.rhymeDbVersion === RHYME_DB_VERSION) {
-          cachedDb = cachedPayload
+        cachedParse = parseRhymeDbPayload(cachedPayload)
+        if (cachedParse.detectedVersion === RHYME_DB_VERSION) {
+          cachedDb = cachedParse.db
         } else {
           await cache.delete(dbUrl)
         }
@@ -138,21 +139,34 @@ const loadDb = async () => {
     }
   }
 
+  let parseSucceeded = false
+  let detectedVersion: number | null = cachedParse?.detectedVersion ?? null
   const db = cachedDb ?? (await (async () => {
     const response = await fetch(dbUrl, { cache: 'no-store' })
     if (!response.ok) {
       throw new Error(`Failed to load rhyme DB (${response.status} ${response.statusText}) from ${dbUrl}`)
     }
     const payload = (await response.json()) as RhymeDbV1
+    let parsed: ParsedRhymeDb
+    try {
+      parsed = parseRhymeDbPayload(payload)
+      parseSucceeded = true
+      detectedVersion = parsed.detectedVersion
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to parse rhyme DB JSON'
+      throw new Error(
+        `Loaded ${dbUrl}; JSON parsed: ${parseSucceeded}; detected v${detectedVersion ?? 'unknown'}; expected v${RHYME_DB_VERSION}. ${message}`
+      )
+    }
     if ('caches' in self) {
       const cache = await caches.open(cacheKey)
       await cache.put(dbUrl, new Response(JSON.stringify(payload), { headers: { 'Content-Type': 'application/json' } }))
     }
-    return payload
+    return parsed.db
   })())
   const error = validateDb(db)
   if (error) {
-    throw new Error(error)
+    throw new Error(`Loaded ${dbUrl}; JSON parsed: ${parseSucceeded}; detected v${detectedVersion ?? 'unknown'}; expected v${RHYME_DB_VERSION}. ${error}`)
   }
 
   const runtimeMaps: RhymeDbRuntimeMaps = {
