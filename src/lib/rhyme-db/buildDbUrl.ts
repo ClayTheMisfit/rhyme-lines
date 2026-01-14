@@ -1,3 +1,7 @@
+import { RHYME_DB_VERSION } from '@/lib/rhyme-db/buildRhymeDb'
+
 export const buildDbUrl = (baseUrl: string) => {
-  return new URL('/rhyme-db/rhyme-db.v1.json', baseUrl).toString()
+  const url = new URL('/rhyme-db/rhyme-db.v1.json', baseUrl)
+  url.searchParams.set('v', String(RHYME_DB_VERSION))
+  return url.toString()
 }

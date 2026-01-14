@@ -306,6 +306,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 />
                 <span>Include rare words</span>
               </label>
+              {process.env.NODE_ENV !== 'production' && (
+                <span className="rounded-full border border-dashed border-slate-300/70 px-2 py-0.5 text-[10px] text-slate-400 dark:border-slate-600/70 dark:text-slate-500">
+                  includeRare: {includeRareRhymes ? 'on' : 'off'}
+                </span>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">

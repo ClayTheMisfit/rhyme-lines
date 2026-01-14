@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
+import { RHYME_DB_VERSION, type RhymeDbV1, type RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
 import {
   getRhymesForTargets,
   getRhymesForToken,
@@ -69,6 +69,7 @@ const createTestDb = (): RhymeDbRuntime => {
 
   const db: RhymeDbV1 = {
     version: 1,
+    rhymeDbVersion: RHYME_DB_VERSION,
     generatedAt: new Date(0).toISOString(),
     source: { name: 'cmudict', path: 'data/cmudict/cmudict.dict' },
     words,
@@ -86,7 +87,7 @@ const createTestDb = (): RhymeDbRuntime => {
 describe('queryRhymes', () => {
   it('returns perfect rhymes alphabetically and excludes the token', () => {
     const db = createTestDb()
-    const result = getRhymesForToken(db, 'blue', 'perfect', 10)
+    const result = getRhymesForToken(db, 'blue', 'perfect', 10, { includeRare: true })
 
     expect(result).toEqual(['through', 'true'])
     expect(result).not.toContain('blue')
@@ -94,14 +95,14 @@ describe('queryRhymes', () => {
 
   it('prioritizes near rhymes that appear in both vowel and coda pools', () => {
     const db = createTestDb()
-    const result = getRhymesForToken(db, 'blue', 'near', 10)
+    const result = getRhymesForToken(db, 'blue', 'near', 10, { includeRare: true })
 
     expect(result).toEqual(['clue', 'glue', 'through', 'true'])
   })
 
   it('uses slant fallback suffix matching when token is missing', () => {
     const db = createTestDb()
-    const result = getRhymesForToken(db, 'crue', 'slant', 5)
+    const result = getRhymesForToken(db, 'crue', 'slant', 5, { includeRare: true })
 
     expect(result).toEqual(['true'])
   })
@@ -113,6 +114,7 @@ describe('queryRhymes', () => {
       { caret: 'blue', lineLast: 'shine' },
       'perfect',
       5,
+      { includeRare: true },
     )
 
     expect(result.caret).toEqual(['through', 'true'])

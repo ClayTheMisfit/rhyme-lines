@@ -12,8 +12,11 @@ export type RhymeIndex = {
   wordIds: number[]
 }
 
+export const RHYME_DB_VERSION = 1
+
 export type RhymeDbV1 = {
   version: 1
+  rhymeDbVersion: number
   generatedAt: string
   source: {
     name: 'cmudict'
@@ -235,6 +238,7 @@ export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
 
   return {
     version: 1,
+    rhymeDbVersion: RHYME_DB_VERSION,
     generatedAt: new Date(0).toISOString(),
     source: {
       name: 'cmudict',

@@ -1,4 +1,4 @@
-import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
+import { RHYME_DB_VERSION, type RhymeDbV1, type RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
 import { buildDbUrl } from '@/lib/rhyme-db/buildDbUrl'
 import {
   getRhymesForTargets,
@@ -101,6 +101,9 @@ const validateDb = (db: RhymeDbV1) => {
   if (!db.indexes.perfect || !db.indexes.vowel || !db.indexes.coda) {
     return 'Missing indexes'
   }
+  if (db.rhymeDbVersion !== RHYME_DB_VERSION) {
+    return `Unexpected rhyme DB version ${db.rhymeDbVersion}`
+  }
   return null
 }
 
@@ -115,11 +118,38 @@ const loadDb = async () => {
     throw new Error('Missing baseUrl for rhyme DB fetch')
   }
   const dbUrl = buildDbUrl(baseUrl)
-  const response = await fetch(dbUrl)
-  if (!response.ok) {
-    throw new Error(`Failed to load rhyme DB (${response.status} ${response.statusText}) from ${dbUrl}`)
+  const cacheKey = 'rhyme-db-cache'
+  let cachedDb: RhymeDbV1 | null = null
+
+  if ('caches' in self) {
+    const cache = await caches.open(cacheKey)
+    const cachedResponse = await cache.match(dbUrl)
+    if (cachedResponse) {
+      try {
+        const cachedPayload = (await cachedResponse.clone().json()) as RhymeDbV1
+        if (cachedPayload.rhymeDbVersion === RHYME_DB_VERSION) {
+          cachedDb = cachedPayload
+        } else {
+          await cache.delete(dbUrl)
+        }
+      } catch {
+        await cache.delete(dbUrl)
+      }
+    }
   }
-  const db = (await response.json()) as RhymeDbV1
+
+  const db = cachedDb ?? (await (async () => {
+    const response = await fetch(dbUrl, { cache: 'no-store' })
+    if (!response.ok) {
+      throw new Error(`Failed to load rhyme DB (${response.status} ${response.statusText}) from ${dbUrl}`)
+    }
+    const payload = (await response.json()) as RhymeDbV1
+    if ('caches' in self) {
+      const cache = await caches.open(cacheKey)
+      await cache.put(dbUrl, new Response(JSON.stringify(payload), { headers: { 'Content-Type': 'application/json' } }))
+    }
+    return payload
+  })())
   const error = validateDb(db)
   if (error) {
     throw new Error(error)
