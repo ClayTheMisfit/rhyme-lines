@@ -4,6 +4,7 @@ import { parseRhymeDbPayload, type ParsedRhymeDb } from '@/lib/rhyme-db/loadRhym
 import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
 import {
   getRhymesForTargets,
+  getRhymesForTargetsMeta,
   normalizeToken,
   type Mode,
   type RhymeQueryContext,
@@ -32,6 +33,7 @@ type RhymesOk = {
   requestId: string
   mode: string
   results: { caret?: string[]; lineLast?: string[] }
+  meta?: { caret?: import('@/lib/rhyme-db/queryRhymes').RhymeSuggestionMeta; lineLast?: import('@/lib/rhyme-db/queryRhymes').RhymeSuggestionMeta }
 }
 
 type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: string }
@@ -249,7 +251,8 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
       }
 
       try {
-        const results = getRhymesForTargets(activeDb, message.targets, normalizedMode, message.max, message.context)
+        const response = getRhymesForTargetsMeta(activeDb, message.targets, normalizedMode, message.max, message.context)
+        const results = response.results
         cache.set(cacheKey, results)
         if (process.env.NODE_ENV !== 'production') {
           const wordsLength = activeDb.words.length
@@ -273,6 +276,7 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
           requestId: message.requestId,
           mode: message.mode,
           results,
+          meta: response.meta,
         })
       } catch (error) {
         const messageText = error instanceof Error ? error.message : 'Failed to fetch rhymes'

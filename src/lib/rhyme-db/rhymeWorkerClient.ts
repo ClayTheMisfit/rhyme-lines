@@ -10,6 +10,7 @@ type RhymesOk = {
   requestId: string
   mode: string
   results: { caret?: string[]; lineLast?: string[] }
+  meta?: { caret?: import('@/lib/rhyme-db/queryRhymes').RhymeSuggestionMeta; lineLast?: import('@/lib/rhyme-db/queryRhymes').RhymeSuggestionMeta }
 }
 
 type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: string }
@@ -17,7 +18,7 @@ type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: string }
 type WorkerMessage = InitOk | InitErr | RhymesOk | RhymesErr
 
 type PendingRequest = {
-  resolve: (value: { caret?: string[]; lineLast?: string[] }) => void
+  resolve: (value: { caret?: string[]; lineLast?: string[]; meta?: { caret?: import('@/lib/rhyme-db/queryRhymes').RhymeSuggestionMeta; lineLast?: import('@/lib/rhyme-db/queryRhymes').RhymeSuggestionMeta } }) => void
   reject: (error: Error) => void
 }
 
@@ -92,7 +93,7 @@ export const createRhymeWorkerClient = () => {
     await init()
     const requestId = `${Date.now()}-${requestCounter += 1}`
 
-    const promise = new Promise<{ caret?: string[]; lineLast?: string[] }>((resolve, reject) => {
+    const promise = new Promise<{ caret?: string[]; lineLast?: string[]; meta?: { caret?: import('@/lib/rhyme-db/queryRhymes').RhymeSuggestionMeta; lineLast?: import('@/lib/rhyme-db/queryRhymes').RhymeSuggestionMeta } }>((resolve, reject) => {
       pending.set(requestId, { resolve, reject })
     })
 

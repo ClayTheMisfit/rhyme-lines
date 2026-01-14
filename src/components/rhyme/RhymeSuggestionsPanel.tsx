@@ -97,6 +97,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const activeToken = activeTab === 'caret' ? caretToken : lineLastToken
     const activeTokenLabel = activeTab === 'caret' ? 'Caret' : 'Line End'
     const isLoading = status === 'loading'
+    const backfillActive =
+      !includeRareRhymes && (activeTab === 'caret' ? debug.backfill?.caret : debug.backfill?.lineLast)
 
     React.useEffect(() => {
       suggestionsRef.current = activeSuggestions
@@ -344,6 +346,12 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           {!isLoading && (
             <div className="px-3 pb-2 text-[12px] text-slate-500 dark:text-slate-400">
               {activeTokenLabel}: {activeToken ? `"${activeToken}"` : '—'}
+            </div>
+          )}
+
+          {!isLoading && backfillActive && (
+            <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
+              Showing additional uncommon words because frequency coverage is limited.
             </div>
           )}
 

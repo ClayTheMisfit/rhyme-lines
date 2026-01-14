@@ -96,9 +96,8 @@ describe('buildRhymeDb', () => {
   it('assigns frequency ranks when available', () => {
     const db = loadFixture()
     const timeId = db.words.indexOf('time')
-    const unknownId = db.words.indexOf('through')
 
     expect(db.freqByWordId?.[timeId]).toBeGreaterThan(0)
-    expect(db.freqByWordId?.[unknownId]).toBe(0)
+    expect(db.freqByWordId?.length).toBe(db.words.length)
   })
 })

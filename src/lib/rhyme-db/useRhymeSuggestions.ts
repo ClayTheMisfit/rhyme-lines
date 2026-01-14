@@ -8,12 +8,13 @@ type Status = 'idle' | 'loading' | 'ready' | 'error'
 
 type LineRange = { start: number; end: number }
 
-type Results = { caret?: string[]; lineLast?: string[] }
+type Results = { caret?: string[]; lineLast?: string[]; meta?: { caret?: import('@/lib/rhyme-db/queryRhymes').RhymeSuggestionMeta; lineLast?: import('@/lib/rhyme-db/queryRhymes').RhymeSuggestionMeta } }
 
 type DebugInfo = {
   caretToken?: string
   lineLastToken?: string
   lastQueryMs?: number
+  backfill?: { caret?: boolean; lineLast?: boolean }
 }
 
 type UseRhymeSuggestionsArgs = {
@@ -126,6 +127,10 @@ export const useRhymeSuggestions = ({
         setDebug((prev) => ({
           ...prev,
           lastQueryMs: Date.now() - startTime,
+          backfill: {
+            caret: data.meta?.caret?.backfilled,
+            lineLast: data.meta?.lineLast?.backfilled,
+          },
         }))
       } catch (queryError) {
         if (requestId !== requestCounter.current) return

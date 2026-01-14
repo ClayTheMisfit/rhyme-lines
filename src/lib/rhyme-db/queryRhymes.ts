@@ -33,6 +33,23 @@ export type RhymeQueryContext = {
   debugSource?: 'caret' | 'lineLast'
 }
 
+export type RhymeSuggestionMeta = {
+  backfilled: boolean
+  commonCount: number
+  unknownCount: number
+  totalCount: number
+  finalCount: number
+}
+
+type RhymeTokenResult = {
+  words: string[]
+  meta: RhymeSuggestionMeta
+}
+
+const COMMON_MIN_RESULTS = 30
+const MAX_RESULTS = 200
+const MAX_CANDIDATES = 2000
+
 const normalizeMode = (mode: Mode) => mode.toLowerCase() as 'perfect' | 'near' | 'slant'
 
 const PUNCTUATION_REGEX = /^[.,!?;:"()\[\]{}<>]+|[.,!?;:"()\[\]{}<>]+$/g
@@ -222,6 +239,7 @@ const getSyllableDistance = (db: RhymeDbRuntime, wordId: number, target?: number
 
 const compareEntries = (a: RankedEntry, b: RankedEntry) => {
   if (a.modeScore !== b.modeScore) return b.modeScore - a.modeScore
+  if (a.isCommon !== b.isCommon) return a.isCommon ? -1 : 1
   if (a.freq !== b.freq) return b.freq - a.freq
   if (a.syllableDistance !== b.syllableDistance) return a.syllableDistance - b.syllableDistance
   return a.word.localeCompare(b.word)
@@ -232,17 +250,77 @@ type RankedEntry = {
   modeScore: number
   freq: number
   syllableDistance: number
+  isCommon: boolean
 }
 
 const commonWordSet = new Set(Object.keys(commonWordRanks))
 let warnedFreqInvariant = false
 
+const splitCandidates = (entries: RankedEntry[]) => {
+  const common: RankedEntry[] = []
+  const unknown: RankedEntry[] = []
+  for (const entry of entries) {
+    if (entry.isCommon) {
+      common.push(entry)
+    } else {
+      unknown.push(entry)
+    }
+  }
+  return { common, unknown }
+}
+
+const finalizeCandidates = (
+  entries: RankedEntry[],
+  options: {
+    token: string
+    includeRare: boolean
+    freqAvailable: boolean
+    limit: number
+    context: RhymeQueryContext
+  }
+) => {
+  const { common, unknown } = splitCandidates(entries)
+  let combined = options.includeRare ? [...common, ...unknown] : [...common]
+  let backfilled = false
+
+  if (!options.includeRare && common.length < COMMON_MIN_RESULTS) {
+    combined = [...common, ...unknown]
+    backfilled = unknown.length > 0
+  }
+
+  combined.sort(compareEntries)
+  const finalList = combined.slice(0, options.limit)
+  logSuggestionDebug(options.context, {
+    token: options.token,
+    includeRare: options.includeRare,
+    freqAvailable: options.freqAvailable,
+    totalCount: entries.length,
+    commonCount: common.length,
+    unknownCount: unknown.length,
+    finalCount: finalList.length,
+    entries: finalList,
+  })
+
+  return {
+    words: finalList.map((entry) => entry.word),
+    meta: buildMeta({
+      backfilled,
+      commonCount: common.length,
+      unknownCount: unknown.length,
+      totalCount: entries.length,
+      finalCount: finalList.length,
+    }),
+  }
+}
+
 const logSuggestionDebug = (context: RhymeQueryContext, payload: {
   token: string
   includeRare: boolean
   freqAvailable: boolean
-  beforeFilterCount: number
-  afterFilterCount: number
+  totalCount: number
+  commonCount: number
+  unknownCount: number
+  finalCount: number
   entries: RankedEntry[]
 }) => {
   if (process.env.NODE_ENV === 'production') return
@@ -257,22 +335,47 @@ const logSuggestionDebug = (context: RhymeQueryContext, payload: {
     token: payload.token,
     includeRare: payload.includeRare,
     freqAvailable: payload.freqAvailable,
-    beforeFilterCount: payload.beforeFilterCount,
-    afterFilterCount: payload.afterFilterCount,
+    total: payload.totalCount,
+    common: payload.commonCount,
+    unknown: payload.unknownCount,
+    final: payload.finalCount,
     top10,
   })
 }
 
-export const getRhymesForToken = (
+const buildMeta = (payload: {
+  backfilled: boolean
+  commonCount: number
+  unknownCount: number
+  totalCount: number
+  finalCount: number
+}): RhymeSuggestionMeta => ({
+  backfilled: payload.backfilled,
+  commonCount: payload.commonCount,
+  unknownCount: payload.unknownCount,
+  totalCount: payload.totalCount,
+  finalCount: payload.finalCount,
+})
+
+export const getRhymesForTokenMeta = (
   db: RhymeDbV1,
   token: string,
   mode: Mode,
   max: number,
   context: RhymeQueryContext = {},
-) => {
+) : RhymeTokenResult => {
   const normalized = normalizeToken(token)
   if (!normalized || max <= 0) {
-    return []
+    return {
+      words: [],
+      meta: buildMeta({
+        backfilled: false,
+        commonCount: 0,
+        unknownCount: 0,
+        totalCount: 0,
+        finalCount: 0,
+      }),
+    }
   }
 
   const runtimeDb = db as RhymeDbRuntime
@@ -281,6 +384,7 @@ export const getRhymesForToken = (
     Array.isArray(runtimeDb.freqByWordId) && runtimeDb.freqByWordId.length === runtimeDb.words.length
   const includeRare = context.includeRare ?? false
   const getFrequency = (id: number) => (freqAvailable ? runtimeDb.freqByWordId?.[id] ?? 0 : 0)
+  const limit = Math.min(max, MAX_RESULTS)
   if (!freqAvailable && process.env.NODE_ENV !== 'production' && !warnedFreqInvariant) {
     warnedFreqInvariant = true
     console.warn('[rhyme-db] frequency data unavailable', {
@@ -290,20 +394,34 @@ export const getRhymesForToken = (
     })
   }
 
-  const shouldInclude = (word: string, freq: number) => {
-    if (includeRare) return true
-    if (freqAvailable) return freq > 0
-    return commonWordSet.has(word)
-  }
+  const isCommonWord = (word: string, freq: number) => (freqAvailable ? freq > 0 : commonWordSet.has(word))
 
   const wordId = findWordId(runtimeDb, normalized)
   if (wordId === -1) {
     if (normalizedMode !== 'slant') {
-      return []
+      return {
+        words: [],
+        meta: buildMeta({
+          backfilled: false,
+          commonCount: 0,
+          unknownCount: 0,
+          totalCount: 0,
+          finalCount: 0,
+        }),
+      }
     }
     const suffixLength = Math.min(3, normalized.length)
     if (suffixLength < 2) {
-      return []
+      return {
+        words: [],
+        meta: buildMeta({
+          backfilled: false,
+          commonCount: 0,
+          unknownCount: 0,
+          totalCount: 0,
+          finalCount: 0,
+        }),
+      }
     }
     const suffix = normalized.slice(-suffixLength)
     const metadata = db.words
@@ -316,21 +434,17 @@ export const getRhymesForToken = (
           modeScore: 0,
           freq,
           syllableDistance: 0,
+          isCommon: isCommonWord(candidate, freq),
         }
       })
       .filter((entry): entry is RankedEntry => Boolean(entry))
-    const beforeFilterCount = metadata.length
-    const filtered = metadata.filter((entry) => shouldInclude(entry.word, entry.freq))
-    filtered.sort(compareEntries)
-    logSuggestionDebug(context, {
+    return finalizeCandidates(metadata, {
       token: normalized,
       includeRare,
       freqAvailable,
-      beforeFilterCount,
-      afterFilterCount: filtered.length,
-      entries: filtered,
+      limit,
+      context,
     })
-    return filtered.slice(0, max).map((entry) => entry.word)
   }
 
   const targetSyllables = (runtimeDb.syllables?.[wordId] ?? 0) || context.desiredSyllables
@@ -353,7 +467,16 @@ export const getRhymesForToken = (
 
     const targetPerfectKey = selectKey(perfectIndex, perfectKeys)
     if (!targetPerfectKey) {
-      return []
+      return {
+        words: [],
+        meta: buildMeta({
+          backfilled: false,
+          commonCount: 0,
+          unknownCount: 0,
+          totalCount: 0,
+          finalCount: 0,
+        }),
+      }
     }
 
     const candidates = collectWordIds(perfectIndex, [targetPerfectKey])
@@ -367,28 +490,31 @@ export const getRhymesForToken = (
           modeScore: 1,
           freq,
           syllableDistance: getSyllableDistance(runtimeDb, id, targetSyllables),
+          isCommon: isCommonWord(word, freq),
         }
       })
-    const beforeFilterCount = metadata.length
-    const filtered = metadata
-      .filter((entry) => shouldInclude(entry.word, entry.freq))
-      .filter((entry) => !isTrivialInflection(normalized, entry.word))
+    const filtered = metadata.filter((entry) => !isTrivialInflection(normalized, entry.word))
 
-    filtered.sort(compareEntries)
-    logSuggestionDebug(context, {
+    return finalizeCandidates(filtered, {
       token: normalized,
       includeRare,
       freqAvailable,
-      beforeFilterCount,
-      afterFilterCount: filtered.length,
-      entries: filtered,
+      limit,
+      context,
     })
-
-    return filtered.slice(0, max).map((entry) => entry.word)
   }
 
   if (!targetVowelKey || !targetCodaKey) {
-    return []
+    return {
+      words: [],
+      meta: buildMeta({
+        backfilled: false,
+        commonCount: 0,
+        unknownCount: 0,
+        totalCount: 0,
+        finalCount: 0,
+      }),
+    }
   }
 
   const vowelSet = collectWordIds(db.indexes.vowel, [targetVowelKey])
@@ -416,25 +542,20 @@ export const getRhymesForToken = (
           modeScore,
           freq,
           syllableDistance: getSyllableDistance(runtimeDb, id, targetSyllables),
+          isCommon: isCommonWord(word, freq),
         }
       })
-    const beforeFilterCount = metadata.length
     const filtered = metadata
       .filter((entry) => entry.modeScore > 0)
-      .filter((entry) => shouldInclude(entry.word, entry.freq))
       .filter((entry) => !isTrivialInflection(normalized, entry.word))
 
-    filtered.sort(compareEntries)
-    logSuggestionDebug(context, {
+    return finalizeCandidates(filtered, {
       token: normalized,
       includeRare,
       freqAvailable,
-      beforeFilterCount,
-      afterFilterCount: filtered.length,
-      entries: filtered,
+      limit,
+      context,
     })
-
-    return filtered.slice(0, max).map((entry) => entry.word)
   }
 
   const candidateList = Array.from(candidateSet)
@@ -442,9 +563,9 @@ export const getRhymesForToken = (
     .map((id) => {
       const word = db.words[id].toLowerCase()
       const freq = getFrequency(id)
-      return { id, word, freq }
+      return { id, word, freq, isCommon: isCommonWord(word, freq) }
     })
-    .slice(0, 2000)
+    .slice(0, MAX_CANDIDATES)
 
   const targetTail = buildTail(targetVowelKey, targetCodaKey)
 
@@ -463,27 +584,30 @@ export const getRhymesForToken = (
         modeScore,
         freq: candidate.freq,
         syllableDistance: getSyllableDistance(runtimeDb, id, targetSyllables),
+        isCommon: candidate.isCommon,
       }
     })
     .filter((entry): entry is RankedEntry => Boolean(entry))
-  const beforeFilterCount = metadata.length
   const filtered = metadata
-    .filter((entry) => shouldInclude(entry.word, entry.freq))
     .filter((entry) => entry.modeScore >= 0.62)
     .filter((entry) => !isTrivialInflection(normalized, entry.word))
 
-  filtered.sort(compareEntries)
-  logSuggestionDebug(context, {
+  return finalizeCandidates(filtered, {
     token: normalized,
     includeRare,
     freqAvailable,
-    beforeFilterCount,
-    afterFilterCount: filtered.length,
-    entries: filtered,
+    limit,
+    context,
   })
-
-  return filtered.slice(0, max).map((entry) => entry.word)
 }
+
+export const getRhymesForToken = (
+  db: RhymeDbV1,
+  token: string,
+  mode: Mode,
+  max: number,
+  context: RhymeQueryContext = {},
+) => getRhymesForTokenMeta(db, token, mode, max, context).words
 
 export const getRhymesForTargets = (
   db: RhymeDbV1,
@@ -503,4 +627,29 @@ export const getRhymesForTargets = (
   }
 
   return results
+}
+
+export const getRhymesForTargetsMeta = (
+  db: RhymeDbV1,
+  targets: { caret?: string; lineLast?: string },
+  mode: Mode,
+  max: number,
+  context?: RhymeQueryContext,
+) => {
+  const results: { caret?: string[]; lineLast?: string[] } = {}
+  const meta: { caret?: RhymeSuggestionMeta; lineLast?: RhymeSuggestionMeta } = {}
+
+  if (targets.caret !== undefined) {
+    const response = getRhymesForTokenMeta(db, targets.caret, mode, max, { ...context, debugSource: 'caret' })
+    results.caret = response.words
+    meta.caret = response.meta
+  }
+
+  if (targets.lineLast !== undefined) {
+    const response = getRhymesForTokenMeta(db, targets.lineLast, mode, max, { ...context, debugSource: 'lineLast' })
+    results.lineLast = response.words
+    meta.lineLast = response.meta
+  }
+
+  return { results, meta }
 }
