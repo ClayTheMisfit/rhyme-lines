@@ -35,6 +35,8 @@ export const parseRhymeDbPayload = (payload: unknown): ParsedRhymeDb => {
   const wordsLen = Array.isArray(db.words) ? db.words.length : 0
   const freqLen = Array.isArray(db.freqByWordId) ? db.freqByWordId.length : 0
   const freqAvailable = Array.isArray(db.freqByWordId) && freqLen === wordsLen
+  const commonLen = Array.isArray(db.isCommonByWordId) ? db.isCommonByWordId.length : 0
+  const commonAvailable = Array.isArray(db.isCommonByWordId) && commonLen === wordsLen
 
   if (!freqAvailable && process.env.NODE_ENV !== 'production' && !warnedFreqInvariant) {
     warnedFreqInvariant = true
@@ -42,6 +44,15 @@ export const parseRhymeDbPayload = (payload: unknown): ParsedRhymeDb => {
       freqAvailable,
       wordsLen,
       freqLen,
+    })
+  }
+
+  if (!commonAvailable && process.env.NODE_ENV !== 'production' && !warnedFreqInvariant) {
+    warnedFreqInvariant = true
+    console.warn('[rhyme-db] common-word flags unavailable', {
+      commonAvailable,
+      wordsLen,
+      commonLen,
     })
   }
 

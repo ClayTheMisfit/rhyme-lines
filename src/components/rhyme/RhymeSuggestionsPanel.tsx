@@ -97,8 +97,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const activeToken = activeTab === 'caret' ? caretToken : lineLastToken
     const activeTokenLabel = activeTab === 'caret' ? 'Caret' : 'Line End'
     const isLoading = status === 'loading'
-    const backfillActive =
-      !includeRareRhymes && (activeTab === 'caret' ? debug.backfill?.caret : debug.backfill?.lineLast)
+    const LIMITED_COMMON_THRESHOLD = 10
 
     React.useEffect(() => {
       suggestionsRef.current = activeSuggestions
@@ -308,11 +307,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 />
                 <span>Include rare words</span>
               </label>
-              {process.env.NODE_ENV !== 'production' && (
-                <span className="rounded-full border border-dashed border-slate-300/70 px-2 py-0.5 text-[10px] text-slate-400 dark:border-slate-600/70 dark:text-slate-500">
-                  includeRare: {includeRareRhymes ? 'on' : 'off'}
-                </span>
-              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
@@ -349,11 +343,12 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
-          {!isLoading && backfillActive && (
-            <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
-              Showing additional uncommon words because frequency coverage is limited.
-            </div>
-          )}
+          {!isLoading && !includeRareRhymes && status !== 'idle' && activeSuggestions.length > 0 &&
+            activeSuggestions.length < LIMITED_COMMON_THRESHOLD && (
+              <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
+                Limited common matches — try Near/Slant or enable Rare words for more.
+              </div>
+            )}
 
           {isLoading && (
             <div className="space-y-2 px-3 py-3">
@@ -389,7 +384,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
           {!isLoading && status !== 'idle' && activeSuggestions.length === 0 && (
             <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
-              No rhymes found — try Near or Slant
+              {includeRareRhymes
+                ? 'No rhymes found — try Near or Slant'
+                : 'No common perfect rhymes — try Near/Slant or enable Rare words.'}
             </div>
           )}
 

@@ -23,6 +23,7 @@ export type RhymeDbV1 = {
   words: string[]
   syllables: number[]
   freqByWordId?: number[]
+  isCommonByWordId?: number[]
   indexes: {
     perfect: RhymeIndex
     vowel: RhymeIndex
@@ -233,6 +234,14 @@ export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
   })
 
   const freqByWordId = words.map((word) => rankMap[word] ?? 0)
+  const isCommonByWordId = freqByWordId.map((freq) => (freq > 0 ? 1 : 0))
+
+  if (freqByWordId.length !== words.length) {
+    throw new Error(`Frequency map length mismatch: ${freqByWordId.length} vs ${words.length}`)
+  }
+  if (isCommonByWordId.length !== words.length) {
+    throw new Error(`Common map length mismatch: ${isCommonByWordId.length} vs ${words.length}`)
+  }
 
   return {
     version: RHYME_DB_VERSION,
@@ -244,6 +253,7 @@ export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
     words,
     syllables,
     freqByWordId,
+    isCommonByWordId,
     indexes: buildIndex(entries, wordIds),
   }
 }
