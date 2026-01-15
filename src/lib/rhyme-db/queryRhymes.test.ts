@@ -88,24 +88,24 @@ describe('queryRhymes', () => {
   const db = buildDb()
 
   it('returns perfect rhymes deterministically', () => {
-    const results = getRhymesForToken(db, 'fine', 'perfect', 10, { includeRare: true })
+    const results = getRhymesForToken(db, 'fine', 'perfect', 10, { includeRareWords: true })
     expect(results).toEqual(['line', 'mine'])
   })
 
   it('normalizes mode casing', () => {
-    const results = getRhymesForToken(db, 'fine', 'Perfect', 10, { includeRare: true })
+    const results = getRhymesForToken(db, 'fine', 'Perfect', 10, { includeRareWords: true })
     expect(results).toEqual(['line', 'mine'])
   })
 
   it('ranks near rhymes with matching vowel and coda higher', () => {
-    const results = getRhymesForToken(db, 'fine', 'near', 10, { includeRare: true })
+    const results = getRhymesForToken(db, 'fine', 'near', 10, { includeRareWords: true })
     expect(results.indexOf('line')).toBeGreaterThanOrEqual(0)
     expect(results.indexOf('mine')).toBeGreaterThanOrEqual(0)
     expect(results.indexOf('time')).toBeGreaterThan(results.indexOf('line'))
   })
 
   it('filters slant rhymes by threshold and sorts deterministically', () => {
-    const results = getRhymesForToken(db, 'fine', 'slant', 10, { includeRare: true })
+    const results = getRhymesForToken(db, 'fine', 'slant', 10, { includeRareWords: true })
     expect(results[0]).toBe('line')
     expect(results).not.toContain('moon')
   })
@@ -115,9 +115,9 @@ describe('queryRhymes', () => {
     expect(results).toEqual([])
   })
 
-  it('filters to common rhymes when includeRare is false', () => {
-    const results = getRhymesForToken(db, 'fine', 'perfect', 10, { includeRare: false })
-    expect(results).toEqual(['line'])
+  it('filters to common rhymes when includeRareWords is false', () => {
+    const results = getRhymesForToken(db, 'fine', 'perfect', 10, { includeRareWords: false })
+    expect(results).toEqual(['line', 'mine'])
   })
 
   it('ranks common time rhymes ahead of obscure entries when frequency is available', () => {
@@ -151,15 +151,15 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const commonOnly = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRare: false })
+    const commonOnly = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRareWords: false })
     expect(commonOnly).toEqual(['rhyme', 'prime', 'dime'])
 
-    const includeRare = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRare: true })
+    const includeRare = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRareWords: true })
     expect(includeRare.slice(0, 3)).toEqual(['rhyme', 'prime', 'dime'])
     expect(includeRare).toContain('chyme')
   })
 
-  it('excludes obscure time rhymes when includeRare is false', () => {
+  it('excludes obscure time rhymes when includeRareWords is false', () => {
     const words = ['time', 'rhyme', 'prime', 'dime', 'beim']
     const perfect = buildIndex([['AY-M', [0, 1, 2, 3, 4]]])
     const empty = buildIndex([])
@@ -190,7 +190,7 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const commonOnly = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRare: false })
+    const commonOnly = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRareWords: false })
     expect(commonOnly).toEqual(['rhyme', 'prime', 'dime'])
     expect(commonOnly).not.toContain('beim')
   })
@@ -226,48 +226,50 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const strictResults = getRhymesForToken(dbStrict, 'time', 'perfect', 10, { includeRare: false })
+    const strictResults = getRhymesForToken(dbStrict, 'time', 'perfect', 10, { includeRareWords: false })
     expect(strictResults).toEqual(['dime', 'rhyme'])
     expect(strictResults).not.toContain('haim')
     expect(strictResults).not.toContain("i'm")
 
-    const rareResults = getRhymesForToken(dbStrict, 'time', 'perfect', 10, { includeRare: true })
+    const rareResults = getRhymesForToken(dbStrict, 'time', 'perfect', 10, { includeRareWords: true })
     expect(rareResults).toContain('haim')
     expect(rareResults).toContain("i'm")
   })
 
-  it('backfills uncommon rhymes when frequency coverage is sparse', () => {
-    const words = ['pot', 'hot', 'dot', 'got', 'lot', 'not']
-    const perfect = buildIndex([['AA-T', [0, 1, 2, 3, 4, 5]]])
+  it('returns near and slant rhymes even when coda is empty', () => {
+    const words = ['see', 'me', 'be']
+    const vowel = buildIndex([['IY', [0, 1, 2]]])
     const empty = buildIndex([])
     const runtime: RhymeDbRuntimeMaps = {
-      perfectKeysByWordId: buildKeysByWordId(perfect, words.length),
-      vowelKeysByWordId: buildKeysByWordId(empty, words.length),
+      perfectKeysByWordId: buildKeysByWordId(empty, words.length),
+      vowelKeysByWordId: buildKeysByWordId(vowel, words.length),
       codaKeysByWordId: buildKeysByWordId(empty, words.length),
     }
     const runtimeLookups: RhymeDbRuntimeLookups = {
       wordToId: new Map(words.map((word, index) => [word.toLowerCase(), index])),
     }
 
-    const dbWithSparseFreq = Object.assign(
+    const dbWithEmptyCoda = Object.assign(
       {
         version: RHYME_DB_VERSION,
         generatedAt: new Date(0).toISOString(),
         source: { name: 'cmudict', path: 'fixture' },
         words,
-        syllables: [1, 1, 1, 1, 1, 1],
-        freqByWordId: [0, 0, 0, 0, 0, 1],
-        isCommonByWordId: [0, 0, 0, 0, 0, 1],
+        syllables: [1, 1, 1],
+        freqByWordId: [20, 10, 5],
+        isCommonByWordId: [1, 1, 1],
         indexes: {
-          perfect,
-          vowel: empty,
+          perfect: empty,
+          vowel,
           coda: empty,
         },
       } satisfies RhymeDbV1,
       { runtime, runtimeLookups }
     )
 
-    const results = getRhymesForToken(dbWithSparseFreq, 'pot', 'perfect', 20, { includeRare: false })
-    expect(results).toEqual(['not'])
+    const nearResults = getRhymesForToken(dbWithEmptyCoda, 'see', 'near', 10, { includeRareWords: false })
+    const slantResults = getRhymesForToken(dbWithEmptyCoda, 'see', 'slant', 10, { includeRareWords: false })
+    expect(nearResults).toContain('be')
+    expect(slantResults).toContain('be')
   })
 })

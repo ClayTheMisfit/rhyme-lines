@@ -20,6 +20,7 @@ export interface SettingsSchema {
   highContrast?: boolean
   keyboardShortcuts?: Record<string, string>
   rhymeFilters: RhymeFilters
+  includeRareWords?: boolean
   includeRareRhymes?: boolean
   lastUpdatedAt: number
   badgeSize?: BadgeSize
@@ -84,7 +85,7 @@ export const DEFAULT_SETTINGS: SettingsSchema = {
   lineHeight: 1.6,
   highContrast: false,
   rhymeFilters: { ...DEFAULT_RHYME_FILTERS },
-  includeRareRhymes: false,
+  includeRareWords: false,
   lastUpdatedAt: 0,
   badgeSize: 'sm',
   showLineTotals: true,
