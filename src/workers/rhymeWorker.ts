@@ -1,5 +1,7 @@
 import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
 import { buildDbUrl } from '@/lib/rhyme-db/buildDbUrl'
+import { parseRhymeDbPayload, type ParsedRhymeDb } from '@/lib/rhyme-db/loadRhymeDb'
+import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
 import {
   getRhymesForTargets,
   normalizeToken,
@@ -115,14 +117,56 @@ const loadDb = async () => {
     throw new Error('Missing baseUrl for rhyme DB fetch')
   }
   const dbUrl = buildDbUrl(baseUrl)
-  const response = await fetch(dbUrl)
-  if (!response.ok) {
-    throw new Error(`Failed to load rhyme DB (${response.status} ${response.statusText}) from ${dbUrl}`)
+  const cacheKey = 'rhyme-db-cache'
+  let cachedDb: RhymeDbV1 | null = null
+  let cachedParse: ParsedRhymeDb | null = null
+
+  if ('caches' in self) {
+    const cache = await caches.open(cacheKey)
+    const cachedResponse = await cache.match(dbUrl)
+    if (cachedResponse) {
+      try {
+        const cachedPayload = (await cachedResponse.clone().json()) as RhymeDbV1
+        cachedParse = parseRhymeDbPayload(cachedPayload)
+        if (cachedParse.detectedVersion === RHYME_DB_VERSION) {
+          cachedDb = cachedParse.db
+        } else {
+          await cache.delete(dbUrl)
+        }
+      } catch {
+        await cache.delete(dbUrl)
+      }
+    }
   }
-  const db = (await response.json()) as RhymeDbV1
+
+  let parseSucceeded = false
+  let detectedVersion: number | null = cachedParse?.detectedVersion ?? null
+  const db = cachedDb ?? (await (async () => {
+    const response = await fetch(dbUrl, { cache: 'no-store' })
+    if (!response.ok) {
+      throw new Error(`Failed to load rhyme DB (${response.status} ${response.statusText}) from ${dbUrl}`)
+    }
+    const payload = (await response.json()) as RhymeDbV1
+    let parsed: ParsedRhymeDb
+    try {
+      parsed = parseRhymeDbPayload(payload)
+      parseSucceeded = true
+      detectedVersion = parsed.detectedVersion
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to parse rhyme DB JSON'
+      throw new Error(
+        `Loaded ${dbUrl}; JSON parsed: ${parseSucceeded}; detected v${detectedVersion ?? 'unknown'}; expected v${RHYME_DB_VERSION}. ${message}`
+      )
+    }
+    if ('caches' in self) {
+      const cache = await caches.open(cacheKey)
+      await cache.put(dbUrl, new Response(JSON.stringify(payload), { headers: { 'Content-Type': 'application/json' } }))
+    }
+    return parsed.db
+  })())
   const error = validateDb(db)
   if (error) {
-    throw new Error(error)
+    throw new Error(`Loaded ${dbUrl}; JSON parsed: ${parseSucceeded}; detected v${detectedVersion ?? 'unknown'}; expected v${RHYME_DB_VERSION}. ${error}`)
   }
 
   const runtimeMaps: RhymeDbRuntimeMaps = {
@@ -139,7 +183,8 @@ const loadDb = async () => {
     runtimeMaps.perfect2KeysByWordId = buildKeysByWordId(perfect2, db.words.length)
   }
 
-  runtimeDb = Object.assign(db, { runtime: runtimeMaps, runtimeLookups })
+  const freqAvailable = Array.isArray(db.freqByWordId) && db.freqByWordId.length === db.words.length
+  runtimeDb = Object.assign(db, { runtime: runtimeMaps, runtimeLookups, freqAvailable })
 }
 
 const ensureInit = async () => {
@@ -182,13 +227,15 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
         return
       }
 
+      const activeDb = runtimeDb
       const caretToken = normalizeToken(message.targets.caret ?? '')
       const lineLastToken = normalizeToken(message.targets.lineLast ?? '')
       const normalizedMode = message.mode.toLowerCase() as Mode
       const desiredSyllables =
         typeof message.context?.desiredSyllables === 'number' ? message.context.desiredSyllables : 'none'
       const multiSyllable = message.context?.multiSyllable ? '1' : '0'
-      const cacheKey = `${normalizedMode}|${message.max}|${desiredSyllables}|${multiSyllable}|c:${caretToken}|l:${lineLastToken}`
+      const includeRare = message.context?.includeRare ? '1' : '0'
+      const cacheKey = `${normalizedMode}|${message.max}|${desiredSyllables}|${multiSyllable}|${includeRare}|c:${caretToken}|l:${lineLastToken}`
 
       const cached = cache.get(cacheKey)
       if (cached) {
@@ -202,8 +249,25 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
       }
 
       try {
-        const results = getRhymesForTargets(runtimeDb, message.targets, normalizedMode, message.max, message.context)
+        const results = getRhymesForTargets(activeDb, message.targets, normalizedMode, message.max, message.context)
         cache.set(cacheKey, results)
+        if (process.env.NODE_ENV !== 'production') {
+          const wordsLength = activeDb.words.length
+          const freqLength = activeDb.freqByWordId?.length ?? 0
+          const freqAvailable = Array.isArray(activeDb.freqByWordId) && freqLength === wordsLength
+          const caretResults = results.caret ?? []
+          const topCaret = caretResults.slice(0, 10).map((word) => {
+            const id = activeDb.runtimeLookups?.wordToId.get(word.toLowerCase())
+            const freq = id !== undefined ? activeDb.freqByWordId?.[id] ?? 0 : 0
+            return { word, freq }
+          })
+          console.debug('[rhyme-db] freq availability', {
+            freqAvailable,
+            wordsLength,
+            freqLength,
+            caret: topCaret,
+          })
+        }
         post({
           type: 'getRhymes:ok',
           requestId: message.requestId,

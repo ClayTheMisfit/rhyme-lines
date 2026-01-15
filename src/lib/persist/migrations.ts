@@ -76,6 +76,7 @@ const normalizeSettings = (value: unknown): SettingsSchema => {
   const rhymeFilters = normalizeRhymeFilters(payload.rhymeFilters)
   const showLineTotals = toBoolean(payload.showLineTotals, DEFAULT_SETTINGS.showLineTotals ?? true)
   const rhymeAutoRefresh = toBoolean(payload.rhymeAutoRefresh, DEFAULT_SETTINGS.rhymeAutoRefresh ?? true)
+  const includeRareRhymes = toBoolean(payload.includeRareRhymes, DEFAULT_SETTINGS.includeRareRhymes ?? false)
   const highContrast = toBoolean(payload.highContrast, DEFAULT_SETTINGS.highContrast ?? false)
   const lastUpdatedAt = toNumber(payload.lastUpdatedAt, Date.now())
 
@@ -86,6 +87,7 @@ const normalizeSettings = (value: unknown): SettingsSchema => {
     highContrast,
     keyboardShortcuts,
     rhymeFilters,
+    includeRareRhymes,
     lastUpdatedAt,
     badgeSize,
     showLineTotals,

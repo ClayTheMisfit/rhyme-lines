@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { buildRhymeDb, parseCmuDict } from '@/lib/rhyme-db/buildRhymeDb'
+import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
 
 const rootDir = process.cwd()
 const sourcePath = path.join(rootDir, 'data', 'cmudict', 'cmudict.dict')
@@ -22,8 +23,12 @@ const outputPath = path.join(outputDir, 'rhyme-db.v1.json')
 fs.mkdirSync(outputDir, { recursive: true })
 const payload = {
   ...db,
+  version: RHYME_DB_VERSION,
   generatedAt: new Date().toISOString(),
 }
 
 fs.writeFileSync(outputPath, `${JSON.stringify(payload)}\n`, 'utf8')
+const aliasPath = path.join(outputDir, 'rhyme-db.json')
+fs.writeFileSync(aliasPath, `${JSON.stringify(payload)}\n`, 'utf8')
 console.log(`Wrote rhyme database to ${outputPath}`)
+console.log(`Wrote rhyme database alias to ${aliasPath}`)

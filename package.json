@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
+    "dev": "npm run build:rhyme-db && next dev --turbopack",
+    "build": "npm run build:rhyme-db && next build",
     "build:rhyme-db": "tsx scripts/build-rhyme-db.ts",
     "start": "next start",
     "lint": "eslint",

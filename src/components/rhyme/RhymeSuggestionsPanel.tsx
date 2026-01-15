@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
+import { useSettingsStore } from '@/store/settingsStore'
 import { layers } from '@/lib/layers'
 import { useRhymePanel, type RhymePanelMode } from '@/lib/state/rhymePanel'
 import { DockablePanel } from '@/components/panels/DockablePanel'
@@ -54,6 +55,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       setSelectedIndex: state.setSelectedIndex,
     }))
 
+    const { includeRareRhymes, setIncludeRareRhymes } = useSettingsStore((state) => ({
+      includeRareRhymes: state.includeRareRhymes,
+      setIncludeRareRhymes: state.setIncludeRareRhymes,
+    }))
+
     const { x, y, width, height, setBounds, dock, undock } = useRhymePanel(
       (state) => ({
         x: state.x,
@@ -78,6 +84,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       mode: rhymeMode,
       max: 100,
       multiSyllable,
+      includeRare: includeRareRhymes,
       enabled: mode !== 'hidden',
     })
 
@@ -90,6 +97,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const activeToken = activeTab === 'caret' ? caretToken : lineLastToken
     const activeTokenLabel = activeTab === 'caret' ? 'Caret' : 'Line End'
     const isLoading = status === 'loading'
+    const LIMITED_COMMON_THRESHOLD = 10
 
     React.useEffect(() => {
       suggestionsRef.current = activeSuggestions
@@ -290,6 +298,15 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 />
                 <span>Multi-syllable (last 2)</span>
               </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5 rounded border-slate-300 text-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-400"
+                  checked={includeRareRhymes}
+                  onChange={(event) => setIncludeRareRhymes(event.target.checked)}
+                />
+                <span>Include rare words</span>
+              </label>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
@@ -326,6 +343,13 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
+          {!isLoading && !includeRareRhymes && status !== 'idle' && activeSuggestions.length > 0 &&
+            activeSuggestions.length < LIMITED_COMMON_THRESHOLD && (
+              <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
+                Limited common matches — try Near/Slant or enable Rare words for more.
+              </div>
+            )}
+
           {isLoading && (
             <div className="space-y-2 px-3 py-3">
               {Array.from({ length: 5 }).map((_, index) => (
@@ -350,6 +374,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             <div className="px-3 py-6 text-center text-[13px] text-rose-500">
               {status === 'error' ? 'Error loading suggestions: ' : 'Warning: '} {error}
               <div className="mt-2 text-[12px] text-rose-400">
+                Details: {error}
+              </div>
+              <div className="mt-2 text-[12px] text-rose-400">
                 Verify public/rhyme-db/rhyme-db.v1.json exists (npm run build:rhyme-db).
               </div>
             </div>
@@ -357,7 +384,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
           {!isLoading && status !== 'idle' && activeSuggestions.length === 0 && (
             <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
-              No rhymes found — try Near or Slant
+              {includeRareRhymes
+                ? 'No rhymes found — try Near or Slant'
+                : 'No common perfect rhymes — try Near/Slant or enable Rare words.'}
             </div>
           )}
 

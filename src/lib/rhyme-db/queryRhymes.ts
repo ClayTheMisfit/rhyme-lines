@@ -28,7 +28,12 @@ export type RhymeQueryContext = {
   wordUsage?: Record<string, number>
   desiredSyllables?: number
   multiSyllable?: boolean
+  includeRare?: boolean
+  debugSource?: 'caret' | 'lineLast'
 }
+
+const MAX_RESULTS = 200
+const MAX_CANDIDATES = 2000
 
 const normalizeMode = (mode: Mode) => mode.toLowerCase() as 'perfect' | 'near' | 'slant'
 
@@ -209,19 +214,60 @@ const isTrivialInflection = (token: string, candidate: string) => {
   return false
 }
 
-const getSyllableFit = (db: RhymeDbRuntime, wordId: number, desired?: number) => {
-  if (typeof desired !== 'number' || Number.isNaN(desired)) {
-    return 0.5
+const getSyllableDistance = (db: RhymeDbRuntime, wordId: number, target?: number) => {
+  if (typeof target !== 'number' || Number.isNaN(target) || target <= 0) {
+    return 0
   }
-  const candidateSyllables = db.syllables[wordId] ?? 0
-  const diff = Math.abs(candidateSyllables - desired)
-  return 1 - Math.min(1, diff / 3)
+  const candidateSyllables = db.syllables?.[wordId] ?? 0
+  return Math.abs(candidateSyllables - target)
 }
 
-const sortWords = (words: string[]) => words.sort((a, b) => a.localeCompare(b))
+const compareEntries = (a: RankedEntry, b: RankedEntry) => {
+  if (a.modeScore !== b.modeScore) return b.modeScore - a.modeScore
+  if (a.freq !== b.freq) return b.freq - a.freq
+  if (a.syllableDistance !== b.syllableDistance) return a.syllableDistance - b.syllableDistance
+  return a.word.localeCompare(b.word)
+}
 
-const scoreEntry = (phoneticScore: number, freq: number, syllableFit: number) =>
-  phoneticScore * 0.55 + Math.log(freq + 1) * 0.3 + syllableFit * 0.15
+type RankedEntry = {
+  word: string
+  modeScore: number
+  freq: number
+  syllableDistance: number
+  isCommon: boolean
+}
+
+let warnedFreqInvariant = false
+
+const logSuggestionDebug = (context: RhymeQueryContext, payload: {
+  token: string
+  includeRare: boolean
+  freqAvailable: boolean
+  totalCount: number
+  commonCount: number
+  unknownCount: number
+  finalCount: number
+  entries: RankedEntry[]
+}) => {
+  if (process.env.NODE_ENV === 'production') return
+  if (context.debugSource !== 'caret') return
+  const top10 = payload.entries.slice(0, 10).map((entry) => ({
+    w: entry.word,
+    freq: entry.freq,
+    score: entry.modeScore,
+    syll: entry.syllableDistance,
+  }))
+  console.debug('[rhyme-db] suggestions', {
+    token: payload.token,
+    includeRare: payload.includeRare,
+    freqAvailable: payload.freqAvailable,
+    total: payload.totalCount,
+    common: payload.commonCount,
+    unknown: payload.unknownCount,
+    final: payload.finalCount,
+    top10,
+  })
+}
 
 export const getRhymesForToken = (
   db: RhymeDbV1,
@@ -237,10 +283,67 @@ export const getRhymesForToken = (
 
   const runtimeDb = db as RhymeDbRuntime
   const normalizedMode = normalizeMode(mode)
+  const freqAvailable =
+    Array.isArray(runtimeDb.freqByWordId) && runtimeDb.freqByWordId.length === runtimeDb.words.length
+  const includeRare = context.includeRare ?? false
+  const getFrequency = (id: number) => (freqAvailable ? runtimeDb.freqByWordId?.[id] ?? 0 : 0)
+  const limit = Math.min(max, MAX_RESULTS)
+  if (!freqAvailable && process.env.NODE_ENV !== 'production' && !warnedFreqInvariant) {
+    warnedFreqInvariant = true
+    console.warn('[rhyme-db] frequency data unavailable', {
+      freqAvailable,
+      wordsLen: runtimeDb.words.length,
+      freqLen: runtimeDb.freqByWordId?.length ?? 0,
+    })
+  }
+
+  const isCommonWord = (wordId: number) => {
+    if (runtimeDb.isCommonByWordId) {
+      return runtimeDb.isCommonByWordId[wordId] === 1
+    }
+    return getFrequency(wordId) > 0
+  }
+
   const wordId = findWordId(runtimeDb, normalized)
   if (wordId === -1) {
-    return []
+    if (normalizedMode !== 'slant') {
+      return []
+    }
+    const suffixLength = Math.min(3, normalized.length)
+    if (suffixLength < 2) {
+      return []
+    }
+    const suffix = normalized.slice(-suffixLength)
+    const metadata = db.words
+      .map((word, id) => {
+        const candidate = word.toLowerCase()
+        if (!candidate.endsWith(suffix)) return null
+        const freq = getFrequency(id)
+        return {
+          word: candidate,
+          modeScore: 0,
+          freq,
+          syllableDistance: 0,
+          isCommon: isCommonWord(id),
+        }
+      })
+      .filter((entry): entry is RankedEntry => Boolean(entry))
+    const filtered = metadata.filter((entry) => includeRare || (entry.isCommon && !entry.word.includes("'")))
+    filtered.sort(compareEntries)
+    logSuggestionDebug(context, {
+      token: normalized,
+      includeRare,
+      freqAvailable,
+      totalCount: metadata.length,
+      commonCount: metadata.filter((entry) => entry.isCommon).length,
+      unknownCount: metadata.filter((entry) => !entry.isCommon).length,
+      finalCount: filtered.length,
+      entries: filtered,
+    })
+    return filtered.slice(0, limit).map((entry) => entry.word)
   }
+
+  const targetSyllables = (runtimeDb.syllables?.[wordId] ?? 0) || context.desiredSyllables
 
   const vowelKeys = getKeysForWordId(runtimeDb, wordId, 'vowelKeysByWordId')
   const codaKeys = getKeysForWordId(runtimeDb, wordId, 'codaKeysByWordId')
@@ -249,8 +352,6 @@ export const getRhymesForToken = (
 
   const targetVowel = targetVowelKey ?? ''
   const targetCoda = splitCodaKey(targetCodaKey ?? '')
-
-  const usage = context.wordUsage ?? {}
 
   if (normalizedMode === 'perfect') {
     const indexes = db.indexes as RhymeDbV1['indexes'] & { perfect2?: RhymeIndex }
@@ -266,24 +367,35 @@ export const getRhymesForToken = (
     }
 
     const candidates = collectWordIds(perfectIndex, [targetPerfectKey])
-    const scored = Array.from(candidates)
+    const metadata = Array.from(candidates)
       .filter((id) => id !== wordId)
       .map((id) => {
         const word = db.words[id].toLowerCase()
-        const syllableFit = getSyllableFit(runtimeDb, id, context.desiredSyllables)
+        const freq = getFrequency(id)
         return {
           word,
-          score: scoreEntry(1, usage[word] ?? 0, syllableFit),
+          modeScore: 1,
+          freq,
+          syllableDistance: getSyllableDistance(runtimeDb, id, targetSyllables),
+          isCommon: isCommonWord(id),
         }
       })
-      .filter((entry) => !isTrivialInflection(normalized, entry.word))
+    const filtered = metadata.filter((entry) => !isTrivialInflection(normalized, entry.word))
+      .filter((entry) => includeRare || (entry.isCommon && !entry.word.includes("'")))
 
-    scored.sort((a, b) => {
-      if (a.score !== b.score) return b.score - a.score
-      return a.word.localeCompare(b.word)
+    filtered.sort(compareEntries)
+    logSuggestionDebug(context, {
+      token: normalized,
+      includeRare,
+      freqAvailable,
+      totalCount: metadata.length,
+      commonCount: metadata.filter((entry) => entry.isCommon).length,
+      unknownCount: metadata.filter((entry) => !entry.isCommon).length,
+      finalCount: filtered.length,
+      entries: filtered,
     })
 
-    return scored.slice(0, max).map((entry) => entry.word)
+    return filtered.slice(0, limit).map((entry) => entry.word)
   }
 
   if (!targetVowelKey || !targetCodaKey) {
@@ -298,7 +410,7 @@ export const getRhymesForToken = (
   for (const id of codaSet) candidateSet.add(id)
 
   if (normalizedMode === 'near') {
-    const scored = Array.from(candidateSet)
+    const metadata = Array.from(candidateSet)
       .filter((id) => id !== wordId)
       .map((id) => {
         const candidateVowelKeys = getKeysForWordId(runtimeDb, id, 'vowelKeysByWordId')
@@ -307,70 +419,85 @@ export const getRhymesForToken = (
         const bestCodaKey = getBestCodaKey(candidateCodaKeys, targetCoda)
         const vowelScore = bestVowelKey ? getNearVowelScore(targetVowel, bestVowelKey) : 0
         const codaScore = bestCodaKey ? codaSimilarity(targetCoda, splitCodaKey(bestCodaKey)) : 0
-        const phoneticScore = 0.6 * vowelScore + 0.4 * codaScore
+        const modeScore = 0.6 * vowelScore + 0.4 * codaScore
         const word = db.words[id].toLowerCase()
-        const syllableFit = getSyllableFit(runtimeDb, id, context.desiredSyllables)
+        const freq = getFrequency(id)
         return {
           word,
-          score: scoreEntry(phoneticScore, usage[word] ?? 0, syllableFit),
-          phoneticScore,
+          modeScore,
+          freq,
+          syllableDistance: getSyllableDistance(runtimeDb, id, targetSyllables),
+          isCommon: isCommonWord(id),
         }
       })
-      .filter((entry) => entry.phoneticScore > 0 && !isTrivialInflection(normalized, entry.word))
+    const filtered = metadata
+      .filter((entry) => entry.modeScore > 0)
+      .filter((entry) => !isTrivialInflection(normalized, entry.word))
+      .filter((entry) => includeRare || (entry.isCommon && !entry.word.includes("'")))
 
-    scored.sort((a, b) => {
-      if (a.score !== b.score) return b.score - a.score
-      return a.word.localeCompare(b.word)
+    filtered.sort(compareEntries)
+    logSuggestionDebug(context, {
+      token: normalized,
+      includeRare,
+      freqAvailable,
+      totalCount: metadata.length,
+      commonCount: metadata.filter((entry) => entry.isCommon).length,
+      unknownCount: metadata.filter((entry) => !entry.isCommon).length,
+      finalCount: filtered.length,
+      entries: filtered,
     })
 
-    return scored.slice(0, max).map((entry) => entry.word)
+    return filtered.slice(0, limit).map((entry) => entry.word)
   }
 
   const candidateList = Array.from(candidateSet)
     .filter((id) => id !== wordId)
-    .map((id) => db.words[id].toLowerCase())
-  const trimmedCandidates = candidateList
-    .map((word) => ({
-      word,
-      freq: usage[word] ?? 0,
-    }))
-    .sort((a, b) => {
-      if (a.freq !== b.freq) return b.freq - a.freq
-      return a.word.localeCompare(b.word)
+    .map((id) => {
+      const word = db.words[id].toLowerCase()
+      const freq = getFrequency(id)
+      return { id, word, freq, isCommon: isCommonWord(id) }
     })
-    .slice(0, 2000)
-    .map((entry) => entry.word)
+    .slice(0, MAX_CANDIDATES)
 
   const targetTail = buildTail(targetVowelKey, targetCodaKey)
 
-  const scored = trimmedCandidates
-    .map((word) => {
-      const id = findWordId(runtimeDb, word)
-      if (id === -1) return null
+  const metadata = candidateList
+    .map((candidate) => {
+      const id = candidate.id
       const candidateVowelKeys = getKeysForWordId(runtimeDb, id, 'vowelKeysByWordId')
       const candidateCodaKeys = getKeysForWordId(runtimeDb, id, 'codaKeysByWordId')
       const bestVowelKey = getBestVowelKey(candidateVowelKeys, targetVowel)
       const bestCodaKey = getBestCodaKey(candidateCodaKeys, targetCoda)
       if (!bestVowelKey || !bestCodaKey) return null
       const candidateTail = buildTail(bestVowelKey, bestCodaKey)
-      const phoneticScore = tailSimilarity(targetTail, candidateTail)
-      if (phoneticScore < 0.62) return null
-      const syllableFit = getSyllableFit(runtimeDb, id, context.desiredSyllables)
+      const modeScore = tailSimilarity(targetTail, candidateTail)
       return {
-        word,
-        score: scoreEntry(phoneticScore, usage[word] ?? 0, syllableFit),
-        phoneticScore,
+        word: candidate.word,
+        modeScore,
+        freq: candidate.freq,
+        syllableDistance: getSyllableDistance(runtimeDb, id, targetSyllables),
+        isCommon: candidate.isCommon,
       }
     })
-    .filter((entry): entry is { word: string; score: number; phoneticScore: number } => Boolean(entry))
+    .filter((entry): entry is RankedEntry => Boolean(entry))
+  const filtered = metadata
+    .filter((entry) => entry.modeScore >= 0.62)
     .filter((entry) => !isTrivialInflection(normalized, entry.word))
+    .filter((entry) => includeRare || (entry.isCommon && !entry.word.includes("'")))
 
-  scored.sort((a, b) => {
-    if (a.score !== b.score) return b.score - a.score
-    return a.word.localeCompare(b.word)
+  filtered.sort(compareEntries)
+  logSuggestionDebug(context, {
+    token: normalized,
+    includeRare,
+    freqAvailable,
+    totalCount: metadata.length,
+    commonCount: metadata.filter((entry) => entry.isCommon).length,
+    unknownCount: metadata.filter((entry) => !entry.isCommon).length,
+    finalCount: filtered.length,
+    entries: filtered,
   })
 
-  return scored.slice(0, max).map((entry) => entry.word)
+  return filtered.slice(0, limit).map((entry) => entry.word)
 }
 
 export const getRhymesForTargets = (
@@ -383,11 +510,11 @@ export const getRhymesForTargets = (
   const results: { caret?: string[]; lineLast?: string[] } = {}
 
   if (targets.caret !== undefined) {
-    results.caret = getRhymesForToken(db, targets.caret, mode, max, context)
+    results.caret = getRhymesForToken(db, targets.caret, mode, max, { ...context, debugSource: 'caret' })
   }
 
   if (targets.lineLast !== undefined) {
-    results.lineLast = getRhymesForToken(db, targets.lineLast, mode, max, context)
+    results.lineLast = getRhymesForToken(db, targets.lineLast, mode, max, { ...context, debugSource: 'lineLast' })
   }
 
   return results

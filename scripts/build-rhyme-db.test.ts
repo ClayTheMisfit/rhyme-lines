@@ -24,7 +24,7 @@ const getPostings = (keys: string[], offsets: number[], wordIds: number[], key: 
 describe('buildRhymeDb', () => {
   it('creates perfect rhyme postings for TIME', () => {
     const db = loadFixture()
-    const timeId = db.words.indexOf('TIME')
+    const timeId = db.words.indexOf('time')
 
     expect(timeId).toBeGreaterThanOrEqual(0)
     const postings = getPostings(
@@ -40,8 +40,8 @@ describe('buildRhymeDb', () => {
 
   it('groups BLUE and THROUGH under the same perfect key', () => {
     const db = loadFixture()
-    const blueId = db.words.indexOf('BLUE')
-    const throughId = db.words.indexOf('THROUGH')
+    const blueId = db.words.indexOf('blue')
+    const throughId = db.words.indexOf('through')
 
     const postings = getPostings(
       db.indexes.perfect.keys,
@@ -56,9 +56,9 @@ describe('buildRhymeDb', () => {
 
   it('dedupes READ in words but includes both pronunciations in indexes', () => {
     const db = loadFixture()
-    const readId = db.words.indexOf('READ')
+    const readId = db.words.indexOf('read')
 
-    expect(db.words.filter((word) => word === 'READ')).toHaveLength(1)
+    expect(db.words.filter((word) => word === 'read')).toHaveLength(1)
     expect(db.syllables[readId]).toBe(1)
 
     const iyPostings = getPostings(
@@ -80,7 +80,7 @@ describe('buildRhymeDb', () => {
 
   it('builds the expected perfect key for NATION', () => {
     const db = loadFixture()
-    const nationId = db.words.indexOf('NATION')
+    const nationId = db.words.indexOf('nation')
 
     const postings = getPostings(
       db.indexes.perfect.keys,
@@ -91,5 +91,15 @@ describe('buildRhymeDb', () => {
 
     expect(postings).not.toBeNull()
     expect(postings).toContain(nationId)
+  })
+
+  it('assigns frequency ranks when available', () => {
+    const db = loadFixture()
+    const timeId = db.words.indexOf('time')
+
+    expect(db.freqByWordId?.[timeId]).toBeGreaterThan(0)
+    expect(db.freqByWordId?.length).toBe(db.words.length)
+    expect(db.isCommonByWordId?.[timeId]).toBe(1)
+    expect(db.isCommonByWordId?.length).toBe(db.words.length)
   })
 })

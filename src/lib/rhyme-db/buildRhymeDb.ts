@@ -1,3 +1,7 @@
+import commonWordRanks from '@/lib/rhyme-db/frequency/commonWordRanks.json'
+import { normalizeLexeme } from '@/lib/rhyme-db/normalizeLexeme'
+import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
+
 export type ParsedEntry = {
   word: string
   phonemes: string[]
@@ -10,7 +14,7 @@ export type RhymeIndex = {
 }
 
 export type RhymeDbV1 = {
-  version: 1
+  version: number
   generatedAt: string
   source: {
     name: 'cmudict'
@@ -18,6 +22,8 @@ export type RhymeDbV1 = {
   }
   words: string[]
   syllables: number[]
+  freqByWordId?: number[]
+  isCommonByWordId?: number[]
   indexes: {
     perfect: RhymeIndex
     vowel: RhymeIndex
@@ -121,7 +127,10 @@ export const parseCmuDict = (content: string): ParsedEntry[] => {
     }
 
     const rawWord = parts[0]
-    const word = rawWord.replace(/\(\d+\)$/, '')
+    const word = normalizeLexeme(rawWord)
+    if (!word) {
+      continue
+    }
     const phonemes = parts.slice(1)
 
     if (countSyllables(phonemes) === 0) {
@@ -198,6 +207,7 @@ const buildIndex = (entries: ParsedEntry[], wordIds: Map<string, number>) => {
 }
 
 export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
+  const rankMap: Record<string, number> = commonWordRanks
   const pronunciationsByWord = new Map<string, ParsedEntry[]>()
   for (const entry of entries) {
     const existing = pronunciationsByWord.get(entry.word)
@@ -223,8 +233,18 @@ export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
     return Number.isFinite(minSyllables) ? minSyllables : 0
   })
 
+  const freqByWordId = words.map((word) => rankMap[word] ?? 0)
+  const isCommonByWordId = freqByWordId.map((freq) => (freq > 0 ? 1 : 0))
+
+  if (freqByWordId.length !== words.length) {
+    throw new Error(`Frequency map length mismatch: ${freqByWordId.length} vs ${words.length}`)
+  }
+  if (isCommonByWordId.length !== words.length) {
+    throw new Error(`Common map length mismatch: ${isCommonByWordId.length} vs ${words.length}`)
+  }
+
   return {
-    version: 1,
+    version: RHYME_DB_VERSION,
     generatedAt: new Date(0).toISOString(),
     source: {
       name: 'cmudict',
@@ -232,6 +252,8 @@ export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
     },
     words,
     syllables,
+    freqByWordId,
+    isCommonByWordId,
     indexes: buildIndex(entries, wordIds),
   }
 }
