@@ -1,6 +1,6 @@
-import commonWordRanks from '@/lib/rhyme-db/frequency/commonWordRanks.json'
 import { normalizeLexeme } from '@/lib/rhyme-db/normalizeLexeme'
 import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
+import { buildFrequencyMaps } from '@/lib/rhyme-db/frequency/subtlex'
 
 export type ParsedEntry = {
   word: string
@@ -24,6 +24,7 @@ export type RhymeDbV1 = {
   syllables: number[]
   freqByWordId?: number[]
   isCommonByWordId?: number[]
+  isProperByWordId?: number[]
   indexes: {
     perfect: RhymeIndex
     vowel: RhymeIndex
@@ -207,7 +208,7 @@ const buildIndex = (entries: ParsedEntry[], wordIds: Map<string, number>) => {
 }
 
 export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
-  const rankMap: Record<string, number> = commonWordRanks
+  const { rankByWord, properLike, topN } = buildFrequencyMaps({ topN: 50000 })
   const pronunciationsByWord = new Map<string, ParsedEntry[]>()
   for (const entry of entries) {
     const existing = pronunciationsByWord.get(entry.word)
@@ -233,14 +234,26 @@ export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
     return Number.isFinite(minSyllables) ? minSyllables : 0
   })
 
-  const freqByWordId = words.map((word) => rankMap[word] ?? 0)
-  const isCommonByWordId = freqByWordId.map((freq) => (freq > 0 ? 1 : 0))
+  const freqByWordId = words.map((word) => {
+    const rank = rankByWord.get(word) ?? 0
+    if (!rank || rank > topN) return 0
+    return topN + 1 - Math.min(rank, topN)
+  })
+  const isProperByWordId = words.map((word) => (properLike.has(word) && word !== 'i' ? 1 : 0))
+  const isCommonByWordId = words.map((word, index) => {
+    const rank = rankByWord.get(word) ?? 0
+    if (rank === 0 || rank > topN) return 0
+    return isProperByWordId[index] ? 0 : 1
+  })
 
   if (freqByWordId.length !== words.length) {
     throw new Error(`Frequency map length mismatch: ${freqByWordId.length} vs ${words.length}`)
   }
   if (isCommonByWordId.length !== words.length) {
     throw new Error(`Common map length mismatch: ${isCommonByWordId.length} vs ${words.length}`)
+  }
+  if (isProperByWordId.length !== words.length) {
+    throw new Error(`Proper map length mismatch: ${isProperByWordId.length} vs ${words.length}`)
   }
 
   return {
@@ -254,6 +267,7 @@ export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
     syllables,
     freqByWordId,
     isCommonByWordId,
+    isProperByWordId,
     indexes: buildIndex(entries, wordIds),
   }
 }

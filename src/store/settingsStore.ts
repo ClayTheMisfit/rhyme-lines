@@ -24,7 +24,7 @@ export type SettingsState = {
   debounceMode: DebounceMode
   highContrast: boolean
   rhymeFilters: RhymeFilters
-  includeRareRhymes: boolean
+  includeRareWords: boolean
   lastUpdatedAt: number
   setTheme: (theme: ThemeSetting) => void
   setFontSize: (fontSize: number) => void
@@ -35,7 +35,7 @@ export type SettingsState = {
   setDebounceMode: (mode: DebounceMode) => void
   setHighContrast: (value: boolean) => void
   setRhymeFilters: (filters: RhymeFilters) => void
-  setIncludeRareRhymes: (value: boolean) => void
+  setIncludeRareWords: (value: boolean) => void
   resetDefaults: () => void
 }
 
@@ -57,7 +57,7 @@ const persistSettings = (state: SettingsState) => {
     debounceMode: state.debounceMode,
     highContrast: state.highContrast,
     rhymeFilters: state.rhymeFilters,
-    includeRareRhymes: state.includeRareRhymes,
+    includeRareWords: state.includeRareWords,
     lastUpdatedAt: Date.now(),
   }
   writeVersioned('settings', payload)
@@ -124,8 +124,8 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
     set({ rhymeFilters, lastUpdatedAt: Date.now() })
     schedulePersist(get())
   },
-  setIncludeRareRhymes: (includeRareRhymes) => {
-    set({ includeRareRhymes, lastUpdatedAt: Date.now() })
+  setIncludeRareWords: (includeRareWords) => {
+    set({ includeRareWords, lastUpdatedAt: Date.now() })
     schedulePersist(get())
   },
   resetDefaults: () => {
@@ -150,7 +150,7 @@ export type SettingsSnapshot = Pick<
   | 'debounceMode'
   | 'highContrast'
   | 'rhymeFilters'
-  | 'includeRareRhymes'
+  | 'includeRareWords'
 >
 
 export function getCurrentSettingsSnapshot(): SettingsSnapshot {
@@ -164,7 +164,7 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     debounceMode,
     highContrast,
     rhymeFilters,
-    includeRareRhymes,
+    includeRareWords,
   } = useSettingsStore.getState()
   return {
     theme,
@@ -176,7 +176,7 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     debounceMode,
     highContrast,
     rhymeFilters,
-    includeRareRhymes,
+    includeRareWords,
   }
 }
 
@@ -191,7 +191,7 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
     setDebounceMode,
     setHighContrast,
     setRhymeFilters,
-    setIncludeRareRhymes,
+    setIncludeRareWords,
   } = useSettingsStore.getState()
 
   setTheme(snapshot.theme)
@@ -203,7 +203,7 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
   setDebounceMode(snapshot.debounceMode)
   setHighContrast(snapshot.highContrast)
   setRhymeFilters(snapshot.rhymeFilters)
-  setIncludeRareRhymes(snapshot.includeRareRhymes)
+  setIncludeRareWords(snapshot.includeRareWords)
 }
 
 export function hydrateSettingsStore(payload: SettingsSchema) {

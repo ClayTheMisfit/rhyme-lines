@@ -97,7 +97,7 @@ export default function RhymeWorkerSmokePage() {
       setInitDurationMs(performance.now() - start)
       setInitStatus('Error')
       setInitError(
-        `${message}. Verify public/rhyme-db/rhyme-db.v1.json exists. Run: npm run build:rhyme-db`,
+        `${message}. Verify public/rhyme-db/rhyme-db.v2.json exists. Run: npm run build:rhyme-db`,
       )
     }
   }, [getClient, resetResults])
