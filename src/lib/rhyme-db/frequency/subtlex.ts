@@ -20,11 +20,13 @@ export const buildFrequencyMaps = ({ topN = 50000 }: { topN?: number } = {}) => 
   for (const entry of entries) {
     const normalized = normalizeWord(entry.word)
     if (!normalized) continue
-    if (!rankByWord.has(normalized)) {
-      rankByWord.set(normalized, rankByWord.size + 1)
-    }
+    if (rankByWord.has(normalized)) continue
+    rankByWord.set(normalized, rankByWord.size + 1)
     if (isProperLike(entry.word) && normalized !== 'i') {
       properLike.add(normalized)
+    }
+    if (rankByWord.size >= topN) {
+      break
     }
   }
 
