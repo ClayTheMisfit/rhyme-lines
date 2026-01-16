@@ -22,6 +22,8 @@
 public/rhyme-db/rhyme-db.v*.json
 public/rhyme-db/rhyme-db.v*.json.gz
 public/rhyme-db/rhyme-db.json
+public/rhyme-db/rhyme-db.v2.json
+public/rhyme-db/rhyme-db.v2.json.gz
 
 # misc
 .DS_Store
