@@ -101,5 +101,6 @@ describe('buildRhymeDb', () => {
     expect(db.freqByWordId?.length).toBe(db.words.length)
     expect(db.isCommonByWordId?.[timeId]).toBe(1)
     expect(db.isCommonByWordId?.length).toBe(db.words.length)
+    expect(db.isProperByWordId?.length).toBe(db.words.length)
   })
 })

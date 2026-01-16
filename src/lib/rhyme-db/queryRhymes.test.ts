@@ -117,7 +117,7 @@ describe('queryRhymes', () => {
 
   it('filters to common rhymes when includeRareWords is false', () => {
     const results = getRhymesForToken(db, 'fine', 'perfect', 10, { includeRareWords: false })
-    expect(results).toEqual(['line', 'mine'])
+    expect(results).toEqual(['line'])
   })
 
   it('ranks common time rhymes ahead of obscure entries when frequency is available', () => {
@@ -215,8 +215,9 @@ describe('queryRhymes', () => {
         source: { name: 'cmudict', path: 'fixture' },
         words,
         syllables: [1, 1, 1, 1, 1],
-        freqByWordId: [50, 40, 30, 0, 0],
+        freqByWordId: [50, 40, 30, 25, 0],
         isCommonByWordId: [1, 1, 1, 0, 0],
+        isProperByWordId: [0, 0, 0, 1, 0],
         indexes: {
           perfect,
           vowel: empty,

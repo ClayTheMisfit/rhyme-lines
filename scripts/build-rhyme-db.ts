@@ -18,7 +18,7 @@ const entries = parseCmuDict(content)
 const db = buildRhymeDb(entries)
 
 const outputDir = path.join(rootDir, 'public', 'rhyme-db')
-const outputPath = path.join(outputDir, 'rhyme-db.v1.json')
+const outputPath = path.join(outputDir, `rhyme-db.v${RHYME_DB_VERSION}.json`)
 
 fs.mkdirSync(outputDir, { recursive: true })
 const payload = {

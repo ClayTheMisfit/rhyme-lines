@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "npm run build:rhyme-db && next dev --turbopack",
-    "build": "npm run build:rhyme-db && next build",
+    "build": "next build",
     "build:rhyme-db": "tsx scripts/build-rhyme-db.ts",
+    "prebuild": "npm run build:rhyme-db",
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
@@ -26,6 +27,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-rnd": "^10.5.2",
+    "subtlex-word-frequencies": "^2.0.0",
     "zustand": "^4.4.0"
   },
   "devDependencies": {
