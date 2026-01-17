@@ -75,6 +75,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const {
       status,
       error,
+      warning,
       results,
       debug,
     } = useRhymeSuggestions({
@@ -340,6 +341,12 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           {!isLoading && (
             <div className="px-3 pb-2 text-[12px] text-slate-500 dark:text-slate-400">
               {activeTokenLabel}: {activeToken ? `"${activeToken}"` : '—'}
+            </div>
+          )}
+
+          {warning && !isLoading && (
+            <div className="px-3 pb-2 text-[11px] text-amber-600 dark:text-amber-400">
+              {warning}
             </div>
           )}
 

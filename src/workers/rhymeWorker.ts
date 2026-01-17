@@ -23,7 +23,7 @@ type GetRhymesMsg = {
   context?: RhymeQueryContext
 }
 
-type InitOk = { type: 'init:ok' }
+type InitOk = { type: 'init:ok'; warning?: string }
 
 type InitErr = { type: 'init:err'; error: string }
 
@@ -111,62 +111,101 @@ const cache = new LruCache<string, { caret?: string[]; lineLast?: string[] }>(20
 let runtimeDb: RhymeDbRuntime | null = null
 let initPromise: Promise<void> | null = null
 let baseUrl: string | null = null
+let initWarning: string | null = null
+
+const LEGACY_WARNING = 'Using legacy rhyme DB (v1); rebuild v2 for best results.'
 
 const loadDb = async () => {
   if (!baseUrl) {
     throw new Error('Missing baseUrl for rhyme DB fetch')
   }
-  const dbUrl = buildDbUrl(baseUrl)
+  initWarning = null
   const cacheKey = 'rhyme-db-cache'
-  let cachedDb: RhymeDbV1 | null = null
-  let cachedParse: ParsedRhymeDb | null = null
 
-  if ('caches' in self) {
-    const cache = await caches.open(cacheKey)
-    const cachedResponse = await cache.match(dbUrl)
-    if (cachedResponse) {
-      try {
-        const cachedPayload = (await cachedResponse.clone().json()) as RhymeDbV1
-        cachedParse = parseRhymeDbPayload(cachedPayload)
-        if (cachedParse.detectedVersion === RHYME_DB_VERSION) {
-          cachedDb = cachedParse.db
-        } else {
-          await cache.delete(dbUrl)
-        }
-      } catch {
-        await cache.delete(dbUrl)
-      }
-    }
-  }
+  const loadFromUrl = async (dbUrl: string, expectedVersion: number, allowLegacy: boolean) => {
+    let cachedDb: RhymeDbV1 | null = null
+    let cachedParse: ParsedRhymeDb | null = null
 
-  let parseSucceeded = false
-  let detectedVersion: number | null = cachedParse?.detectedVersion ?? null
-  const db = cachedDb ?? (await (async () => {
-    const response = await fetch(dbUrl, { cache: 'no-store' })
-    if (!response.ok) {
-      throw new Error(`Failed to load rhyme DB (${response.status} ${response.statusText}) from ${dbUrl}`)
-    }
-    const payload = (await response.json()) as RhymeDbV1
-    let parsed: ParsedRhymeDb
-    try {
-      parsed = parseRhymeDbPayload(payload)
-      parseSucceeded = true
-      detectedVersion = parsed.detectedVersion
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to parse rhyme DB JSON'
-      throw new Error(
-        `Loaded ${dbUrl}; JSON parsed: ${parseSucceeded}; detected v${detectedVersion ?? 'unknown'}; expected v${RHYME_DB_VERSION}. ${message}`
-      )
-    }
     if ('caches' in self) {
       const cache = await caches.open(cacheKey)
-      await cache.put(dbUrl, new Response(JSON.stringify(payload), { headers: { 'Content-Type': 'application/json' } }))
+      const cachedResponse = await cache.match(dbUrl)
+      if (cachedResponse) {
+        try {
+          const cachedPayload = (await cachedResponse.clone().json()) as RhymeDbV1
+          cachedParse = parseRhymeDbPayload(cachedPayload, { expectedVersion, allowLegacy })
+          if (cachedParse.detectedVersion === expectedVersion) {
+            cachedDb = cachedParse.db
+          } else {
+            await cache.delete(dbUrl)
+          }
+        } catch {
+          await cache.delete(dbUrl)
+        }
+      }
     }
-    return parsed.db
-  })())
+
+    let parseSucceeded = false
+    let detectedVersion: number | null = cachedParse?.detectedVersion ?? null
+    const db = cachedDb ?? (await (async () => {
+      const response = await fetch(dbUrl, { cache: 'no-store' })
+      if (!response.ok) {
+        const error = new Error(`Failed to load rhyme DB (${response.status} ${response.statusText}) from ${dbUrl}`)
+        ;(error as Error & { status?: number }).status = response.status
+        throw error
+      }
+      const payload = (await response.json()) as RhymeDbV1
+      let parsed: ParsedRhymeDb
+      try {
+        parsed = parseRhymeDbPayload(payload, { expectedVersion, allowLegacy })
+        parseSucceeded = true
+        detectedVersion = parsed.detectedVersion
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to parse rhyme DB JSON'
+        throw new Error(
+          `Loaded ${dbUrl}; JSON parsed: ${parseSucceeded}; detected v${detectedVersion ?? 'unknown'}; expected v${expectedVersion}. ${message}`
+        )
+      }
+      if ('caches' in self) {
+        const cache = await caches.open(cacheKey)
+        await cache.put(dbUrl, new Response(JSON.stringify(payload), { headers: { 'Content-Type': 'application/json' } }))
+      }
+      return parsed.db
+    })())
+
+    return { db, parseSucceeded, detectedVersion }
+  }
+
+  const primaryUrl = buildDbUrl(baseUrl, RHYME_DB_VERSION)
+  const legacyUrl = buildDbUrl(baseUrl, 1)
+  let activeUrl = primaryUrl
+  let parseSucceeded = false
+  let detectedVersion: number | null = null
+  let db: RhymeDbV1
+
+  try {
+    const primaryResult = await loadFromUrl(primaryUrl, RHYME_DB_VERSION, false)
+    db = primaryResult.db
+    parseSucceeded = primaryResult.parseSucceeded
+    detectedVersion = primaryResult.detectedVersion
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status
+    if (status !== 404) {
+      throw error
+    }
+    console.warn('[rhyme-db] v2 database missing; falling back to v1')
+    initWarning = LEGACY_WARNING
+    activeUrl = legacyUrl
+    const legacyResult = await loadFromUrl(legacyUrl, 1, true)
+    db = legacyResult.db
+    parseSucceeded = legacyResult.parseSucceeded
+    detectedVersion = legacyResult.detectedVersion
+  }
+
   const error = validateDb(db)
   if (error) {
-    throw new Error(`Loaded ${dbUrl}; JSON parsed: ${parseSucceeded}; detected v${detectedVersion ?? 'unknown'}; expected v${RHYME_DB_VERSION}. ${error}`)
+    throw new Error(
+      `Loaded ${activeUrl}; JSON parsed: ${parseSucceeded}; detected v${detectedVersion ?? 'unknown'}; expected v${activeUrl === legacyUrl ? 1 : RHYME_DB_VERSION}. ${error}`
+    )
   }
 
   const runtimeMaps: RhymeDbRuntimeMaps = {
@@ -204,7 +243,7 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
     baseUrl = message.baseUrl
     ensureInit()
       .then(() => {
-        post({ type: 'init:ok' })
+        post({ type: 'init:ok', warning: initWarning ?? undefined })
       })
       .catch((error: Error) => {
         post({ type: 'init:err', error: error.message })

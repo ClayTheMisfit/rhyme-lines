@@ -14,7 +14,15 @@ export type ParsedRhymeDb = {
   legacy: boolean
 }
 
-export const parseRhymeDbPayload = (payload: unknown): ParsedRhymeDb => {
+type ParseOptions = {
+  expectedVersion?: number
+  allowLegacy?: boolean
+}
+
+export const parseRhymeDbPayload = (payload: unknown, options: ParseOptions = {}): ParsedRhymeDb => {
+  const expectedVersion = options.expectedVersion ?? RHYME_DB_VERSION
+  const allowLegacy = options.allowLegacy ?? false
+
   if (!isRecord(payload)) {
     throw new Error('Invalid rhyme DB payload')
   }
@@ -23,13 +31,13 @@ export const parseRhymeDbPayload = (payload: unknown): ParsedRhymeDb => {
   const legacy = typeof db.version !== 'number'
   const detectedVersion = legacy ? 1 : db.version
 
-  if (legacy && process.env.NODE_ENV !== 'production' && !warnedLegacyVersion) {
+  if (legacy && allowLegacy && process.env.NODE_ENV !== 'production' && !warnedLegacyVersion) {
     warnedLegacyVersion = true
     console.warn('[rhyme-db] Missing version; assuming v1 legacy DB')
   }
 
-  if (detectedVersion !== RHYME_DB_VERSION) {
-    throw new Error(`Rhyme DB version mismatch: detected v${detectedVersion}, expected v${RHYME_DB_VERSION}`)
+  if (detectedVersion !== expectedVersion) {
+    throw new Error(`Rhyme DB version mismatch: detected v${detectedVersion}, expected v${expectedVersion}`)
   }
 
   const wordsLen = Array.isArray(db.words) ? db.words.length : 0
