@@ -18,7 +18,7 @@ const entries = parseCmuDict(content)
 const db = buildRhymeDb(entries)
 
 const outputDir = path.join(rootDir, 'public', 'rhyme-db')
-const outputPath = path.join(outputDir, 'rhyme-db.v1.json')
+const outputPath = path.join(outputDir, `rhyme-db.v${RHYME_DB_VERSION}.json`)
 
 fs.mkdirSync(outputDir, { recursive: true })
 const payload = {
@@ -28,7 +28,4 @@ const payload = {
 }
 
 fs.writeFileSync(outputPath, `${JSON.stringify(payload)}\n`, 'utf8')
-const aliasPath = path.join(outputDir, 'rhyme-db.json')
-fs.writeFileSync(aliasPath, `${JSON.stringify(payload)}\n`, 'utf8')
 console.log(`Wrote rhyme database to ${outputPath}`)
-console.log(`Wrote rhyme database alias to ${aliasPath}`)

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "npm run build:rhyme-db && next dev --turbopack",
     "build": "npm run build:rhyme-db && next build",
-    "build:rhyme-db": "tsx scripts/build-rhyme-db.ts",
+    "build:rhyme-db": "node scripts/build-rhyme-db.mjs",
+    "vercel-build": "npm run build:rhyme-db && node scripts/check-rhyme-db.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "jest",

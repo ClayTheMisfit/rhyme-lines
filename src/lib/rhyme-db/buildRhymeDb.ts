@@ -1,6 +1,6 @@
-import commonWordRanks from '@/lib/rhyme-db/frequency/commonWordRanks.json'
-import { normalizeLexeme } from '@/lib/rhyme-db/normalizeLexeme'
-import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
+import fs from 'node:fs'
+import { normalizeLexeme } from './normalizeLexeme'
+import { RHYME_DB_VERSION } from './version'
 
 export type ParsedEntry = {
   word: string
@@ -207,7 +207,9 @@ const buildIndex = (entries: ParsedEntry[], wordIds: Map<string, number>) => {
 }
 
 export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
-  const rankMap: Record<string, number> = commonWordRanks
+  const rankMap: Record<string, number> = JSON.parse(
+    fs.readFileSync(new URL('./frequency/commonWordRanks.json', import.meta.url), 'utf8')
+  )
   const pronunciationsByWord = new Map<string, ParsedEntry[]>()
   for (const entry of entries) {
     const existing = pronunciationsByWord.get(entry.word)

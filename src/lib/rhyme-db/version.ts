@@ -1,1 +1,1 @@
-export const RHYME_DB_VERSION = 1 as const
+export const RHYME_DB_VERSION = 2 as const

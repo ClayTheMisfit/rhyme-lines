@@ -16,6 +16,8 @@
 # next.js
 /.next/
 /out/
+public/rhyme-db/rhyme-db.v2.json
+public/rhyme-db/rhyme-db.v2.json.gz
 
 # production
 /build
