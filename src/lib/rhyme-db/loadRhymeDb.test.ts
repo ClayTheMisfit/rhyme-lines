@@ -15,14 +15,14 @@ const basePayload = (): MinimalDb => ({
 describe('parseRhymeDbPayload', () => {
   it('assumes v1 when version is missing', () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
-    expect(() => parseRhymeDbPayload(basePayload())).not.toThrow()
+    expect(() => parseRhymeDbPayload(basePayload(), { expectedVersion: 1, allowLegacy: true })).not.toThrow()
     warnSpy.mockRestore()
   })
 
   it('throws when version mismatches', () => {
-    expect(() => parseRhymeDbPayload({ ...basePayload(), version: 999 })).toThrow(
-      'Rhyme DB version mismatch: detected v999, expected v1'
-    )
+    expect(() =>
+      parseRhymeDbPayload({ ...basePayload(), version: 999 }, { expectedVersion: 1 })
+    ).toThrow('Rhyme DB version mismatch: detected v999, expected v1')
   })
 
   it('accepts the current version', () => {

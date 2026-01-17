@@ -56,6 +56,13 @@ npm run dev
 
 ```
 
+Build the production bundle (mirrors Vercel):
+
+```bash
+npm run vercel-build
+
+```
+
 Open in your browser:
 👉 [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000)
 
