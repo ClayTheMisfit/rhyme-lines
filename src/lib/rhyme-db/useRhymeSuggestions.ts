@@ -24,7 +24,7 @@ type UseRhymeSuggestionsArgs = {
   mode: Mode
   max?: number
   multiSyllable?: boolean
-  includeRare?: boolean
+  includeRareWords?: boolean
   enabled: boolean
 }
 
@@ -36,7 +36,7 @@ export const useRhymeSuggestions = ({
   mode,
   max,
   multiSyllable,
-  includeRare,
+  includeRareWords,
   enabled,
 }: UseRhymeSuggestionsArgs) => {
   const [status, setStatus] = useState<Status>('idle')
@@ -119,7 +119,7 @@ export const useRhymeSuggestions = ({
             wordUsage,
             desiredSyllables,
             multiSyllable: Boolean(multiSyllable),
-            includeRare,
+            includeRareWords,
           },
         })
 
@@ -137,7 +137,7 @@ export const useRhymeSuggestions = ({
         setError(message)
       }
     },
-    [enabled, includeRare, max, mode, multiSyllable, wordUsage]
+    [enabled, includeRareWords, max, mode, multiSyllable, wordUsage]
   )
 
   useEffect(() => {
