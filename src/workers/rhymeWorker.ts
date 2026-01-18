@@ -25,7 +25,9 @@ type GetRhymesMsg = {
 
 type InitOk = { type: 'init:ok'; warning?: string }
 
-type InitErr = { type: 'init:err'; error: string }
+type WorkerErrorPayload = { message: string; code?: 'DB_UNAVAILABLE' }
+
+type InitErr = { type: 'init:err'; error: WorkerErrorPayload }
 
 type RhymesOk = {
   type: 'getRhymes:ok'
@@ -34,7 +36,7 @@ type RhymesOk = {
   results: { caret?: string[]; lineLast?: string[] }
 }
 
-type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: string }
+type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: WorkerErrorPayload }
 
 type IncomingMessage = InitMsg | GetRhymesMsg
 
@@ -115,9 +117,18 @@ let initWarning: string | null = null
 
 const LEGACY_WARNING = 'Using legacy rhyme DB (v1); rebuild v2 for best results.'
 
+const createDbUnavailableError = (message: string, status?: number) => {
+  const error = new Error(message) as Error & { code?: 'DB_UNAVAILABLE'; status?: number }
+  error.code = 'DB_UNAVAILABLE'
+  if (typeof status === 'number') {
+    error.status = status
+  }
+  return error
+}
+
 const loadDb = async () => {
   if (!baseUrl) {
-    throw new Error('Missing baseUrl for rhyme DB fetch')
+    throw createDbUnavailableError('Missing baseUrl for rhyme DB fetch')
   }
   initWarning = null
   const cacheKey = 'rhyme-db-cache'
@@ -149,9 +160,10 @@ const loadDb = async () => {
     const db = cachedDb ?? (await (async () => {
       const response = await fetch(dbUrl, { cache: 'no-store' })
       if (!response.ok) {
-        const error = new Error(`Failed to load rhyme DB (${response.status} ${response.statusText}) from ${dbUrl}`)
-        ;(error as Error & { status?: number }).status = response.status
-        throw error
+        throw createDbUnavailableError(
+          `Failed to load rhyme DB (${response.status} ${response.statusText}) from ${dbUrl}`,
+          response.status
+        )
       }
       const payload = (await response.json()) as RhymeDbV1
       let parsed: ParsedRhymeDb
@@ -161,7 +173,7 @@ const loadDb = async () => {
         detectedVersion = parsed.detectedVersion
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to parse rhyme DB JSON'
-        throw new Error(
+        throw createDbUnavailableError(
           `Loaded ${dbUrl}; JSON parsed: ${parseSucceeded}; detected v${detectedVersion ?? 'unknown'}; expected v${expectedVersion}. ${message}`
         )
       }
@@ -203,7 +215,7 @@ const loadDb = async () => {
 
   const error = validateDb(db)
   if (error) {
-    throw new Error(
+    throw createDbUnavailableError(
       `Loaded ${activeUrl}; JSON parsed: ${parseSucceeded}; detected v${detectedVersion ?? 'unknown'}; expected v${activeUrl === legacyUrl ? 1 : RHYME_DB_VERSION}. ${error}`
     )
   }
@@ -246,7 +258,11 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
         post({ type: 'init:ok', warning: initWarning ?? undefined })
       })
       .catch((error: Error) => {
-        post({ type: 'init:err', error: error.message })
+        const payload: WorkerErrorPayload = {
+          message: error.message,
+          code: (error as Error & { code?: 'DB_UNAVAILABLE' }).code,
+        }
+        post({ type: 'init:err', error: payload })
       })
     return
   }
@@ -257,12 +273,20 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
         await ensureInit()
       } catch (error) {
         const messageText = error instanceof Error ? error.message : 'Failed to initialize rhyme db'
-        post({ type: 'getRhymes:err', requestId: message.requestId, error: messageText })
+        const payload: WorkerErrorPayload = {
+          message: messageText,
+          code: (error as Error & { code?: 'DB_UNAVAILABLE' }).code,
+        }
+        post({ type: 'getRhymes:err', requestId: message.requestId, error: payload })
         return
       }
 
       if (!runtimeDb) {
-        post({ type: 'getRhymes:err', requestId: message.requestId, error: 'Worker not initialized' })
+        post({
+          type: 'getRhymes:err',
+          requestId: message.requestId,
+          error: { message: 'Worker not initialized' },
+        })
         return
       }
 
@@ -315,7 +339,11 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
         })
       } catch (error) {
         const messageText = error instanceof Error ? error.message : 'Failed to fetch rhymes'
-        post({ type: 'getRhymes:err', requestId: message.requestId, error: messageText })
+        const payload: WorkerErrorPayload = {
+          message: messageText,
+          code: (error as Error & { code?: 'DB_UNAVAILABLE' }).code,
+        }
+        post({ type: 'getRhymes:err', requestId: message.requestId, error: payload })
       }
     }
 

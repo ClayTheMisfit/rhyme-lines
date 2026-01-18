@@ -9,6 +9,7 @@ import { DockablePanel } from '@/components/panels/DockablePanel'
 import { useRhymeSuggestions } from '@/lib/rhyme-db/useRhymeSuggestions'
 import type { Mode } from '@/lib/rhyme-db/queryRhymes'
 import type { EditorHandle } from '@/components/Editor'
+import { getLocalInitFailureReason } from '@/lib/rhymes/rhymeSource'
 import { useState } from 'react'
 
 const MIN_WIDTH = 280
@@ -78,6 +79,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       warning,
       results,
       debug,
+      meta,
     } = useRhymeSuggestions({
       text,
       caretIndex,
@@ -98,6 +100,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const activeToken = activeTab === 'caret' ? caretToken : lineLastToken
     const activeTokenLabel = activeTab === 'caret' ? 'Caret' : 'Line End'
     const isLoading = status === 'loading'
+    const localInitFailureReason = getLocalInitFailureReason()
     const LIMITED_COMMON_THRESHOLD = 10
 
     React.useEffect(() => {
@@ -350,6 +353,12 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
+          {meta.source === 'online' && localInitFailureReason && !isLoading && (
+            <div className="px-3 pb-2 text-[11px] text-slate-500 dark:text-slate-400">
+              {meta.note ?? 'Offline DB unavailable — using online providers.'}
+            </div>
+          )}
+
           {!isLoading && !includeRareWords && status !== 'idle' && activeSuggestions.length > 0 &&
             activeSuggestions.length < LIMITED_COMMON_THRESHOLD && (
               <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
@@ -383,9 +392,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               <div className="mt-2 text-[12px] text-rose-400">
                 Details: {error}
               </div>
-              <div className="mt-2 text-[12px] text-rose-400">
-                Verify public/rhyme-db/rhyme-db.v2.json exists (npm run build:rhyme-db).
-              </div>
+              {meta.source === 'local' && (
+                <div className="mt-2 text-[12px] text-rose-400">
+                  Verify public/rhyme-db/rhyme-db.v2.json exists (npm run build:rhyme-db).
+                </div>
+              )}
             </div>
           )}
 

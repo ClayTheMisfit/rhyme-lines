@@ -3,7 +3,9 @@ import type { RhymeQueryContext } from '@/lib/rhyme-db/queryRhymes'
 
 type InitOk = { type: 'init:ok'; warning?: string }
 
-type InitErr = { type: 'init:err'; error: string }
+type WorkerErrorPayload = { message: string; code?: 'DB_UNAVAILABLE' }
+
+type InitErr = { type: 'init:err'; error: WorkerErrorPayload }
 
 type RhymesOk = {
   type: 'getRhymes:ok'
@@ -12,13 +14,23 @@ type RhymesOk = {
   results: { caret?: string[]; lineLast?: string[] }
 }
 
-type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: string }
+type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: WorkerErrorPayload }
 
 type WorkerMessage = InitOk | InitErr | RhymesOk | RhymesErr
 
 type PendingRequest = {
   resolve: (value: { caret?: string[]; lineLast?: string[] }) => void
   reject: (error: Error) => void
+}
+
+export class RhymeWorkerError extends Error {
+  code?: 'DB_UNAVAILABLE'
+
+  constructor(message: string, code?: 'DB_UNAVAILABLE') {
+    super(message)
+    this.name = 'RhymeWorkerError'
+    this.code = code
+  }
 }
 
 export const createRhymeWorkerClient = () => {
@@ -52,7 +64,7 @@ export const createRhymeWorkerClient = () => {
       const request = pending.get(message.requestId)
       if (request) {
         pending.delete(message.requestId)
-        request.reject(new Error(message.error))
+        request.reject(new RhymeWorkerError(message.error.message, message.error.code))
       }
     }
   }
@@ -74,7 +86,7 @@ export const createRhymeWorkerClient = () => {
           }
           if (message.type === 'init:err') {
             worker.removeEventListener('message', onInitMessage)
-            reject(new Error(message.error))
+            reject(new RhymeWorkerError(message.error.message, message.error.code))
           }
         }
 
