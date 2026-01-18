@@ -1,7 +1,7 @@
 import type { Mode } from '@/lib/rhyme-db/queryRhymes'
 import type { RhymeQueryContext } from '@/lib/rhyme-db/queryRhymes'
 
-type InitOk = { type: 'init:ok' }
+type InitOk = { type: 'init:ok'; warning?: string }
 
 type InitErr = { type: 'init:err'; error: string }
 
@@ -26,10 +26,12 @@ export const createRhymeWorkerClient = () => {
   const pending = new Map<string, PendingRequest>()
   let initPromise: Promise<void> | null = null
   let requestCounter = 0
+  let warning: string | null = null
 
   const handleMessage = (event: MessageEvent<WorkerMessage>) => {
     const message = event.data
     if (message.type === 'init:ok') {
+      warning = message.warning ?? null
       return
     }
 
@@ -67,6 +69,7 @@ export const createRhymeWorkerClient = () => {
           const message = event.data
           if (message.type === 'init:ok') {
             worker.removeEventListener('message', onInitMessage)
+            warning = message.warning ?? null
             resolve()
           }
           if (message.type === 'init:err') {
@@ -119,6 +122,7 @@ export const createRhymeWorkerClient = () => {
   return {
     init,
     getRhymes,
+    getWarning: () => warning,
     terminate,
   }
 }

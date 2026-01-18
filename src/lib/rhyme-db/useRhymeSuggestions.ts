@@ -24,7 +24,7 @@ type UseRhymeSuggestionsArgs = {
   mode: Mode
   max?: number
   multiSyllable?: boolean
-  includeRare?: boolean
+  includeRareWords?: boolean
   enabled: boolean
 }
 
@@ -36,11 +36,12 @@ export const useRhymeSuggestions = ({
   mode,
   max,
   multiSyllable,
-  includeRare,
+  includeRareWords,
   enabled,
 }: UseRhymeSuggestionsArgs) => {
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | undefined>(undefined)
+  const [warning, setWarning] = useState<string | undefined>(undefined)
   const [results, setResults] = useState<Results>({})
   const [debug, setDebug] = useState<DebugInfo>({})
   const [wordUsage, setWordUsage] = useState<Record<string, number>>({})
@@ -93,6 +94,8 @@ export const useRhymeSuggestions = ({
 
       try {
         await initRhymeClient()
+        const initWarning = getRhymeClient().getWarning()
+        setWarning(initWarning ?? undefined)
       } catch (initError) {
         if (requestId !== requestCounter.current) return
         const message = initError instanceof Error ? initError.message : 'Failed to initialize rhyme worker'
@@ -116,7 +119,7 @@ export const useRhymeSuggestions = ({
             wordUsage,
             desiredSyllables,
             multiSyllable: Boolean(multiSyllable),
-            includeRare,
+            includeRareWords,
           },
         })
 
@@ -134,7 +137,7 @@ export const useRhymeSuggestions = ({
         setError(message)
       }
     },
-    [enabled, includeRare, max, mode, multiSyllable, wordUsage]
+    [enabled, includeRareWords, max, mode, multiSyllable, wordUsage]
   )
 
   useEffect(() => {
@@ -181,6 +184,7 @@ export const useRhymeSuggestions = ({
       setStatus('idle')
       setResults({})
       setError(undefined)
+      setWarning(undefined)
       return
     }
 
@@ -231,6 +235,7 @@ export const useRhymeSuggestions = ({
   return {
     status,
     error,
+    warning,
     results,
     debug,
   }
