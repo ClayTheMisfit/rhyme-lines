@@ -1,4 +1,4 @@
-import { parseRhymeDbPayload } from '@/lib/rhyme-db/loadRhymeDb'
+import { parseRhymeDbPayload, selectRhymeDbPayload } from '@/lib/rhyme-db/loadRhymeDb'
 import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
 
 type MinimalDb = {
@@ -27,5 +27,26 @@ describe('parseRhymeDbPayload', () => {
 
   it('accepts the current version', () => {
     expect(() => parseRhymeDbPayload({ ...basePayload(), version: RHYME_DB_VERSION })).not.toThrow()
+  })
+
+  it('prefers v2 payloads when available', () => {
+    const result = selectRhymeDbPayload({
+      v2: { ...basePayload(), version: RHYME_DB_VERSION },
+      v1: basePayload(),
+    })
+
+    expect(result.status.loadedVersion).toBe(2)
+    expect(result.status.source).toBe('v2-asset')
+  })
+
+  it('falls back to v1 when v2 is invalid', () => {
+    const result = selectRhymeDbPayload({
+      v2: { ...basePayload(), version: 999 },
+      v1: basePayload(),
+    })
+
+    expect(result.status.loadedVersion).toBe(1)
+    expect(result.status.source).toBe('v1-fallback')
+    expect(result.status.error).toContain('Rhyme DB version mismatch')
   })
 })

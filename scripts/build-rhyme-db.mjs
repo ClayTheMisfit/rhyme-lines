@@ -21,7 +21,7 @@ const main = async () => {
   }
 
   const tsxCli = path.join(rootDir, 'node_modules', 'tsx', 'dist', 'cli.mjs')
-  const buildScript = path.join(rootDir, 'scripts', 'build-rhyme-db.ts')
+  const buildScript = path.join(rootDir, 'scripts', 'build-rhyme-db-v2.ts')
   const result = spawnSync(process.execPath, [tsxCli, buildScript], {
     stdio: 'inherit',
     env: {

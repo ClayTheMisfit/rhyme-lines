@@ -14,6 +14,12 @@ export type ParsedRhymeDb = {
   legacy: boolean
 }
 
+export type RhymeDbLoadStatus = {
+  loadedVersion: 1 | 2
+  source: 'v2-asset' | 'v1-fallback'
+  error?: string
+}
+
 type ParseOptions = {
   expectedVersion?: number
   allowLegacy?: boolean
@@ -65,4 +71,39 @@ export const parseRhymeDbPayload = (payload: unknown, options: ParseOptions = {}
   }
 
   return { db, detectedVersion, freqAvailable, legacy }
+}
+
+export const selectRhymeDbPayload = (payloads: {
+  v2?: unknown
+  v1?: unknown
+}): { parsed: ParsedRhymeDb; status: RhymeDbLoadStatus } => {
+  let lastError: string | undefined
+  if (payloads.v2 !== undefined) {
+    try {
+      const parsed = parseRhymeDbPayload(payloads.v2, { expectedVersion: RHYME_DB_VERSION })
+      return {
+        parsed,
+        status: {
+          loadedVersion: 2,
+          source: 'v2-asset',
+        },
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : 'Failed to parse v2 rhyme DB'
+    }
+  }
+
+  if (payloads.v1 !== undefined) {
+    const parsed = parseRhymeDbPayload(payloads.v1, { expectedVersion: 1, allowLegacy: true })
+    return {
+      parsed,
+      status: {
+        loadedVersion: 1,
+        source: 'v1-fallback',
+        error: lastError,
+      },
+    }
+  }
+
+  throw new Error(lastError ?? 'Missing rhyme DB payloads')
 }

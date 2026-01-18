@@ -1,6 +1,6 @@
 import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
 import { buildDbUrl } from '@/lib/rhyme-db/buildDbUrl'
-import { parseRhymeDbPayload, type ParsedRhymeDb } from '@/lib/rhyme-db/loadRhymeDb'
+import { parseRhymeDbPayload, type ParsedRhymeDb, type RhymeDbLoadStatus } from '@/lib/rhyme-db/loadRhymeDb'
 import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
 import {
   getRhymesForTargets,
@@ -23,7 +23,7 @@ type GetRhymesMsg = {
   context?: RhymeQueryContext
 }
 
-type InitOk = { type: 'init:ok'; warning?: string }
+type InitOk = { type: 'init:ok'; warning?: string; status?: RhymeDbLoadStatus }
 
 type WorkerErrorPayload = { message: string; code?: 'DB_UNAVAILABLE' }
 
@@ -114,6 +114,7 @@ let runtimeDb: RhymeDbRuntime | null = null
 let initPromise: Promise<void> | null = null
 let baseUrl: string | null = null
 let initWarning: string | null = null
+let loadStatus: RhymeDbLoadStatus | null = null
 
 const LEGACY_WARNING = 'Using legacy rhyme DB (v1); rebuild v2 for best results.'
 
@@ -190,6 +191,7 @@ const loadDb = async () => {
   const primaryUrl = buildDbUrl(baseUrl, RHYME_DB_VERSION)
   const legacyUrl = buildDbUrl(baseUrl, 1)
   let activeUrl = primaryUrl
+  let fallbackReason: string | undefined
   let parseSucceeded = false
   let detectedVersion: number | null = null
   let db: RhymeDbV1
@@ -199,18 +201,20 @@ const loadDb = async () => {
     db = primaryResult.db
     parseSucceeded = primaryResult.parseSucceeded
     detectedVersion = primaryResult.detectedVersion
+    loadStatus = { loadedVersion: 2, source: 'v2-asset' }
   } catch (error) {
     const status = (error as Error & { status?: number }).status
     if (status !== 404) {
       throw error
     }
+    fallbackReason = error instanceof Error ? error.message : 'Missing v2 rhyme DB'
     console.warn('[rhyme-db] v2 database missing; falling back to v1')
-    initWarning = LEGACY_WARNING
     activeUrl = legacyUrl
     const legacyResult = await loadFromUrl(legacyUrl, 1, true)
     db = legacyResult.db
     parseSucceeded = legacyResult.parseSucceeded
     detectedVersion = legacyResult.detectedVersion
+    loadStatus = { loadedVersion: 1, source: 'v1-fallback', error: fallbackReason }
   }
 
   const error = validateDb(db)
@@ -218,6 +222,10 @@ const loadDb = async () => {
     throw createDbUnavailableError(
       `Loaded ${activeUrl}; JSON parsed: ${parseSucceeded}; detected v${detectedVersion ?? 'unknown'}; expected v${activeUrl === legacyUrl ? 1 : RHYME_DB_VERSION}. ${error}`
     )
+  }
+
+  if (loadStatus?.loadedVersion === 1 && process.env.NODE_ENV !== 'production') {
+    initWarning = LEGACY_WARNING
   }
 
   const runtimeMaps: RhymeDbRuntimeMaps = {
@@ -255,7 +263,7 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
     baseUrl = message.baseUrl
     ensureInit()
       .then(() => {
-        post({ type: 'init:ok', warning: initWarning ?? undefined })
+        post({ type: 'init:ok', warning: initWarning ?? undefined, status: loadStatus ?? undefined })
       })
       .catch((error: Error) => {
         const payload: WorkerErrorPayload = {

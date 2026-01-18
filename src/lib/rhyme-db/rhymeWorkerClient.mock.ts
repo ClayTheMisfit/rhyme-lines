@@ -3,6 +3,7 @@ export const createRhymeWorkerClient = () => {
     init: () => Promise.resolve(),
     getRhymes: async () => ({ caret: [], lineLast: [] }),
     getWarning: () => null,
+    getStatus: () => null,
     terminate: () => {},
   }
 }

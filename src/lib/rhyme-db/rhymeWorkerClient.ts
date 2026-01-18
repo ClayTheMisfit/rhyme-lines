@@ -1,7 +1,8 @@
 import type { Mode } from '@/lib/rhyme-db/queryRhymes'
 import type { RhymeQueryContext } from '@/lib/rhyme-db/queryRhymes'
+import type { RhymeDbLoadStatus } from '@/lib/rhyme-db/loadRhymeDb'
 
-type InitOk = { type: 'init:ok'; warning?: string }
+type InitOk = { type: 'init:ok'; warning?: string; status?: RhymeDbLoadStatus }
 
 type WorkerErrorPayload = { message: string; code?: 'DB_UNAVAILABLE' }
 
@@ -39,11 +40,13 @@ export const createRhymeWorkerClient = () => {
   let initPromise: Promise<void> | null = null
   let requestCounter = 0
   let warning: string | null = null
+  let status: RhymeDbLoadStatus | null = null
 
   const handleMessage = (event: MessageEvent<WorkerMessage>) => {
     const message = event.data
     if (message.type === 'init:ok') {
       warning = message.warning ?? null
+      status = message.status ?? null
       return
     }
 
@@ -82,6 +85,7 @@ export const createRhymeWorkerClient = () => {
           if (message.type === 'init:ok') {
             worker.removeEventListener('message', onInitMessage)
             warning = message.warning ?? null
+            status = message.status ?? null
             resolve()
           }
           if (message.type === 'init:err') {
@@ -135,6 +139,7 @@ export const createRhymeWorkerClient = () => {
     init,
     getRhymes,
     getWarning: () => warning,
+    getStatus: () => status,
     terminate,
   }
 }
