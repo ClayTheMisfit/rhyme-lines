@@ -35,7 +35,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const suggestionsRef = React.useRef<string[]>([])
     const panelRef = React.useRef<HTMLDivElement>(null)
     const [activeTab, setActiveTab] = useState<'caret' | 'lineLast'>('caret')
-    const [rhymeMode, setRhymeMode] = useState<Mode>('perfect')
     const [multiSyllable, setMultiSyllable] = useState(false)
 
     const setPanelRef = React.useCallback(
@@ -56,9 +55,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       setSelectedIndex: state.setSelectedIndex,
     }))
 
-    const { includeRareWords, setIncludeRareWords } = useSettingsStore((state) => ({
+    const { includeRareWords, setIncludeRareWords, rhymeFilters, setRhymeFilters } = useSettingsStore((state) => ({
       includeRareWords: state.includeRareWords,
       setIncludeRareWords: state.setIncludeRareWords,
+      rhymeFilters: state.rhymeFilters,
+      setRhymeFilters: state.setRhymeFilters,
     }))
 
     const { x, y, width, height, setBounds, dock, undock } = useRhymePanel(
@@ -73,6 +74,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       })
     )
 
+    const activeModes = QUALITY_CHIPS.filter((chip) => rhymeFilters[chip.value]).map((chip) => chip.value)
+    const resolvedModes = activeModes.length > 0 ? activeModes : QUALITY_CHIPS.map((chip) => chip.value)
+
     const {
       status,
       error,
@@ -84,7 +88,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       text,
       caretIndex,
       currentLineText,
-      mode: rhymeMode,
+      modes: resolvedModes,
       max: 100,
       multiSyllable,
       includeRareWords,
@@ -106,6 +110,16 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     React.useEffect(() => {
       suggestionsRef.current = activeSuggestions
     }, [activeSuggestions])
+
+    React.useEffect(() => {
+      if (activeModes.length === 0) {
+        const resetFilters = QUALITY_CHIPS.reduce<Record<Mode, boolean>>((acc, chip) => {
+          acc[chip.value] = true
+          return acc
+        }, {} as Record<Mode, boolean>)
+        setRhymeFilters(resetFilters)
+      }
+    }, [activeModes.length, setRhymeFilters])
 
     React.useEffect(() => {
       if (activeSuggestions.length === 0) {
@@ -267,7 +281,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
             <div className="flex flex-wrap items-center gap-2">
               {QUALITY_CHIPS.map((chip) => {
-                const isActive = rhymeMode === chip.value
+                const isActive = rhymeFilters[chip.value]
                 const activeClasses =
                   chip.value === 'perfect'
                     ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-200'
@@ -278,7 +292,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                   <button
                     key={chip.value}
                     type="button"
-                    onClick={() => setRhymeMode(chip.value)}
+                    onClick={() => {
+                      const next = { ...rhymeFilters, [chip.value]: !rhymeFilters[chip.value] }
+                      const hasAny = Object.values(next).some(Boolean)
+                      setRhymeFilters(hasAny ? next : { perfect: true, near: true, slant: true })
+                    }}
                     className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
                       isActive
                         ? activeClasses

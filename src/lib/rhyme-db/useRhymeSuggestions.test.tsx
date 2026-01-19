@@ -77,7 +77,7 @@ describe('useRhymeSuggestions fallback', () => {
         text: 'time',
         caretIndex: 4,
         currentLineText: 'time',
-        mode: 'perfect',
+        modes: ['perfect'],
         enabled: true,
       })
     )
@@ -107,7 +107,7 @@ describe('useRhymeSuggestions fallback', () => {
         text: 'time',
         caretIndex: 4,
         currentLineText: 'time',
-        mode: 'perfect',
+        modes: ['perfect'],
         enabled: true,
       })
     )
@@ -141,7 +141,7 @@ describe('useRhymeSuggestions fallback', () => {
         text: 'time',
         caretIndex: 4,
         currentLineText: 'time',
-        mode: 'perfect',
+        modes: ['perfect'],
         enabled: true,
       })
     )
@@ -170,7 +170,7 @@ describe('useRhymeSuggestions fallback', () => {
         text: 'time',
         caretIndex: 4,
         currentLineText: 'time',
-        mode: 'perfect',
+        modes: ['perfect'],
         enabled: true,
       })
     )

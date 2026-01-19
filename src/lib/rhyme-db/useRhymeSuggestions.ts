@@ -34,7 +34,7 @@ type UseRhymeSuggestionsArgs = {
   caretIndex: number
   currentLineText?: string
   currentLineRange?: LineRange
-  mode: Mode
+  modes: Mode[]
   max?: number
   multiSyllable?: boolean
   includeRareWords?: boolean
@@ -46,7 +46,7 @@ export const useRhymeSuggestions = ({
   caretIndex,
   currentLineText,
   currentLineRange,
-  mode,
+  modes,
   max,
   multiSyllable,
   includeRareWords,
@@ -118,11 +118,13 @@ export const useRhymeSuggestions = ({
       const desiredToken = lineLastToken ?? caretToken
       const desiredSyllables = desiredToken ? estimateSyllables(desiredToken) : undefined
 
-      const buildFilters = (currentMode: Mode): RhymeFilterSelection => ({
-        perfect: currentMode === 'perfect',
-        near: currentMode === 'near',
-        slant: currentMode === 'slant',
+      const buildFilters = (activeModes: Mode[]): RhymeFilterSelection => ({
+        perfect: activeModes.includes('perfect'),
+        near: activeModes.includes('near'),
+        slant: activeModes.includes('slant'),
       })
+
+      const orderedModes = modes.length > 0 ? modes : ['perfect', 'near', 'slant']
 
       const toSuggestions = (result: AggregationResult | null) =>
         result?.suggestions.map((suggestion) => suggestion.word) ?? []
@@ -132,7 +134,7 @@ export const useRhymeSuggestions = ({
         onlineAbortRef.current?.abort()
         onlineAbortRef.current = controller
 
-        const filters = buildFilters(mode)
+        const filters = buildFilters(orderedModes)
         const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false
 
         const caretTarget = caretToken ?? undefined
@@ -263,23 +265,70 @@ export const useRhymeSuggestions = ({
         }
 
         try {
-          const data = await getRhymeClient().getRhymes({
-            targets: {
-              caret: caretToken ?? undefined,
-              lineLast: lineLastToken ?? undefined,
-            },
-            mode,
-            max: maxResults,
-            context: {
-              wordUsage,
-              desiredSyllables,
-              multiSyllable: Boolean(multiSyllable),
-              includeRareWords,
-            },
-          })
+          const settled = await Promise.allSettled(
+            orderedModes.map((mode) =>
+              getRhymeClient().getRhymes({
+                targets: {
+                  caret: caretToken ?? undefined,
+                  lineLast: lineLastToken ?? undefined,
+                },
+                mode,
+                max: maxResults,
+                context: {
+                  wordUsage,
+                  desiredSyllables,
+                  multiSyllable: Boolean(multiSyllable),
+                  includeRareWords,
+                },
+              })
+            )
+          )
+
+          const hasDbUnavailable = settled.some(
+            (entry) =>
+              entry.status === 'rejected' &&
+              (entry.reason as Error & { code?: string }).code === 'DB_UNAVAILABLE'
+          )
+          if (hasDbUnavailable) {
+            const message = 'Rhyme DB unavailable'
+            markLocalInitFailed(message)
+            await applyOnlineFallback('Offline DB unavailable — using online providers.')
+            return
+          }
+
+          const fulfilled = settled.filter((entry) => entry.status === 'fulfilled')
+          if (fulfilled.length === 0) {
+            const message = 'Failed to fetch rhymes'
+            setStatus('error')
+            setError(message)
+            return
+          }
+
+          if (fulfilled.length !== settled.length) {
+            setWarning('Some rhyme modes failed')
+          }
+
+          const mergeList = (list: (string[] | undefined)[]) => {
+            const seen = new Set<string>()
+            const merged: string[] = []
+            for (const group of list) {
+              for (const item of group ?? []) {
+                if (seen.has(item)) continue
+                seen.add(item)
+                merged.push(item)
+              }
+            }
+            return merged
+          }
+
+          const resultsByMode = fulfilled.map((entry) => (entry as PromiseFulfilledResult<Results>).value)
+          const mergedResults: Results = {
+            caret: mergeList(resultsByMode.map((result) => result.caret)),
+            lineLast: mergeList(resultsByMode.map((result) => result.lineLast)),
+          }
 
           if (requestId !== requestCounter.current) return
-          setResults(data)
+          setResults(mergedResults)
           setStatus('success')
           setMeta({ source: 'local' })
           setDebug((prev) => ({
@@ -304,7 +353,7 @@ export const useRhymeSuggestions = ({
 
       await applyOnlineFallback('Offline DB unavailable — using online providers.')
     },
-    [enabled, includeRareWords, max, mode, multiSyllable, wordUsage]
+    [enabled, includeRareWords, max, modes, multiSyllable, wordUsage]
   )
 
   useEffect(() => {
