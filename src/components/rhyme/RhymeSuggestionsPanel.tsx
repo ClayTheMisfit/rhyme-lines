@@ -8,13 +8,16 @@ import { useRhymePanel, type RhymePanelMode } from '@/lib/state/rhymePanel'
 import { DockablePanel } from '@/components/panels/DockablePanel'
 import { useRhymeSuggestions } from '@/lib/rhyme-db/useRhymeSuggestions'
 import type { Mode } from '@/lib/rhyme-db/queryRhymes'
+import type { RhymeFilters } from '@/lib/persist/schema'
 import type { EditorHandle } from '@/components/Editor'
 import { getLocalInitFailureReason } from '@/lib/rhymes/rhymeSource'
 import { useState } from 'react'
 
 const MIN_WIDTH = 280
 const MAX_WIDTH = 640
-const QUALITY_CHIPS: { label: string; value: Mode }[] = [
+type QualityKey = keyof RhymeFilters
+
+const QUALITY_CHIPS: ReadonlyArray<{ label: string; value: QualityKey }> = [
   { label: 'Perfect', value: 'perfect' },
   { label: 'Near', value: 'near' },
   { label: 'Slant', value: 'slant' },
@@ -113,10 +116,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
     React.useEffect(() => {
       if (activeModes.length === 0) {
-        const resetFilters = QUALITY_CHIPS.reduce<Record<Mode, boolean>>((acc, chip) => {
+        const resetFilters = QUALITY_CHIPS.reduce<RhymeFilters>((acc, chip) => {
           acc[chip.value] = true
           return acc
-        }, {} as Record<Mode, boolean>)
+        }, { perfect: true, near: true, slant: true })
         setRhymeFilters(resetFilters)
       }
     }, [activeModes.length, setRhymeFilters])
