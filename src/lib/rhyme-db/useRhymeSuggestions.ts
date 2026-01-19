@@ -118,11 +118,14 @@ export const useRhymeSuggestions = ({
       const desiredToken = lineLastToken ?? caretToken
       const desiredSyllables = desiredToken ? estimateSyllables(desiredToken) : undefined
 
-      const buildFilters = (activeModes: Mode[]): RhymeFilterSelection => ({
-        perfect: activeModes.includes('perfect'),
-        near: activeModes.includes('near'),
-        slant: activeModes.includes('slant'),
-      })
+      const buildFilters = (activeModes: Mode[]): RhymeFilterSelection => {
+        const normalized = activeModes.map((mode) => mode.toLowerCase() as Mode)
+        return {
+          perfect: normalized.includes('perfect'),
+          near: normalized.includes('near'),
+          slant: normalized.includes('slant'),
+        }
+      }
 
       const orderedModes = modes.length > 0 ? modes : ['perfect', 'near', 'slant']
 
