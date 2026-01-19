@@ -21,6 +21,7 @@ describe('RhymeSuggestionsPanel', () => {
       results: { caret: [], lineLast: [] },
       debug: { caretToken: 'time', lineLastToken: undefined },
       meta: { source: 'local' },
+      phase: 'idle',
     })
 
     render(

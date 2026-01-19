@@ -17,6 +17,7 @@ type NormalizedMode = typeof ALL_MODES[number]
 const isMode = (value: string): value is NormalizedMode => (ALL_MODES as readonly string[]).includes(value)
 
 type Status = 'idle' | 'loading' | 'success' | 'error'
+type LoadPhase = 'idle' | 'initial' | 'refreshing' | 'error'
 
 type LineRange = { start: number; end: number }
 
@@ -63,6 +64,8 @@ export const useRhymeSuggestions = ({
   const [debug, setDebug] = useState<DebugInfo>({})
   const [wordUsage, setWordUsage] = useState<Record<string, number>>({})
   const [meta, setMeta] = useState<Meta>({ source: 'local' })
+  const [phase, setPhase] = useState<LoadPhase>('idle')
+  const lastGoodRef = useRef<Results>({})
 
   const caretIndexRef = useRef(caretIndex)
   const requestCounter = useRef(0)
@@ -99,8 +102,10 @@ export const useRhymeSuggestions = ({
       if (!enabled) return
       if (!caretToken && !lineLastToken) {
         setResults({})
+        lastGoodRef.current = {}
         setStatus('idle')
         setError(undefined)
+        setPhase('idle')
         setDebug({ caretToken: undefined, lineLastToken: undefined, lastQueryMs: undefined })
         return
       }
@@ -110,6 +115,7 @@ export const useRhymeSuggestions = ({
       const maxResults = max ?? 100
       const startTime = Date.now()
       setStatus('loading')
+      setPhase(Object.keys(lastGoodRef.current).length === 0 ? 'initial' : 'refreshing')
       setError(undefined)
       setWarning(undefined)
       setDebug((prev) => ({
@@ -241,7 +247,7 @@ export const useRhymeSuggestions = ({
               : 'Failed to fetch rhymes from online providers.'
           setStatus('error')
           setError(offlineMessage)
-          setResults({})
+          setPhase('error')
           return
         }
 
@@ -250,7 +256,9 @@ export const useRhymeSuggestions = ({
         }
 
         setResults(onlineResponse.results)
+        lastGoodRef.current = onlineResponse.results
         setStatus('success')
+        setPhase('idle')
         setDebug((prev) => ({
           ...prev,
           lastQueryMs: Date.now() - startTime,
@@ -309,6 +317,7 @@ export const useRhymeSuggestions = ({
             const message = 'Failed to fetch rhymes'
             setStatus('error')
             setError(message)
+            setPhase('error')
             return
           }
 
@@ -337,7 +346,9 @@ export const useRhymeSuggestions = ({
 
           if (requestId !== requestCounter.current) return
           setResults(mergedResults)
+          lastGoodRef.current = mergedResults
           setStatus('success')
+          setPhase('idle')
           setMeta({ source: 'local' })
           setDebug((prev) => ({
             ...prev,
@@ -355,6 +366,7 @@ export const useRhymeSuggestions = ({
           const message = queryError instanceof Error ? queryError.message : 'Failed to fetch rhymes'
           setStatus('error')
           setError(message)
+          setPhase('error')
         }
         return
       }
@@ -463,5 +475,6 @@ export const useRhymeSuggestions = ({
     results,
     debug,
     meta,
+    phase,
   }
 }
