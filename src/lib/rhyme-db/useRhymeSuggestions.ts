@@ -12,6 +12,10 @@ import {
   markLocalInitFailed,
 } from '@/lib/rhymes/rhymeSource'
 
+const ALL_MODES = ['perfect', 'near', 'slant'] as const
+type NormalizedMode = typeof ALL_MODES[number]
+const isMode = (value: string): value is NormalizedMode => (ALL_MODES as readonly string[]).includes(value)
+
 type Status = 'idle' | 'loading' | 'success' | 'error'
 
 type LineRange = { start: number; end: number }
@@ -119,7 +123,7 @@ export const useRhymeSuggestions = ({
       const desiredSyllables = desiredToken ? estimateSyllables(desiredToken) : undefined
 
       const buildFilters = (activeModes: Mode[]): RhymeFilterSelection => {
-        const normalized = activeModes.map((mode) => mode.toLowerCase() as Mode)
+        const normalized = activeModes.map((mode) => mode.toLowerCase()).filter(isMode)
         return {
           perfect: normalized.includes('perfect'),
           near: normalized.includes('near'),
@@ -127,7 +131,8 @@ export const useRhymeSuggestions = ({
         }
       }
 
-      const orderedModes = modes.length > 0 ? modes : ['perfect', 'near', 'slant']
+      const normalizedModes = modes.map((mode) => mode.toLowerCase()).filter(isMode)
+      const orderedModes: NormalizedMode[] = normalizedModes.length > 0 ? normalizedModes : [...ALL_MODES]
 
       const toSuggestions = (result: AggregationResult | null) =>
         result?.suggestions.map((suggestion) => suggestion.word) ?? []
