@@ -48,6 +48,7 @@ const STOPWORDS = new Set([
   'as',
   'at',
   'be',
+  'been',
   'but',
   'by',
   'did',
@@ -63,9 +64,12 @@ const STOPWORDS = new Set([
   'he',
   'her',
   'hers',
+  'him',
   'his',
   'i',
+  'if',
   'in',
+  'into',
   'is',
   'it',
   'its',
@@ -78,28 +82,41 @@ const STOPWORDS = new Set([
   'or',
   'our',
   'ours',
+  'out',
   'she',
+  'still',
   'so',
+  'than',
   'that',
   'the',
   'their',
-  'theirs',
+  'them',
   'then',
   'there',
+  'these',
   'they',
+  'theirs',
   'this',
   'to',
+  'too',
+  'up',
   'us',
   'was',
   'we',
   'were',
+  'what',
   'when',
+  'where',
+  'which',
   'who',
   'why',
   'with',
+  'will',
   'you',
   'your',
 ])
+
+const STOPWORD_WHITELIST = new Set(['will', 'still'])
 
 const MIN_WORD_LENGTH = 3
 
@@ -110,6 +127,8 @@ export type RhymeTokenDebug = {
   vowelKey?: string | null
   codaKey?: string | null
   candidatePools: { perfect: number; near: number; slant: number }
+  afterGates?: { near: number; slant: number }
+  thresholds?: { near: number; slant: number }
 }
 
 export type RhymeTokenResult = {
@@ -284,6 +303,12 @@ const getSyllableDistance = (db: RhymeDbRuntime, wordId: number, target?: number
 }
 
 const compareEntries = (includeRareWords: boolean, a: RankedEntry, b: RankedEntry) => {
+  if (typeof a.syllableDelta === 'number' && typeof b.syllableDelta === 'number' && a.syllableDelta !== b.syllableDelta) {
+    return a.syllableDelta - b.syllableDelta
+  }
+  if (typeof a.codaScore === 'number' && typeof b.codaScore === 'number' && a.codaScore !== b.codaScore) {
+    return b.codaScore - a.codaScore
+  }
   if (a.modeScore !== b.modeScore) return b.modeScore - a.modeScore
   if (includeRareWords && a.commonFlag !== b.commonFlag) return b.commonFlag - a.commonFlag
   if (a.freq !== b.freq) return b.freq - a.freq
@@ -293,8 +318,27 @@ const compareEntries = (includeRareWords: boolean, a: RankedEntry, b: RankedEntr
 
 const shouldAllowWord = (word: string) => {
   if (word.length < MIN_WORD_LENGTH) return false
-  if (STOPWORDS.has(word)) return false
+  if (STOPWORDS.has(word) && !STOPWORD_WHITELIST.has(word)) return false
   return true
+}
+
+const codaSimilarityForKey = (aKey: string, bKey: string) =>
+  codaSimilarity(splitCodaKey(aKey), splitCodaKey(bKey))
+
+const maxCodaSimilarity = (candidateKeys: string[], targetKeys: string[]) => {
+  if (candidateKeys.length === 0 || targetKeys.length === 0) {
+    return 1
+  }
+  let best = 0
+  for (const candKey of candidateKeys) {
+    for (const targetKey of targetKeys) {
+      const score = codaSimilarityForKey(candKey, targetKey)
+      if (score > best) {
+        best = score
+      }
+    }
+  }
+  return best
 }
 
 type RankedEntry = {
@@ -304,6 +348,8 @@ type RankedEntry = {
   syllableDistance: number
   isCommon: boolean
   commonFlag: number
+  syllableDelta?: number
+  codaScore?: number
 }
 
 let warnedFreqInvariant = false
@@ -381,7 +427,6 @@ export const getRhymesForToken = (
     if (!shouldAllowWord(word)) return false
     if (includeRareWords) return true
     if (word.includes("'")) return false
-    if (word.length < 2) return false
     if (!/[aeiouy]/.test(word)) return false
     if (isCommonEnglishWord(word)) return true
     return Boolean(wordUsage[word])
@@ -474,17 +519,27 @@ export const getRhymesForToken = (
     const candidateKeys = getKeysForWordId(runtimeDb, candidateId, tailKeyKind)
     return candidateKeys.some((key) => targetTailKeys.includes(key))
   }
+  const getSyllableDelta = (candidateId: number) => {
+    if (!resolvedTargetSyllables) return undefined
+    const candidateSyllables = runtimeDb.syllables?.[candidateId]
+    if (typeof candidateSyllables !== 'number' || candidateSyllables <= 0) {
+      return undefined
+    }
+    return candidateSyllables - resolvedTargetSyllables
+  }
   const matchesSyllableConstraint = (candidateId: number) => {
     if (!resolvedTargetSyllables) return true
     const candidateSyllables = runtimeDb.syllables?.[candidateId] ?? 0
+    if (!candidateSyllables) return true
     if (!context.multiSyllable) {
       return candidateSyllables === resolvedTargetSyllables
     }
-    return matchesTailKeys(candidateId)
+    return candidateSyllables >= resolvedTargetSyllables && matchesTailKeys(candidateId)
   }
 
   const vowelKeys = getKeysForWordId(runtimeDb, wordId, 'vowelKeysByWordId')
   const codaKeys = getKeysForWordId(runtimeDb, wordId, 'codaKeysByWordId')
+  const targetCodaKeys = codaKeys
   const targetVowelKey = selectKey(db.indexes.vowel, vowelKeys)
   const targetCodaKey = selectKey(db.indexes.coda, codaKeys)
 
@@ -521,6 +576,7 @@ export const getRhymesForToken = (
       .map((id) => {
         const word = db.words[id].toLowerCase()
         const freq = getFrequency(id)
+        const syllableDelta = getSyllableDelta(id)
         return {
           word,
           modeScore: 1,
@@ -529,6 +585,8 @@ export const getRhymesForToken = (
           isCommon: isCommonEnglishWord(word),
           commonFlag: isCommonEnglishWord(word) ? 1 : 0,
           id,
+          syllableDelta,
+          codaScore: 1,
         }
       })
     const filtered = metadata.filter((entry) => !isTrivialInflection(normalized, entry.word))
@@ -575,11 +633,7 @@ export const getRhymesForToken = (
   }
 
   const vowelSet = collectWordIds(db.indexes.vowel, [targetVowelKey])
-  const codaSet = targetCodaKey ? collectWordIds(db.indexes.coda, [targetCodaKey]) : []
-  const candidateSet = new Set<number>()
-
-  for (const id of vowelSet) candidateSet.add(id)
-  for (const id of codaSet) candidateSet.add(id)
+  const candidateSet = new Set<number>(vowelSet)
 
   if (normalizedMode === 'near') {
     const metadata = Array.from(candidateSet)
@@ -587,17 +641,12 @@ export const getRhymesForToken = (
       .map((id) => {
         const candidateVowelKeys = getKeysForWordId(runtimeDb, id, 'vowelKeysByWordId')
         const candidateCodaKeys = getKeysForWordId(runtimeDb, id, 'codaKeysByWordId')
-        const bestVowelKey = getBestVowelKey(candidateVowelKeys, targetVowel)
-        const bestCodaKey = targetCodaKey ? getBestCodaKey(candidateCodaKeys, targetCoda) : ''
-        const vowelMatches = bestVowelKey === targetVowel
-        const codaScore = targetCodaKey && bestCodaKey
-          ? codaSimilarity(targetCoda, splitCodaKey(bestCodaKey))
-          : targetCodaKey
-            ? 0
-            : 1
+        const vowelMatches = candidateVowelKeys.includes(targetVowel)
+        const codaScore = maxCodaSimilarity(candidateCodaKeys, targetCodaKeys)
         const modeScore = codaScore
         const word = db.words[id].toLowerCase()
         const freq = getFrequency(id)
+        const syllableDelta = getSyllableDelta(id)
         return {
           word,
           modeScore,
@@ -608,11 +657,12 @@ export const getRhymesForToken = (
           id,
           vowelMatches,
           codaScore,
+          syllableDelta,
         }
       })
     const filtered = metadata
       .filter((entry) => entry.vowelMatches)
-      .filter((entry) => entry.codaScore >= 0.6)
+      .filter((entry) => entry.codaScore >= 0.65)
       .filter((entry) => !isTrivialInflection(normalized, entry.word))
       .filter((entry) => matchesSyllableConstraint(entry.id))
       .filter((entry) => isStrictAllowed(entry.word))
@@ -638,6 +688,8 @@ export const getRhymesForToken = (
         vowelKey: targetVowelKey,
         codaKey: targetCodaKey ?? null,
         candidatePools: { perfect: 0, near: candidateSet.size, slant: 0 },
+        afterGates: { near: filtered.length, slant: 0 },
+        thresholds: { near: 0.65, slant: 0.4 },
       },
     }
   }
@@ -656,14 +708,9 @@ export const getRhymesForToken = (
       const id = candidate.id
       const candidateVowelKeys = getKeysForWordId(runtimeDb, id, 'vowelKeysByWordId')
       const candidateCodaKeys = getKeysForWordId(runtimeDb, id, 'codaKeysByWordId')
-      const bestVowelKey = getBestVowelKey(candidateVowelKeys, targetVowel)
-      const bestCodaKey = targetCodaKey ? getBestCodaKey(candidateCodaKeys, targetCoda) : ''
-      const vowelMatches = bestVowelKey === targetVowel
-      const codaScore = targetCodaKey && bestCodaKey
-        ? codaSimilarity(targetCoda, splitCodaKey(bestCodaKey))
-        : targetCodaKey
-          ? 0
-          : 1
+      const vowelMatches = candidateVowelKeys.includes(targetVowel)
+      const codaScore = maxCodaSimilarity(candidateCodaKeys, targetCodaKeys)
+      const syllableDelta = getSyllableDelta(id)
       return {
         word: candidate.word,
         modeScore: codaScore,
@@ -674,12 +721,13 @@ export const getRhymesForToken = (
         id,
         vowelMatches,
         codaScore,
+        syllableDelta,
       }
     })
     .filter((entry): entry is RankedEntry & { id: number; vowelMatches: boolean; codaScore: number } => Boolean(entry))
   const filtered = metadata
     .filter((entry) => entry.vowelMatches)
-    .filter((entry) => entry.codaScore >= 0.35)
+    .filter((entry) => entry.codaScore >= 0.4)
     .filter((entry) => !isTrivialInflection(normalized, entry.word))
     .filter((entry) => matchesSyllableConstraint(entry.id))
     .filter((entry) => isStrictAllowed(entry.word))
@@ -705,6 +753,8 @@ export const getRhymesForToken = (
       vowelKey: targetVowelKey,
       codaKey: targetCodaKey ?? null,
       candidatePools: { perfect: 0, near: 0, slant: candidateSet.size },
+      afterGates: { near: 0, slant: filtered.length },
+      thresholds: { near: 0.65, slant: 0.4 },
     },
   }
 }
