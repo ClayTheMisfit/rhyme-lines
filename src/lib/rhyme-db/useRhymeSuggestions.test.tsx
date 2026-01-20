@@ -66,7 +66,7 @@ describe('useRhymeSuggestions fallback', () => {
   it('uses local worker when available', async () => {
     mockedInitRhymeClient.mockResolvedValue(undefined)
     mockedGetRhymeClient.mockReturnValue({
-      getRhymes: async () => ({ caret: ['time'], lineLast: ['rhyme'] }),
+      getRhymes: async () => ({ results: { caret: ['time'], lineLast: ['rhyme'] }, debug: {} }),
       getWarning: () => null,
       init: () => Promise.resolve(),
       terminate: () => {},
@@ -95,7 +95,7 @@ describe('useRhymeSuggestions fallback', () => {
   it('falls back to online when init fails', async () => {
     mockedInitRhymeClient.mockRejectedValue(new Error('init failed'))
     mockedGetRhymeClient.mockReturnValue({
-      getRhymes: async () => ({ caret: [], lineLast: [] }),
+      getRhymes: async () => ({ results: { caret: [], lineLast: [] }, debug: {} }),
       getWarning: () => null,
       init: () => Promise.resolve(),
       terminate: () => {},
@@ -158,7 +158,7 @@ describe('useRhymeSuggestions fallback', () => {
   it('returns an error when both local and online fail', async () => {
     mockedInitRhymeClient.mockRejectedValue(new Error('init failed'))
     mockedGetRhymeClient.mockReturnValue({
-      getRhymes: async () => ({ caret: [], lineLast: [] }),
+      getRhymes: async () => ({ results: { caret: [], lineLast: [] }, debug: {} }),
       getWarning: () => null,
       init: () => Promise.resolve(),
       terminate: () => {},

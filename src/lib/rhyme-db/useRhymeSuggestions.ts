@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AggregationResult, RhymeFilterSelection } from '@/lib/rhyme/aggregate'
 import { fetchAggregatedRhymesWithProviders } from '@/lib/rhyme/aggregate'
 import { onlineProviders } from '@/lib/rhyme/providers'
-import type { Mode } from '@/lib/rhyme-db/queryRhymes'
+import type { Mode, RhymeTargetsDebug, RhymeTokenDebug } from '@/lib/rhyme-db/queryRhymes'
 import { getRhymeClient, initRhymeClient } from '@/lib/rhyme-db/rhymeClientSingleton'
 import { getCaretWord, getLineLastWord } from '@/lib/rhyme-db/tokenize'
 import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
@@ -22,11 +22,14 @@ type LoadPhase = 'idle' | 'initial' | 'refreshing' | 'error'
 type LineRange = { start: number; end: number }
 
 type Results = { caret?: string[]; lineLast?: string[] }
+type WorkerResults = { results: Results; debug?: RhymeTargetsDebug }
 
 type DebugInfo = {
   caretToken?: string
   lineLastToken?: string
   lastQueryMs?: number
+  caretDetails?: RhymeTokenDebug
+  lineLastDetails?: RhymeTokenDebug
 }
 
 type Meta = {
@@ -106,7 +109,13 @@ export const useRhymeSuggestions = ({
         setStatus('idle')
         setError(undefined)
         setPhase('idle')
-        setDebug({ caretToken: undefined, lineLastToken: undefined, lastQueryMs: undefined })
+        setDebug({
+          caretToken: undefined,
+          lineLastToken: undefined,
+          lastQueryMs: undefined,
+          caretDetails: undefined,
+          lineLastDetails: undefined,
+        })
         return
       }
 
@@ -261,6 +270,8 @@ export const useRhymeSuggestions = ({
         setPhase('idle')
         setDebug((prev) => ({
           ...prev,
+          caretDetails: undefined,
+          lineLastDetails: undefined,
           lastQueryMs: Date.now() - startTime,
         }))
       }
@@ -338,10 +349,44 @@ export const useRhymeSuggestions = ({
             return merged
           }
 
-          const resultsByMode = fulfilled.map((entry) => (entry as PromiseFulfilledResult<Results>).value)
+          const mergeDebug = (items: Array<RhymeTokenDebug | undefined>): RhymeTokenDebug | undefined => {
+            const available = items.filter((item): item is RhymeTokenDebug => Boolean(item))
+            if (available.length === 0) return undefined
+            const pickFirst = <K extends keyof RhymeTokenDebug>(key: K) => {
+              for (const item of available) {
+                const value = item[key]
+                if (value !== undefined && value !== null) {
+                  return value
+                }
+              }
+              return available[0][key] ?? null
+            }
+            const candidatePools = available.reduce(
+              (acc, item) => ({
+                perfect: Math.max(acc.perfect, item.candidatePools.perfect),
+                near: Math.max(acc.near, item.candidatePools.near),
+                slant: Math.max(acc.slant, item.candidatePools.slant),
+              }),
+              { perfect: 0, near: 0, slant: 0 }
+            )
+            return {
+              normalizedToken: available[0].normalizedToken,
+              wordId: pickFirst('wordId') as number | null,
+              perfectKey: pickFirst('perfectKey'),
+              vowelKey: pickFirst('vowelKey'),
+              codaKey: pickFirst('codaKey'),
+              candidatePools,
+            }
+          }
+
+          const resultsByMode = fulfilled.map((entry) => (entry as PromiseFulfilledResult<WorkerResults>).value)
           const mergedResults: Results = {
-            caret: mergeList(resultsByMode.map((result) => result.caret)),
-            lineLast: mergeList(resultsByMode.map((result) => result.lineLast)),
+            caret: mergeList(resultsByMode.map((result) => result.results.caret)),
+            lineLast: mergeList(resultsByMode.map((result) => result.results.lineLast)),
+          }
+          const mergedDebug: RhymeTargetsDebug = {
+            caret: mergeDebug(resultsByMode.map((result) => result.debug?.caret)),
+            lineLast: mergeDebug(resultsByMode.map((result) => result.debug?.lineLast)),
           }
 
           if (requestId !== requestCounter.current) return
@@ -352,6 +397,8 @@ export const useRhymeSuggestions = ({
           setMeta({ source: 'local' })
           setDebug((prev) => ({
             ...prev,
+            caretDetails: mergedDebug.caret,
+            lineLastDetails: mergedDebug.lineLast,
             lastQueryMs: Date.now() - startTime,
           }))
         } catch (queryError) {

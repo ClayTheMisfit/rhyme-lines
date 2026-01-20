@@ -28,7 +28,7 @@ describe('getRhymesForToken', () => {
     } as RhymeDbV1
 
     const results = getRhymesForToken(db, 'fine', 'perfect', 100, { includeRareWords: true })
-    expect(results).toContain('line')
-    expect(results).not.toContain('fine')
+    expect(results.words).toContain('line')
+    expect(results.words).not.toContain('fine')
   })
 })

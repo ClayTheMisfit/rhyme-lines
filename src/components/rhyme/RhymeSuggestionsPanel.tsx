@@ -109,8 +109,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const lineSuggestions = results.lineLast ?? []
     const activeSuggestions = activeTab === 'caret' ? caretSuggestions : lineSuggestions
 
-    const caretToken = debug.caretToken
-    const lineLastToken = debug.lineLastToken
+    const caretToken = debug.caretDetails?.normalizedToken ?? debug.caretToken
+    const lineLastToken = debug.lineLastDetails?.normalizedToken ?? debug.lineLastToken
     const activeToken = activeTab === 'caret' ? caretToken : lineLastToken
     const activeTokenLabel = activeTab === 'caret' ? 'Caret' : 'Line End'
     const isInitialLoading = phase === 'initial'
@@ -372,7 +372,18 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         <div className="mt-3 flex-1 overflow-y-auto px-2 pb-3 pt-0 thin-scrollbar">
           {!isInitialLoading && (
             <div className="px-3 pb-2 text-[12px] text-slate-500 dark:text-slate-400">
-              {activeTokenLabel}: {activeToken ? `"${activeToken}"` : '—'}
+              {activeTokenLabel}: {activeToken ?? '—'}
+            </div>
+          )}
+
+          {!isInitialLoading && activeTab === 'caret' && debug.caretDetails && (
+            <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
+              Token: {debug.caretDetails.normalizedToken} · id: {debug.caretDetails.wordId ?? '—'} ·
+              perfect: {debug.caretDetails.perfectKey ?? '—'} · vowel: {debug.caretDetails.vowelKey ?? '—'} ·
+              coda: {debug.caretDetails.codaKey ?? '—'} · pools (P/N/S):{' '}
+              {debug.caretDetails.candidatePools.perfect}/
+              {debug.caretDetails.candidatePools.near}/
+              {debug.caretDetails.candidatePools.slant}
             </div>
           )}
 

@@ -10,6 +10,7 @@ import {
   type RhymeDbRuntime,
   type RhymeDbRuntimeMaps,
   type RhymeDbRuntimeLookups,
+  type RhymeTargetsDebug,
 } from '@/lib/rhyme-db/queryRhymes'
 
 type InitMsg = { type: 'init'; baseUrl: string }
@@ -34,6 +35,7 @@ type RhymesOk = {
   requestId: string
   mode: string
   results: { caret?: string[]; lineLast?: string[] }
+  debug?: RhymeTargetsDebug
 }
 
 type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: WorkerErrorPayload }
@@ -108,7 +110,7 @@ const validateDb = (db: RhymeDbV1) => {
   return null
 }
 
-const cache = new LruCache<string, { caret?: string[]; lineLast?: string[] }>(2000)
+const cache = new LruCache<string, { results: { caret?: string[]; lineLast?: string[] }; debug?: RhymeTargetsDebug }>(2000)
 
 let runtimeDb: RhymeDbRuntime | null = null
 let initPromise: Promise<void> | null = null
@@ -314,19 +316,20 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
           type: 'getRhymes:ok',
           requestId: message.requestId,
           mode: message.mode,
-          results: cached,
+          results: cached.results,
+          debug: cached.debug,
         })
         return
       }
 
       try {
-        const results = getRhymesForTargets(activeDb, message.targets, normalizedMode, message.max, message.context)
-        cache.set(cacheKey, results)
+        const response = getRhymesForTargets(activeDb, message.targets, normalizedMode, message.max, message.context)
+        cache.set(cacheKey, response)
         if (process.env.NODE_ENV !== 'production') {
           const wordsLength = activeDb.words.length
           const freqLength = activeDb.freqByWordId?.length ?? 0
           const freqAvailable = Array.isArray(activeDb.freqByWordId) && freqLength === wordsLength
-          const caretResults = results.caret ?? []
+          const caretResults = response.results.caret ?? []
           const topCaret = caretResults.slice(0, 10).map((word) => {
             const id = activeDb.runtimeLookups?.wordToId.get(word.toLowerCase())
             const freq = id !== undefined ? activeDb.freqByWordId?.[id] ?? 0 : 0
@@ -343,7 +346,8 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
           type: 'getRhymes:ok',
           requestId: message.requestId,
           mode: message.mode,
-          results,
+          results: response.results,
+          debug: response.debug,
         })
       } catch (error) {
         const messageText = error instanceof Error ? error.message : 'Failed to fetch rhymes'
