@@ -341,6 +341,8 @@ const maxCodaSimilarity = (candidateKeys: string[], targetKeys: string[]) => {
   return best
 }
 
+const isNonNullable = <T,>(value: T | null | undefined): value is T => value != null
+
 type RankedEntry = {
   word: string
   modeScore: number
@@ -350,6 +352,13 @@ type RankedEntry = {
   commonFlag: number
   syllableDelta?: number
   codaScore?: number
+}
+
+type RankedMeta = RankedEntry & {
+  id: number
+  vowelMatches: boolean
+  codaScore: number
+  syllableDelta: number | undefined
 }
 
 let warnedFreqInvariant = false
@@ -704,7 +713,7 @@ export const getRhymesForToken = (
     .slice(0, MAX_CANDIDATES)
 
   const metadata = candidateList
-    .map((candidate) => {
+    .map((candidate): RankedMeta | null => {
       const id = candidate.id
       const candidateVowelKeys = getKeysForWordId(runtimeDb, id, 'vowelKeysByWordId')
       const candidateCodaKeys = getKeysForWordId(runtimeDb, id, 'codaKeysByWordId')
@@ -724,7 +733,8 @@ export const getRhymesForToken = (
         syllableDelta,
       }
     })
-    .filter((entry): entry is RankedEntry & { id: number; vowelMatches: boolean; codaScore: number } => Boolean(entry))
+    .filter(isNonNullable)
+  const metadataTypeCheck: RankedMeta[] = metadata
   const filtered = metadata
     .filter((entry) => entry.vowelMatches)
     .filter((entry) => entry.codaScore >= 0.4)
