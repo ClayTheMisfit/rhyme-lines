@@ -1,24 +1,38 @@
-import type { Mode } from '@/lib/rhyme-db/queryRhymes'
+import type { Mode, RhymeTargetsDebug } from '@/lib/rhyme-db/queryRhymes'
 import type { RhymeQueryContext } from '@/lib/rhyme-db/queryRhymes'
+import type { RhymeDbLoadStatus } from '@/lib/rhyme-db/loadRhymeDb'
 
-type InitOk = { type: 'init:ok'; warning?: string }
+type InitOk = { type: 'init:ok'; warning?: string; status?: RhymeDbLoadStatus }
 
-type InitErr = { type: 'init:err'; error: string }
+type WorkerErrorPayload = { message: string; code?: 'DB_UNAVAILABLE' }
+
+type InitErr = { type: 'init:err'; error: WorkerErrorPayload }
 
 type RhymesOk = {
   type: 'getRhymes:ok'
   requestId: string
   mode: string
   results: { caret?: string[]; lineLast?: string[] }
+  debug?: RhymeTargetsDebug
 }
 
-type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: string }
+type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: WorkerErrorPayload }
 
 type WorkerMessage = InitOk | InitErr | RhymesOk | RhymesErr
 
 type PendingRequest = {
-  resolve: (value: { caret?: string[]; lineLast?: string[] }) => void
+  resolve: (value: { results: { caret?: string[]; lineLast?: string[] }; debug?: RhymeTargetsDebug }) => void
   reject: (error: Error) => void
+}
+
+export class RhymeWorkerError extends Error {
+  code?: 'DB_UNAVAILABLE'
+
+  constructor(message: string, code?: 'DB_UNAVAILABLE') {
+    super(message)
+    this.name = 'RhymeWorkerError'
+    this.code = code
+  }
 }
 
 export const createRhymeWorkerClient = () => {
@@ -27,11 +41,13 @@ export const createRhymeWorkerClient = () => {
   let initPromise: Promise<void> | null = null
   let requestCounter = 0
   let warning: string | null = null
+  let status: RhymeDbLoadStatus | null = null
 
   const handleMessage = (event: MessageEvent<WorkerMessage>) => {
     const message = event.data
     if (message.type === 'init:ok') {
       warning = message.warning ?? null
+      status = message.status ?? null
       return
     }
 
@@ -43,7 +59,7 @@ export const createRhymeWorkerClient = () => {
       const request = pending.get(message.requestId)
       if (request) {
         pending.delete(message.requestId)
-        request.resolve(message.results)
+        request.resolve({ results: message.results, debug: message.debug })
       }
       return
     }
@@ -52,7 +68,7 @@ export const createRhymeWorkerClient = () => {
       const request = pending.get(message.requestId)
       if (request) {
         pending.delete(message.requestId)
-        request.reject(new Error(message.error))
+        request.reject(new RhymeWorkerError(message.error.message, message.error.code))
       }
     }
   }
@@ -70,11 +86,12 @@ export const createRhymeWorkerClient = () => {
           if (message.type === 'init:ok') {
             worker.removeEventListener('message', onInitMessage)
             warning = message.warning ?? null
+            status = message.status ?? null
             resolve()
           }
           if (message.type === 'init:err') {
             worker.removeEventListener('message', onInitMessage)
-            reject(new Error(message.error))
+            reject(new RhymeWorkerError(message.error.message, message.error.code))
           }
         }
 
@@ -95,7 +112,7 @@ export const createRhymeWorkerClient = () => {
     await init()
     const requestId = `${Date.now()}-${requestCounter += 1}`
 
-    const promise = new Promise<{ caret?: string[]; lineLast?: string[] }>((resolve, reject) => {
+    const promise = new Promise<{ results: { caret?: string[]; lineLast?: string[] }; debug?: RhymeTargetsDebug }>((resolve, reject) => {
       pending.set(requestId, { resolve, reject })
     })
 
@@ -123,6 +140,7 @@ export const createRhymeWorkerClient = () => {
     init,
     getRhymes,
     getWarning: () => warning,
+    getStatus: () => status,
     terminate,
   }
 }

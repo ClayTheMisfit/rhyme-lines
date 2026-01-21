@@ -209,11 +209,12 @@ async function invokeProvider(
   }
 }
 
-export async function fetchAggregatedRhymes(
+const collectAggregatedRhymes = async (
   word: string,
-  options: AggregateOptions
-): Promise<AggregationResult> {
-  const tasks = providers
+  options: AggregateOptions,
+  activeProviders: RhymeProvider[]
+): Promise<AggregationResult> => {
+  const tasks = activeProviders
     .filter((provider) => options.offline ? provider.supportsOffline : true)
     .map((provider) => invokeProvider(word, provider, options))
 
@@ -233,6 +234,21 @@ export async function fetchAggregatedRhymes(
   }
 
   return { suggestions, buckets, providerStates: snapshots }
+}
+
+export async function fetchAggregatedRhymes(
+  word: string,
+  options: AggregateOptions
+): Promise<AggregationResult> {
+  return collectAggregatedRhymes(word, options, providers)
+}
+
+export async function fetchAggregatedRhymesWithProviders(
+  word: string,
+  options: AggregateOptions,
+  activeProviders: RhymeProvider[]
+): Promise<AggregationResult> {
+  return collectAggregatedRhymes(word, options, activeProviders)
 }
 
 export function resetProviderState() {

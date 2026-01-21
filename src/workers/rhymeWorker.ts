@@ -1,6 +1,6 @@
 import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
 import { buildDbUrl } from '@/lib/rhyme-db/buildDbUrl'
-import { parseRhymeDbPayload, type ParsedRhymeDb } from '@/lib/rhyme-db/loadRhymeDb'
+import { parseRhymeDbPayload, type ParsedRhymeDb, type RhymeDbLoadStatus } from '@/lib/rhyme-db/loadRhymeDb'
 import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
 import {
   getRhymesForTargets,
@@ -10,6 +10,7 @@ import {
   type RhymeDbRuntime,
   type RhymeDbRuntimeMaps,
   type RhymeDbRuntimeLookups,
+  type RhymeTargetsDebug,
 } from '@/lib/rhyme-db/queryRhymes'
 
 type InitMsg = { type: 'init'; baseUrl: string }
@@ -23,18 +24,21 @@ type GetRhymesMsg = {
   context?: RhymeQueryContext
 }
 
-type InitOk = { type: 'init:ok'; warning?: string }
+type InitOk = { type: 'init:ok'; warning?: string; status?: RhymeDbLoadStatus }
 
-type InitErr = { type: 'init:err'; error: string }
+type WorkerErrorPayload = { message: string; code?: 'DB_UNAVAILABLE' }
+
+type InitErr = { type: 'init:err'; error: WorkerErrorPayload }
 
 type RhymesOk = {
   type: 'getRhymes:ok'
   requestId: string
   mode: string
   results: { caret?: string[]; lineLast?: string[] }
+  debug?: RhymeTargetsDebug
 }
 
-type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: string }
+type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: WorkerErrorPayload }
 
 type IncomingMessage = InitMsg | GetRhymesMsg
 
@@ -106,18 +110,28 @@ const validateDb = (db: RhymeDbV1) => {
   return null
 }
 
-const cache = new LruCache<string, { caret?: string[]; lineLast?: string[] }>(2000)
+const cache = new LruCache<string, { results: { caret?: string[]; lineLast?: string[] }; debug?: RhymeTargetsDebug }>(2000)
 
 let runtimeDb: RhymeDbRuntime | null = null
 let initPromise: Promise<void> | null = null
 let baseUrl: string | null = null
 let initWarning: string | null = null
+let loadStatus: RhymeDbLoadStatus | null = null
 
 const LEGACY_WARNING = 'Using legacy rhyme DB (v1); rebuild v2 for best results.'
 
+const createDbUnavailableError = (message: string, status?: number) => {
+  const error = new Error(message) as Error & { code?: 'DB_UNAVAILABLE'; status?: number }
+  error.code = 'DB_UNAVAILABLE'
+  if (typeof status === 'number') {
+    error.status = status
+  }
+  return error
+}
+
 const loadDb = async () => {
   if (!baseUrl) {
-    throw new Error('Missing baseUrl for rhyme DB fetch')
+    throw createDbUnavailableError('Missing baseUrl for rhyme DB fetch')
   }
   initWarning = null
   const cacheKey = 'rhyme-db-cache'
@@ -149,9 +163,10 @@ const loadDb = async () => {
     const db = cachedDb ?? (await (async () => {
       const response = await fetch(dbUrl, { cache: 'no-store' })
       if (!response.ok) {
-        const error = new Error(`Failed to load rhyme DB (${response.status} ${response.statusText}) from ${dbUrl}`)
-        ;(error as Error & { status?: number }).status = response.status
-        throw error
+        throw createDbUnavailableError(
+          `Failed to load rhyme DB (${response.status} ${response.statusText}) from ${dbUrl}`,
+          response.status
+        )
       }
       const payload = (await response.json()) as RhymeDbV1
       let parsed: ParsedRhymeDb
@@ -161,7 +176,7 @@ const loadDb = async () => {
         detectedVersion = parsed.detectedVersion
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to parse rhyme DB JSON'
-        throw new Error(
+        throw createDbUnavailableError(
           `Loaded ${dbUrl}; JSON parsed: ${parseSucceeded}; detected v${detectedVersion ?? 'unknown'}; expected v${expectedVersion}. ${message}`
         )
       }
@@ -178,6 +193,7 @@ const loadDb = async () => {
   const primaryUrl = buildDbUrl(baseUrl, RHYME_DB_VERSION)
   const legacyUrl = buildDbUrl(baseUrl, 1)
   let activeUrl = primaryUrl
+  let fallbackReason: string | undefined
   let parseSucceeded = false
   let detectedVersion: number | null = null
   let db: RhymeDbV1
@@ -187,25 +203,31 @@ const loadDb = async () => {
     db = primaryResult.db
     parseSucceeded = primaryResult.parseSucceeded
     detectedVersion = primaryResult.detectedVersion
+    loadStatus = { loadedVersion: 2, source: 'v2-asset' }
   } catch (error) {
     const status = (error as Error & { status?: number }).status
     if (status !== 404) {
       throw error
     }
+    fallbackReason = error instanceof Error ? error.message : 'Missing v2 rhyme DB'
     console.warn('[rhyme-db] v2 database missing; falling back to v1')
-    initWarning = LEGACY_WARNING
     activeUrl = legacyUrl
     const legacyResult = await loadFromUrl(legacyUrl, 1, true)
     db = legacyResult.db
     parseSucceeded = legacyResult.parseSucceeded
     detectedVersion = legacyResult.detectedVersion
+    loadStatus = { loadedVersion: 1, source: 'v1-fallback', error: fallbackReason }
   }
 
   const error = validateDb(db)
   if (error) {
-    throw new Error(
+    throw createDbUnavailableError(
       `Loaded ${activeUrl}; JSON parsed: ${parseSucceeded}; detected v${detectedVersion ?? 'unknown'}; expected v${activeUrl === legacyUrl ? 1 : RHYME_DB_VERSION}. ${error}`
     )
+  }
+
+  if (loadStatus?.loadedVersion === 1 && process.env.NODE_ENV !== 'production') {
+    initWarning = LEGACY_WARNING
   }
 
   const runtimeMaps: RhymeDbRuntimeMaps = {
@@ -243,10 +265,14 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
     baseUrl = message.baseUrl
     ensureInit()
       .then(() => {
-        post({ type: 'init:ok', warning: initWarning ?? undefined })
+        post({ type: 'init:ok', warning: initWarning ?? undefined, status: loadStatus ?? undefined })
       })
       .catch((error: Error) => {
-        post({ type: 'init:err', error: error.message })
+        const payload: WorkerErrorPayload = {
+          message: error.message,
+          code: (error as Error & { code?: 'DB_UNAVAILABLE' }).code,
+        }
+        post({ type: 'init:err', error: payload })
       })
     return
   }
@@ -257,12 +283,20 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
         await ensureInit()
       } catch (error) {
         const messageText = error instanceof Error ? error.message : 'Failed to initialize rhyme db'
-        post({ type: 'getRhymes:err', requestId: message.requestId, error: messageText })
+        const payload: WorkerErrorPayload = {
+          message: messageText,
+          code: (error as Error & { code?: 'DB_UNAVAILABLE' }).code,
+        }
+        post({ type: 'getRhymes:err', requestId: message.requestId, error: payload })
         return
       }
 
       if (!runtimeDb) {
-        post({ type: 'getRhymes:err', requestId: message.requestId, error: 'Worker not initialized' })
+        post({
+          type: 'getRhymes:err',
+          requestId: message.requestId,
+          error: { message: 'Worker not initialized' },
+        })
         return
       }
 
@@ -282,19 +316,20 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
           type: 'getRhymes:ok',
           requestId: message.requestId,
           mode: message.mode,
-          results: cached,
+          results: cached.results,
+          debug: cached.debug,
         })
         return
       }
 
       try {
-        const results = getRhymesForTargets(activeDb, message.targets, normalizedMode, message.max, message.context)
-        cache.set(cacheKey, results)
+        const response = getRhymesForTargets(activeDb, message.targets, normalizedMode, message.max, message.context)
+        cache.set(cacheKey, response)
         if (process.env.NODE_ENV !== 'production') {
           const wordsLength = activeDb.words.length
           const freqLength = activeDb.freqByWordId?.length ?? 0
           const freqAvailable = Array.isArray(activeDb.freqByWordId) && freqLength === wordsLength
-          const caretResults = results.caret ?? []
+          const caretResults = response.results.caret ?? []
           const topCaret = caretResults.slice(0, 10).map((word) => {
             const id = activeDb.runtimeLookups?.wordToId.get(word.toLowerCase())
             const freq = id !== undefined ? activeDb.freqByWordId?.[id] ?? 0 : 0
@@ -311,11 +346,16 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
           type: 'getRhymes:ok',
           requestId: message.requestId,
           mode: message.mode,
-          results,
+          results: response.results,
+          debug: response.debug,
         })
       } catch (error) {
         const messageText = error instanceof Error ? error.message : 'Failed to fetch rhymes'
-        post({ type: 'getRhymes:err', requestId: message.requestId, error: messageText })
+        const payload: WorkerErrorPayload = {
+          message: messageText,
+          code: (error as Error & { code?: 'DB_UNAVAILABLE' }).code,
+        }
+        post({ type: 'getRhymes:err', requestId: message.requestId, error: payload })
       }
     }
 
