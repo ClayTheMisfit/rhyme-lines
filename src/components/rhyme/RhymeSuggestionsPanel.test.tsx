@@ -15,11 +15,13 @@ describe('RhymeSuggestionsPanel', () => {
 
   it('shows the common-only hint when no results are available', () => {
     mockedUseRhymeSuggestions.mockReturnValue({
-      status: 'ready',
+      status: 'success',
       error: undefined,
       warning: undefined,
       results: { caret: [], lineLast: [] },
       debug: { caretToken: 'time', lineLastToken: undefined },
+      meta: { source: 'local' },
+      phase: 'idle',
     })
 
     render(

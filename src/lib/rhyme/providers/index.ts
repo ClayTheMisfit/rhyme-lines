@@ -95,3 +95,5 @@ const localProvider: RhymeProvider = {
 }
 
 export const providers: RhymeProvider[] = [localProvider, datamuse, rhymeBrain]
+
+export const onlineProviders: RhymeProvider[] = [datamuse, rhymeBrain]

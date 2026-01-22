@@ -26,6 +26,7 @@ export type RhymeDbV1 = {
   isCommonByWordId?: number[]
   indexes: {
     perfect: RhymeIndex
+    perfect2?: RhymeIndex
     vowel: RhymeIndex
     coda: RhymeIndex
   }

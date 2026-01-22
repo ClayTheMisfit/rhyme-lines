@@ -8,12 +8,17 @@ import { useRhymePanel, type RhymePanelMode } from '@/lib/state/rhymePanel'
 import { DockablePanel } from '@/components/panels/DockablePanel'
 import { useRhymeSuggestions } from '@/lib/rhyme-db/useRhymeSuggestions'
 import type { Mode } from '@/lib/rhyme-db/queryRhymes'
+import { isCommonEnglishWord } from '@/lib/rhyme-db/commonEnglish'
+import type { RhymeFilters } from '@/lib/persist/schema'
 import type { EditorHandle } from '@/components/Editor'
-import { useState } from 'react'
+import { getLocalInitFailureReason } from '@/lib/rhymes/rhymeSource'
+import { useMemo, useState } from 'react'
 
 const MIN_WIDTH = 280
 const MAX_WIDTH = 640
-const QUALITY_CHIPS: { label: string; value: Mode }[] = [
+type QualityKey = keyof RhymeFilters
+
+const QUALITY_CHIPS: ReadonlyArray<{ label: string; value: QualityKey }> = [
   { label: 'Perfect', value: 'perfect' },
   { label: 'Near', value: 'near' },
   { label: 'Slant', value: 'slant' },
@@ -34,7 +39,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const suggestionsRef = React.useRef<string[]>([])
     const panelRef = React.useRef<HTMLDivElement>(null)
     const [activeTab, setActiveTab] = useState<'caret' | 'lineLast'>('caret')
-    const [rhymeMode, setRhymeMode] = useState<Mode>('perfect')
     const [multiSyllable, setMultiSyllable] = useState(false)
 
     const setPanelRef = React.useCallback(
@@ -55,9 +59,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       setSelectedIndex: state.setSelectedIndex,
     }))
 
-    const { includeRareWords, setIncludeRareWords } = useSettingsStore((state) => ({
+    const { includeRareWords, setIncludeRareWords, rhymeFilters, setRhymeFilters } = useSettingsStore((state) => ({
       includeRareWords: state.includeRareWords,
       setIncludeRareWords: state.setIncludeRareWords,
+      rhymeFilters: state.rhymeFilters,
+      setRhymeFilters: state.setRhymeFilters,
     }))
 
     const { x, y, width, height, setBounds, dock, undock } = useRhymePanel(
@@ -72,17 +78,28 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       })
     )
 
+    const activeModes = useMemo(
+      () => QUALITY_CHIPS.filter((chip) => rhymeFilters[chip.value]).map((chip) => chip.value),
+      [rhymeFilters]
+    )
+    const resolvedModes = useMemo(
+      () => (activeModes.length > 0 ? activeModes : QUALITY_CHIPS.map((chip) => chip.value)),
+      [activeModes]
+    )
+
     const {
       status,
       error,
       warning,
       results,
       debug,
+      meta,
+      phase,
     } = useRhymeSuggestions({
       text,
       caretIndex,
       currentLineText,
-      mode: rhymeMode,
+      modes: resolvedModes,
       max: 100,
       multiSyllable,
       includeRareWords,
@@ -92,17 +109,34 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const caretSuggestions = results.caret ?? []
     const lineSuggestions = results.lineLast ?? []
     const activeSuggestions = activeTab === 'caret' ? caretSuggestions : lineSuggestions
+    const commonSuggestions = useMemo(
+      () => activeSuggestions.filter((word) => isCommonEnglishWord(word.toLowerCase())),
+      [activeSuggestions]
+    )
 
-    const caretToken = debug.caretToken
-    const lineLastToken = debug.lineLastToken
+    const caretToken = debug.caretDetails?.normalizedToken ?? debug.caretToken
+    const lineLastToken = debug.lineLastDetails?.normalizedToken ?? debug.lineLastToken
     const activeToken = activeTab === 'caret' ? caretToken : lineLastToken
     const activeTokenLabel = activeTab === 'caret' ? 'Caret' : 'Line End'
-    const isLoading = status === 'loading'
+    const activeDebug = activeTab === 'caret' ? debug.caretDetails : debug.lineLastDetails
+    const isInitialLoading = phase === 'initial'
+    const isRefreshing = phase === 'refreshing'
+    const localInitFailureReason = getLocalInitFailureReason()
     const LIMITED_COMMON_THRESHOLD = 10
 
     React.useEffect(() => {
       suggestionsRef.current = activeSuggestions
     }, [activeSuggestions])
+
+    React.useEffect(() => {
+      if (activeModes.length === 0) {
+        const resetFilters = QUALITY_CHIPS.reduce<RhymeFilters>((acc, chip) => {
+          acc[chip.value] = true
+          return acc
+        }, { perfect: true, near: true, slant: true })
+        setRhymeFilters(resetFilters)
+      }
+    }, [activeModes.length, setRhymeFilters])
 
     React.useEffect(() => {
       if (activeSuggestions.length === 0) {
@@ -254,7 +288,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-[12px]">
-              {isLoading && (
+              {isRefreshing && (
                 <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
                   <span className="h-3 w-3 animate-spin rounded-full border border-slate-400/60 border-t-transparent motion-reduce:animate-none dark:border-slate-500/70" />
                   Updating…
@@ -264,7 +298,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
             <div className="flex flex-wrap items-center gap-2">
               {QUALITY_CHIPS.map((chip) => {
-                const isActive = rhymeMode === chip.value
+                const isActive = rhymeFilters[chip.value]
                 const activeClasses =
                   chip.value === 'perfect'
                     ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-200'
@@ -275,7 +309,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                   <button
                     key={chip.value}
                     type="button"
-                    onClick={() => setRhymeMode(chip.value)}
+                    onClick={() => {
+                      const next = { ...rhymeFilters, [chip.value]: !rhymeFilters[chip.value] }
+                      const hasAny = Object.values(next).some(Boolean)
+                      setRhymeFilters(hasAny ? next : { perfect: true, near: true, slant: true })
+                    }}
                     className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
                       isActive
                         ? activeClasses
@@ -338,26 +376,72 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         </div>
 
         <div className="mt-3 flex-1 overflow-y-auto px-2 pb-3 pt-0 thin-scrollbar">
-          {!isLoading && (
+          {!isInitialLoading && (
             <div className="px-3 pb-2 text-[12px] text-slate-500 dark:text-slate-400">
-              {activeTokenLabel}: {activeToken ? `"${activeToken}"` : '—'}
+              {activeTokenLabel}: {activeToken ?? '—'}
             </div>
           )}
 
-          {warning && !isLoading && (
+          {!isInitialLoading && activeDebug && (
+            <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
+              Token: {activeDebug.normalizedToken} · id: {activeDebug.wordId ?? '—'} ·
+              perfect: {activeDebug.perfectKey ?? '—'} · vowel: {activeDebug.vowelKey ?? '—'} ·
+              coda: {activeDebug.codaKey ?? '—'} · pools (P/N/S):{' '}
+              {activeDebug.candidatePools.perfect}/
+              {activeDebug.candidatePools.near}/
+              {activeDebug.candidatePools.slant}
+              {activeDebug.afterGates && (
+                <>
+                  {' '}· afterGates (N/S): {activeDebug.afterGates.near}/{activeDebug.candidatePools.near},{' '}
+                  {activeDebug.afterGates.slant}/{activeDebug.candidatePools.slant}
+                </>
+              )}
+              {activeDebug.commonAfterGates && (
+                <>
+                  {' '}· common (N/S): {activeDebug.commonAfterGates.near}/{activeDebug.candidatePools.near},{' '}
+                  {activeDebug.commonAfterGates.slant}/{activeDebug.candidatePools.slant}
+                </>
+              )}
+              {typeof activeDebug.fallbackUsed === 'boolean' && (
+                <> · fallback: {activeDebug.fallbackUsed ? 'yes' : 'no'}</>
+              )}
+              {process.env.NODE_ENV !== 'production' && activeDebug.topEntries && activeDebug.topEntries.length > 0 && (
+                <div className="mt-1">
+                  top10: {activeDebug.topEntries
+                    .map((entry) => `${entry.word}(${entry.codaScore.toFixed(2)},${entry.isCommon ? 'C' : 'R'},${entry.syllableDelta ?? '—'})`)
+                    .join(' · ')}
+                </div>
+              )}
+            </div>
+          )}
+
+          {warning && !isInitialLoading && (
             <div className="px-3 pb-2 text-[11px] text-amber-600 dark:text-amber-400">
               {warning}
             </div>
           )}
 
-          {!isLoading && !includeRareWords && status !== 'idle' && activeSuggestions.length > 0 &&
-            activeSuggestions.length < LIMITED_COMMON_THRESHOLD && (
+          {meta.source === 'online' && localInitFailureReason && !isInitialLoading && (
+            <div className="px-3 pb-2 text-[11px] text-slate-500 dark:text-slate-400">
+              {meta.note ?? 'Offline DB unavailable — using online providers.'}
+            </div>
+          )}
+
+          {!isInitialLoading && includeRareWords && status !== 'idle' && activeSuggestions.length > 0 &&
+            commonSuggestions.length === 0 && (
+              <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
+                No common matches — showing rare matches. Enable Rare words to see more.
+              </div>
+            )}
+
+          {!isInitialLoading && !includeRareWords && status !== 'idle' && activeSuggestions.length > 0 &&
+            commonSuggestions.length < LIMITED_COMMON_THRESHOLD && (
               <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
                 Limited common matches — try Near/Slant or enable Rare words for more.
               </div>
             )}
 
-          {isLoading && (
+          {isInitialLoading && (
             <div className="space-y-2 px-3 py-3">
               {Array.from({ length: 5 }).map((_, index) => (
                 <div
@@ -371,7 +455,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
-          {status === 'idle' && !isLoading && (
+          {status === 'idle' && !isInitialLoading && (
             <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
               Type or move the caret to load rhymes.
             </div>
@@ -383,13 +467,15 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               <div className="mt-2 text-[12px] text-rose-400">
                 Details: {error}
               </div>
-              <div className="mt-2 text-[12px] text-rose-400">
-                Verify public/rhyme-db/rhyme-db.v2.json exists (npm run build:rhyme-db).
-              </div>
+              {meta.source === 'local' && (
+                <div className="mt-2 text-[12px] text-rose-400">
+                  Verify public/rhyme-db/rhyme-db.v2.json exists (npm run build:rhyme-db).
+                </div>
+              )}
             </div>
           )}
 
-          {!isLoading && status !== 'idle' && activeSuggestions.length === 0 && (
+          {!isInitialLoading && status !== 'idle' && activeSuggestions.length === 0 && (
             <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
               {includeRareWords
                 ? 'No rhymes found — try Near or Slant'
@@ -397,7 +483,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
-          {!isLoading && activeSuggestions.length > 0 && (
+          {!isInitialLoading && activeSuggestions.length > 0 && (
             <div
               role="listbox"
               aria-activedescendant={activeOptionId}

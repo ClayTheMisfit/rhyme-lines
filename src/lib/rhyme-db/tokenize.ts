@@ -1,13 +1,6 @@
-const PUNCTUATION_REGEX = /^[.,!?;:"()\[\]{}<>]+|[.,!?;:"()\[\]{}<>]+$/g
-const BOUNDARY_REGEX = /[\s.,!?;:"()\[\]{}<>]/
+import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 
-export const normalizeToken = (raw: string) => {
-  const trimmed = raw.trim().toLowerCase()
-  if (!trimmed) {
-    return ''
-  }
-  return trimmed.replace(PUNCTUATION_REGEX, '')
-}
+const BOUNDARY_REGEX = /[\s.,!?;:"“”‘’'()\[\]{}<>]/
 
 const isBoundary = (char: string) => BOUNDARY_REGEX.test(char)
 

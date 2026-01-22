@@ -117,8 +117,8 @@ export default function RhymeWorkerSmokePage() {
     try {
       const results = await client.getRhymes(sampleQuery)
       setQueryDurationMs(performance.now() - start)
-      setCaretResults(results.caret ?? [])
-      setLineLastResults(results.lineLast ?? [])
+      setCaretResults(results.results.caret ?? [])
+      setLineLastResults(results.results.lineLast ?? [])
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       setQueryDurationMs(performance.now() - start)
@@ -141,8 +141,8 @@ export default function RhymeWorkerSmokePage() {
       const first = await client.getRhymes(sampleQuery)
       const second = await client.getRhymes(sampleQuery)
 
-      const caretDiff = compareArrays('caret', first.caret ?? [], second.caret ?? [])
-      const lineLastDiff = compareArrays('lineLast', first.lineLast ?? [], second.lineLast ?? [])
+      const caretDiff = compareArrays('caret', first.results.caret ?? [], second.results.caret ?? [])
+      const lineLastDiff = compareArrays('lineLast', first.results.lineLast ?? [], second.results.lineLast ?? [])
       const diff = caretDiff ?? lineLastDiff
 
       if (diff) {
