@@ -385,4 +385,54 @@ describe('queryRhymes', () => {
     expect(multi.words).toContain('talking')
     expect(multi.words).toContain('overwalking')
   })
+
+  it('filters rare multi-syllable perfect rhymes unless enabled', () => {
+    const words = ['walking', 'talking', 'overwalking']
+    const perfect = buildIndex([['AO-K-ING', [0, 1, 2]]])
+    const perfect2 = buildIndex([['K-ING', [0, 1, 2]]])
+    const empty = buildIndex([])
+    const runtime: RhymeDbRuntimeMaps = {
+      perfectKeysByWordId: buildKeysByWordId(perfect, words.length),
+      perfect2KeysByWordId: buildKeysByWordId(perfect2, words.length),
+      vowelKeysByWordId: buildKeysByWordId(empty, words.length),
+      codaKeysByWordId: buildKeysByWordId(empty, words.length),
+    }
+    const runtimeLookups: RhymeDbRuntimeLookups = {
+      wordToId: new Map(words.map((word, index) => [word.toLowerCase(), index])),
+    }
+
+    const dbWithRareMulti = Object.assign(
+      {
+        version: RHYME_DB_VERSION,
+        generatedAt: new Date(0).toISOString(),
+        source: { name: 'cmudict', path: 'fixture' },
+        words,
+        syllables: [2, 2, 3],
+        freqByWordId: [50, 50, 50],
+        isCommonByWordId: [1, 1, 0],
+        indexes: {
+          perfect,
+          perfect2,
+          vowel: empty,
+          coda: empty,
+        },
+      } satisfies RhymeDbV1,
+      { runtime, runtimeLookups }
+    )
+
+    const commonOnly = getRhymesForToken(dbWithRareMulti, 'walking', 'perfect', 10, {
+      includeRareWords: false,
+      multiSyllable: true,
+      wordUsage: { talking: 1 },
+    })
+    expect(commonOnly.words).toContain('talking')
+    expect(commonOnly.words).not.toContain('overwalking')
+
+    const includeRare = getRhymesForToken(dbWithRareMulti, 'walking', 'perfect', 10, {
+      includeRareWords: true,
+      multiSyllable: true,
+      wordUsage: { talking: 1 },
+    })
+    expect(includeRare.words).toContain('overwalking')
+  })
 })
