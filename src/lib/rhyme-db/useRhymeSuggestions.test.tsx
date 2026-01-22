@@ -1,85 +1,57 @@
 import { act, renderHook } from '@testing-library/react'
 import { useRhymeSuggestions } from '@/lib/rhyme-db/useRhymeSuggestions'
-import { getPreferredRhymeSource, retryLocalInit } from '@/lib/rhymes/rhymeSource'
-import type { AggregationResult } from '@/lib/rhyme/aggregate'
-import type { RhymeWorkerError } from '@/lib/rhyme-db/rhymeWorkerClient'
-import { fetchAggregatedRhymesWithProviders } from '@/lib/rhyme/aggregate'
 import { getRhymeClient, initRhymeClient } from '@/lib/rhyme-db/rhymeClientSingleton'
-
-jest.mock('@/lib/rhyme/aggregate', () => ({
-  fetchAggregatedRhymesWithProviders: jest.fn(),
-}))
 
 jest.mock('@/lib/rhyme-db/rhymeClientSingleton', () => ({
   getRhymeClient: jest.fn(),
   initRhymeClient: jest.fn(),
 }))
 
-const mockedFetchAggregatedRhymes = fetchAggregatedRhymesWithProviders as jest.MockedFunction<
-  typeof fetchAggregatedRhymesWithProviders
->
 const mockedGetRhymeClient = getRhymeClient as jest.MockedFunction<typeof getRhymeClient>
 const mockedInitRhymeClient = initRhymeClient as jest.MockedFunction<typeof initRhymeClient>
 
 const flushPromises = () => Promise.resolve()
 
-const makeAggregationResult = (words: string[], providerOk = true): AggregationResult => {
-  const suggestions = words.map((word) => ({
-    word,
-    normalized: word,
-    quality: 'perfect' as const,
-    score: 10,
-    sources: ['datamuse'],
-    providers: ['datamuse'],
-  }))
-  return {
-    suggestions,
-    buckets: {
-      perfect: suggestions,
-      near: [],
-      slant: [],
-    },
-    providerStates: [
-      {
-        name: 'datamuse',
-        ok: providerOk,
-        durationMs: 10,
-        skipped: false,
-      },
-    ],
-  }
-}
+const makeWorkerResponse = (words: string[]) => ({
+  results: { caret: words, lineLast: [] },
+  debug: {},
+})
 
-describe('useRhymeSuggestions fallback', () => {
+describe('useRhymeSuggestions', () => {
   beforeEach(() => {
     jest.useFakeTimers()
-    retryLocalInit()
-    mockedFetchAggregatedRhymes.mockReset()
     mockedGetRhymeClient.mockReset()
-    mockedInitRhymeClient.mockReset()
+    mockedInitRhymeClient.mockReset().mockResolvedValue(undefined)
   })
 
   afterEach(() => {
     jest.useRealTimers()
   })
 
-  it('uses local worker when available', async () => {
-    mockedInitRhymeClient.mockResolvedValue(undefined)
+  it('refetches when includeRareWords changes', async () => {
+    const getRhymes = jest.fn(async ({ context }) =>
+      makeWorkerResponse(context.includeRareWords ? ['rare'] : ['common'])
+    )
+
     mockedGetRhymeClient.mockReturnValue({
-      getRhymes: async () => ({ results: { caret: ['time'], lineLast: ['rhyme'] }, debug: {} }),
+      getRhymes,
       getWarning: () => null,
       init: () => Promise.resolve(),
       terminate: () => {},
     })
 
-    const { result } = renderHook(() =>
-      useRhymeSuggestions({
-        text: 'time',
-        caretIndex: 4,
-        currentLineText: 'time',
-        modes: ['perfect'],
-        enabled: true,
-      })
+    const { result, rerender } = renderHook(
+      ({ includeRareWords }) =>
+        useRhymeSuggestions({
+          text: 'time',
+          caretIndex: 4,
+          currentLineText: 'time',
+          modes: ['perfect'],
+          includeRareWords,
+          debounceMode: 'typing-250',
+          enabled: true,
+        }),
+      { initialProps: { includeRareWords: false } }
     )
 
     await act(async () => {
@@ -87,29 +59,43 @@ describe('useRhymeSuggestions fallback', () => {
       await flushPromises()
     })
 
-    expect(result.current.meta.source).toBe('local')
-    expect(result.current.results.caret).toEqual(['time'])
-    expect(mockedFetchAggregatedRhymes).not.toHaveBeenCalled()
+    expect(result.current.results.caret).toEqual(['common'])
+
+    rerender({ includeRareWords: true })
+
+    await act(async () => {
+      jest.advanceTimersByTime(260)
+      await flushPromises()
+    })
+
+    expect(result.current.results.caret).toEqual(['rare'])
   })
 
-  it('falls back to online when init fails', async () => {
-    mockedInitRhymeClient.mockRejectedValue(new Error('init failed'))
+  it('updates results when multi-syllable rhymes are enabled', async () => {
+    const getRhymes = jest.fn(async ({ context }) =>
+      makeWorkerResponse(context.multiSyllable ? ['moonwalking'] : ['talking'])
+    )
+
     mockedGetRhymeClient.mockReturnValue({
-      getRhymes: async () => ({ results: { caret: [], lineLast: [] }, debug: {} }),
+      getRhymes,
       getWarning: () => null,
       init: () => Promise.resolve(),
       terminate: () => {},
     })
-    mockedFetchAggregatedRhymes.mockResolvedValue(makeAggregationResult(['time']))
 
-    const { result } = renderHook(() =>
-      useRhymeSuggestions({
-        text: 'time',
-        caretIndex: 4,
-        currentLineText: 'time',
-        modes: ['perfect'],
-        enabled: true,
-      })
+    const { result, rerender } = renderHook(
+      ({ multiSyllable }) =>
+        useRhymeSuggestions({
+          text: 'walking',
+          caretIndex: 7,
+          currentLineText: 'walking',
+          modes: ['perfect'],
+          multiSyllable,
+          includeRareWords: true,
+          debounceMode: 'typing-250',
+          enabled: true,
+        }),
+      { initialProps: { multiSyllable: false } }
     )
 
     await act(async () => {
@@ -117,70 +103,74 @@ describe('useRhymeSuggestions fallback', () => {
       await flushPromises()
     })
 
-    expect(result.current.meta.source).toBe('online')
-    expect(result.current.results.caret).toEqual(['time'])
-    expect(getPreferredRhymeSource()).toBe('online')
+    expect(result.current.results.caret).toEqual(['talking'])
+
+    rerender({ multiSyllable: true })
+
+    await act(async () => {
+      jest.advanceTimersByTime(260)
+      await flushPromises()
+    })
+
+    expect(result.current.results.caret).toEqual(['moonwalking'])
   })
 
-  it('falls back to online when worker reports DB unavailable', async () => {
-    mockedInitRhymeClient.mockResolvedValue(undefined)
-    const dbError = new Error('db missing') as RhymeWorkerError
-    dbError.code = 'DB_UNAVAILABLE'
+  it('respects debounce timing for typing updates', async () => {
+    const getRhymes = jest.fn(async () => makeWorkerResponse(['time']))
+
     mockedGetRhymeClient.mockReturnValue({
-      getRhymes: async () => {
-        throw dbError
-      },
+      getRhymes,
       getWarning: () => null,
       init: () => Promise.resolve(),
       terminate: () => {},
     })
-    mockedFetchAggregatedRhymes.mockResolvedValue(makeAggregationResult(['time']))
 
-    const { result } = renderHook(() =>
-      useRhymeSuggestions({
-        text: 'time',
-        caretIndex: 4,
-        currentLineText: 'time',
-        modes: ['perfect'],
-        enabled: true,
-      })
+    const { rerender } = renderHook(
+      ({ text, debounceMode }) =>
+        useRhymeSuggestions({
+          text,
+          caretIndex: text.length,
+          currentLineText: text,
+          modes: ['perfect'],
+          includeRareWords: true,
+          debounceMode,
+          enabled: true,
+        }),
+      { initialProps: { text: 'time', debounceMode: 'typing-250' as const } }
     )
 
+    rerender({ text: 'times', debounceMode: 'typing-250' })
+
     await act(async () => {
-      jest.advanceTimersByTime(260)
+      jest.advanceTimersByTime(200)
       await flushPromises()
     })
 
-    expect(result.current.meta.source).toBe('online')
-    expect(getPreferredRhymeSource()).toBe('online')
-  })
-
-  it('returns an error when both local and online fail', async () => {
-    mockedInitRhymeClient.mockRejectedValue(new Error('init failed'))
-    mockedGetRhymeClient.mockReturnValue({
-      getRhymes: async () => ({ results: { caret: [], lineLast: [] }, debug: {} }),
-      getWarning: () => null,
-      init: () => Promise.resolve(),
-      terminate: () => {},
-    })
-    mockedFetchAggregatedRhymes.mockResolvedValue(makeAggregationResult([], false))
-
-    const { result } = renderHook(() =>
-      useRhymeSuggestions({
-        text: 'time',
-        caretIndex: 4,
-        currentLineText: 'time',
-        modes: ['perfect'],
-        enabled: true,
-      })
-    )
+    expect(getRhymes).not.toHaveBeenCalled()
 
     await act(async () => {
-      jest.advanceTimersByTime(260)
+      jest.advanceTimersByTime(70)
       await flushPromises()
     })
 
-    expect(result.current.status).toBe('error')
-    expect(result.current.error).toBe('Failed to fetch rhymes from online providers.')
+    expect(getRhymes).toHaveBeenCalled()
+
+    getRhymes.mockClear()
+
+    rerender({ text: 'timer', debounceMode: 'cursor-50' })
+
+    await act(async () => {
+      jest.advanceTimersByTime(40)
+      await flushPromises()
+    })
+
+    expect(getRhymes).not.toHaveBeenCalled()
+
+    await act(async () => {
+      jest.advanceTimersByTime(20)
+      await flushPromises()
+    })
+
+    expect(getRhymes).toHaveBeenCalled()
   })
 })

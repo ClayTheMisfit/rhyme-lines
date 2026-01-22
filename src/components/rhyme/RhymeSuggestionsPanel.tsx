@@ -7,10 +7,8 @@ import { layers } from '@/lib/layers'
 import { useRhymePanel, type RhymePanelMode } from '@/lib/state/rhymePanel'
 import { DockablePanel } from '@/components/panels/DockablePanel'
 import { useRhymeSuggestions } from '@/lib/rhyme-db/useRhymeSuggestions'
-import type { Mode } from '@/lib/rhyme-db/queryRhymes'
 import type { RhymeFilters } from '@/lib/persist/schema'
 import type { EditorHandle } from '@/components/Editor'
-import { getLocalInitFailureReason } from '@/lib/rhymes/rhymeSource'
 import { useMemo, useState } from 'react'
 
 const MIN_WIDTH = 280
@@ -58,12 +56,15 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       setSelectedIndex: state.setSelectedIndex,
     }))
 
-    const { includeRareWords, setIncludeRareWords, rhymeFilters, setRhymeFilters } = useSettingsStore((state) => ({
-      includeRareWords: state.includeRareWords,
-      setIncludeRareWords: state.setIncludeRareWords,
-      rhymeFilters: state.rhymeFilters,
-      setRhymeFilters: state.setRhymeFilters,
-    }))
+    const { includeRareWords, setIncludeRareWords, rhymeFilters, setRhymeFilters, debounceMode } = useSettingsStore(
+      (state) => ({
+        includeRareWords: state.includeRareWords,
+        setIncludeRareWords: state.setIncludeRareWords,
+        rhymeFilters: state.rhymeFilters,
+        setRhymeFilters: state.setRhymeFilters,
+        debounceMode: state.debounceMode,
+      })
+    )
 
     const { x, y, width, height, setBounds, dock, undock } = useRhymePanel(
       (state) => ({
@@ -92,7 +93,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       warning,
       results,
       debug,
-      meta,
       phase,
     } = useRhymeSuggestions({
       text,
@@ -102,6 +102,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       max: 100,
       multiSyllable,
       includeRareWords,
+      debounceMode,
       enabled: mode !== 'hidden',
     })
 
@@ -115,7 +116,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const activeTokenLabel = activeTab === 'caret' ? 'Caret' : 'Line End'
     const isInitialLoading = phase === 'initial'
     const isRefreshing = phase === 'refreshing'
-    const localInitFailureReason = getLocalInitFailureReason()
     const LIMITED_COMMON_THRESHOLD = 10
 
     React.useEffect(() => {
@@ -142,6 +142,12 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         setSelectedIndex(0)
       }
     }, [activeSuggestions.length, selectedIndex, setSelectedIndex])
+
+    React.useEffect(() => {
+      if (!rhymeFilters.perfect && multiSyllable) {
+        setMultiSyllable(false)
+      }
+    }, [multiSyllable, rhymeFilters.perfect])
 
     const insertSuggestion = React.useCallback(
       (word: string) => {
@@ -322,14 +328,22 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
 
             <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-              <label className="flex cursor-pointer items-center gap-2">
+              <label className={`flex cursor-pointer items-start gap-2 ${!rhymeFilters.perfect ? 'opacity-50' : ''}`}>
                 <input
                   type="checkbox"
                   className="h-3.5 w-3.5 rounded border-slate-300 text-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-400"
-                  checked={multiSyllable}
+                  checked={rhymeFilters.perfect ? multiSyllable : false}
                   onChange={(event) => setMultiSyllable(event.target.checked)}
+                  disabled={!rhymeFilters.perfect}
                 />
-                <span>Multi-syllable (last 2)</span>
+                <span>
+                  <span className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                    Multi-syllable perfect rhymes
+                  </span>
+                  <span className="block text-[10px] text-slate-400 dark:text-slate-500">
+                    Match last two syllables instead of just one
+                  </span>
+                </span>
               </label>
               <label className="flex cursor-pointer items-center gap-2">
                 <input
@@ -393,12 +407,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
-          {meta.source === 'online' && localInitFailureReason && !isInitialLoading && (
-            <div className="px-3 pb-2 text-[11px] text-slate-500 dark:text-slate-400">
-              {meta.note ?? 'Offline DB unavailable — using online providers.'}
-            </div>
-          )}
-
           {!isInitialLoading && !includeRareWords && status !== 'idle' && activeSuggestions.length > 0 &&
             activeSuggestions.length < LIMITED_COMMON_THRESHOLD && (
               <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
@@ -432,11 +440,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               <div className="mt-2 text-[12px] text-rose-400">
                 Details: {error}
               </div>
-              {meta.source === 'local' && (
-                <div className="mt-2 text-[12px] text-rose-400">
-                  Verify public/rhyme-db/rhyme-db.v2.json exists (npm run build:rhyme-db).
-                </div>
-              )}
+              <div className="mt-2 text-[12px] text-rose-400">
+                Verify public/rhyme-db/rhyme-db.v2.json exists (npm run build:rhyme-db).
+              </div>
             </div>
           )}
 

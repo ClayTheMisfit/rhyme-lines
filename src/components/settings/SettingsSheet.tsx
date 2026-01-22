@@ -54,6 +54,7 @@ export function SettingsSheet() {
     showLineTotals,
     rhymeAutoRefresh,
     debounceMode,
+    includeRareWords,
     setTheme,
     setFontSize,
     setLineHeight,
@@ -61,6 +62,7 @@ export function SettingsSheet() {
     setShowLineTotals,
     setRhymeAutoRefresh,
     setDebounceMode,
+    setIncludeRareWords,
     resetDefaults,
   } = useSettingsStore(
     useCallback(
@@ -72,6 +74,7 @@ export function SettingsSheet() {
         showLineTotals: state.showLineTotals,
         rhymeAutoRefresh: state.rhymeAutoRefresh,
         debounceMode: state.debounceMode,
+        includeRareWords: state.includeRareWords,
         setTheme: state.setTheme,
         setFontSize: state.setFontSize,
         setLineHeight: state.setLineHeight,
@@ -79,6 +82,7 @@ export function SettingsSheet() {
         setShowLineTotals: state.setShowLineTotals,
         setRhymeAutoRefresh: state.setRhymeAutoRefresh,
         setDebounceMode: state.setDebounceMode,
+        setIncludeRareWords: state.setIncludeRareWords,
         resetDefaults: state.resetDefaults,
       }),
       []
@@ -291,6 +295,22 @@ export function SettingsSheet() {
                 </span>
                 Auto refresh while typing
               </label>
+              <div className="space-y-1 text-sm text-white/80">
+                <label className="inline-flex items-center gap-3 font-medium">
+                  <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
+                    <input
+                      type="checkbox"
+                      className="peer sr-only"
+                      checked={includeRareWords}
+                      onChange={(event) => setIncludeRareWords(event.target.checked)}
+                      aria-label="Include rare words in rhyme suggestions"
+                    />
+                    <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                  </span>
+                  Include rare/obscure words
+                </label>
+                <p className="text-xs text-white/50">May include less common or archaic rhymes.</p>
+              </div>
               <div className="space-y-2">
                 {DEBOUNCE_OPTIONS.map((option) => {
                   const isActive = debounceMode === option.value
@@ -366,6 +386,7 @@ export function SettingsSheet() {
       handleCancel,
       handleSave,
       headingId,
+      includeRareWords,
       lineHeight,
       panelId,
       resetDefaults,
@@ -373,6 +394,7 @@ export function SettingsSheet() {
       setBadgeSize,
       setDebounceMode,
       setFontSize,
+      setIncludeRareWords,
       setLineHeight,
       setRhymeAutoRefresh,
       setShowLineTotals,
