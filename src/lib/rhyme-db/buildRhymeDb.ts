@@ -211,6 +211,7 @@ export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
   const rankMap: Record<string, number> = JSON.parse(
     fs.readFileSync(new URL('./frequency/commonWordRanks.json', import.meta.url), 'utf8')
   )
+  const COMMON_WORD_RANK_LIMIT = 15000
   const pronunciationsByWord = new Map<string, ParsedEntry[]>()
   for (const entry of entries) {
     const existing = pronunciationsByWord.get(entry.word)
@@ -237,7 +238,7 @@ export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
   })
 
   const freqByWordId = words.map((word) => rankMap[word] ?? 0)
-  const isCommonByWordId = freqByWordId.map((freq) => (freq > 0 ? 1 : 0))
+  const isCommonByWordId = freqByWordId.map((rank) => (rank > 0 && rank <= COMMON_WORD_RANK_LIMIT ? 1 : 0))
 
   if (freqByWordId.length !== words.length) {
     throw new Error(`Frequency map length mismatch: ${freqByWordId.length} vs ${words.length}`)
