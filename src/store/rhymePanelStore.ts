@@ -17,6 +17,7 @@ export interface RhymePanelState {
   searchQuery: string
   selectedIndex: number | null
   panelWidth: number
+  multiSyllablePerfect: boolean
   
   // Actions
   togglePanel: () => void
@@ -26,6 +27,7 @@ export interface RhymePanelState {
   setSelectedIndex: (index: number | null) => void
   resetSelection: () => void
   setPanelWidth: (width: number) => void
+  setMultiSyllablePerfect: (value: boolean) => void
 }
 
 const basePanelState = DEFAULT_PANEL_STATE
@@ -34,9 +36,10 @@ const initialFilters = basePanelState.filters ?? DEFAULT_PANEL_STATE.filters
 export const useRhymePanelStore = create<RhymePanelState>()((set, get) => ({
   isOpen: useRhymePanel.getState().mode !== 'hidden',
   filters: { ...initialFilters },
-  searchQuery: basePanelState.searchQuery ?? basePanelState.lastTargetWord ?? '',
+  searchQuery: basePanelState.searchQuery ?? '',
   selectedIndex: basePanelState.selectedIndex ?? null,
   panelWidth: basePanelState.rhymePanel.width ?? useRhymePanel.getState().width,
+  multiSyllablePerfect: basePanelState.multiSyllablePerfect ?? false,
 
   // Actions
   togglePanel: () => {
@@ -67,6 +70,7 @@ export const useRhymePanelStore = create<RhymePanelState>()((set, get) => ({
     useRhymePanel.getState().setBounds({ width })
     set({ panelWidth: width })
   },
+  setMultiSyllablePerfect: (value) => set({ multiSyllablePerfect: value }),
 }))
 
 const PANEL_PERSIST_DEBOUNCE_MS = 250
@@ -84,10 +88,10 @@ const buildPanelPersistPayload = (): PanelSchema => {
       position: { x: panel.x, y: panel.y },
     },
     filters: filters.filters,
-    lastTargetWord: filters.searchQuery || undefined,
-    searchQuery: filters.searchQuery,
+    searchQuery: '',
     selectedIndex: filters.selectedIndex,
     syllableFilter: panel.filter,
+    multiSyllablePerfect: filters.multiSyllablePerfect,
   }
 }
 
@@ -125,9 +129,10 @@ if (isClient()) {
 
 export function hydrateRhymePanel(panel: PanelSchema) {
   const filters = panel.filters ?? DEFAULT_PANEL_STATE.filters
-  const searchQuery = panel.searchQuery ?? panel.lastTargetWord ?? ''
+  const searchQuery = ''
   const selectedIndex = panel.selectedIndex ?? null
   const panelWidth = panel.rhymePanel.width ?? useRhymePanel.getState().width
+  const multiSyllablePerfect = panel.multiSyllablePerfect ?? false
   const mode: RhymePanelMode = panel.rhymePanel.isOpen
     ? panel.rhymePanel.isDetached
       ? 'detached'
@@ -142,5 +147,6 @@ export function hydrateRhymePanel(panel: PanelSchema) {
     searchQuery,
     selectedIndex,
     panelWidth,
+    multiSyllablePerfect,
   })
 }

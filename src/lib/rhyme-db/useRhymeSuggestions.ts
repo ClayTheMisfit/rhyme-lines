@@ -5,6 +5,7 @@ import { onlineProviders } from '@/lib/rhyme/providers'
 import type { Mode, RhymeTargetsDebug, RhymeTokenDebug } from '@/lib/rhyme-db/queryRhymes'
 import { getRhymeClient, initRhymeClient } from '@/lib/rhyme-db/rhymeClientSingleton'
 import { getCaretWord, getLineLastWord } from '@/lib/rhyme-db/tokenize'
+import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 import type { RhymeSource } from '@/lib/rhymes/rhymeSource'
 import {
@@ -42,6 +43,7 @@ type UseRhymeSuggestionsArgs = {
   caretIndex: number
   currentLineText?: string
   currentLineRange?: LineRange
+  queryToken?: string
   modes: Mode[]
   max?: number
   multiSyllable?: boolean
@@ -54,6 +56,7 @@ export const useRhymeSuggestions = ({
   caretIndex,
   currentLineText,
   currentLineRange,
+  queryToken,
   modes,
   max,
   multiSyllable,
@@ -70,6 +73,7 @@ export const useRhymeSuggestions = ({
   const [phase, setPhase] = useState<LoadPhase>('idle')
   const lastGoodRef = useRef<Results>({})
 
+  const normalizedQueryToken = useMemo(() => normalizeToken(queryToken ?? ''), [queryToken])
   const caretIndexRef = useRef(caretIndex)
   const requestCounter = useRef(0)
   const typingTimer = useRef<number | null>(null)
@@ -471,6 +475,10 @@ export const useRhymeSuggestions = ({
       return
     }
 
+    if (normalizedQueryToken) {
+      return
+    }
+
     if (typingTimer.current) {
       window.clearTimeout(typingTimer.current)
     }
@@ -489,10 +497,11 @@ export const useRhymeSuggestions = ({
         window.clearTimeout(typingTimer.current)
       }
     }
-  }, [enabled, lineText, runQuery, text])
+  }, [enabled, lineText, normalizedQueryToken, runQuery, text])
 
   useEffect(() => {
     if (!enabled) return
+    if (normalizedQueryToken) return
     if (text !== lastContentRef.current.text || lineText !== lastContentRef.current.lineText) {
       return
     }
@@ -513,7 +522,26 @@ export const useRhymeSuggestions = ({
         window.clearTimeout(caretTimer.current)
       }
     }
-  }, [caretIndex, enabled, lineText, runQuery, text])
+  }, [caretIndex, enabled, lineText, normalizedQueryToken, runQuery, text])
+
+  useEffect(() => {
+    if (!enabled) return
+    if (!normalizedQueryToken) return
+
+    if (typingTimer.current) {
+      window.clearTimeout(typingTimer.current)
+    }
+
+    typingTimer.current = window.setTimeout(() => {
+      runQuery({ caretToken: normalizedQueryToken, lineLastToken: normalizedQueryToken })
+    }, 200)
+
+    return () => {
+      if (typingTimer.current) {
+        window.clearTimeout(typingTimer.current)
+      }
+    }
+  }, [enabled, normalizedQueryToken, runQuery])
 
   return {
     status,

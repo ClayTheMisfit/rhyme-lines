@@ -71,6 +71,7 @@ export interface PanelSchema {
   searchQuery?: string
   selectedIndex?: number | null
   syllableFilter?: number
+  multiSyllablePerfect?: boolean
 }
 
 export const DEFAULT_RHYME_FILTERS: RhymeFilters = {
@@ -105,6 +106,7 @@ export const DEFAULT_PANEL_STATE: PanelSchema = {
   searchQuery: '',
   selectedIndex: null,
   syllableFilter: 0,
+  multiSyllablePerfect: false,
 }
 
 export function createEmptyDraft(docId: string, title = 'Untitled'): DraftSchema {

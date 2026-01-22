@@ -26,6 +26,7 @@ const clonePanelState = (panel: PanelSchema): PanelSchema => ({
   searchQuery: panel.searchQuery,
   selectedIndex: panel.selectedIndex,
   syllableFilter: panel.syllableFilter,
+  multiSyllablePerfect: panel.multiSyllablePerfect,
 })
 
 const getDefaultAppState = (): PersistedAppState => ({

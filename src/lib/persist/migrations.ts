@@ -174,6 +174,7 @@ const normalizePanel = (value: unknown): PanelSchema => {
     searchQuery: toStringValue(value.searchQuery) ?? '',
     selectedIndex: isFiniteNumber(value.selectedIndex) ? value.selectedIndex : null,
     syllableFilter: isFiniteNumber(value.syllableFilter) ? value.syllableFilter : DEFAULT_PANEL_STATE.syllableFilter,
+    multiSyllablePerfect: toBoolean(value.multiSyllablePerfect, DEFAULT_PANEL_STATE.multiSyllablePerfect ?? false),
   }
 }
 
