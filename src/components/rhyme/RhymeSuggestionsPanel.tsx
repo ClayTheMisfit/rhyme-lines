@@ -21,7 +21,6 @@ type QualityKey = keyof RhymeFilters
 const QUALITY_CHIPS: ReadonlyArray<{ label: string; value: QualityKey }> = [
   { label: 'Perfect', value: 'perfect' },
   { label: 'Near', value: 'near' },
-  { label: 'Slant', value: 'slant' },
 ]
 
 type Props = {
@@ -219,7 +218,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         const resetFilters = QUALITY_CHIPS.reduce<RhymeFilters>((acc, chip) => {
           acc[chip.value] = true
           return acc
-        }, { perfect: true, near: true, slant: true })
+        }, { perfect: true, near: true })
         setRhymeFilters(resetFilters)
       }
     }, [activeModes.length, setRhymeFilters])
@@ -408,7 +407,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     onClick={() => {
                       const next = { ...rhymeFilters, [chip.value]: !rhymeFilters[chip.value] }
                       const hasAny = Object.values(next).some(Boolean)
-                      setRhymeFilters(hasAny ? next : { perfect: true, near: true, slant: true })
+                      setRhymeFilters(hasAny ? next : { perfect: true, near: true })
                     }}
                     className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
                       isActive
@@ -528,10 +527,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
               Token: {debug.caretDetails.normalizedToken} · id: {debug.caretDetails.wordId ?? '—'} ·
               perfect: {debug.caretDetails.perfectKey ?? '—'} · vowel: {debug.caretDetails.vowelKey ?? '—'} ·
-              coda: {debug.caretDetails.codaKey ?? '—'} · pools (P/N/S):{' '}
+              coda: {debug.caretDetails.codaKey ?? '—'} · pools (P/N):{' '}
               {debug.caretDetails.candidatePools.perfect}/
-              {debug.caretDetails.candidatePools.near}/
-              {debug.caretDetails.candidatePools.slant}
+              {debug.caretDetails.candidatePools.near}
             </div>
           )}
 
@@ -546,11 +544,18 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               <div className="px-3 pb-2 text-[10px] text-slate-400 dark:text-slate-500">
                 tail: {activeDebug.perfectTailLenUsed ?? '—'} · pool: {activeDebug.poolSize ?? '—'} ·
                 after mode: {activeDebug.afterModeMatchCount ?? '—'} · after rare: {activeDebug.afterRareRankOrFilterCount ?? '—'} ·
-                rendered: {visibleSuggestions.length} · visible: {visibleCount}
+                rendered: {activeDebug.renderedCount ?? visibleSuggestions.length} · visible: {visibleCount}
                 {activeDebug.tierCounts && (
                   <span>
                     {' '}
                     · tiers: c{activeDebug.tierCounts.common}/u{activeDebug.tierCounts.uncommon}/r{activeDebug.tierCounts.rare}/p{activeDebug.tierCounts.proper}/f{activeDebug.tierCounts.foreign}/w{activeDebug.tierCounts.weird}
+                  </span>
+                )}
+                {activeDebug.vowelPoolSize != null && activeDebug.codaPoolSize != null && (
+                  <span>
+                    {' '}
+                    · vowel pool: {activeDebug.vowelPoolSize} · coda pool: {activeDebug.codaPoolSize} · combined:{' '}
+                    {activeDebug.combinedUniqueCount ?? '—'}
                   </span>
                 )}
                 {activeDebug.topCandidates && activeDebug.topCandidates.length > 0 && (
@@ -581,7 +586,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           {!isInitialLoading && !includeRareWords && status !== 'idle' && activeSuggestions.length > 0 &&
             activeSuggestions.length < LIMITED_COMMON_THRESHOLD && (
               <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
-                Limited common matches — try Near/Slant or enable Rare words for more.
+                Limited common matches — try Near or enable Rare words for more.
               </div>
             )}
 
@@ -622,8 +627,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           {!isInitialLoading && status !== 'idle' && activeSuggestions.length === 0 && (
             <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
               {includeRareWords
-                ? 'No rhymes found — try Near or Slant'
-                : 'No common rhymes — try Near/Slant or enable Rare words.'}
+                ? 'No rhymes found — try Near'
+                : 'No common rhymes — try Near or enable Rare words.'}
             </div>
           )}
 

@@ -11,7 +11,7 @@ export type StorageKey = keyof typeof STORAGE_KEYS
 export type ThemeSetting = 'dark' | 'light' | 'system'
 export type DebounceMode = 'cursor-50' | 'typing-250'
 export type BadgeSize = 'xs' | 'sm' | 'md'
-export type RhymeFilters = { perfect: boolean; near: boolean; slant: boolean }
+export type RhymeFilters = { perfect: boolean; near: boolean }
 
 export interface SettingsSchema {
   theme: ThemeSetting
@@ -78,7 +78,6 @@ export interface PanelSchema {
 export const DEFAULT_RHYME_FILTERS: RhymeFilters = {
   perfect: true,
   near: true,
-  slant: true,
 }
 
 export const DEFAULT_SETTINGS: SettingsSchema = {

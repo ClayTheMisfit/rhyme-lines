@@ -14,7 +14,7 @@ import {
   markLocalInitFailed,
 } from '@/lib/rhymes/rhymeSource'
 
-const ALL_MODES = ['perfect', 'near', 'slant'] as const
+const ALL_MODES = ['perfect', 'near'] as const
 type NormalizedMode = typeof ALL_MODES[number]
 const isMode = (value: string): value is NormalizedMode => (ALL_MODES as readonly string[]).includes(value)
 
@@ -149,7 +149,7 @@ export const useRhymeSuggestions = ({
         return {
           perfect: normalized.includes('perfect'),
           near: normalized.includes('near'),
-          slant: normalized.includes('slant'),
+          slant: normalized.includes('near'),
         }
       }
 
@@ -397,9 +397,8 @@ export const useRhymeSuggestions = ({
               (acc, item) => ({
                 perfect: Math.max(acc.perfect, item.candidatePools.perfect),
                 near: Math.max(acc.near, item.candidatePools.near),
-                slant: Math.max(acc.slant, item.candidatePools.slant),
               }),
-              { perfect: 0, near: 0, slant: 0 }
+              { perfect: 0, near: 0 }
             )
             return {
               normalizedToken: available[0].normalizedToken,

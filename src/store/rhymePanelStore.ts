@@ -4,7 +4,7 @@ import { create } from 'zustand'
 import { assertClientOnly } from '@/lib/env/assertClientOnly'
 import { isClient } from '@/lib/env/isClient'
 import { applyRhymePanelState, useRhymePanel, type RhymePanelMode } from '@/lib/state/rhymePanel'
-import type { RhymeQuality } from '@/lib/rhyme/aggregate'
+import type { RhymeFilters } from '@/lib/persist/schema'
 import { DEFAULT_PANEL_STATE, type PanelSchema } from '@/lib/persist/schema'
 import { writeVersioned } from '@/lib/persist/storage'
 
@@ -13,7 +13,7 @@ export interface RhymePanelState {
   isOpen: boolean
   
   // UI state
-  filters: Record<RhymeQuality, boolean>
+  filters: RhymeFilters
   searchQuery: string
   selectedIndex: number | null
   panelWidth: number
@@ -21,8 +21,8 @@ export interface RhymePanelState {
   
   // Actions
   togglePanel: () => void
-  setFilters: (filters: Record<RhymeQuality, boolean>) => void
-  toggleFilter: (quality: RhymeQuality) => void
+  setFilters: (filters: RhymeFilters) => void
+  toggleFilter: (quality: keyof RhymeFilters) => void
   setSearchQuery: (query: string) => void
   setSelectedIndex: (index: number | null) => void
   resetSelection: () => void

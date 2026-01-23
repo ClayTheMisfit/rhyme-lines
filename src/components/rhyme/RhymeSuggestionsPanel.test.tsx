@@ -35,7 +35,7 @@ describe('RhymeSuggestionsPanel', () => {
     )
 
     expect(
-      screen.getByText('No common rhymes — try Near/Slant or enable Rare words.')
+      screen.getByText('No common rhymes — try Near or enable Rare words.')
     ).toBeInTheDocument()
   })
 })

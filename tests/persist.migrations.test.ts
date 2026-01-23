@@ -13,7 +13,7 @@ describe('persistence migrations', () => {
       theme: 'light',
       fontSize: 20,
       lineHeight: 1.5,
-      rhymeFilters: { perfect: false, near: true, slant: false },
+      rhymeFilters: { perfect: false, near: false, slant: true },
     }
 
     const { data, version } = migrateSettings([{ key: 'legacy', value: JSON.stringify(legacySettings) }])
@@ -22,6 +22,7 @@ describe('persistence migrations', () => {
     expect(data.theme).toBe('light')
     expect(data.fontSize).toBe(20)
     expect(data.rhymeFilters.perfect).toBe(false)
+    expect(data.rhymeFilters.near).toBe(true)
     expect(data.lastUpdatedAt).toBeGreaterThan(0)
   })
 

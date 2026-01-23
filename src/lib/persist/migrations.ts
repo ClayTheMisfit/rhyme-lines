@@ -43,10 +43,10 @@ const toStringValue = (value: unknown): string | null => (typeof value === 'stri
 const normalizeRhymeFilters = (value: unknown) => {
   const base = { ...DEFAULT_RHYME_FILTERS }
   if (!isRecord(value)) return base
+  const legacySlant = toBoolean(value.slant, false)
   return {
     perfect: toBoolean(value.perfect, base.perfect),
-    near: toBoolean(value.near, base.near),
-    slant: toBoolean(value.slant, base.slant),
+    near: toBoolean(value.near, base.near) || legacySlant,
   }
 }
 
