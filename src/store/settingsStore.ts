@@ -25,6 +25,7 @@ export type SettingsState = {
   highContrast: boolean
   rhymeFilters: RhymeFilters
   includeRareWords: boolean
+  commonWordsOnly: boolean
   lastUpdatedAt: number
   setTheme: (theme: ThemeSetting) => void
   setFontSize: (fontSize: number) => void
@@ -36,6 +37,7 @@ export type SettingsState = {
   setHighContrast: (value: boolean) => void
   setRhymeFilters: (filters: RhymeFilters) => void
   setIncludeRareWords: (value: boolean) => void
+  setCommonWordsOnly: (value: boolean) => void
   resetDefaults: () => void
 }
 
@@ -58,6 +60,7 @@ const persistSettings = (state: SettingsState) => {
     highContrast: state.highContrast,
     rhymeFilters: state.rhymeFilters,
     includeRareWords: state.includeRareWords,
+    commonWordsOnly: state.commonWordsOnly,
     lastUpdatedAt: Date.now(),
   }
   writeVersioned('settings', payload)
@@ -128,6 +131,10 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
     set({ includeRareWords, lastUpdatedAt: Date.now() })
     schedulePersist(get())
   },
+  setCommonWordsOnly: (commonWordsOnly) => {
+    set({ commonWordsOnly, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
   resetDefaults: () => {
     const resetState = applySettingsDefaults({
       ...DEFAULT_SETTINGS,
@@ -151,6 +158,7 @@ export type SettingsSnapshot = Pick<
   | 'highContrast'
   | 'rhymeFilters'
   | 'includeRareWords'
+  | 'commonWordsOnly'
 >
 
 export function getCurrentSettingsSnapshot(): SettingsSnapshot {
@@ -165,6 +173,7 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     highContrast,
     rhymeFilters,
     includeRareWords,
+    commonWordsOnly,
   } = useSettingsStore.getState()
   return {
     theme,
@@ -177,6 +186,7 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     highContrast,
     rhymeFilters,
     includeRareWords,
+    commonWordsOnly,
   }
 }
 
@@ -192,6 +202,7 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
     setHighContrast,
     setRhymeFilters,
     setIncludeRareWords,
+    setCommonWordsOnly,
   } = useSettingsStore.getState()
 
   setTheme(snapshot.theme)
@@ -204,6 +215,7 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
   setHighContrast(snapshot.highContrast)
   setRhymeFilters(snapshot.rhymeFilters)
   setIncludeRareWords(snapshot.includeRareWords)
+  setCommonWordsOnly(snapshot.commonWordsOnly)
 }
 
 export function hydrateSettingsStore(payload: SettingsSchema) {

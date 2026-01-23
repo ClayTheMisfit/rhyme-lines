@@ -5,14 +5,16 @@ import { onlineProviders } from '@/lib/rhyme/providers'
 import type { Mode, RhymeTargetsDebug, RhymeTokenDebug } from '@/lib/rhyme-db/queryRhymes'
 import { getRhymeClient, initRhymeClient } from '@/lib/rhyme-db/rhymeClientSingleton'
 import { getCaretWord, getLineLastWord } from '@/lib/rhyme-db/tokenize'
+import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 import type { RhymeSource } from '@/lib/rhymes/rhymeSource'
+import { classifyCandidate, QUALITY_TIER_ORDER } from '@/lib/rhyme/wordQuality'
 import {
   getPreferredRhymeSource,
   markLocalInitFailed,
 } from '@/lib/rhymes/rhymeSource'
 
-const ALL_MODES = ['perfect', 'near', 'slant'] as const
+const ALL_MODES = ['perfect', 'near'] as const
 type NormalizedMode = typeof ALL_MODES[number]
 const isMode = (value: string): value is NormalizedMode => (ALL_MODES as readonly string[]).includes(value)
 
@@ -42,10 +44,12 @@ type UseRhymeSuggestionsArgs = {
   caretIndex: number
   currentLineText?: string
   currentLineRange?: LineRange
+  queryToken?: string
   modes: Mode[]
   max?: number
   multiSyllable?: boolean
   includeRareWords?: boolean
+  commonWordsOnly?: boolean
   enabled: boolean
 }
 
@@ -54,10 +58,12 @@ export const useRhymeSuggestions = ({
   caretIndex,
   currentLineText,
   currentLineRange,
+  queryToken,
   modes,
   max,
   multiSyllable,
   includeRareWords,
+  commonWordsOnly,
   enabled,
 }: UseRhymeSuggestionsArgs) => {
   const [status, setStatus] = useState<Status>('idle')
@@ -70,6 +76,7 @@ export const useRhymeSuggestions = ({
   const [phase, setPhase] = useState<LoadPhase>('idle')
   const lastGoodRef = useRef<Results>({})
 
+  const normalizedQueryToken = useMemo(() => normalizeToken(queryToken ?? ''), [queryToken])
   const caretIndexRef = useRef(caretIndex)
   const requestCounter = useRef(0)
   const typingTimer = useRef<number | null>(null)
@@ -142,7 +149,7 @@ export const useRhymeSuggestions = ({
         return {
           perfect: normalized.includes('perfect'),
           near: normalized.includes('near'),
-          slant: normalized.includes('slant'),
+          slant: normalized.includes('near'),
         }
       }
 
@@ -151,6 +158,29 @@ export const useRhymeSuggestions = ({
 
       const toSuggestions = (result: AggregationResult | null) =>
         result?.suggestions.map((suggestion) => suggestion.word) ?? []
+
+      const shouldIncludeTier = (tier: string) => {
+        if (commonWordsOnly) {
+          return tier === 'common' || tier === 'uncommon'
+        }
+        if (includeRareWords) return true
+        return tier !== 'proper' && tier !== 'foreign' && tier !== 'weird'
+      }
+
+      const filterAndSort = (items: string[]) => {
+        const annotated = items.map((word) => {
+          const quality = classifyCandidate(word)
+          return { word, tier: quality.qualityTier, score: quality.commonScore }
+        })
+        const filtered = annotated.filter((entry) => shouldIncludeTier(entry.tier))
+        filtered.sort((a, b) => {
+          const tierDelta = QUALITY_TIER_ORDER[a.tier] - QUALITY_TIER_ORDER[b.tier]
+          if (tierDelta !== 0) return tierDelta
+          if (a.score !== b.score) return b.score - a.score
+          return a.word.localeCompare(b.word)
+        })
+        return filtered.map((entry) => entry.word)
+      }
 
       const fetchOnline = async () => {
         const controller = new AbortController()
@@ -230,14 +260,15 @@ export const useRhymeSuggestions = ({
         const sharedResult = outcomes.get('shared')
         if (sharedResult) {
           const suggestions = toSuggestions(sharedResult)
-          onlineResults.caret = suggestions
-          onlineResults.lineLast = suggestions
+          const filtered = filterAndSort(suggestions)
+          onlineResults.caret = filtered
+          onlineResults.lineLast = filtered
         } else {
           if (outcomes.get('caret')) {
-            onlineResults.caret = toSuggestions(outcomes.get('caret') ?? null)
+            onlineResults.caret = filterAndSort(toSuggestions(outcomes.get('caret') ?? null))
           }
           if (outcomes.get('lineLast')) {
-            onlineResults.lineLast = toSuggestions(outcomes.get('lineLast') ?? null)
+            onlineResults.lineLast = filterAndSort(toSuggestions(outcomes.get('lineLast') ?? null))
           }
         }
 
@@ -306,6 +337,7 @@ export const useRhymeSuggestions = ({
                   desiredSyllables,
                   multiSyllable: Boolean(multiSyllable),
                   includeRareWords,
+                  commonWordsOnly,
                 },
               })
             )
@@ -365,9 +397,8 @@ export const useRhymeSuggestions = ({
               (acc, item) => ({
                 perfect: Math.max(acc.perfect, item.candidatePools.perfect),
                 near: Math.max(acc.near, item.candidatePools.near),
-                slant: Math.max(acc.slant, item.candidatePools.slant),
               }),
-              { perfect: 0, near: 0, slant: 0 }
+              { perfect: 0, near: 0 }
             )
             return {
               normalizedToken: available[0].normalizedToken,
@@ -420,7 +451,7 @@ export const useRhymeSuggestions = ({
 
       await applyOnlineFallback('Offline DB unavailable — using online providers.')
     },
-    [enabled, includeRareWords, max, modes, multiSyllable, wordUsage]
+    [commonWordsOnly, enabled, includeRareWords, max, modes, multiSyllable, wordUsage]
   )
 
   useEffect(() => {
@@ -471,6 +502,10 @@ export const useRhymeSuggestions = ({
       return
     }
 
+    if (normalizedQueryToken) {
+      return
+    }
+
     if (typingTimer.current) {
       window.clearTimeout(typingTimer.current)
     }
@@ -489,10 +524,11 @@ export const useRhymeSuggestions = ({
         window.clearTimeout(typingTimer.current)
       }
     }
-  }, [enabled, lineText, runQuery, text])
+  }, [enabled, lineText, normalizedQueryToken, runQuery, text])
 
   useEffect(() => {
     if (!enabled) return
+    if (normalizedQueryToken) return
     if (text !== lastContentRef.current.text || lineText !== lastContentRef.current.lineText) {
       return
     }
@@ -513,7 +549,26 @@ export const useRhymeSuggestions = ({
         window.clearTimeout(caretTimer.current)
       }
     }
-  }, [caretIndex, enabled, lineText, runQuery, text])
+  }, [caretIndex, enabled, lineText, normalizedQueryToken, runQuery, text])
+
+  useEffect(() => {
+    if (!enabled) return
+    if (!normalizedQueryToken) return
+
+    if (typingTimer.current) {
+      window.clearTimeout(typingTimer.current)
+    }
+
+    typingTimer.current = window.setTimeout(() => {
+      runQuery({ caretToken: normalizedQueryToken, lineLastToken: normalizedQueryToken })
+    }, 200)
+
+    return () => {
+      if (typingTimer.current) {
+        window.clearTimeout(typingTimer.current)
+      }
+    }
+  }, [enabled, normalizedQueryToken, runQuery])
 
   return {
     status,

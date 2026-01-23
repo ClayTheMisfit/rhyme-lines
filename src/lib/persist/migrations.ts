@@ -43,10 +43,10 @@ const toStringValue = (value: unknown): string | null => (typeof value === 'stri
 const normalizeRhymeFilters = (value: unknown) => {
   const base = { ...DEFAULT_RHYME_FILTERS }
   if (!isRecord(value)) return base
+  const legacySlant = toBoolean(value.slant, false)
   return {
     perfect: toBoolean(value.perfect, base.perfect),
-    near: toBoolean(value.near, base.near),
-    slant: toBoolean(value.slant, base.slant),
+    near: toBoolean(value.near, base.near) || legacySlant,
   }
 }
 
@@ -80,6 +80,7 @@ const normalizeSettings = (value: unknown): SettingsSchema => {
     payload.includeRareWords,
     toBoolean(payload.includeRareRhymes, DEFAULT_SETTINGS.includeRareWords ?? false)
   )
+  const commonWordsOnly = toBoolean(payload.commonWordsOnly, DEFAULT_SETTINGS.commonWordsOnly ?? true)
   const highContrast = toBoolean(payload.highContrast, DEFAULT_SETTINGS.highContrast ?? false)
   const lastUpdatedAt = toNumber(payload.lastUpdatedAt, Date.now())
 
@@ -91,6 +92,7 @@ const normalizeSettings = (value: unknown): SettingsSchema => {
     keyboardShortcuts,
     rhymeFilters,
     includeRareWords,
+    commonWordsOnly,
     lastUpdatedAt,
     badgeSize,
     showLineTotals,
@@ -174,6 +176,7 @@ const normalizePanel = (value: unknown): PanelSchema => {
     searchQuery: toStringValue(value.searchQuery) ?? '',
     selectedIndex: isFiniteNumber(value.selectedIndex) ? value.selectedIndex : null,
     syllableFilter: isFiniteNumber(value.syllableFilter) ? value.syllableFilter : DEFAULT_PANEL_STATE.syllableFilter,
+    multiSyllablePerfect: toBoolean(value.multiSyllablePerfect, DEFAULT_PANEL_STATE.multiSyllablePerfect ?? false),
   }
 }
 
