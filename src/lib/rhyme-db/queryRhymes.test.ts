@@ -389,7 +389,10 @@ describe('queryRhymes', () => {
 
     const results = getRhymesForToken(dbWithNear, 'time', 'near', 20, { includeRareWords: true })
     expect(results.words).toEqual(expect.arrayContaining(['rhyme', 'prime', 'dime']))
-    expect(results.words).not.toEqual(expect.arrayContaining(['room', 'home', 'game', 'name', 'came']))
+    const excluded = ['room', 'home', 'game', 'name', 'came']
+    for (const word of excluded) {
+      expect(results.words).not.toContain(word)
+    }
     expect(results.words.indexOf("i'm")).toBeGreaterThan(results.words.indexOf('prime'))
   })
 
