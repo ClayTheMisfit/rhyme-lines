@@ -104,10 +104,9 @@ describe('queryRhymes', () => {
     expect(results.words.indexOf('time')).toBeGreaterThan(results.words.indexOf('line'))
   })
 
-  it('combines vowel and coda pools in near mode', () => {
+  it('avoids coda-only pooling in near mode', () => {
     const results = getRhymesForToken(db, 'fine', 'near', 10, { includeRareWords: true })
-    expect(results.words).toContain('moon')
-    expect(results.words.indexOf('moon')).toBeGreaterThan(results.words.indexOf('line'))
+    expect(results.words).not.toContain('moon')
   })
 
   it('removes trivial inflections', () => {
@@ -346,6 +345,58 @@ describe('queryRhymes', () => {
     const results = getRhymesForToken(dbWithStopwords, 'skill', 'near', 50, { includeRareWords: true })
     expect(results.words).toEqual(expect.arrayContaining(['will', 'still', 'chill', 'fill', 'bill']))
     expect(results.words).not.toEqual(expect.arrayContaining(['in', 'is', 'his', 'when', 'did', 'does', 'good', 'even']))
+  })
+
+  it('keeps near rhymes in the same vowel family and downranks contractions', () => {
+    const words = ['time', 'rhyme', 'prime', 'dime', 'room', 'game', 'name', 'came', 'home', "i'm"]
+    const perfect = buildIndex([['AY-M', [0, 1, 2, 3, 9]]])
+    const vowel = buildIndex([
+      ['AY', [0, 1, 2, 3, 9]],
+      ['UW', [4]],
+      ['EY', [5, 6, 7]],
+      ['OW', [8]],
+    ])
+    const coda = buildIndex([
+      ['M', [0, 1, 2, 3, 4, 8, 9]],
+      ['M-AY', [5, 6, 7]],
+    ])
+    const runtime: RhymeDbRuntimeMaps = {
+      perfectKeysByWordId: buildKeysByWordId(perfect, words.length),
+      vowelKeysByWordId: buildKeysByWordId(vowel, words.length),
+      codaKeysByWordId: buildKeysByWordId(coda, words.length),
+    }
+    const runtimeLookups: RhymeDbRuntimeLookups = {
+      wordToId: new Map(words.map((word, index) => [word.toLowerCase(), index])),
+    }
+
+    const dbWithNear = Object.assign(
+      {
+        version: RHYME_DB_VERSION,
+        generatedAt: new Date(0).toISOString(),
+        source: { name: 'cmudict', path: 'fixture' },
+        words,
+        syllables: words.map(() => 1),
+        freqByWordId: words.map(() => 50),
+        isCommonByWordId: words.map(() => 1),
+        indexes: {
+          perfect,
+          vowel,
+          coda,
+        },
+      } satisfies RhymeDbV1,
+      { runtime, runtimeLookups }
+    )
+
+    const results = getRhymesForToken(dbWithNear, 'time', 'near', 20, { includeRareWords: true })
+    expect(results.words).toEqual(expect.arrayContaining(['rhyme', 'prime', 'dime']))
+    expect(results.words).not.toEqual(expect.arrayContaining(['room', 'home', 'game', 'name', 'came']))
+    expect(results.words.indexOf("i'm")).toBeGreaterThan(results.words.indexOf('prime'))
+  })
+
+  it('normalizes punctuation for token lookup', () => {
+    const clean = getRhymesForToken(db, 'time', 'near', 10, { includeRareWords: true })
+    const punctuated = getRhymesForToken(db, 'time,', 'near', 10, { includeRareWords: true })
+    expect(punctuated.words).toEqual(clean.words)
   })
 
   it('enforces multi-syllable matching rules', () => {

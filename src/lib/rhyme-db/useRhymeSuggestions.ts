@@ -420,6 +420,31 @@ export const useRhymeSuggestions = ({
             lineLast: mergeDebug(resultsByMode.map((result) => result.debug?.lineLast)),
           }
 
+          if (process.env.NODE_ENV !== 'production') {
+            const logIfTime = (label: 'caret' | 'lineLast', token: string | null | undefined) => {
+              const normalized = normalizeToken(token ?? '')
+              if (normalized !== 'time') return
+              const modeSnapshots = orderedModes.map((mode, index) => {
+                const modeResult = resultsByMode[index]
+                const debugInfo = label === 'caret' ? modeResult?.debug?.caret : modeResult?.debug?.lineLast
+                const words = (label === 'caret' ? modeResult?.results?.caret : modeResult?.results?.lineLast) ?? []
+                return {
+                  mode,
+                  tokenNormalized: debugInfo?.normalizedToken ?? normalized,
+                  wordId: debugInfo?.wordId ?? null,
+                  perfectKey: debugInfo?.perfectKey ?? null,
+                  vowelKey: debugInfo?.vowelKey ?? null,
+                  codaKey: debugInfo?.codaKey ?? null,
+                  candidatePools: debugInfo?.candidatePools ?? { perfect: 0, near: 0 },
+                  first30: words.slice(0, 30),
+                }
+              })
+              console.debug('[rhyme-db] time debug', { target: label, modes: modeSnapshots })
+            }
+            logIfTime('caret', caretToken)
+            logIfTime('lineLast', lineLastToken)
+          }
+
           if (requestId !== requestCounter.current) return
           setResults(mergedResults)
           lastGoodRef.current = mergedResults
