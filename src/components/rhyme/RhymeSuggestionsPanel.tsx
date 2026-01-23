@@ -71,6 +71,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
     const [advancedOpen, setAdvancedOpen] = useState(false)
     const [debouncedQuery, setDebouncedQuery] = useState(searchQuery)
+    const [visibleCount, setVisibleCount] = useState(200)
+    const sentinelRef = React.useRef<HTMLDivElement | null>(null)
 
     const { includeRareWords, setIncludeRareWords, rhymeFilters, setRhymeFilters } = useSettingsStore((state) => ({
       includeRareWords: state.includeRareWords,
@@ -130,6 +132,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       : activeTab === 'caret'
         ? caretSuggestions
         : lineSuggestions
+    const visibleSuggestions = useMemo(
+      () => activeSuggestions.slice(0, visibleCount),
+      [activeSuggestions, visibleCount]
+    )
 
     const caretToken = debug.caretDetails?.normalizedToken ?? debug.caretToken
     const lineLastToken = debug.lineLastDetails?.normalizedToken ?? debug.lineLastToken
@@ -143,6 +149,48 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     React.useEffect(() => {
       suggestionsRef.current = activeSuggestions
     }, [activeSuggestions])
+
+    const resultsKey = useMemo(
+      () => [
+        activeTokenLabel,
+        activeToken ?? '',
+        resolvedModes.join(','),
+        includeRareWords,
+        multiSyllablePerfect,
+        activeTab,
+        isQueryActive,
+      ].join('|'),
+      [
+        activeTab,
+        activeToken,
+        activeTokenLabel,
+        includeRareWords,
+        isQueryActive,
+        multiSyllablePerfect,
+        resolvedModes,
+      ]
+    )
+
+    React.useEffect(() => {
+      setVisibleCount(200)
+    }, [resultsKey])
+
+    React.useEffect(() => {
+      const node = sentinelRef.current
+      if (!node) return
+      if (activeSuggestions.length <= visibleCount) return
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            setVisibleCount((prev) => Math.min(prev + 200, activeSuggestions.length))
+          }
+        },
+        { rootMargin: '120px' }
+      )
+      observer.observe(node)
+      return () => observer.disconnect()
+    }, [activeSuggestions.length, visibleCount])
 
     React.useEffect(() => {
       if (debouncedQuery === searchQuery) return
@@ -174,6 +222,12 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         setSelectedIndex(0)
       }
     }, [activeSuggestions.length, selectedIndex, setSelectedIndex])
+
+    React.useEffect(() => {
+      if (selectedIndex == null) return
+      if (selectedIndex < visibleCount) return
+      setVisibleCount((prev) => Math.max(prev, selectedIndex + 1))
+    }, [selectedIndex, visibleCount])
 
     const insertSuggestion = React.useCallback(
       (word: string) => {
@@ -455,6 +509,22 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
+          {process.env.NODE_ENV !== 'production' && !isInitialLoading && (() => {
+            const activeDebug = isQueryActive
+              ? debug.caretDetails ?? debug.lineLastDetails
+              : activeTab === 'caret'
+                ? debug.caretDetails
+                : debug.lineLastDetails
+            if (!activeDebug) return null
+            return (
+              <div className="px-3 pb-2 text-[10px] text-slate-400 dark:text-slate-500">
+                tail: {activeDebug.perfectTailLenUsed ?? '—'} · pool: {activeDebug.poolSize ?? '—'} ·
+                after mode: {activeDebug.afterModeMatchCount ?? '—'} · after rare: {activeDebug.afterRareRankOrFilterCount ?? '—'} ·
+                rendered: {visibleSuggestions.length} · visible: {visibleCount}
+              </div>
+            )
+          })()}
+
           {warning && !isInitialLoading && (
             <div className="px-3 pb-2 text-[11px] text-amber-600 dark:text-amber-400">
               {warning}
@@ -516,14 +586,14 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
-          {!isInitialLoading && activeSuggestions.length > 0 && (
+          {!isInitialLoading && visibleSuggestions.length > 0 && (
             <div
               role="listbox"
               aria-activedescendant={activeOptionId}
               aria-label="Rhyme suggestions"
               className="space-y-1"
             >
-              {activeSuggestions.map((suggestion, index) => (
+              {visibleSuggestions.map((suggestion, index) => (
                 <button
                   key={`${suggestion}-${index}`}
                   type="button"
@@ -543,6 +613,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                   </span>
                 </button>
               ))}
+              <div ref={sentinelRef} className="h-4" />
             </div>
           )}
         </div>

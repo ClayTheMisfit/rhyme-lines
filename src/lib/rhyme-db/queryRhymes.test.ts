@@ -159,7 +159,7 @@ describe('queryRhymes', () => {
     expect(includeRare.words).toContain('chyme')
   })
 
-  it('excludes obscure time rhymes when includeRare is false', () => {
+  it('ranks common time rhymes ahead of obscure ones when includeRare is false', () => {
     const words = ['time', 'rhyme', 'prime', 'dime', 'beim']
     const perfect = buildIndex([['AY-M', [0, 1, 2, 3, 4]]])
     const empty = buildIndex([])
@@ -191,11 +191,10 @@ describe('queryRhymes', () => {
     )
 
     const commonOnly = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRareWords: false })
-    expect(commonOnly.words).toEqual(['rhyme', 'prime', 'dime'])
-    expect(commonOnly.words).not.toContain('beim')
+    expect(commonOnly.words).toEqual(['rhyme', 'prime', 'dime', 'beim'])
   })
 
-  it('filters proper nouns and apostrophes in strict mode', () => {
+  it('pushes proper nouns and apostrophes later when includeRare is false', () => {
     const words = ['time', 'dime', 'rhyme', 'haim', "i'm"]
     const perfect = buildIndex([['AY-M', [0, 1, 2, 3, 4]]])
     const empty = buildIndex([])
@@ -227,9 +226,7 @@ describe('queryRhymes', () => {
     )
 
     const strictResults = getRhymesForToken(dbStrict, 'time', 'perfect', 10, { includeRareWords: false })
-    expect(strictResults.words).toEqual(['dime', 'rhyme'])
-    expect(strictResults.words).not.toContain('haim')
-    expect(strictResults.words).not.toContain("i'm")
+    expect(strictResults.words).toEqual(['dime', 'rhyme', 'haim', "i'm"])
 
     const rareResults = getRhymesForToken(dbStrict, 'time', 'perfect', 10, { includeRareWords: true })
     expect(rareResults.words).toContain('haim')
