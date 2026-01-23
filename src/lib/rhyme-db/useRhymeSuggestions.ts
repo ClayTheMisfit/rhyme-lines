@@ -8,6 +8,7 @@ import { getCaretWord, getLineLastWord } from '@/lib/rhyme-db/tokenize'
 import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 import type { RhymeSource } from '@/lib/rhymes/rhymeSource'
+import { classifyCandidate, QUALITY_TIER_ORDER } from '@/lib/rhyme/wordQuality'
 import {
   getPreferredRhymeSource,
   markLocalInitFailed,
@@ -48,6 +49,7 @@ type UseRhymeSuggestionsArgs = {
   max?: number
   multiSyllable?: boolean
   includeRareWords?: boolean
+  commonWordsOnly?: boolean
   enabled: boolean
 }
 
@@ -61,6 +63,7 @@ export const useRhymeSuggestions = ({
   max,
   multiSyllable,
   includeRareWords,
+  commonWordsOnly,
   enabled,
 }: UseRhymeSuggestionsArgs) => {
   const [status, setStatus] = useState<Status>('idle')
@@ -156,6 +159,29 @@ export const useRhymeSuggestions = ({
       const toSuggestions = (result: AggregationResult | null) =>
         result?.suggestions.map((suggestion) => suggestion.word) ?? []
 
+      const shouldIncludeTier = (tier: string) => {
+        if (commonWordsOnly) {
+          return tier === 'common' || tier === 'uncommon'
+        }
+        if (includeRareWords) return true
+        return tier !== 'proper' && tier !== 'foreign' && tier !== 'weird'
+      }
+
+      const filterAndSort = (items: string[]) => {
+        const annotated = items.map((word) => {
+          const quality = classifyCandidate(word)
+          return { word, tier: quality.qualityTier, score: quality.commonScore }
+        })
+        const filtered = annotated.filter((entry) => shouldIncludeTier(entry.tier))
+        filtered.sort((a, b) => {
+          const tierDelta = QUALITY_TIER_ORDER[a.tier] - QUALITY_TIER_ORDER[b.tier]
+          if (tierDelta !== 0) return tierDelta
+          if (a.score !== b.score) return b.score - a.score
+          return a.word.localeCompare(b.word)
+        })
+        return filtered.map((entry) => entry.word)
+      }
+
       const fetchOnline = async () => {
         const controller = new AbortController()
         onlineAbortRef.current?.abort()
@@ -234,14 +260,15 @@ export const useRhymeSuggestions = ({
         const sharedResult = outcomes.get('shared')
         if (sharedResult) {
           const suggestions = toSuggestions(sharedResult)
-          onlineResults.caret = suggestions
-          onlineResults.lineLast = suggestions
+          const filtered = filterAndSort(suggestions)
+          onlineResults.caret = filtered
+          onlineResults.lineLast = filtered
         } else {
           if (outcomes.get('caret')) {
-            onlineResults.caret = toSuggestions(outcomes.get('caret') ?? null)
+            onlineResults.caret = filterAndSort(toSuggestions(outcomes.get('caret') ?? null))
           }
           if (outcomes.get('lineLast')) {
-            onlineResults.lineLast = toSuggestions(outcomes.get('lineLast') ?? null)
+            onlineResults.lineLast = filterAndSort(toSuggestions(outcomes.get('lineLast') ?? null))
           }
         }
 
@@ -310,6 +337,7 @@ export const useRhymeSuggestions = ({
                   desiredSyllables,
                   multiSyllable: Boolean(multiSyllable),
                   includeRareWords,
+                  commonWordsOnly,
                 },
               })
             )
@@ -424,7 +452,7 @@ export const useRhymeSuggestions = ({
 
       await applyOnlineFallback('Offline DB unavailable — using online providers.')
     },
-    [enabled, includeRareWords, max, modes, multiSyllable, wordUsage]
+    [commonWordsOnly, enabled, includeRareWords, max, modes, multiSyllable, wordUsage]
   )
 
   useEffect(() => {

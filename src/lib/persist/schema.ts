@@ -22,6 +22,7 @@ export interface SettingsSchema {
   rhymeFilters: RhymeFilters
   includeRareRhymes?: boolean
   includeRareWords?: boolean
+  commonWordsOnly?: boolean
   lastUpdatedAt: number
   badgeSize?: BadgeSize
   showLineTotals?: boolean
@@ -87,6 +88,7 @@ export const DEFAULT_SETTINGS: SettingsSchema = {
   highContrast: false,
   rhymeFilters: { ...DEFAULT_RHYME_FILTERS },
   includeRareWords: false,
+  commonWordsOnly: true,
   lastUpdatedAt: 0,
   badgeSize: 'sm',
   showLineTotals: true,

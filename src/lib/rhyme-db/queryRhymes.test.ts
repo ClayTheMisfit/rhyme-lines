@@ -191,10 +191,10 @@ describe('queryRhymes', () => {
     )
 
     const commonOnly = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRareWords: false })
-    expect(commonOnly.words).toEqual(['rhyme', 'prime', 'dime', 'beim'])
+    expect(commonOnly.words).toEqual(['rhyme', 'prime', 'dime'])
   })
 
-  it('pushes proper nouns and apostrophes later when includeRare is false', () => {
+  it('excludes proper nouns when includeRare is false', () => {
     const words = ['time', 'dime', 'rhyme', 'haim', "i'm"]
     const perfect = buildIndex([['AY-M', [0, 1, 2, 3, 4]]])
     const empty = buildIndex([])
@@ -225,12 +225,54 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const strictResults = getRhymesForToken(dbStrict, 'time', 'perfect', 10, { includeRareWords: false })
-    expect(strictResults.words).toEqual(['dime', 'rhyme', 'haim', "i'm"])
+    const strictResults = getRhymesForToken(dbStrict, 'time', 'perfect', 10, {
+      includeRareWords: false,
+      commonWordsOnly: false,
+    })
+    expect(strictResults.words).toEqual(['dime', 'rhyme', "i'm"])
+    expect(strictResults.words).not.toContain('haim')
 
     const rareResults = getRhymesForToken(dbStrict, 'time', 'perfect', 10, { includeRareWords: true })
     expect(rareResults.words).toContain('haim')
     expect(rareResults.words).toContain("i'm")
+  })
+
+  it('excludes rare words when commonWordsOnly is true', () => {
+    const words = ['time', 'dime', 'rhyme', 'zyme']
+    const perfect = buildIndex([['AY-M', [0, 1, 2, 3]]])
+    const empty = buildIndex([])
+    const runtime: RhymeDbRuntimeMaps = {
+      perfectKeysByWordId: buildKeysByWordId(perfect, words.length),
+      vowelKeysByWordId: buildKeysByWordId(empty, words.length),
+      codaKeysByWordId: buildKeysByWordId(empty, words.length),
+    }
+    const runtimeLookups: RhymeDbRuntimeLookups = {
+      wordToId: new Map(words.map((word, index) => [word.toLowerCase(), index])),
+    }
+
+    const dbWithRare = Object.assign(
+      {
+        version: RHYME_DB_VERSION,
+        generatedAt: new Date(0).toISOString(),
+        source: { name: 'cmudict', path: 'fixture' },
+        words,
+        syllables: [1, 1, 1, 1],
+        freqByWordId: [50, 40, 30, 0],
+        isCommonByWordId: [1, 1, 1, 0],
+        indexes: {
+          perfect,
+          vowel: empty,
+          coda: empty,
+        },
+      } satisfies RhymeDbV1,
+      { runtime, runtimeLookups }
+    )
+
+    const commonOnly = getRhymesForToken(dbWithRare, 'time', 'perfect', 10, {
+      includeRareWords: true,
+      commonWordsOnly: true,
+    })
+    expect(commonOnly.words).toEqual(['dime', 'rhyme'])
   })
 
   it('keeps near rhymes when the target coda is empty', () => {

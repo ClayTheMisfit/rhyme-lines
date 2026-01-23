@@ -74,9 +74,18 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const [visibleCount, setVisibleCount] = useState(200)
     const sentinelRef = React.useRef<HTMLDivElement | null>(null)
 
-    const { includeRareWords, setIncludeRareWords, rhymeFilters, setRhymeFilters } = useSettingsStore((state) => ({
+    const {
+      includeRareWords,
+      setIncludeRareWords,
+      commonWordsOnly,
+      setCommonWordsOnly,
+      rhymeFilters,
+      setRhymeFilters,
+    } = useSettingsStore((state) => ({
       includeRareWords: state.includeRareWords,
       setIncludeRareWords: state.setIncludeRareWords,
+      commonWordsOnly: state.commonWordsOnly,
+      setCommonWordsOnly: state.setCommonWordsOnly,
       rhymeFilters: state.rhymeFilters,
       setRhymeFilters: state.setRhymeFilters,
     }))
@@ -122,6 +131,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       max: 100,
       multiSyllable: multiSyllablePerfect,
       includeRareWords,
+      commonWordsOnly,
       enabled: mode !== 'hidden',
     })
 
@@ -156,6 +166,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         activeToken ?? '',
         resolvedModes.join(','),
         includeRareWords,
+        commonWordsOnly,
         multiSyllablePerfect,
         activeTab,
         isQueryActive,
@@ -165,6 +176,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         activeToken,
         activeTokenLabel,
         includeRareWords,
+        commonWordsOnly,
         isQueryActive,
         multiSyllablePerfect,
         resolvedModes,
@@ -459,6 +471,20 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     </span>
                   </span>
                 </label>
+                <label className="flex cursor-pointer items-start gap-2">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-400"
+                    checked={commonWordsOnly}
+                    onChange={(event) => setCommonWordsOnly(event.target.checked)}
+                  />
+                  <span className="space-y-1">
+                    <span className="block text-slate-600 dark:text-slate-300">Common words only</span>
+                    <span className="block text-[10px] text-slate-400 dark:text-slate-500">
+                      Hide rare/archaic words. (Most RB-like)
+                    </span>
+                  </span>
+                </label>
 
                 {!isQueryActive && (
                   <div className="flex flex-wrap items-center gap-2 text-[11px]">
@@ -521,6 +547,21 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 tail: {activeDebug.perfectTailLenUsed ?? '—'} · pool: {activeDebug.poolSize ?? '—'} ·
                 after mode: {activeDebug.afterModeMatchCount ?? '—'} · after rare: {activeDebug.afterRareRankOrFilterCount ?? '—'} ·
                 rendered: {visibleSuggestions.length} · visible: {visibleCount}
+                {activeDebug.tierCounts && (
+                  <span>
+                    {' '}
+                    · tiers: c{activeDebug.tierCounts.common}/u{activeDebug.tierCounts.uncommon}/r{activeDebug.tierCounts.rare}/p{activeDebug.tierCounts.proper}/f{activeDebug.tierCounts.foreign}/w{activeDebug.tierCounts.weird}
+                  </span>
+                )}
+                {activeDebug.topCandidates && activeDebug.topCandidates.length > 0 && (
+                  <div className="mt-1 space-y-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+                    {activeDebug.topCandidates.map((entry) => (
+                      <div key={`${entry.word}-${entry.tier}`}>
+                        {entry.word} · {entry.tier} · {entry.score}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           })()}
