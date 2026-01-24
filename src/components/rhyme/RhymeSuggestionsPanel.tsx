@@ -149,10 +149,20 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const lineLastToken = debug.lineLastDetails?.normalizedToken ?? debug.lineLastToken
     const activeToken = isQueryActive ? normalizedQueryToken : activeTab === 'caret' ? caretToken : lineLastToken
     const activeTokenLabel = isQueryActive ? 'Query' : activeTab === 'caret' ? 'Caret' : 'Line End'
+    const activeDebug = useMemo(() => (
+      isQueryActive
+        ? debug.caretDetails ?? debug.lineLastDetails
+        : activeTab === 'caret'
+          ? debug.caretDetails
+          : debug.lineLastDetails
+    ), [activeTab, debug.caretDetails, debug.lineLastDetails, isQueryActive])
     const isInitialLoading = phase === 'initial'
     const isRefreshing = phase === 'refreshing'
     const localInitFailureReason = getLocalInitFailureReason()
     const LIMITED_COMMON_THRESHOLD = 10
+    const totalAvailable = activeDebug?.afterModeMatchCount ?? activeSuggestions.length
+    const filteredCount = visibleSuggestions.length
+    const isFiltered = totalAvailable > filteredCount
 
     React.useEffect(() => {
       suggestionsRef.current = visibleSuggestions
@@ -183,9 +193,18 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
     React.useEffect(() => {
       if (process.env.NODE_ENV === 'production') return
-      console.log('rhyme results total', activeSuggestions.length)
-      console.log('rhyme items rendered', visibleSuggestions.length)
-    }, [activeSuggestions.length, visibleSuggestions.length])
+      console.log('[rhymes] pools', {
+        token: activeToken,
+        poolPerfect: activeDebug?.candidatePools.perfect ?? null,
+        poolNear: activeDebug?.candidatePools.near ?? null,
+      })
+      console.log('[rhymes] resultsTotal', { token: activeToken, resultsTotal: totalAvailable })
+      console.log('[rhymes] render', {
+        token: activeToken,
+        resultsTotal: totalAvailable,
+        rendered: filteredCount,
+      })
+    }, [activeDebug?.candidatePools.near, activeDebug?.candidatePools.perfect, activeToken, filteredCount, totalAvailable])
 
     React.useEffect(() => {
       if (debouncedQuery === searchQuery) return
@@ -508,9 +527,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           )}
           {!isInitialLoading && activeSuggestions.length > 0 && (
             <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
-              {visibleSuggestions.length} results
+              {isFiltered ? `${filteredCount} results (total ${totalAvailable})` : `${totalAvailable} results`}
               {activeSuggestions.length > visibleSuggestions.length && (
-                <span> (showing top {DEFAULT_SUGGESTION_CAP} of {activeSuggestions.length})</span>
+                <span> · showing top {DEFAULT_SUGGESTION_CAP}</span>
               )}
             </div>
           )}
@@ -526,11 +545,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           )}
 
           {process.env.NODE_ENV !== 'production' && !isInitialLoading && (() => {
-            const activeDebug = isQueryActive
-              ? debug.caretDetails ?? debug.lineLastDetails
-              : activeTab === 'caret'
-                ? debug.caretDetails
-                : debug.lineLastDetails
             if (!activeDebug) return null
             return (
               <div className="px-3 pb-2 text-[10px] text-slate-400 dark:text-slate-500">

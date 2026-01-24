@@ -87,7 +87,7 @@ export const DEFAULT_SETTINGS: SettingsSchema = {
   highContrast: false,
   rhymeFilters: { ...DEFAULT_RHYME_FILTERS },
   includeRareWords: false,
-  commonWordsOnly: true,
+  commonWordsOnly: false,
   lastUpdatedAt: 0,
   badgeSize: 'sm',
   showLineTotals: true,

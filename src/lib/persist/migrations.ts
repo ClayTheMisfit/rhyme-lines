@@ -80,7 +80,7 @@ const normalizeSettings = (value: unknown): SettingsSchema => {
     payload.includeRareWords,
     toBoolean(payload.includeRareRhymes, DEFAULT_SETTINGS.includeRareWords ?? false)
   )
-  const commonWordsOnly = toBoolean(payload.commonWordsOnly, DEFAULT_SETTINGS.commonWordsOnly ?? true)
+  const commonWordsOnly = toBoolean(payload.commonWordsOnly, DEFAULT_SETTINGS.commonWordsOnly ?? false)
   const highContrast = toBoolean(payload.highContrast, DEFAULT_SETTINGS.highContrast ?? false)
   const lastUpdatedAt = toNumber(payload.lastUpdatedAt, Date.now())
 
