@@ -37,7 +37,7 @@ export type RhymeQueryContext = {
   debugSource?: 'caret' | 'lineLast'
 }
 
-const MAX_RESULTS = 200
+const MAX_RESULTS = 500
 const MAX_CANDIDATES = 2000
 
 const normalizeMode = (mode: Mode) => mode.toLowerCase() as 'perfect' | 'near'
