@@ -75,6 +75,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const {
       includeRareWords,
       setIncludeRareWords,
+      showVariants,
+      setShowVariants,
       commonWordsOnly,
       setCommonWordsOnly,
       rhymeFilters,
@@ -82,6 +84,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     } = useSettingsStore((state) => ({
       includeRareWords: state.includeRareWords,
       setIncludeRareWords: state.setIncludeRareWords,
+      showVariants: state.showVariants,
+      setShowVariants: state.setShowVariants,
       commonWordsOnly: state.commonWordsOnly,
       setCommonWordsOnly: state.setCommonWordsOnly,
       rhymeFilters: state.rhymeFilters,
@@ -129,6 +133,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       max: DEFAULT_SUGGESTION_CAP,
       multiSyllable: multiSyllablePerfect,
       includeRareWords,
+      showVariants,
       commonWordsOnly,
       enabled: mode !== 'hidden',
     })
@@ -174,6 +179,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         activeToken ?? '',
         resolvedModes.join(','),
         includeRareWords,
+        showVariants,
         commonWordsOnly,
         multiSyllablePerfect,
         activeTab,
@@ -184,6 +190,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         activeToken,
         activeTokenLabel,
         includeRareWords,
+        showVariants,
         commonWordsOnly,
         isQueryActive,
         multiSyllablePerfect,
@@ -470,6 +477,24 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     <span className="block text-slate-600 dark:text-slate-300">Include rare / proper nouns</span>
                     <span className="block text-[10px] text-slate-400 dark:text-slate-500">
                       Include names and uncommon words.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-2">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-400"
+                    checked={showVariants}
+                    onChange={(event) => setShowVariants(event.target.checked)}
+                    disabled={includeRareWords}
+                  />
+                  <span className="space-y-1">
+                    <span className="block text-slate-600 dark:text-slate-300">
+                      Show spelling variants
+                      {includeRareWords ? ' (covered by rare words)' : ''}
+                    </span>
+                    <span className="block text-[10px] text-slate-400 dark:text-slate-500">
+                      Include uncommon spellings like batt or blatt.
                     </span>
                   </span>
                 </label>

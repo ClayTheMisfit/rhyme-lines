@@ -34,6 +34,7 @@ export type RhymeQueryContext = {
   includeRare?: boolean
   includeRareWords?: boolean
   commonWordsOnly?: boolean
+  showVariants?: boolean
   debugSource?: 'caret' | 'lineLast'
 }
 
@@ -382,6 +383,16 @@ const scoreCodaSimilarity = (candidateKeys: string[], targetKeys: string[]) => {
   return Math.round(similarity * MAX_CODA_SCORE)
 }
 
+const isVariantSpelling = (word: string, commonScore: number) => {
+  const normalized = word.toLowerCase()
+  if (isCommonEnglishWord(normalized)) return false
+  if (/[^a-z']/.test(normalized)) return true
+  if (normalized.startsWith('bh')) return true
+  if (/(.)\1$/.test(normalized)) return true
+  if (normalized.endsWith('att') && commonScore === 0) return true
+  return false
+}
+
 type RankedEntry = {
   word: string
   normalizedWord: string
@@ -480,12 +491,13 @@ export const getRhymesForToken = (
     return true
   }
   const commonWordsOnly = context.commonWordsOnly ?? false
+  const showVariants = context.showVariants ?? false
   const shouldIncludeTier = (tier: QualityTier) => {
     if (commonWordsOnly) {
       return tier === 'common' || tier === 'uncommon'
     }
     if (includeRareWords) return true
-    return tier !== 'proper' && tier !== 'foreign' && tier !== 'weird'
+    return tier === 'common' || tier === 'uncommon'
   }
   const getTierCounts = (entries: RankedEntry[]) =>
     entries.reduce(
@@ -556,6 +568,7 @@ export const getRhymesForToken = (
     const filtered = metadata
       .filter((entry) => isBaseAllowed(entry.normalizedWord))
       .filter((entry) => shouldIncludeTier(entry.qualityTier))
+      .filter((entry) => includeRareWords || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore))
     filtered.sort((a, b) => compareEntries(a, b))
     const tierCounts = getTierCounts(filtered)
     const topCandidates = filtered.slice(0, 10).map((entry) => ({
@@ -701,6 +714,7 @@ export const getRhymesForToken = (
       .filter((entry) => matchesSyllableConstraint(entry.id))
       .filter((entry) => isBaseAllowed(entry.normalizedWord))
       .filter((entry) => shouldIncludeTier(entry.qualityTier))
+      .filter((entry) => includeRareWords || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore))
       .filter((entry) => {
         if (!useTwoTail) return true
         const candidateKeys = runtimeDb.runtime?.perfect2KeysByWordId
@@ -814,6 +828,7 @@ export const getRhymesForToken = (
       .filter((entry) => matchesSyllableConstraint(entry.id))
       .filter((entry) => isBaseAllowed(entry.normalizedWord))
       .filter((entry) => shouldIncludeTier(entry.qualityTier))
+      .filter((entry) => includeRareWords || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore))
 
     filtered.sort((a, b) => compareEntries(a, b))
     const tierCounts = getTierCounts(filtered)

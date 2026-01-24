@@ -49,6 +49,7 @@ type UseRhymeSuggestionsArgs = {
   max?: number
   multiSyllable?: boolean
   includeRareWords?: boolean
+  showVariants?: boolean
   commonWordsOnly?: boolean
   enabled: boolean
 }
@@ -63,6 +64,7 @@ export const useRhymeSuggestions = ({
   max,
   multiSyllable,
   includeRareWords,
+  showVariants,
   commonWordsOnly,
   enabled,
 }: UseRhymeSuggestionsArgs) => {
@@ -337,6 +339,7 @@ export const useRhymeSuggestions = ({
                   desiredSyllables,
                   multiSyllable: Boolean(multiSyllable),
                   includeRareWords,
+                  showVariants,
                   commonWordsOnly,
                 },
               })
@@ -476,7 +479,7 @@ export const useRhymeSuggestions = ({
 
       await applyOnlineFallback('Offline DB unavailable — using online providers.')
     },
-    [commonWordsOnly, enabled, includeRareWords, max, modes, multiSyllable, wordUsage]
+    [commonWordsOnly, enabled, includeRareWords, max, modes, multiSyllable, showVariants, wordUsage]
   )
 
   useEffect(() => {
