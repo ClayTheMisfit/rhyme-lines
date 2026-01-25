@@ -492,10 +492,12 @@ export const getRhymesForToken = (
   }
   const commonWordsOnly = context.commonWordsOnly ?? false
   const showVariants = context.showVariants ?? false
+  const isPerfectMode = normalizedMode === 'perfect'
   const shouldIncludeTier = (tier: QualityTier) => {
     if (commonWordsOnly) {
       return tier === 'common' || tier === 'uncommon'
     }
+    if (isPerfectMode) return true
     if (includeRareWords) return true
     return tier === 'common' || tier === 'uncommon'
   }
@@ -568,7 +570,11 @@ export const getRhymesForToken = (
     const filtered = metadata
       .filter((entry) => isBaseAllowed(entry.normalizedWord))
       .filter((entry) => shouldIncludeTier(entry.qualityTier))
-      .filter((entry) => includeRareWords || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore))
+      .filter((entry) =>
+        commonWordsOnly || !isPerfectMode
+          ? includeRareWords || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore)
+          : true
+      )
     filtered.sort((a, b) => compareEntries(a, b))
     const tierCounts = getTierCounts(filtered)
     const topCandidates = filtered.slice(0, 10).map((entry) => ({
@@ -714,7 +720,11 @@ export const getRhymesForToken = (
       .filter((entry) => matchesSyllableConstraint(entry.id))
       .filter((entry) => isBaseAllowed(entry.normalizedWord))
       .filter((entry) => shouldIncludeTier(entry.qualityTier))
-      .filter((entry) => includeRareWords || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore))
+      .filter((entry) =>
+        commonWordsOnly || !isPerfectMode
+          ? includeRareWords || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore)
+          : true
+      )
       .filter((entry) => {
         if (!useTwoTail) return true
         const candidateKeys = runtimeDb.runtime?.perfect2KeysByWordId

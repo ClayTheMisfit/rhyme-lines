@@ -657,9 +657,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
           {!isInitialLoading && status !== 'idle' && visibleSuggestions.length === 0 && (
             <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
-              {includeRareWords
-                ? 'No rhymes found — try Near'
-                : 'No common rhymes — try Near or enable Rare words.'}
+              {totalAvailable > 0
+                ? 'All perfect rhymes were filtered out. Turn off “Common words only”.'
+                : includeRareWords
+                  ? 'No rhymes found — try Near'
+                  : 'No perfect rhymes found. Try Near.'}
             </div>
           )}
 

@@ -152,7 +152,7 @@ describe('queryRhymes', () => {
 
     const commonOnly = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRareWords: false })
     expect(commonOnly.words.slice(0, 3).sort()).toEqual(['dime', 'prime', 'rhyme'])
-    expect(commonOnly.words).not.toContain('chyme')
+    expect(commonOnly.words).toContain('chyme')
 
     const includeRare = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRareWords: true })
     expect(includeRare.words.slice(0, 3).sort()).toEqual(['dime', 'prime', 'rhyme'])
@@ -229,8 +229,7 @@ describe('queryRhymes', () => {
       includeRareWords: false,
       commonWordsOnly: false,
     })
-    expect(strictResults.words).toEqual(['rhyme', 'dime', "i'm"])
-    expect(strictResults.words).not.toContain('haim')
+    expect(strictResults.words).toEqual(expect.arrayContaining(['rhyme', 'dime', "i'm", 'haim']))
 
     const rareResults = getRhymesForToken(dbStrict, 'time', 'perfect', 10, { includeRareWords: true })
     expect(rareResults.words).toContain('haim')
@@ -445,7 +444,7 @@ describe('queryRhymes', () => {
     expect(multi.words).toContain('overwalking')
   })
 
-  it('hides rare variants by default for perfect rhymes', () => {
+  it('hides rare variants when commonWordsOnly is true for perfect rhymes', () => {
     const words = ['mat', 'cat', 'bat', 'fat', 'hat', 'rat', 'sat', 'vat', 'pat', 'chat', 'flat', 'brat', 'spat', 'scat', 'splat', 'bhatt', 'blatt', 'batt', 'pratt']
     const perfect = buildIndex([['AE-T', words.map((_, idx) => idx)]])
     const empty = buildIndex([])
@@ -476,7 +475,10 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const results = getRhymesForToken(dbWithVariants, 'mat', 'perfect', 200, { includeRareWords: false })
+    const results = getRhymesForToken(dbWithVariants, 'mat', 'perfect', 200, {
+      includeRareWords: false,
+      commonWordsOnly: true,
+    })
     expect(results.words).toEqual(expect.arrayContaining(['cat', 'bat', 'fat', 'hat', 'rat', 'sat', 'vat', 'pat']))
     const excluded = ['bhatt', 'blatt', 'batt', 'pratt']
     for (const word of excluded) {
@@ -556,5 +558,43 @@ describe('queryRhymes', () => {
       showVariants: true,
     })
     expect(results.words).toEqual(expect.arrayContaining(['bhatt', 'blatt', 'batt', 'pratt']))
+  })
+
+  it('does not hide perfect rhymes when includeRareWords is false and commonWordsOnly is false', () => {
+    const words = ['mat', 'bhatt', 'blatt']
+    const perfect = buildIndex([['AE-T', words.map((_, idx) => idx)]])
+    const empty = buildIndex([])
+    const runtime: RhymeDbRuntimeMaps = {
+      perfectKeysByWordId: buildKeysByWordId(perfect, words.length),
+      vowelKeysByWordId: buildKeysByWordId(empty, words.length),
+      codaKeysByWordId: buildKeysByWordId(empty, words.length),
+    }
+    const runtimeLookups: RhymeDbRuntimeLookups = {
+      wordToId: new Map(words.map((word, index) => [word.toLowerCase(), index])),
+    }
+
+    const dbWithVariants = Object.assign(
+      {
+        version: RHYME_DB_VERSION,
+        generatedAt: new Date(0).toISOString(),
+        source: { name: 'cmudict', path: 'fixture' },
+        words,
+        syllables: words.map(() => 1),
+        freqByWordId: words.map(() => 0),
+        isCommonByWordId: words.map(() => 0),
+        indexes: {
+          perfect,
+          vowel: empty,
+          coda: empty,
+        },
+      } satisfies RhymeDbV1,
+      { runtime, runtimeLookups }
+    )
+
+    const results = getRhymesForToken(dbWithVariants, 'mat', 'perfect', 200, {
+      includeRareWords: false,
+      commonWordsOnly: false,
+    })
+    expect(results.words).toEqual(expect.arrayContaining(['bhatt', 'blatt']))
   })
 })
