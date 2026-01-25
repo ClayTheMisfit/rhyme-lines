@@ -88,24 +88,24 @@ describe('queryRhymes', () => {
   const db = buildDb()
 
   it('returns perfect rhymes deterministically', () => {
-    const results = getRhymesForToken(db, 'fine', 'perfect', 10, { includeRareWords: true })
+    const results = getRhymesForToken(db, 'fine', 'perfect', 10)
     expect(results.words).toEqual(['mine', 'line'])
   })
 
   it('normalizes mode casing', () => {
-    const results = getRhymesForToken(db, 'fine', 'Perfect', 10, { includeRareWords: true })
+    const results = getRhymesForToken(db, 'fine', 'Perfect', 10)
     expect(results.words).toEqual(['mine', 'line'])
   })
 
   it('ranks near rhymes with matching vowel and coda higher', () => {
-    const results = getRhymesForToken(db, 'fine', 'near', 10, { includeRareWords: true })
+    const results = getRhymesForToken(db, 'fine', 'near', 10)
     expect(results.words.indexOf('line')).toBeGreaterThanOrEqual(0)
     expect(results.words.indexOf('mine')).toBeGreaterThanOrEqual(0)
     expect(results.words.indexOf('time')).toBeGreaterThan(results.words.indexOf('line'))
   })
 
   it('avoids coda-only pooling in near mode', () => {
-    const results = getRhymesForToken(db, 'fine', 'near', 10, { includeRareWords: true })
+    const results = getRhymesForToken(db, 'fine', 'near', 10)
     expect(results.words).not.toContain('moon')
   })
 
@@ -114,8 +114,8 @@ describe('queryRhymes', () => {
     expect(results.words).toEqual([])
   })
 
-  it('filters to common rhymes when includeRare is false', () => {
-    const results = getRhymesForToken(db, 'fine', 'perfect', 10, { includeRareWords: false })
+  it('filters to common rhymes by default', () => {
+    const results = getRhymesForToken(db, 'fine', 'perfect', 10)
     expect(results.words).toEqual(['mine', 'line'])
   })
 
@@ -150,16 +150,12 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const commonOnly = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRareWords: false })
-    expect(commonOnly.words.slice(0, 3).sort()).toEqual(['dime', 'prime', 'rhyme'])
-    expect(commonOnly.words).toContain('chyme')
-
-    const includeRare = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRareWords: true })
-    expect(includeRare.words.slice(0, 3).sort()).toEqual(['dime', 'prime', 'rhyme'])
-    expect(includeRare.words).toContain('chyme')
+    const results = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10)
+    expect(results.words.slice(0, 3).sort()).toEqual(['dime', 'prime', 'rhyme'])
+    expect(results.words).toContain('chyme')
   })
 
-  it('ranks common time rhymes ahead of obscure ones when includeRare is false', () => {
+  it('ranks common time rhymes ahead of obscure ones', () => {
     const words = ['time', 'rhyme', 'prime', 'dime', 'beim']
     const perfect = buildIndex([['AY-M', [0, 1, 2, 3, 4]]])
     const empty = buildIndex([])
@@ -190,11 +186,11 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const commonOnly = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10, { includeRareWords: false })
+    const commonOnly = getRhymesForToken(dbWithFreq, 'time', 'perfect', 10)
     expect(commonOnly.words.slice(0, 3).sort()).toEqual(['dime', 'prime', 'rhyme'])
   })
 
-  it('excludes proper nouns when includeRare is false', () => {
+  it('includes proper nouns by default', () => {
     const words = ['time', 'dime', 'rhyme', 'haim', "i'm"]
     const perfect = buildIndex([['AY-M', [0, 1, 2, 3, 4]]])
     const empty = buildIndex([])
@@ -225,15 +221,8 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const strictResults = getRhymesForToken(dbStrict, 'time', 'perfect', 10, {
-      includeRareWords: false,
-      commonWordsOnly: false,
-    })
-    expect(strictResults.words).toEqual(expect.arrayContaining(['rhyme', 'dime', "i'm", 'haim']))
-
-    const rareResults = getRhymesForToken(dbStrict, 'time', 'perfect', 10, { includeRareWords: true })
-    expect(rareResults.words).toContain('haim')
-    expect(rareResults.words).toContain("i'm")
+    const results = getRhymesForToken(dbStrict, 'time', 'perfect', 10)
+    expect(results.words).toEqual(expect.arrayContaining(['rhyme', 'dime', "i'm", 'haim']))
   })
 
   it('excludes rare words when commonWordsOnly is true', () => {
@@ -267,10 +256,7 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const commonOnly = getRhymesForToken(dbWithRare, 'time', 'perfect', 10, {
-      includeRareWords: true,
-      commonWordsOnly: true,
-    })
+    const commonOnly = getRhymesForToken(dbWithRare, 'time', 'perfect', 10, { commonWordsOnly: true })
     expect(commonOnly.words).toEqual(['rhyme', 'dime'])
   })
 
@@ -305,7 +291,7 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const results = getRhymesForToken(dbWithEmptyCoda, 'toe', 'near', 10, { includeRareWords: true })
+    const results = getRhymesForToken(dbWithEmptyCoda, 'toe', 'near', 10)
     expect(results.words).toEqual(['flow'])
   })
 
@@ -341,7 +327,7 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const results = getRhymesForToken(dbWithStopwords, 'skill', 'near', 50, { includeRareWords: true })
+    const results = getRhymesForToken(dbWithStopwords, 'skill', 'near', 50)
     expect(results.words).toEqual(expect.arrayContaining(['will', 'still', 'chill', 'fill', 'bill']))
     expect(results.words).not.toEqual(expect.arrayContaining(['in', 'is', 'his', 'when', 'did', 'does', 'good', 'even']))
   })
@@ -386,7 +372,7 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const results = getRhymesForToken(dbWithNear, 'time', 'near', 20, { includeRareWords: true })
+    const results = getRhymesForToken(dbWithNear, 'time', 'near', 20)
     expect(results.words).toEqual(expect.arrayContaining(['rhyme', 'prime', 'dime']))
     const excluded = ['room', 'home', 'game', 'name', 'came']
     for (const word of excluded) {
@@ -396,8 +382,8 @@ describe('queryRhymes', () => {
   })
 
   it('normalizes punctuation for token lookup', () => {
-    const clean = getRhymesForToken(db, 'time', 'near', 10, { includeRareWords: true })
-    const punctuated = getRhymesForToken(db, 'time,', 'near', 10, { includeRareWords: true })
+    const clean = getRhymesForToken(db, 'time', 'near', 10)
+    const punctuated = getRhymesForToken(db, 'time,', 'near', 10)
     expect(punctuated.words).toEqual(clean.words)
   })
 
@@ -435,11 +421,11 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const single = getRhymesForToken(dbWithMulti, 'walking', 'perfect', 10, { includeRareWords: true, multiSyllable: false })
+    const single = getRhymesForToken(dbWithMulti, 'walking', 'perfect', 10, { multiSyllable: false })
     expect(single.words).toContain('talking')
     expect(single.words).not.toContain('overwalking')
 
-    const multi = getRhymesForToken(dbWithMulti, 'walking', 'perfect', 10, { includeRareWords: true, multiSyllable: true })
+    const multi = getRhymesForToken(dbWithMulti, 'walking', 'perfect', 10, { multiSyllable: true })
     expect(multi.words).toContain('talking')
     expect(multi.words).toContain('overwalking')
   })
@@ -475,10 +461,7 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const results = getRhymesForToken(dbWithVariants, 'mat', 'perfect', 200, {
-      includeRareWords: false,
-      commonWordsOnly: true,
-    })
+    const results = getRhymesForToken(dbWithVariants, 'mat', 'perfect', 200, { commonWordsOnly: true })
     expect(results.words).toEqual(expect.arrayContaining(['cat', 'bat', 'fat', 'hat', 'rat', 'sat', 'vat', 'pat']))
     const excluded = ['bhatt', 'blatt', 'batt', 'pratt']
     for (const word of excluded) {
@@ -486,7 +469,7 @@ describe('queryRhymes', () => {
     }
   })
 
-  it('includes rare variants when includeRareWords is enabled but keeps common words first', () => {
+  it('includes rare variants by default but keeps common words first', () => {
     const words = ['mat', 'cat', 'bat', 'fat', 'hat', 'rat', 'sat', 'vat', 'pat', 'chat', 'flat', 'brat', 'spat', 'scat', 'splat', 'bhatt', 'blatt', 'batt', 'pratt']
     const perfect = buildIndex([['AE-T', words.map((_, idx) => idx)]])
     const empty = buildIndex([])
@@ -517,7 +500,7 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const results = getRhymesForToken(dbWithVariants, 'mat', 'perfect', 200, { includeRareWords: true })
+    const results = getRhymesForToken(dbWithVariants, 'mat', 'perfect', 200)
     expect(results.words).toEqual(expect.arrayContaining(['bhatt', 'blatt', 'batt', 'pratt']))
     expect(results.words.indexOf('cat')).toBeLessThan(results.words.indexOf('bhatt'))
   })
@@ -553,14 +536,11 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const results = getRhymesForToken(dbWithVariants, 'mat', 'perfect', 200, {
-      includeRareWords: false,
-      showVariants: true,
-    })
+    const results = getRhymesForToken(dbWithVariants, 'mat', 'perfect', 200, { showVariants: true })
     expect(results.words).toEqual(expect.arrayContaining(['bhatt', 'blatt', 'batt', 'pratt']))
   })
 
-  it('does not hide perfect rhymes when includeRareWords is false and commonWordsOnly is false', () => {
+  it('does not hide perfect rhymes when commonWordsOnly is false', () => {
     const words = ['mat', 'bhatt', 'blatt']
     const perfect = buildIndex([['AE-T', words.map((_, idx) => idx)]])
     const empty = buildIndex([])
@@ -591,10 +571,7 @@ describe('queryRhymes', () => {
       { runtime, runtimeLookups }
     )
 
-    const results = getRhymesForToken(dbWithVariants, 'mat', 'perfect', 200, {
-      includeRareWords: false,
-      commonWordsOnly: false,
-    })
+    const results = getRhymesForToken(dbWithVariants, 'mat', 'perfect', 200)
     expect(results.words).toEqual(expect.arrayContaining(['bhatt', 'blatt']))
   })
 })

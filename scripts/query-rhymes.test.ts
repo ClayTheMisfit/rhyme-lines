@@ -87,7 +87,7 @@ const createTestDb = (): RhymeDbRuntime => {
 describe('queryRhymes', () => {
   it('returns perfect rhymes alphabetically and excludes the token', () => {
     const db = createTestDb()
-    const result = getRhymesForToken(db, 'blue', 'perfect', 10, { includeRareWords: true })
+    const result = getRhymesForToken(db, 'blue', 'perfect', 10)
 
     expect(result).toEqual(['through', 'true'])
     expect(result).not.toContain('blue')
@@ -95,14 +95,14 @@ describe('queryRhymes', () => {
 
   it('prioritizes near rhymes that appear in both vowel and coda pools', () => {
     const db = createTestDb()
-    const result = getRhymesForToken(db, 'blue', 'near', 10, { includeRareWords: true })
+    const result = getRhymesForToken(db, 'blue', 'near', 10)
 
     expect(result).toEqual(['clue', 'glue', 'through', 'true'])
   })
 
   it('uses slant fallback suffix matching when token is missing', () => {
     const db = createTestDb()
-    const result = getRhymesForToken(db, 'crue', 'slant', 5, { includeRareWords: true })
+    const result = getRhymesForToken(db, 'crue', 'slant', 5)
 
     expect(result).toEqual(['true'])
   })
@@ -114,7 +114,7 @@ describe('queryRhymes', () => {
       { caret: 'blue', lineLast: 'shine' },
       'perfect',
       5,
-      { includeRareWords: true },
+      {},
     )
 
     expect(result.caret).toEqual(['through', 'true'])

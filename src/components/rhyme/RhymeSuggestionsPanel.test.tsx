@@ -10,7 +10,7 @@ const mockedUseRhymeSuggestions = useRhymeSuggestions as jest.MockedFunction<typ
 
 describe('RhymeSuggestionsPanel', () => {
   beforeEach(() => {
-    useSettingsStore.setState({ includeRareWords: false })
+    useSettingsStore.setState({})
   })
 
   it('shows the common-only hint when no results are available', () => {

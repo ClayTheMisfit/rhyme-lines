@@ -31,8 +31,6 @@ export type RhymeQueryContext = {
   wordUsage?: Record<string, number>
   desiredSyllables?: number
   multiSyllable?: boolean
-  includeRare?: boolean
-  includeRareWords?: boolean
   commonWordsOnly?: boolean
   showVariants?: boolean
   debugSource?: 'caret' | 'lineLast'
@@ -473,7 +471,6 @@ export const getRhymesForToken = (
   const normalizedMode = normalizeMode(mode)
   const freqAvailable =
     Array.isArray(runtimeDb.freqByWordId) && runtimeDb.freqByWordId.length === runtimeDb.words.length
-  const includeRareWords = context.includeRareWords ?? context.includeRare ?? false
   const getFrequency = (id: number) => (freqAvailable ? runtimeDb.freqByWordId?.[id] ?? 0 : 0)
   const limit = Math.min(max, MAX_RESULTS)
   if (!freqAvailable && process.env.NODE_ENV !== 'production' && !warnedFreqInvariant) {
@@ -498,8 +495,7 @@ export const getRhymesForToken = (
       return tier === 'common' || tier === 'uncommon'
     }
     if (isPerfectMode) return true
-    if (includeRareWords) return true
-    return tier === 'common' || tier === 'uncommon'
+    return true
   }
   const getTierCounts = (entries: RankedEntry[]) =>
     entries.reduce(
@@ -571,9 +567,7 @@ export const getRhymesForToken = (
       .filter((entry) => isBaseAllowed(entry.normalizedWord))
       .filter((entry) => shouldIncludeTier(entry.qualityTier))
       .filter((entry) =>
-        commonWordsOnly || !isPerfectMode
-          ? includeRareWords || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore)
-          : true
+        commonWordsOnly || !isPerfectMode ? showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore) : true
       )
     filtered.sort((a, b) => compareEntries(a, b))
     const tierCounts = getTierCounts(filtered)
@@ -584,7 +578,7 @@ export const getRhymesForToken = (
     }))
     logSuggestionDebug(context, {
       token: normalized,
-      includeRare: includeRareWords,
+      includeRare: false,
       freqAvailable,
       totalCount: metadata.length,
       commonCount: metadata.filter((entry) => entry.isCommon).length,
@@ -721,9 +715,7 @@ export const getRhymesForToken = (
       .filter((entry) => isBaseAllowed(entry.normalizedWord))
       .filter((entry) => shouldIncludeTier(entry.qualityTier))
       .filter((entry) =>
-        commonWordsOnly || !isPerfectMode
-          ? includeRareWords || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore)
-          : true
+        commonWordsOnly || !isPerfectMode ? showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore) : true
       )
       .filter((entry) => {
         if (!useTwoTail) return true
@@ -742,7 +734,7 @@ export const getRhymesForToken = (
     }))
     logSuggestionDebug(context, {
       token: normalized,
-      includeRare: includeRareWords,
+      includeRare: false,
       freqAvailable,
       totalCount: metadata.length,
       commonCount: metadata.filter((entry) => entry.isCommon).length,
@@ -838,7 +830,7 @@ export const getRhymesForToken = (
       .filter((entry) => matchesSyllableConstraint(entry.id))
       .filter((entry) => isBaseAllowed(entry.normalizedWord))
       .filter((entry) => shouldIncludeTier(entry.qualityTier))
-      .filter((entry) => includeRareWords || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore))
+      .filter((entry) => showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore))
 
     filtered.sort((a, b) => compareEntries(a, b))
     const tierCounts = getTierCounts(filtered)
@@ -849,7 +841,7 @@ export const getRhymesForToken = (
     }))
     logSuggestionDebug(context, {
       token: normalized,
-      includeRare: includeRareWords,
+      includeRare: false,
       freqAvailable,
       totalCount: metadata.length,
       commonCount: metadata.filter((entry) => entry.isCommon).length,

@@ -73,8 +73,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const [debouncedQuery, setDebouncedQuery] = useState(searchQuery)
 
     const {
-      includeRareWords,
-      setIncludeRareWords,
       showVariants,
       setShowVariants,
       commonWordsOnly,
@@ -82,8 +80,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       rhymeFilters,
       setRhymeFilters,
     } = useSettingsStore((state) => ({
-      includeRareWords: state.includeRareWords,
-      setIncludeRareWords: state.setIncludeRareWords,
       showVariants: state.showVariants,
       setShowVariants: state.setShowVariants,
       commonWordsOnly: state.commonWordsOnly,
@@ -132,7 +128,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       modes: resolvedModes,
       max: DEFAULT_SUGGESTION_CAP,
       multiSyllable: multiSyllablePerfect,
-      includeRareWords,
       showVariants,
       commonWordsOnly,
       enabled: mode !== 'hidden',
@@ -164,7 +159,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const isInitialLoading = phase === 'initial'
     const isRefreshing = phase === 'refreshing'
     const localInitFailureReason = getLocalInitFailureReason()
-    const LIMITED_COMMON_THRESHOLD = 10
     const totalAvailable = activeDebug?.afterModeMatchCount ?? activeSuggestions.length
     const filteredCount = visibleSuggestions.length
     const isFiltered = totalAvailable > filteredCount
@@ -178,7 +172,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         activeTokenLabel,
         activeToken ?? '',
         resolvedModes.join(','),
-        includeRareWords,
         showVariants,
         commonWordsOnly,
         multiSyllablePerfect,
@@ -189,7 +182,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         activeTab,
         activeToken,
         activeTokenLabel,
-        includeRareWords,
         showVariants,
         commonWordsOnly,
         isQueryActive,
@@ -470,28 +462,12 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                   <input
                     type="checkbox"
                     className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-400"
-                    checked={includeRareWords}
-                    onChange={(event) => setIncludeRareWords(event.target.checked)}
-                  />
-                  <span className="space-y-1">
-                    <span className="block text-slate-600 dark:text-slate-300">Include rare / proper nouns</span>
-                    <span className="block text-[10px] text-slate-400 dark:text-slate-500">
-                      Include names and uncommon words.
-                    </span>
-                  </span>
-                </label>
-                <label className="flex cursor-pointer items-start gap-2">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-400"
                     checked={showVariants}
                     onChange={(event) => setShowVariants(event.target.checked)}
-                    disabled={includeRareWords}
                   />
                   <span className="space-y-1">
                     <span className="block text-slate-600 dark:text-slate-300">
                       Show spelling variants
-                      {includeRareWords ? ' (covered by rare words)' : ''}
                     </span>
                     <span className="block text-[10px] text-slate-400 dark:text-slate-500">
                       Include uncommon spellings like batt or blatt.
@@ -614,13 +590,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
-          {!isInitialLoading && !includeRareWords && status !== 'idle' && activeSuggestions.length > 0 &&
-            activeSuggestions.length < LIMITED_COMMON_THRESHOLD && (
-              <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
-                Limited common matches — try Near or enable Rare words for more.
-              </div>
-            )}
-
           {isInitialLoading && (
             <div className="space-y-2 px-3 py-3">
               {Array.from({ length: 5 }).map((_, index) => (
@@ -658,10 +627,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           {!isInitialLoading && status !== 'idle' && visibleSuggestions.length === 0 && (
             <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
               {totalAvailable > 0
-                ? 'All perfect rhymes were filtered out. Turn off “Common words only”.'
-                : includeRareWords
-                  ? 'No rhymes found — try Near'
-                  : 'No perfect rhymes found. Try Near.'}
+                ? 'All perfect rhymes were filtered out. Turn off “Common words only” or try Near.'
+                : 'No perfect rhymes found. Try Near.'}
             </div>
           )}
 

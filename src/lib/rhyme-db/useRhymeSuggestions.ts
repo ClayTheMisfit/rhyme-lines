@@ -48,7 +48,6 @@ type UseRhymeSuggestionsArgs = {
   modes: Mode[]
   max?: number
   multiSyllable?: boolean
-  includeRareWords?: boolean
   showVariants?: boolean
   commonWordsOnly?: boolean
   enabled: boolean
@@ -63,7 +62,6 @@ export const useRhymeSuggestions = ({
   modes,
   max,
   multiSyllable,
-  includeRareWords,
   showVariants,
   commonWordsOnly,
   enabled,
@@ -165,8 +163,7 @@ export const useRhymeSuggestions = ({
         if (commonWordsOnly) {
           return tier === 'common' || tier === 'uncommon'
         }
-        if (includeRareWords) return true
-        return tier !== 'proper' && tier !== 'foreign' && tier !== 'weird'
+        return true
       }
 
       const filterAndSort = (items: string[]) => {
@@ -338,7 +335,6 @@ export const useRhymeSuggestions = ({
                   wordUsage,
                   desiredSyllables,
                   multiSyllable: Boolean(multiSyllable),
-                  includeRareWords,
                   showVariants,
                   commonWordsOnly,
                 },
@@ -479,7 +475,7 @@ export const useRhymeSuggestions = ({
 
       await applyOnlineFallback('Offline DB unavailable — using online providers.')
     },
-    [commonWordsOnly, enabled, includeRareWords, max, modes, multiSyllable, showVariants, wordUsage]
+    [commonWordsOnly, enabled, max, modes, multiSyllable, showVariants, wordUsage]
   )
 
   useEffect(() => {
