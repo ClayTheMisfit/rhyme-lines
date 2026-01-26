@@ -5,7 +5,7 @@ const ENGLISH_WORD_RANKS = commonWordRanks as Record<string, number>
 const ENGLISH_WORD_CACHE = new Map<string, boolean>()
 
 export const isEnglishWord = (word: string): boolean => {
-  const normalized = word.toLowerCase()
+  const normalized = word.toLowerCase().replace(/^[^a-z'-]+|[^a-z'-]+$/g, '')
   const cached = ENGLISH_WORD_CACHE.get(normalized)
   if (cached !== undefined) {
     return cached
