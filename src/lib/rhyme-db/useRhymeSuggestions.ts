@@ -140,7 +140,7 @@ export const useRhymeSuggestions = ({
 
       requestCounter.current += 1
       const requestId = requestCounter.current
-      const maxResults = max ?? 100
+      const maxResults = max ?? Number.MAX_SAFE_INTEGER
       const startTime = Date.now()
       setStatus('loading')
       setPhase(Object.keys(lastGoodRef.current).length === 0 ? 'initial' : 'refreshing')

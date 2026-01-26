@@ -37,7 +37,7 @@ export type RhymeQueryContext = {
   debug?: boolean
 }
 
-const MAX_RESULTS = 500
+const MAX_RESULTS = Number.MAX_SAFE_INTEGER
 const MAX_CANDIDATES = 2000
 
 const normalizeMode = (mode: Mode) => mode.toLowerCase() as 'perfect' | 'near'
@@ -777,7 +777,9 @@ export const getRhymesForToken = (
     recordStage('afterModeFilter', metadata.length)
     let filtered = metadata
     filtered = applyFilter(filtered, (entry) => !isTrivialInflection(normalized, entry.normalizedWord), 'trivial_inflection')
-    filtered = applyFilter(filtered, (entry) => matchesSyllableConstraint(entry.id), 'multi_syllable_filtered')
+    if (useMultiSyllablePerfect) {
+      filtered = applyFilter(filtered, (entry) => matchesSyllableConstraint(entry.id), 'multi_syllable_filtered')
+    }
     filtered = applyFilter(filtered, (entry) => isBaseAllowed(entry.normalizedWord), 'blocked_token')
     filtered = applyFilter(filtered, (entry) => shouldIncludeTier(entry.qualityTier), 'common_words_only')
     filtered = applyFilter(

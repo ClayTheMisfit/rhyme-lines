@@ -13,7 +13,7 @@ import type { EditorHandle } from '@/components/Editor'
 import { getLocalInitFailureReason } from '@/lib/rhymes/rhymeSource'
 import { useMemo, useState } from 'react'
 import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
-import { buildVisibleSuggestions, DEFAULT_SUGGESTION_CAP } from '@/components/rhyme/buildVisibleSuggestions'
+import { buildVisibleSuggestions } from '@/components/rhyme/buildVisibleSuggestions'
 
 const MIN_WIDTH = 280
 const MAX_WIDTH = 640
@@ -128,7 +128,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       currentLineText,
       queryToken: debouncedQuery,
       modes: resolvedModes,
-      max: DEFAULT_SUGGESTION_CAP,
+      max: undefined,
       multiSyllable: multiSyllablePerfect,
       showVariants,
       commonWordsOnly,
@@ -180,7 +180,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       let cap = base.cap
       if (capApplied) {
         rejections.cap_slice = (rejections.cap_slice ?? 0) + (activeSuggestions.length - visibleSuggestions.length)
-        cap = { applied: true, limit: DEFAULT_SUGGESTION_CAP, stage: 'ui_slice' }
+        cap = { applied: true, limit: visibleSuggestions.length, stage: 'ui_slice' }
       }
       return {
         ...base,
@@ -565,9 +565,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           {!isInitialLoading && activeSuggestions.length > 0 && (
             <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
               {isFiltered ? `${filteredCount} results (total ${totalAvailable})` : `${totalAvailable} results`}
-              {activeSuggestions.length > visibleSuggestions.length && (
-                <span> · showing top {DEFAULT_SUGGESTION_CAP}</span>
-              )}
             </div>
           )}
 
@@ -706,6 +703,13 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             const rejectionEntries = Object.entries(activePanelDebug.rejections)
               .filter(([, count]) => count > 0)
               .sort((a, b) => b[1] - a[1])
+            const mismatch =
+              activePanelDebug.activeModes.length === 1 &&
+              activePanelDebug.activeModes[0] === 'perfect' &&
+              typeof activePanelDebug.poolCount === 'number' &&
+              activePanelDebug.poolCount !== activePanelDebug.filteredCount
+                ? `Mismatch: poolCount=${activePanelDebug.poolCount} displayedCount=${activePanelDebug.filteredCount}`
+                : null
             return (
               <div className="mt-4 space-y-1 rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-[11px] text-amber-900/80 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100/80">
                 <div>
@@ -720,6 +724,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                   {typeof activePanelDebug.poolCount === 'number' ? `pool=${activePanelDebug.poolCount} | ` : ''}
                   filtered={activePanelDebug.filteredCount} | rendered={activePanelDebug.renderedCount ?? 0}
                 </div>
+                {mismatch && (
+                  <div className="text-rose-600 dark:text-rose-300">
+                    <span className="font-semibold">Warning:</span> {mismatch}
+                  </div>
+                )}
                 {activePanelDebug.cap?.applied && (
                   <div>
                     <span className="font-semibold">Cap:</span>{' '}
