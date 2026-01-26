@@ -10,6 +10,7 @@ import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 import type { RhymeSource } from '@/lib/rhymes/rhymeSource'
 import { classifyCandidate, QUALITY_TIER_ORDER } from '@/lib/rhyme/wordQuality'
 import type { RhymeSuggestionDebug, RhymeSuggestionDebugState } from '@/lib/rhyme-db/rhymeDebug'
+import { isEnglishWord } from '@/lib/rhyme-db/isEnglishWord'
 import {
   getPreferredRhymeSource,
   markLocalInitFailed,
@@ -179,7 +180,7 @@ export const useRhymeSuggestions = ({
       }
 
       const filterAndSort = (items: string[], rawTarget: string | null): { list: string[]; debug?: RhymeSuggestionDebug } => {
-        const annotated = items.map((word) => {
+        const annotated = items.filter(isEnglishWord).map((word) => {
           const quality = classifyCandidate(word)
           return { word, tier: quality.qualityTier, score: quality.commonScore }
         })
@@ -448,7 +449,9 @@ export const useRhymeSuggestions = ({
                 merged.push(item)
               }
             }
-            return { merged, deduped }
+            // Filter out non-English words after candidate aggregation to preserve upstream ranking.
+            const englishMerged = merged.filter(isEnglishWord)
+            return { merged: englishMerged, deduped }
           }
 
           const mergeDebug = (items: Array<RhymeTokenDebug | undefined>): RhymeTokenDebug | undefined => {
