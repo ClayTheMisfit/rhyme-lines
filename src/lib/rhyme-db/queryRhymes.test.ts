@@ -119,6 +119,12 @@ describe('queryRhymes', () => {
     expect(results.words).toEqual(['mine', 'line'])
   })
 
+  it('emits debug stage counts when enabled', () => {
+    const results = getRhymesForToken(db, 'fine', 'perfect', 10, { debug: true })
+    expect(results.debug.stageCounts?.generated).toBeGreaterThan(0)
+    expect(results.debug.stageCounts?.afterCap).toBe(results.words.length)
+  })
+
   it('ranks common time rhymes ahead of obscure entries when frequency is available', () => {
     const words = ['time', 'rhyme', 'prime', 'dime', 'chyme']
     const perfect = buildIndex([['AY-M', [0, 1, 2, 3, 4]]])
@@ -328,7 +334,8 @@ describe('queryRhymes', () => {
     )
 
     const results = getRhymesForToken(dbWithStopwords, 'skill', 'near', 50)
-    expect(results.words).toEqual(expect.arrayContaining(['will', 'still', 'chill', 'fill', 'bill']))
+    expect(results.words).toEqual(expect.arrayContaining(['will', 'still']))
+    expect(results.words).not.toEqual(expect.arrayContaining(['chill', 'fill', 'bill']))
     expect(results.words).not.toEqual(expect.arrayContaining(['in', 'is', 'his', 'when', 'did', 'does', 'good', 'even']))
   })
 

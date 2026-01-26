@@ -34,6 +34,7 @@ export type RhymeQueryContext = {
   commonWordsOnly?: boolean
   showVariants?: boolean
   debugSource?: 'caret' | 'lineLast'
+  debug?: boolean
 }
 
 const MAX_RESULTS = 500
@@ -147,6 +148,9 @@ export type RhymeTokenDebug = {
   renderedCount?: number
   afterGates?: { near: number }
   thresholds?: { near: number }
+  stageCounts?: Record<string, number>
+  rejections?: Record<string, number>
+  cap?: { applied: boolean; limit?: number; stage?: string }
 }
 
 export type RhymeTokenResult = {
@@ -452,6 +456,34 @@ export const getRhymesForToken = (
   max: number,
   context: RhymeQueryContext = {},
 ): RhymeTokenResult => {
+  const debugEnabled = Boolean(context.debug)
+  const stageCounts: Record<string, number> = {}
+  const rejections: Record<string, number> = {}
+  const cap: { applied: boolean; limit?: number; stage?: string } | undefined = debugEnabled ? { applied: false } : undefined
+  const recordStage = (stage: string, count: number) => {
+    if (!debugEnabled) return
+    stageCounts[stage] = count
+  }
+  const recordRejection = (reason: string, count = 1) => {
+    if (!debugEnabled) return
+    rejections[reason] = (rejections[reason] ?? 0) + count
+  }
+  const applyFilter = <T>(items: T[], predicate: (item: T) => boolean, reason: string) => {
+    if (!debugEnabled) return items.filter(predicate)
+    const next: T[] = []
+    let rejected = 0
+    for (const item of items) {
+      if (predicate(item)) {
+        next.push(item)
+      } else {
+        rejected += 1
+      }
+    }
+    if (rejected) {
+      recordRejection(reason, rejected)
+    }
+    return next
+  }
   const normalized = normalizeToken(token)
   if (!normalized || max <= 0) {
     return {
@@ -463,6 +495,9 @@ export const getRhymesForToken = (
         vowelKey: null,
         codaKey: null,
         candidatePools: { perfect: 0, near: 0 },
+        stageCounts: debugEnabled ? stageCounts : undefined,
+        rejections: debugEnabled ? rejections : undefined,
+        cap,
       },
     }
   }
@@ -525,6 +560,9 @@ export const getRhymesForToken = (
           vowelKey: null,
           codaKey: null,
           candidatePools: { perfect: 0, near: 0 },
+          stageCounts: debugEnabled ? stageCounts : undefined,
+          rejections: debugEnabled ? rejections : undefined,
+          cap,
         },
       }
     }
@@ -539,6 +577,9 @@ export const getRhymesForToken = (
           vowelKey: null,
           codaKey: null,
           candidatePools: { perfect: 0, near: 0 },
+          stageCounts: debugEnabled ? stageCounts : undefined,
+          rejections: debugEnabled ? rejections : undefined,
+          cap,
         },
       }
     }
@@ -563,13 +604,31 @@ export const getRhymesForToken = (
         }
       })
       .filter((entry): entry is RankedEntry => Boolean(entry))
-    const filtered = metadata
-      .filter((entry) => isBaseAllowed(entry.normalizedWord))
-      .filter((entry) => shouldIncludeTier(entry.qualityTier))
-      .filter((entry) =>
-        commonWordsOnly || !isPerfectMode ? showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore) : true
-      )
+    recordStage('generated', metadata.length)
+    recordStage('afterModeFilter', metadata.length)
+    let filtered = metadata
+    filtered = applyFilter(filtered, (entry) => isBaseAllowed(entry.normalizedWord), 'blocked_token')
+    filtered = applyFilter(filtered, (entry) => shouldIncludeTier(entry.qualityTier), 'common_words_only')
+    filtered = applyFilter(
+      filtered,
+      (entry) =>
+        commonWordsOnly || !isPerfectMode ? showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore) : true,
+      'variant_spelling'
+    )
+    recordStage('afterRuleFilters', filtered.length)
+    recordStage('afterDedupe', filtered.length)
     filtered.sort((a, b) => compareEntries(a, b))
+    recordStage('afterSort', filtered.length)
+    const limited = filtered.slice(0, limit)
+    if (debugEnabled && filtered.length > limited.length) {
+      recordRejection('cap_slice', filtered.length - limited.length)
+      if (cap) {
+        cap.applied = true
+        cap.limit = limit
+        cap.stage = 'query_limit'
+      }
+    }
+    recordStage('afterCap', limited.length)
     const tierCounts = getTierCounts(filtered)
     const topCandidates = filtered.slice(0, 10).map((entry) => ({
       word: entry.word,
@@ -587,7 +646,7 @@ export const getRhymesForToken = (
       entries: filtered,
     })
     return {
-      words: filtered.slice(0, limit).map((entry) => entry.word),
+      words: limited.map((entry) => entry.word),
       debug: {
         normalizedToken: normalized,
         wordId: null,
@@ -600,6 +659,9 @@ export const getRhymesForToken = (
         afterRareRankOrFilterCount: filtered.length,
         tierCounts: process.env.NODE_ENV !== 'production' ? tierCounts : undefined,
         topCandidates: process.env.NODE_ENV !== 'production' ? topCandidates : undefined,
+        stageCounts: debugEnabled ? stageCounts : undefined,
+        rejections: debugEnabled ? rejections : undefined,
+        cap,
       },
     }
   }
@@ -678,6 +740,9 @@ export const getRhymesForToken = (
           poolSize: 0,
           afterModeMatchCount: 0,
           afterRareRankOrFilterCount: 0,
+          stageCounts: debugEnabled ? stageCounts : undefined,
+          rejections: debugEnabled ? rejections : undefined,
+          cap,
         },
       }
     }
@@ -709,23 +774,41 @@ export const getRhymesForToken = (
           codaScore,
         }
       })
-    const filtered = metadata
-      .filter((entry) => !isTrivialInflection(normalized, entry.normalizedWord))
-      .filter((entry) => matchesSyllableConstraint(entry.id))
-      .filter((entry) => isBaseAllowed(entry.normalizedWord))
-      .filter((entry) => shouldIncludeTier(entry.qualityTier))
-      .filter((entry) =>
-        commonWordsOnly || !isPerfectMode ? showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore) : true
-      )
-      .filter((entry) => {
-        if (!useTwoTail) return true
-        const candidateKeys = runtimeDb.runtime?.perfect2KeysByWordId
-          ? getKeysForWordId(runtimeDb, entry.id, 'perfect2KeysByWordId')
-          : []
-        return candidateKeys.some((key) => targetPerfect2Keys.includes(key))
-      })
+    recordStage('generated', metadata.length)
+    recordStage('afterModeFilter', metadata.length)
+    let filtered = metadata
+    filtered = applyFilter(filtered, (entry) => !isTrivialInflection(normalized, entry.normalizedWord), 'trivial_inflection')
+    filtered = applyFilter(filtered, (entry) => matchesSyllableConstraint(entry.id), 'multi_syllable_filtered')
+    filtered = applyFilter(filtered, (entry) => isBaseAllowed(entry.normalizedWord), 'blocked_token')
+    filtered = applyFilter(filtered, (entry) => shouldIncludeTier(entry.qualityTier), 'common_words_only')
+    filtered = applyFilter(
+      filtered,
+      (entry) =>
+        commonWordsOnly || !isPerfectMode ? showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore) : true,
+      'variant_spelling'
+    )
+    filtered = applyFilter(filtered, (entry) => {
+      if (!useTwoTail) return true
+      const candidateKeys = runtimeDb.runtime?.perfect2KeysByWordId
+        ? getKeysForWordId(runtimeDb, entry.id, 'perfect2KeysByWordId')
+        : []
+      return candidateKeys.some((key) => targetPerfect2Keys.includes(key))
+    }, 'multi_syllable_filtered')
+    recordStage('afterRuleFilters', filtered.length)
+    recordStage('afterDedupe', filtered.length)
 
     filtered.sort((a, b) => compareEntries(a, b))
+    recordStage('afterSort', filtered.length)
+    const limited = filtered.slice(0, limit)
+    if (debugEnabled && filtered.length > limited.length) {
+      recordRejection('cap_slice', filtered.length - limited.length)
+      if (cap) {
+        cap.applied = true
+        cap.limit = limit
+        cap.stage = 'query_limit'
+      }
+    }
+    recordStage('afterCap', limited.length)
     const tierCounts = getTierCounts(filtered)
     const topCandidates = filtered.slice(0, 10).map((entry) => ({
       word: entry.word,
@@ -744,7 +827,7 @@ export const getRhymesForToken = (
     })
 
     return {
-      words: filtered.slice(0, limit).map((entry) => entry.word),
+      words: limited.map((entry) => entry.word),
       debug: {
         normalizedToken: normalized,
         wordId,
@@ -758,6 +841,9 @@ export const getRhymesForToken = (
         afterRareRankOrFilterCount: filtered.length,
         tierCounts: process.env.NODE_ENV !== 'production' ? tierCounts : undefined,
         topCandidates: process.env.NODE_ENV !== 'production' ? topCandidates : undefined,
+        stageCounts: debugEnabled ? stageCounts : undefined,
+        rejections: debugEnabled ? rejections : undefined,
+        cap,
       },
     }
   }
@@ -765,6 +851,12 @@ export const getRhymesForToken = (
   if (normalizedMode === 'near') {
     const vowelSet = targetVowelKey ? collectWordIds(db.indexes.vowel, [targetVowelKey]) : new Set<number>()
     if (vowelSet.size === 0) {
+      recordStage('generated', 0)
+      recordStage('afterModeFilter', 0)
+      recordStage('afterRuleFilters', 0)
+      recordStage('afterDedupe', 0)
+      recordStage('afterSort', 0)
+      recordStage('afterCap', 0)
       return {
         words: [],
         debug: {
@@ -781,6 +873,9 @@ export const getRhymesForToken = (
           codaPoolSize: 0,
           combinedUniqueCount: vowelSet.size,
           renderedCount: 0,
+          stageCounts: debugEnabled ? stageCounts : undefined,
+          rejections: debugEnabled ? rejections : undefined,
+          cap,
         },
       }
     }
@@ -824,15 +919,30 @@ export const getRhymesForToken = (
           syllableDelta,
         }
       })
-    const filtered = metadata
-      .filter((entry) => entry.vowelMatches)
-      .filter((entry) => !isTrivialInflection(normalized, entry.normalizedWord))
-      .filter((entry) => matchesSyllableConstraint(entry.id))
-      .filter((entry) => isBaseAllowed(entry.normalizedWord))
-      .filter((entry) => shouldIncludeTier(entry.qualityTier))
-      .filter((entry) => showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore))
+    recordStage('generated', metadata.length)
+    let filtered = metadata
+    filtered = applyFilter(filtered, (entry) => entry.vowelMatches, 'mode_mismatch')
+    recordStage('afterModeFilter', filtered.length)
+    filtered = applyFilter(filtered, (entry) => !isTrivialInflection(normalized, entry.normalizedWord), 'trivial_inflection')
+    filtered = applyFilter(filtered, (entry) => matchesSyllableConstraint(entry.id), 'multi_syllable_filtered')
+    filtered = applyFilter(filtered, (entry) => isBaseAllowed(entry.normalizedWord), 'blocked_token')
+    filtered = applyFilter(filtered, (entry) => shouldIncludeTier(entry.qualityTier), 'common_words_only')
+    filtered = applyFilter(filtered, (entry) => showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore), 'variant_spelling')
+    recordStage('afterRuleFilters', filtered.length)
+    recordStage('afterDedupe', filtered.length)
 
     filtered.sort((a, b) => compareEntries(a, b))
+    recordStage('afterSort', filtered.length)
+    const limited = filtered.slice(0, limit)
+    if (debugEnabled && filtered.length > limited.length) {
+      recordRejection('cap_slice', filtered.length - limited.length)
+      if (cap) {
+        cap.applied = true
+        cap.limit = limit
+        cap.stage = 'query_limit'
+      }
+    }
+    recordStage('afterCap', limited.length)
     const tierCounts = getTierCounts(filtered)
     const topCandidates = filtered.slice(0, 10).map((entry) => ({
       word: entry.word,
@@ -851,7 +961,7 @@ export const getRhymesForToken = (
     })
 
     return {
-      words: filtered.slice(0, limit).map((entry) => entry.word),
+      words: limited.map((entry) => entry.word),
       debug: {
         normalizedToken: normalized,
         wordId,
@@ -870,6 +980,9 @@ export const getRhymesForToken = (
         renderedCount: filtered.length,
         afterGates: { near: filtered.length },
         thresholds: { near: NEAR_BASE_SCORE },
+        stageCounts: debugEnabled ? stageCounts : undefined,
+        rejections: debugEnabled ? rejections : undefined,
+        cap,
       },
     }
   }
@@ -886,6 +999,9 @@ export const getRhymesForToken = (
       poolSize: 0,
       afterModeMatchCount: 0,
       afterRareRankOrFilterCount: 0,
+      stageCounts: debugEnabled ? stageCounts : undefined,
+      rejections: debugEnabled ? rejections : undefined,
+      cap,
     },
   }
 }

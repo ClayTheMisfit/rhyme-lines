@@ -70,6 +70,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     }))
 
     const [advancedOpen, setAdvancedOpen] = useState(false)
+    const [debugEnabled, setDebugEnabled] = useState(false)
     const [debouncedQuery, setDebouncedQuery] = useState(searchQuery)
 
     const {
@@ -118,6 +119,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       warning,
       results,
       debug,
+      rhymeDebug,
       meta,
       phase,
     } = useRhymeSuggestions({
@@ -130,6 +132,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       multiSyllable: multiSyllablePerfect,
       showVariants,
       commonWordsOnly,
+      debug: debugEnabled,
       enabled: mode !== 'hidden',
     })
 
@@ -162,6 +165,32 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const totalAvailable = activeDebug?.afterModeMatchCount ?? activeSuggestions.length
     const filteredCount = visibleSuggestions.length
     const isFiltered = totalAvailable > filteredCount
+    const activePanelDebug = useMemo(() => {
+      if (!debugEnabled) return undefined
+      const base = isQueryActive
+        ? rhymeDebug.caret ?? rhymeDebug.lineLast
+        : activeTab === 'caret'
+          ? rhymeDebug.caret
+          : rhymeDebug.lineLast
+      if (!base) return undefined
+      const stageCounts = { ...base.stageCounts }
+      stageCounts.afterCap = visibleSuggestions.length
+      const rejections = { ...base.rejections }
+      const capApplied = activeSuggestions.length > visibleSuggestions.length
+      let cap = base.cap
+      if (capApplied) {
+        rejections.cap_slice = (rejections.cap_slice ?? 0) + (activeSuggestions.length - visibleSuggestions.length)
+        cap = { applied: true, limit: DEFAULT_SUGGESTION_CAP, stage: 'ui_slice' }
+      }
+      return {
+        ...base,
+        filteredCount: visibleSuggestions.length,
+        renderedCount: visibleSuggestions.length,
+        stageCounts,
+        rejections,
+        cap,
+      }
+    }, [activeSuggestions.length, activeTab, debugEnabled, isQueryActive, rhymeDebug, visibleSuggestions.length])
 
     React.useEffect(() => {
       suggestionsRef.current = visibleSuggestions
@@ -204,6 +233,13 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         rendered: filteredCount,
       })
     }, [activeDebug?.candidatePools.near, activeDebug?.candidatePools.perfect, activeToken, filteredCount, totalAvailable])
+
+    React.useEffect(() => {
+      if (process.env.NODE_ENV === 'production') return
+      const searchParams = new URLSearchParams(window.location.search)
+      const enabled = searchParams.get('rhymeDebug') === '1' || window.localStorage.getItem('rhymeDebug') === '1'
+      setDebugEnabled(enabled)
+    }, [])
 
     React.useEffect(() => {
       if (debouncedQuery === searchQuery) return
@@ -661,6 +697,53 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               ))}
             </div>
           )}
+          {debugEnabled && activePanelDebug && (() => {
+            const stageOrder = ['generated', 'afterModeFilter', 'afterRuleFilters', 'afterDedupe', 'afterSort', 'afterCap']
+            const stageSummary = stageOrder
+              .filter((key) => activePanelDebug.stageCounts[key] !== undefined)
+              .map((key) => `${key}=${activePanelDebug.stageCounts[key]}`)
+              .join(', ')
+            const rejectionEntries = Object.entries(activePanelDebug.rejections)
+              .filter(([, count]) => count > 0)
+              .sort((a, b) => b[1] - a[1])
+            return (
+              <div className="mt-4 space-y-1 rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-[11px] text-amber-900/80 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100/80">
+                <div>
+                  <span className="font-semibold">Target:</span>{' '}
+                  "{activePanelDebug.rawTarget}" → "{activePanelDebug.normalizedTarget}"
+                </div>
+                <div>
+                  <span className="font-semibold">Modes:</span> {activePanelDebug.activeModes.join(', ') || '—'}
+                </div>
+                <div>
+                  <span className="font-semibold">Counts:</span>{' '}
+                  {typeof activePanelDebug.poolCount === 'number' ? `pool=${activePanelDebug.poolCount} | ` : ''}
+                  filtered={activePanelDebug.filteredCount} | rendered={activePanelDebug.renderedCount ?? 0}
+                </div>
+                {activePanelDebug.cap?.applied && (
+                  <div>
+                    <span className="font-semibold">Cap:</span>{' '}
+                    applied=true limit={activePanelDebug.cap.limit ?? '—'} stage="{activePanelDebug.cap.stage ?? '—'}"
+                  </div>
+                )}
+                <div>
+                  <span className="font-semibold">Stages:</span> {stageSummary || '—'}
+                </div>
+                <div>
+                  <span className="font-semibold">Filtered out:</span>
+                  {rejectionEntries.length === 0 ? ' —' : (
+                    <ul className="mt-1 space-y-0.5">
+                      {rejectionEntries.map(([reason, count]) => (
+                        <li key={reason}>
+                          {reason}: {count}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
         </div>
       </div>
     )

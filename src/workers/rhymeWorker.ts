@@ -337,7 +337,8 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
         typeof message.context?.desiredSyllables === 'number' ? message.context.desiredSyllables : 'none'
       const multiSyllable = message.context?.multiSyllable ? '1' : '0'
       const showVariants = message.context?.showVariants ? '1' : '0'
-      const cacheKey = `${normalizedMode}|${message.max}|${desiredSyllables}|${multiSyllable}|${showVariants}|c:${caretToken}|l:${lineLastToken}`
+      const debugFlag = message.context?.debug ? '1' : '0'
+      const cacheKey = `${normalizedMode}|${message.max}|${desiredSyllables}|${multiSyllable}|${showVariants}|debug:${debugFlag}|c:${caretToken}|l:${lineLastToken}`
 
       const cached = cache.get(cacheKey)
       if (cached) {

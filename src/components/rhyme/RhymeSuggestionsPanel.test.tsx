@@ -20,6 +20,7 @@ describe('RhymeSuggestionsPanel', () => {
       warning: undefined,
       results: { caret: [], lineLast: [] },
       debug: { caretToken: 'time', lineLastToken: undefined },
+      rhymeDebug: {},
       meta: { source: 'local' },
       phase: 'idle',
     })
@@ -35,7 +36,7 @@ describe('RhymeSuggestionsPanel', () => {
     )
 
     expect(
-      screen.getByText('No common rhymes — try Near or enable Rare words.')
+      screen.getByText('No perfect rhymes found. Try Near.')
     ).toBeInTheDocument()
   })
 })
