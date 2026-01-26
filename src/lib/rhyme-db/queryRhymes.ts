@@ -611,8 +611,7 @@ export const getRhymesForToken = (
     filtered = applyFilter(filtered, (entry) => shouldIncludeTier(entry.qualityTier), 'common_words_only')
     filtered = applyFilter(
       filtered,
-      (entry) =>
-        commonWordsOnly || !isPerfectMode ? showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore) : true,
+      (entry) => commonWordsOnly || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore),
       'variant_spelling'
     )
     recordStage('afterRuleFilters', filtered.length)
@@ -783,8 +782,7 @@ export const getRhymesForToken = (
     filtered = applyFilter(filtered, (entry) => shouldIncludeTier(entry.qualityTier), 'common_words_only')
     filtered = applyFilter(
       filtered,
-      (entry) =>
-        commonWordsOnly || !isPerfectMode ? showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore) : true,
+      (entry) => commonWordsOnly || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore),
       'variant_spelling'
     )
     filtered = applyFilter(filtered, (entry) => {
