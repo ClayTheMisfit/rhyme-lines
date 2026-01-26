@@ -609,6 +609,7 @@ export const getRhymesForToken = (
     let filtered = metadata
     filtered = applyFilter(filtered, (entry) => isBaseAllowed(entry.normalizedWord), 'blocked_token')
     filtered = applyFilter(filtered, (entry) => shouldIncludeTier(entry.qualityTier), 'common_words_only')
+    recordStage('afterCommonOnly', filtered.length)
     filtered = applyFilter(
       filtered,
       (entry) => commonWordsOnly || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore),
@@ -782,6 +783,7 @@ export const getRhymesForToken = (
     }
     filtered = applyFilter(filtered, (entry) => isBaseAllowed(entry.normalizedWord), 'blocked_token')
     filtered = applyFilter(filtered, (entry) => shouldIncludeTier(entry.qualityTier), 'common_words_only')
+    recordStage('afterCommonOnly', filtered.length)
     filtered = applyFilter(
       filtered,
       (entry) => commonWordsOnly || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore),
@@ -927,6 +929,7 @@ export const getRhymesForToken = (
     filtered = applyFilter(filtered, (entry) => matchesSyllableConstraint(entry.id), 'multi_syllable_filtered')
     filtered = applyFilter(filtered, (entry) => isBaseAllowed(entry.normalizedWord), 'blocked_token')
     filtered = applyFilter(filtered, (entry) => shouldIncludeTier(entry.qualityTier), 'common_words_only')
+    recordStage('afterCommonOnly', filtered.length)
     filtered = applyFilter(filtered, (entry) => showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore), 'variant_spelling')
     recordStage('afterRuleFilters', filtered.length)
     recordStage('afterDedupe', filtered.length)

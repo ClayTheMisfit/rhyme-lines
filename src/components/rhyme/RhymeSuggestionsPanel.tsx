@@ -583,7 +583,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             return (
               <div className="px-3 pb-2 text-[10px] text-slate-400 dark:text-slate-500">
                 tail: {activeDebug.perfectTailLenUsed ?? '—'} · pool: {activeDebug.poolSize ?? '—'} ·
-                after mode: {activeDebug.afterModeMatchCount ?? '—'} · after rare: {activeDebug.afterRareRankOrFilterCount ?? '—'} ·
+                after mode: {activeDebug.afterModeMatchCount ?? '—'} ·
+                after common-only: {activeDebug.stageCounts?.afterCommonOnly ?? '—'} ·
+                after rare: {activeDebug.afterRareRankOrFilterCount ?? '—'} ·
                 rendered: {activeDebug.renderedCount ?? visibleSuggestions.length} · visible: {visibleSuggestions.length}
                 {activeDebug.tierCounts && (
                   <span>
@@ -695,7 +697,15 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
           {debugEnabled && activePanelDebug && (() => {
-            const stageOrder = ['generated', 'afterModeFilter', 'afterRuleFilters', 'afterDedupe', 'afterSort', 'afterCap']
+            const stageOrder = [
+              'generated',
+              'afterModeFilter',
+              'afterCommonOnly',
+              'afterRuleFilters',
+              'afterDedupe',
+              'afterSort',
+              'afterCap',
+            ]
             const stageSummary = stageOrder
               .filter((key) => activePanelDebug.stageCounts[key] !== undefined)
               .map((key) => `${key}=${activePanelDebug.stageCounts[key]}`)

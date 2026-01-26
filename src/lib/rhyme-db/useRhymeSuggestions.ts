@@ -193,6 +193,7 @@ export const useRhymeSuggestions = ({
           }
           return allowed
         })
+        stageCounts.afterCommonOnly = filtered.length
         filtered.sort((a, b) => {
           const tierDelta = QUALITY_TIER_ORDER[a.tier] - QUALITY_TIER_ORDER[b.tier]
           if (tierDelta !== 0) return tierDelta
@@ -499,7 +500,15 @@ export const useRhymeSuggestions = ({
             ): RhymeSuggestionDebug | undefined => {
               if (!rawTarget) return undefined
               const normalizedTarget = normalizeToken(rawTarget)
-              const stageKeys = ['generated', 'afterModeFilter', 'afterRuleFilters', 'afterDedupe', 'afterSort', 'afterCap'] as const
+              const stageKeys = [
+                'generated',
+                'afterModeFilter',
+                'afterCommonOnly',
+                'afterRuleFilters',
+                'afterDedupe',
+                'afterSort',
+                'afterCap',
+              ] as const
               const stageCounts: Record<string, number> = {}
               for (const key of stageKeys) {
                 stageCounts[key] = modeDebugs.reduce((acc, item) => acc + (item?.stageCounts?.[key] ?? 0), 0)
