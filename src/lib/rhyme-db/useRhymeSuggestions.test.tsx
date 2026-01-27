@@ -92,6 +92,37 @@ describe('useRhymeSuggestions fallback', () => {
     expect(mockedFetchAggregatedRhymes).not.toHaveBeenCalled()
   })
 
+  it('forces spelling variants off in worker requests', async () => {
+    mockedInitRhymeClient.mockResolvedValue(undefined)
+    const getRhymes = jest.fn().mockResolvedValue({ results: { caret: ['time'], lineLast: [] }, debug: {} })
+    mockedGetRhymeClient.mockReturnValue({
+      getRhymes,
+      getWarning: () => null,
+      init: () => Promise.resolve(),
+      terminate: () => {},
+    })
+
+    renderHook(() =>
+      useRhymeSuggestions({
+        text: 'time',
+        caretIndex: 4,
+        currentLineText: 'time',
+        modes: ['perfect'],
+        showVariants: true,
+        enabled: true,
+      })
+    )
+
+    await act(async () => {
+      jest.advanceTimersByTime(260)
+      await flushPromises()
+    })
+
+    expect(getRhymes).toHaveBeenCalled()
+    const call = getRhymes.mock.calls[0]?.[0]
+    expect(call?.context?.showVariants).toBe(false)
+  })
+
   it('falls back to online when init fails', async () => {
     mockedInitRhymeClient.mockRejectedValue(new Error('init failed'))
     mockedGetRhymeClient.mockReturnValue({

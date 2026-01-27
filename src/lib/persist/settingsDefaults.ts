@@ -4,6 +4,7 @@ export const applySettingsDefaults = (incoming: SettingsSchema): SettingsSchema 
   ...DEFAULT_SETTINGS,
   ...incoming,
   rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters, ...incoming.rhymeFilters },
+  showVariants: false,
   lastUpdatedAt: incoming.lastUpdatedAt || Date.now(),
 })
 

@@ -74,15 +74,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const [debouncedQuery, setDebouncedQuery] = useState(searchQuery)
 
     const {
-      showVariants,
-      setShowVariants,
       commonWordsOnly,
       setCommonWordsOnly,
       rhymeFilters,
       setRhymeFilters,
     } = useSettingsStore((state) => ({
-      showVariants: state.showVariants,
-      setShowVariants: state.setShowVariants,
       commonWordsOnly: state.commonWordsOnly,
       setCommonWordsOnly: state.setCommonWordsOnly,
       rhymeFilters: state.rhymeFilters,
@@ -130,7 +126,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       modes: resolvedModes,
       max: undefined,
       multiSyllable: multiSyllablePerfect,
-      showVariants,
       commonWordsOnly,
       debug: debugEnabled,
       enabled: mode !== 'hidden',
@@ -201,7 +196,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         activeTokenLabel,
         activeToken ?? '',
         resolvedModes.join(','),
-        showVariants,
         commonWordsOnly,
         multiSyllablePerfect,
         activeTab,
@@ -211,7 +205,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         activeTab,
         activeToken,
         activeTokenLabel,
-        showVariants,
         commonWordsOnly,
         isQueryActive,
         multiSyllablePerfect,
@@ -491,22 +484,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     <span className="block text-slate-600 dark:text-slate-300">Multi-syllable perfect rhymes</span>
                     <span className="block text-[10px] text-slate-400 dark:text-slate-500">
                       Match the last two syllables (tighter rhymes).
-                    </span>
-                  </span>
-                </label>
-                <label className="flex cursor-pointer items-start gap-2">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-400"
-                    checked={showVariants}
-                    onChange={(event) => setShowVariants(event.target.checked)}
-                  />
-                  <span className="space-y-1">
-                    <span className="block text-slate-600 dark:text-slate-300">
-                      Show spelling variants
-                    </span>
-                    <span className="block text-[10px] text-slate-400 dark:text-slate-500">
-                      Include uncommon spellings like batt or blatt.
                     </span>
                   </span>
                 </label>
