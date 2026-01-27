@@ -128,7 +128,8 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
     schedulePersist(get())
   },
   setShowVariants: (showVariants) => {
-    set({ showVariants, lastUpdatedAt: Date.now() })
+    void showVariants
+    set({ showVariants: false, lastUpdatedAt: Date.now() })
     schedulePersist(get())
   },
   setCommonWordsOnly: (commonWordsOnly) => {

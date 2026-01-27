@@ -39,4 +39,32 @@ describe('RhymeSuggestionsPanel', () => {
       screen.getByText('No perfect rhymes found. Try Near.')
     ).toBeInTheDocument()
   })
+
+  it('removes the spelling variants toggle and keeps core controls visible', () => {
+    mockedUseRhymeSuggestions.mockReturnValue({
+      status: 'success',
+      error: undefined,
+      warning: undefined,
+      results: { caret: ['time'], lineLast: [] },
+      debug: { caretToken: 'time', lineLastToken: undefined },
+      rhymeDebug: {},
+      meta: { source: 'local' },
+      phase: 'idle',
+    })
+
+    render(
+      <RhymeSuggestionsPanel
+        mode="docked"
+        onClose={() => {}}
+        text="time"
+        caretIndex={4}
+        currentLineText="time"
+      />
+    )
+
+    expect(screen.queryByText('Show spelling variants')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Perfect' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Near' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'time' })).toBeInTheDocument()
+  })
 })

@@ -65,11 +65,11 @@ export const useRhymeSuggestions = ({
   modes,
   max,
   multiSyllable,
-  showVariants,
   commonWordsOnly,
   debug: debugEnabled,
   enabled,
 }: UseRhymeSuggestionsArgs) => {
+  const showVariants = false
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | undefined>(undefined)
   const [warning, setWarning] = useState<string | undefined>(undefined)
