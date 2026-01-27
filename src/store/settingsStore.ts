@@ -161,6 +161,11 @@ export type SettingsSnapshot = Pick<
   | 'commonWordsOnly'
 >
 
+/**
+ * Get a snapshot of the current settings.
+ *
+ * @returns A SettingsSnapshot containing the current values for `theme`, `fontSize`, `lineHeight`, `badgeSize`, `showLineTotals`, `rhymeAutoRefresh`, `debounceMode`, `highContrast`, `rhymeFilters`, `showVariants`, and `commonWordsOnly`.
+ */
 export function getCurrentSettingsSnapshot(): SettingsSnapshot {
   const {
     theme,
@@ -190,6 +195,11 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
   }
 }
 
+/**
+ * Apply the given settings snapshot to the current settings store, updating each corresponding setting.
+ *
+ * @param snapshot - Settings values to apply; each field replaces the current store value for that setting
+ */
 export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
   const {
     setTheme,
