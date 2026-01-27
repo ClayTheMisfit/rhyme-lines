@@ -9,6 +9,8 @@ import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 import type { RhymeSource } from '@/lib/rhymes/rhymeSource'
 import { classifyCandidate, QUALITY_TIER_ORDER } from '@/lib/rhyme/wordQuality'
+import type { RhymeSuggestionDebug, RhymeSuggestionDebugState } from '@/lib/rhyme-db/rhymeDebug'
+import { isEnglishWord } from '@/lib/rhyme-db/isEnglishWord'
 import {
   getPreferredRhymeSource,
   markLocalInitFailed,
@@ -48,8 +50,9 @@ type UseRhymeSuggestionsArgs = {
   modes: Mode[]
   max?: number
   multiSyllable?: boolean
-  includeRareWords?: boolean
+  showVariants?: boolean
   commonWordsOnly?: boolean
+  debug?: boolean
   enabled: boolean
 }
 
@@ -62,8 +65,9 @@ export const useRhymeSuggestions = ({
   modes,
   max,
   multiSyllable,
-  includeRareWords,
+  showVariants,
   commonWordsOnly,
+  debug: debugEnabled,
   enabled,
 }: UseRhymeSuggestionsArgs) => {
   const [status, setStatus] = useState<Status>('idle')
@@ -71,6 +75,7 @@ export const useRhymeSuggestions = ({
   const [warning, setWarning] = useState<string | undefined>(undefined)
   const [results, setResults] = useState<Results>({})
   const [debug, setDebug] = useState<DebugInfo>({})
+  const [rhymeDebug, setRhymeDebug] = useState<RhymeSuggestionDebugState>({})
   const [wordUsage, setWordUsage] = useState<Record<string, number>>({})
   const [meta, setMeta] = useState<Meta>({ source: 'local' })
   const [phase, setPhase] = useState<LoadPhase>('idle')
@@ -106,9 +111,16 @@ export const useRhymeSuggestions = ({
   }, [currentLineRange, currentLineText, text])
 
   const runQuery = useCallback(
-    async (tokens: { caretToken?: string | null; lineLastToken?: string | null }) => {
+    async (tokens: {
+      caretToken?: string | null
+      lineLastToken?: string | null
+      rawCaretToken?: string | null
+      rawLineLastToken?: string | null
+    }) => {
       const caretToken = tokens.caretToken ?? null
       const lineLastToken = tokens.lineLastToken ?? null
+      const rawCaretToken = tokens.rawCaretToken ?? caretToken
+      const rawLineLastToken = tokens.rawLineLastToken ?? lineLastToken
       if (!enabled) return
       if (!caretToken && !lineLastToken) {
         setResults({})
@@ -123,12 +135,13 @@ export const useRhymeSuggestions = ({
           caretDetails: undefined,
           lineLastDetails: undefined,
         })
+        setRhymeDebug({})
         return
       }
 
       requestCounter.current += 1
       const requestId = requestCounter.current
-      const maxResults = max ?? 100
+      const maxResults = max ?? Number.MAX_SAFE_INTEGER
       const startTime = Date.now()
       setStatus('loading')
       setPhase(Object.keys(lastGoodRef.current).length === 0 ? 'initial' : 'refreshing')
@@ -163,23 +176,53 @@ export const useRhymeSuggestions = ({
         if (commonWordsOnly) {
           return tier === 'common' || tier === 'uncommon'
         }
-        if (includeRareWords) return true
-        return tier !== 'proper' && tier !== 'foreign' && tier !== 'weird'
+        return true
       }
 
-      const filterAndSort = (items: string[]) => {
-        const annotated = items.map((word) => {
+      const filterAndSort = (items: string[], rawTarget: string | null): { list: string[]; debug?: RhymeSuggestionDebug } => {
+        const annotated = items.filter(isEnglishWord).map((word) => {
           const quality = classifyCandidate(word)
           return { word, tier: quality.qualityTier, score: quality.commonScore }
         })
-        const filtered = annotated.filter((entry) => shouldIncludeTier(entry.tier))
+        const rejections: Record<string, number> = {}
+        const stageCounts: Record<string, number> = {}
+        stageCounts.generated = annotated.length
+        const filtered = annotated.filter((entry) => {
+          const allowed = shouldIncludeTier(entry.tier)
+          if (!allowed && debugEnabled) {
+            rejections.common_words_only = (rejections.common_words_only ?? 0) + 1
+          }
+          return allowed
+        })
+        stageCounts.afterCommonOnly = filtered.length
         filtered.sort((a, b) => {
           const tierDelta = QUALITY_TIER_ORDER[a.tier] - QUALITY_TIER_ORDER[b.tier]
           if (tierDelta !== 0) return tierDelta
           if (a.score !== b.score) return b.score - a.score
           return a.word.localeCompare(b.word)
         })
-        return filtered.map((entry) => entry.word)
+        stageCounts.afterRuleFilters = filtered.length
+        stageCounts.afterSort = filtered.length
+        stageCounts.afterDedupe = filtered.length
+        stageCounts.afterCap = filtered.length
+        const list = filtered.map((entry) => entry.word)
+        if (!debugEnabled || !rawTarget) {
+          return { list }
+        }
+        const normalizedTarget = normalizeToken(rawTarget)
+        return {
+          list,
+          debug: {
+            rawTarget,
+            normalizedTarget,
+            activeModes: orderedModes,
+            poolCount: stageCounts.generated,
+            filteredCount: list.length,
+            stageCounts,
+            rejections,
+            meta: { updatedAt: Date.now() },
+          },
+        }
       }
 
       const fetchOnline = async () => {
@@ -257,22 +300,35 @@ export const useRhymeSuggestions = ({
         })
 
         const onlineResults: Results = {}
+        const onlineDebug: RhymeSuggestionDebugState = {}
         const sharedResult = outcomes.get('shared')
         if (sharedResult) {
           const suggestions = toSuggestions(sharedResult)
-          const filtered = filterAndSort(suggestions)
-          onlineResults.caret = filtered
-          onlineResults.lineLast = filtered
+          const filtered = filterAndSort(suggestions, rawCaretToken ?? null)
+          onlineResults.caret = filtered.list
+          onlineResults.lineLast = filtered.list
+          if (filtered.debug) {
+            onlineDebug.caret = filtered.debug
+            onlineDebug.lineLast = filtered.debug
+          }
         } else {
           if (outcomes.get('caret')) {
-            onlineResults.caret = filterAndSort(toSuggestions(outcomes.get('caret') ?? null))
+            const filtered = filterAndSort(toSuggestions(outcomes.get('caret') ?? null), rawCaretToken ?? null)
+            onlineResults.caret = filtered.list
+            if (filtered.debug) {
+              onlineDebug.caret = filtered.debug
+            }
           }
           if (outcomes.get('lineLast')) {
-            onlineResults.lineLast = filterAndSort(toSuggestions(outcomes.get('lineLast') ?? null))
+            const filtered = filterAndSort(toSuggestions(outcomes.get('lineLast') ?? null), rawLineLastToken ?? null)
+            onlineResults.lineLast = filtered.list
+            if (filtered.debug) {
+              onlineDebug.lineLast = filtered.debug
+            }
           }
         }
 
-        return { results: onlineResults, allFailed, hadFailure }
+        return { results: onlineResults, allFailed, hadFailure, debug: onlineDebug }
       }
 
       const applyOnlineFallback = async (note?: string) => {
@@ -305,6 +361,16 @@ export const useRhymeSuggestions = ({
           lineLastDetails: undefined,
           lastQueryMs: Date.now() - startTime,
         }))
+        if (debugEnabled) {
+          const withMeta = (entry?: RhymeSuggestionDebug) =>
+            entry ? { ...entry, meta: { updatedAt: Date.now() } } : undefined
+          setRhymeDebug({
+            caret: withMeta(onlineResponse.debug?.caret),
+            lineLast: withMeta(onlineResponse.debug?.lineLast),
+          })
+        } else {
+          setRhymeDebug({})
+        }
       }
 
       // Local pipeline: hook -> client -> worker -> results.
@@ -336,8 +402,9 @@ export const useRhymeSuggestions = ({
                   wordUsage,
                   desiredSyllables,
                   multiSyllable: Boolean(multiSyllable),
-                  includeRareWords,
+                  showVariants,
                   commonWordsOnly,
+                  debug: debugEnabled,
                 },
               })
             )
@@ -371,14 +438,20 @@ export const useRhymeSuggestions = ({
           const mergeList = (list: (string[] | undefined)[]) => {
             const seen = new Set<string>()
             const merged: string[] = []
+            let deduped = 0
             for (const group of list) {
               for (const item of group ?? []) {
-                if (seen.has(item)) continue
+                if (seen.has(item)) {
+                  deduped += 1
+                  continue
+                }
                 seen.add(item)
                 merged.push(item)
               }
             }
-            return merged
+            // Filter out non-English words after candidate aggregation to preserve upstream ranking.
+            const englishMerged = merged.filter(isEnglishWord)
+            return { merged: englishMerged, deduped }
           }
 
           const mergeDebug = (items: Array<RhymeTokenDebug | undefined>): RhymeTokenDebug | undefined => {
@@ -411,13 +484,106 @@ export const useRhymeSuggestions = ({
           }
 
           const resultsByMode = fulfilled.map((entry) => (entry as PromiseFulfilledResult<WorkerResults>).value)
+          const caretMerge = mergeList(resultsByMode.map((result) => result.results.caret))
+          const lineLastMerge = mergeList(resultsByMode.map((result) => result.results.lineLast))
           const mergedResults: Results = {
-            caret: mergeList(resultsByMode.map((result) => result.results.caret)),
-            lineLast: mergeList(resultsByMode.map((result) => result.results.lineLast)),
+            caret: caretMerge.merged,
+            lineLast: lineLastMerge.merged,
           }
           const mergedDebug: RhymeTargetsDebug = {
             caret: mergeDebug(resultsByMode.map((result) => result.debug?.caret)),
             lineLast: mergeDebug(resultsByMode.map((result) => result.debug?.lineLast)),
+          }
+          if (debugEnabled) {
+            const buildCombinedDebug = (
+              rawTarget: string | null,
+              merged: string[],
+              deduped: number,
+              modeDebugs: Array<RhymeTokenDebug | undefined>
+            ): RhymeSuggestionDebug | undefined => {
+              if (!rawTarget) return undefined
+              const normalizedTarget = normalizeToken(rawTarget)
+              const stageKeys = [
+                'generated',
+                'afterModeFilter',
+                'afterCommonOnly',
+                'afterRuleFilters',
+                'afterDedupe',
+                'afterSort',
+                'afterCap',
+              ] as const
+              const stageCounts: Record<string, number> = {}
+              for (const key of stageKeys) {
+                stageCounts[key] = modeDebugs.reduce((acc, item) => acc + (item?.stageCounts?.[key] ?? 0), 0)
+              }
+              stageCounts.afterDedupe = merged.length
+              stageCounts.afterSort = merged.length
+              stageCounts.afterCap = merged.length
+              const rejections: Record<string, number> = {}
+              for (const item of modeDebugs) {
+                if (!item?.rejections) continue
+                for (const [reason, count] of Object.entries(item.rejections)) {
+                  rejections[reason] = (rejections[reason] ?? 0) + count
+                }
+              }
+              if (deduped > 0) {
+                rejections.duplicate = (rejections.duplicate ?? 0) + deduped
+              }
+              const capInfo = modeDebugs.find((item) => item?.cap?.applied)?.cap
+              const poolCount = stageCounts.generated || undefined
+              return {
+                rawTarget,
+                normalizedTarget,
+                activeModes: orderedModes,
+                poolCount,
+                filteredCount: merged.length,
+                stageCounts,
+                rejections,
+                cap: capInfo,
+                meta: { updatedAt: Date.now() },
+              }
+            }
+            setRhymeDebug({
+              caret: buildCombinedDebug(
+                rawCaretToken ?? null,
+                caretMerge.merged,
+                caretMerge.deduped,
+                resultsByMode.map((result) => result.debug?.caret)
+              ),
+              lineLast: buildCombinedDebug(
+                rawLineLastToken ?? null,
+                lineLastMerge.merged,
+                lineLastMerge.deduped,
+                resultsByMode.map((result) => result.debug?.lineLast)
+              ),
+            })
+          } else {
+            setRhymeDebug({})
+          }
+
+          if (process.env.NODE_ENV !== 'production') {
+            const logIfTime = (label: 'caret' | 'lineLast', token: string | null | undefined) => {
+              const normalized = normalizeToken(token ?? '')
+              if (normalized !== 'time') return
+              const modeSnapshots = orderedModes.map((mode, index) => {
+                const modeResult = resultsByMode[index]
+                const debugInfo = label === 'caret' ? modeResult?.debug?.caret : modeResult?.debug?.lineLast
+                const words = (label === 'caret' ? modeResult?.results?.caret : modeResult?.results?.lineLast) ?? []
+                return {
+                  mode,
+                  tokenNormalized: debugInfo?.normalizedToken ?? normalized,
+                  wordId: debugInfo?.wordId ?? null,
+                  perfectKey: debugInfo?.perfectKey ?? null,
+                  vowelKey: debugInfo?.vowelKey ?? null,
+                  codaKey: debugInfo?.codaKey ?? null,
+                  candidatePools: debugInfo?.candidatePools ?? { perfect: 0, near: 0 },
+                  first30: words.slice(0, 30),
+                }
+              })
+              console.debug('[rhyme-db] time debug', { target: label, modes: modeSnapshots })
+            }
+            logIfTime('caret', caretToken)
+            logIfTime('lineLast', lineLastToken)
           }
 
           if (requestId !== requestCounter.current) return
@@ -451,7 +617,7 @@ export const useRhymeSuggestions = ({
 
       await applyOnlineFallback('Offline DB unavailable — using online providers.')
     },
-    [commonWordsOnly, enabled, includeRareWords, max, modes, multiSyllable, wordUsage]
+    [commonWordsOnly, debugEnabled, enabled, max, modes, multiSyllable, showVariants, wordUsage]
   )
 
   useEffect(() => {
@@ -514,7 +680,7 @@ export const useRhymeSuggestions = ({
     const lineLastToken = getLineLastWord(lineText)
 
     typingTimer.current = window.setTimeout(() => {
-      runQuery({ caretToken, lineLastToken })
+      runQuery({ caretToken, lineLastToken, rawCaretToken: caretToken, rawLineLastToken: lineLastToken })
     }, 250)
 
     lastContentRef.current = { text, lineText }
@@ -541,7 +707,7 @@ export const useRhymeSuggestions = ({
     const lineLastToken = getLineLastWord(lineText)
 
     caretTimer.current = window.setTimeout(() => {
-      runQuery({ caretToken, lineLastToken })
+      runQuery({ caretToken, lineLastToken, rawCaretToken: caretToken, rawLineLastToken: lineLastToken })
     }, 50)
 
     return () => {
@@ -560,7 +726,12 @@ export const useRhymeSuggestions = ({
     }
 
     typingTimer.current = window.setTimeout(() => {
-      runQuery({ caretToken: normalizedQueryToken, lineLastToken: normalizedQueryToken })
+      runQuery({
+        caretToken: normalizedQueryToken,
+        lineLastToken: normalizedQueryToken,
+        rawCaretToken: queryToken ?? normalizedQueryToken,
+        rawLineLastToken: queryToken ?? normalizedQueryToken,
+      })
     }, 200)
 
     return () => {
@@ -576,6 +747,7 @@ export const useRhymeSuggestions = ({
     warning,
     results,
     debug,
+    rhymeDebug,
     meta,
     phase,
   }

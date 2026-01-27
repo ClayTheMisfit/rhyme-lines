@@ -100,6 +100,30 @@ const buildWordToId = (words: string[]) => {
   return map
 }
 
+const assertSortedWords = (words: string[]) => {
+  for (let index = 1; index < words.length; index += 1) {
+    if (words[index - 1] >= words[index]) {
+      throw new Error(`Words list is not strictly sorted at index ${index - 1}`)
+    }
+  }
+}
+
+const assertRuntimeMaps = (maps: RhymeDbRuntimeMaps, words: string[]) => {
+  const entries = Object.entries(maps) as Array<[keyof RhymeDbRuntimeMaps, string[][] | undefined]>
+  for (const [name, list] of entries) {
+    if (!list) continue
+    if (list.length !== words.length) {
+      throw new Error(`${name} length mismatch: ${list.length} vs ${words.length}`)
+    }
+    const sampleIndices = [0, Math.floor(words.length / 2), words.length - 1].filter((idx) => idx >= 0 && idx < words.length)
+    for (const idx of sampleIndices) {
+      if (!Array.isArray(list[idx])) {
+        throw new Error(`${name} missing keys at index ${idx}`)
+      }
+    }
+  }
+}
+
 const validateDb = (db: RhymeDbV1) => {
   if (!db.words || !db.indexes) {
     return 'Missing words or indexes'
@@ -244,6 +268,11 @@ const loadDb = async () => {
     runtimeMaps.perfect2KeysByWordId = buildKeysByWordId(perfect2, db.words.length)
   }
 
+  if (process.env.NODE_ENV !== 'production') {
+    assertSortedWords(db.words)
+    assertRuntimeMaps(runtimeMaps, db.words)
+  }
+
   const freqAvailable = Array.isArray(db.freqByWordId) && db.freqByWordId.length === db.words.length
   runtimeDb = Object.assign(db, { runtime: runtimeMaps, runtimeLookups, freqAvailable })
 }
@@ -307,8 +336,10 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
       const desiredSyllables =
         typeof message.context?.desiredSyllables === 'number' ? message.context.desiredSyllables : 'none'
       const multiSyllable = message.context?.multiSyllable ? '1' : '0'
-      const includeRare = message.context?.includeRare ? '1' : '0'
-      const cacheKey = `${normalizedMode}|${message.max}|${desiredSyllables}|${multiSyllable}|${includeRare}|c:${caretToken}|l:${lineLastToken}`
+      const showVariants = message.context?.showVariants ? '1' : '0'
+      const commonWordsOnly = message.context?.commonWordsOnly ? '1' : '0'
+      const debugFlag = message.context?.debug ? '1' : '0'
+      const cacheKey = `${normalizedMode}|${message.max}|${desiredSyllables}|${multiSyllable}|${showVariants}|common:${commonWordsOnly}|debug:${debugFlag}|c:${caretToken}|l:${lineLastToken}`
 
       const cached = cache.get(cacheKey)
       if (cached) {

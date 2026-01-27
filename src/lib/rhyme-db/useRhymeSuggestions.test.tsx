@@ -184,3 +184,51 @@ describe('useRhymeSuggestions fallback', () => {
     expect(result.current.error).toBe('Failed to fetch rhymes from online providers.')
   })
 })
+
+describe('useRhymeSuggestions english filtering', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    retryLocalInit()
+    mockedFetchAggregatedRhymes.mockReset()
+    mockedGetRhymeClient.mockReset()
+    mockedInitRhymeClient.mockReset()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('filters non-English words and preserves order per target bucket', async () => {
+    mockedInitRhymeClient.mockResolvedValue(undefined)
+    mockedGetRhymeClient.mockReturnValue({
+      getRhymes: async () => ({
+        results: {
+          caret: ['crime', 'hochzeit', 'sublime'],
+          lineLast: ['hochzeit', 'time'],
+        },
+        debug: {},
+      }),
+      getWarning: () => null,
+      init: () => Promise.resolve(),
+      terminate: () => {},
+    })
+
+    const { result } = renderHook(() =>
+      useRhymeSuggestions({
+        text: 'time',
+        caretIndex: 4,
+        currentLineText: 'time',
+        modes: ['perfect'],
+        enabled: true,
+      })
+    )
+
+    await act(async () => {
+      jest.advanceTimersByTime(260)
+      await flushPromises()
+    })
+
+    expect(result.current.results.caret).toEqual(['crime', 'sublime'])
+    expect(result.current.results.lineLast).toEqual(['time'])
+  })
+})

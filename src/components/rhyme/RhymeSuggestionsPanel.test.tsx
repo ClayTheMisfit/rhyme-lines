@@ -10,7 +10,7 @@ const mockedUseRhymeSuggestions = useRhymeSuggestions as jest.MockedFunction<typ
 
 describe('RhymeSuggestionsPanel', () => {
   beforeEach(() => {
-    useSettingsStore.setState({ includeRareWords: false })
+    useSettingsStore.setState({})
   })
 
   it('shows the common-only hint when no results are available', () => {
@@ -20,6 +20,7 @@ describe('RhymeSuggestionsPanel', () => {
       warning: undefined,
       results: { caret: [], lineLast: [] },
       debug: { caretToken: 'time', lineLastToken: undefined },
+      rhymeDebug: {},
       meta: { source: 'local' },
       phase: 'idle',
     })
@@ -35,7 +36,7 @@ describe('RhymeSuggestionsPanel', () => {
     )
 
     expect(
-      screen.getByText('No common rhymes — try Near or enable Rare words.')
+      screen.getByText('No perfect rhymes found. Try Near.')
     ).toBeInTheDocument()
   })
 })

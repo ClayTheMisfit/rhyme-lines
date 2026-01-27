@@ -24,7 +24,7 @@ export type SettingsState = {
   debounceMode: DebounceMode
   highContrast: boolean
   rhymeFilters: RhymeFilters
-  includeRareWords: boolean
+  showVariants: boolean
   commonWordsOnly: boolean
   lastUpdatedAt: number
   setTheme: (theme: ThemeSetting) => void
@@ -36,7 +36,7 @@ export type SettingsState = {
   setDebounceMode: (mode: DebounceMode) => void
   setHighContrast: (value: boolean) => void
   setRhymeFilters: (filters: RhymeFilters) => void
-  setIncludeRareWords: (value: boolean) => void
+  setShowVariants: (value: boolean) => void
   setCommonWordsOnly: (value: boolean) => void
   resetDefaults: () => void
 }
@@ -59,7 +59,7 @@ const persistSettings = (state: SettingsState) => {
     debounceMode: state.debounceMode,
     highContrast: state.highContrast,
     rhymeFilters: state.rhymeFilters,
-    includeRareWords: state.includeRareWords,
+    showVariants: state.showVariants,
     commonWordsOnly: state.commonWordsOnly,
     lastUpdatedAt: Date.now(),
   }
@@ -127,8 +127,8 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
     set({ rhymeFilters, lastUpdatedAt: Date.now() })
     schedulePersist(get())
   },
-  setIncludeRareWords: (includeRareWords) => {
-    set({ includeRareWords, lastUpdatedAt: Date.now() })
+  setShowVariants: (showVariants) => {
+    set({ showVariants, lastUpdatedAt: Date.now() })
     schedulePersist(get())
   },
   setCommonWordsOnly: (commonWordsOnly) => {
@@ -157,10 +157,15 @@ export type SettingsSnapshot = Pick<
   | 'debounceMode'
   | 'highContrast'
   | 'rhymeFilters'
-  | 'includeRareWords'
+  | 'showVariants'
   | 'commonWordsOnly'
 >
 
+/**
+ * Get a snapshot of the current settings.
+ *
+ * @returns A SettingsSnapshot containing the current values for `theme`, `fontSize`, `lineHeight`, `badgeSize`, `showLineTotals`, `rhymeAutoRefresh`, `debounceMode`, `highContrast`, `rhymeFilters`, `showVariants`, and `commonWordsOnly`.
+ */
 export function getCurrentSettingsSnapshot(): SettingsSnapshot {
   const {
     theme,
@@ -172,7 +177,7 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     debounceMode,
     highContrast,
     rhymeFilters,
-    includeRareWords,
+    showVariants,
     commonWordsOnly,
   } = useSettingsStore.getState()
   return {
@@ -185,11 +190,16 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     debounceMode,
     highContrast,
     rhymeFilters,
-    includeRareWords,
+    showVariants,
     commonWordsOnly,
   }
 }
 
+/**
+ * Apply the given settings snapshot to the current settings store, updating each corresponding setting.
+ *
+ * @param snapshot - Settings values to apply; each field replaces the current store value for that setting
+ */
 export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
   const {
     setTheme,
@@ -201,7 +211,7 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
     setDebounceMode,
     setHighContrast,
     setRhymeFilters,
-    setIncludeRareWords,
+    setShowVariants,
     setCommonWordsOnly,
   } = useSettingsStore.getState()
 
@@ -214,7 +224,7 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
   setDebounceMode(snapshot.debounceMode)
   setHighContrast(snapshot.highContrast)
   setRhymeFilters(snapshot.rhymeFilters)
-  setIncludeRareWords(snapshot.includeRareWords)
+  setShowVariants(snapshot.showVariants)
   setCommonWordsOnly(snapshot.commonWordsOnly)
 }
 

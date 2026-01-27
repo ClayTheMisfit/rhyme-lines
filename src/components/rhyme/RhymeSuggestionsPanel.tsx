@@ -13,6 +13,7 @@ import type { EditorHandle } from '@/components/Editor'
 import { getLocalInitFailureReason } from '@/lib/rhymes/rhymeSource'
 import { useMemo, useState } from 'react'
 import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
+import { buildVisibleSuggestions } from '@/components/rhyme/buildVisibleSuggestions'
 
 const MIN_WIDTH = 280
 const MAX_WIDTH = 640
@@ -69,20 +70,19 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     }))
 
     const [advancedOpen, setAdvancedOpen] = useState(false)
+    const [debugEnabled, setDebugEnabled] = useState(false)
     const [debouncedQuery, setDebouncedQuery] = useState(searchQuery)
-    const [visibleCount, setVisibleCount] = useState(200)
-    const sentinelRef = React.useRef<HTMLDivElement | null>(null)
 
     const {
-      includeRareWords,
-      setIncludeRareWords,
+      showVariants,
+      setShowVariants,
       commonWordsOnly,
       setCommonWordsOnly,
       rhymeFilters,
       setRhymeFilters,
     } = useSettingsStore((state) => ({
-      includeRareWords: state.includeRareWords,
-      setIncludeRareWords: state.setIncludeRareWords,
+      showVariants: state.showVariants,
+      setShowVariants: state.setShowVariants,
       commonWordsOnly: state.commonWordsOnly,
       setCommonWordsOnly: state.setCommonWordsOnly,
       rhymeFilters: state.rhymeFilters,
@@ -119,6 +119,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       warning,
       results,
       debug,
+      rhymeDebug,
       meta,
       phase,
     } = useRhymeSuggestions({
@@ -127,10 +128,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       currentLineText,
       queryToken: debouncedQuery,
       modes: resolvedModes,
-      max: 100,
+      max: undefined,
       multiSyllable: multiSyllablePerfect,
-      includeRareWords,
+      showVariants,
       commonWordsOnly,
+      debug: debugEnabled,
       enabled: mode !== 'hidden',
     })
 
@@ -142,29 +144,64 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         ? caretSuggestions
         : lineSuggestions
     const visibleSuggestions = useMemo(
-      () => activeSuggestions.slice(0, visibleCount),
-      [activeSuggestions, visibleCount]
+      () => buildVisibleSuggestions(activeSuggestions),
+      [activeSuggestions]
     )
 
     const caretToken = debug.caretDetails?.normalizedToken ?? debug.caretToken
     const lineLastToken = debug.lineLastDetails?.normalizedToken ?? debug.lineLastToken
     const activeToken = isQueryActive ? normalizedQueryToken : activeTab === 'caret' ? caretToken : lineLastToken
     const activeTokenLabel = isQueryActive ? 'Query' : activeTab === 'caret' ? 'Caret' : 'Line End'
+    const activeDebug = useMemo(() => (
+      isQueryActive
+        ? debug.caretDetails ?? debug.lineLastDetails
+        : activeTab === 'caret'
+          ? debug.caretDetails
+          : debug.lineLastDetails
+    ), [activeTab, debug.caretDetails, debug.lineLastDetails, isQueryActive])
     const isInitialLoading = phase === 'initial'
     const isRefreshing = phase === 'refreshing'
     const localInitFailureReason = getLocalInitFailureReason()
-    const LIMITED_COMMON_THRESHOLD = 10
+    const totalAvailable = activeDebug?.afterModeMatchCount ?? activeSuggestions.length
+    const filteredCount = visibleSuggestions.length
+    const isFiltered = totalAvailable > filteredCount
+    const activePanelDebug = useMemo(() => {
+      if (!debugEnabled) return undefined
+      const base = isQueryActive
+        ? rhymeDebug.caret ?? rhymeDebug.lineLast
+        : activeTab === 'caret'
+          ? rhymeDebug.caret
+          : rhymeDebug.lineLast
+      if (!base) return undefined
+      const stageCounts = { ...base.stageCounts }
+      stageCounts.afterCap = visibleSuggestions.length
+      const rejections = { ...base.rejections }
+      const capApplied = activeSuggestions.length > visibleSuggestions.length
+      let cap = base.cap
+      if (capApplied) {
+        rejections.cap_slice = (rejections.cap_slice ?? 0) + (activeSuggestions.length - visibleSuggestions.length)
+        cap = { applied: true, limit: visibleSuggestions.length, stage: 'ui_slice' }
+      }
+      return {
+        ...base,
+        filteredCount: visibleSuggestions.length,
+        renderedCount: visibleSuggestions.length,
+        stageCounts,
+        rejections,
+        cap,
+      }
+    }, [activeSuggestions.length, activeTab, debugEnabled, isQueryActive, rhymeDebug, visibleSuggestions.length])
 
     React.useEffect(() => {
-      suggestionsRef.current = activeSuggestions
-    }, [activeSuggestions])
+      suggestionsRef.current = visibleSuggestions
+    }, [visibleSuggestions])
 
     const resultsKey = useMemo(
       () => [
         activeTokenLabel,
         activeToken ?? '',
         resolvedModes.join(','),
-        includeRareWords,
+        showVariants,
         commonWordsOnly,
         multiSyllablePerfect,
         activeTab,
@@ -174,7 +211,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         activeTab,
         activeToken,
         activeTokenLabel,
-        includeRareWords,
+        showVariants,
         commonWordsOnly,
         isQueryActive,
         multiSyllablePerfect,
@@ -183,25 +220,26 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     )
 
     React.useEffect(() => {
-      setVisibleCount(200)
-    }, [resultsKey])
+      if (process.env.NODE_ENV === 'production') return
+      console.log('[rhymes] pools', {
+        token: activeToken,
+        poolPerfect: activeDebug?.candidatePools.perfect ?? null,
+        poolNear: activeDebug?.candidatePools.near ?? null,
+      })
+      console.log('[rhymes] resultsTotal', { token: activeToken, resultsTotal: totalAvailable })
+      console.log('[rhymes] render', {
+        token: activeToken,
+        resultsTotal: totalAvailable,
+        rendered: filteredCount,
+      })
+    }, [activeDebug?.candidatePools.near, activeDebug?.candidatePools.perfect, activeToken, filteredCount, totalAvailable])
 
     React.useEffect(() => {
-      const node = sentinelRef.current
-      if (!node) return
-      if (activeSuggestions.length <= visibleCount) return
-
-      const observer = new IntersectionObserver(
-        (entries) => {
-          if (entries.some((entry) => entry.isIntersecting)) {
-            setVisibleCount((prev) => Math.min(prev + 200, activeSuggestions.length))
-          }
-        },
-        { rootMargin: '120px' }
-      )
-      observer.observe(node)
-      return () => observer.disconnect()
-    }, [activeSuggestions.length, visibleCount])
+      if (process.env.NODE_ENV === 'production') return
+      const searchParams = new URLSearchParams(window.location.search)
+      const enabled = searchParams.get('rhymeDebug') === '1' || window.localStorage.getItem('rhymeDebug') === '1'
+      setDebugEnabled(enabled)
+    }, [])
 
     React.useEffect(() => {
       if (debouncedQuery === searchQuery) return
@@ -224,21 +262,21 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     }, [activeModes.length, setRhymeFilters])
 
     React.useEffect(() => {
-      if (activeSuggestions.length === 0) {
+      if (visibleSuggestions.length === 0) {
         setSelectedIndex(null)
         return
       }
 
-      if (selectedIndex == null || selectedIndex >= activeSuggestions.length) {
+      if (selectedIndex == null || selectedIndex >= visibleSuggestions.length) {
         setSelectedIndex(0)
       }
-    }, [activeSuggestions.length, selectedIndex, setSelectedIndex])
+    }, [selectedIndex, setSelectedIndex, visibleSuggestions.length])
 
     React.useEffect(() => {
       if (selectedIndex == null) return
-      if (selectedIndex < visibleCount) return
-      setVisibleCount((prev) => Math.max(prev, selectedIndex + 1))
-    }, [selectedIndex, visibleCount])
+      if (selectedIndex < visibleSuggestions.length) return
+      setSelectedIndex(0)
+    }, [selectedIndex, setSelectedIndex, visibleSuggestions.length])
 
     const insertSuggestion = React.useCallback(
       (word: string) => {
@@ -360,7 +398,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     }
 
     const panelContent = (
-      <div className="flex h-full flex-col">
+      <div className="flex h-full min-h-0 flex-col">
         <div className="px-3 pt-3">
           <div className="space-y-3 rounded-lg border border-slate-200/70 bg-slate-50/80 p-3 text-[12px] text-slate-600 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/60 dark:text-slate-300">
             <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
@@ -460,13 +498,15 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                   <input
                     type="checkbox"
                     className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-400"
-                    checked={includeRareWords}
-                    onChange={(event) => setIncludeRareWords(event.target.checked)}
+                    checked={showVariants}
+                    onChange={(event) => setShowVariants(event.target.checked)}
                   />
                   <span className="space-y-1">
-                    <span className="block text-slate-600 dark:text-slate-300">Include rare / proper nouns</span>
+                    <span className="block text-slate-600 dark:text-slate-300">
+                      Show spelling variants
+                    </span>
                     <span className="block text-[10px] text-slate-400 dark:text-slate-500">
-                      Include names and uncommon words.
+                      Include uncommon spellings like batt or blatt.
                     </span>
                   </span>
                 </label>
@@ -516,10 +556,15 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           </div>
         </div>
 
-        <div className="mt-3 flex-1 overflow-y-auto px-2 pb-3 pt-0 thin-scrollbar">
+        <div className="mt-3 flex-1 min-h-0 overflow-y-auto px-2 pb-3 pt-0 thin-scrollbar">
           {!isInitialLoading && (
             <div className="px-3 pb-2 text-[12px] text-slate-500 dark:text-slate-400">
               {activeTokenLabel}: {activeToken ?? '—'}
+            </div>
+          )}
+          {!isInitialLoading && activeSuggestions.length > 0 && (
+            <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
+              {isFiltered ? `${filteredCount} results (total ${totalAvailable})` : `${totalAvailable} results`}
             </div>
           )}
 
@@ -534,17 +579,14 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           )}
 
           {process.env.NODE_ENV !== 'production' && !isInitialLoading && (() => {
-            const activeDebug = isQueryActive
-              ? debug.caretDetails ?? debug.lineLastDetails
-              : activeTab === 'caret'
-                ? debug.caretDetails
-                : debug.lineLastDetails
             if (!activeDebug) return null
             return (
               <div className="px-3 pb-2 text-[10px] text-slate-400 dark:text-slate-500">
                 tail: {activeDebug.perfectTailLenUsed ?? '—'} · pool: {activeDebug.poolSize ?? '—'} ·
-                after mode: {activeDebug.afterModeMatchCount ?? '—'} · after rare: {activeDebug.afterRareRankOrFilterCount ?? '—'} ·
-                rendered: {activeDebug.renderedCount ?? visibleSuggestions.length} · visible: {visibleCount}
+                after mode: {activeDebug.afterModeMatchCount ?? '—'} ·
+                after common-only: {activeDebug.stageCounts?.afterCommonOnly ?? '—'} ·
+                after rare: {activeDebug.afterRareRankOrFilterCount ?? '—'} ·
+                rendered: {activeDebug.renderedCount ?? visibleSuggestions.length} · visible: {visibleSuggestions.length}
                 {activeDebug.tierCounts && (
                   <span>
                     {' '}
@@ -583,13 +625,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
-          {!isInitialLoading && !includeRareWords && status !== 'idle' && activeSuggestions.length > 0 &&
-            activeSuggestions.length < LIMITED_COMMON_THRESHOLD && (
-              <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
-                Limited common matches — try Near or enable Rare words for more.
-              </div>
-            )}
-
           {isInitialLoading && (
             <div className="space-y-2 px-3 py-3">
               {Array.from({ length: 5 }).map((_, index) => (
@@ -624,11 +659,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
-          {!isInitialLoading && status !== 'idle' && activeSuggestions.length === 0 && (
+          {!isInitialLoading && status !== 'idle' && visibleSuggestions.length === 0 && (
             <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
-              {includeRareWords
-                ? 'No rhymes found — try Near'
-                : 'No common rhymes — try Near or enable Rare words.'}
+              {totalAvailable > 0
+                ? 'All perfect rhymes were filtered out. Turn off “Common words only” or try Near.'
+                : 'No perfect rhymes found. Try Near.'}
             </div>
           )}
 
@@ -659,9 +694,75 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                   </span>
                 </button>
               ))}
-              <div ref={sentinelRef} className="h-4" />
             </div>
           )}
+          {debugEnabled && activePanelDebug && (() => {
+            const stageOrder = [
+              'generated',
+              'afterModeFilter',
+              'afterCommonOnly',
+              'afterRuleFilters',
+              'afterDedupe',
+              'afterSort',
+              'afterCap',
+            ]
+            const stageSummary = stageOrder
+              .filter((key) => activePanelDebug.stageCounts[key] !== undefined)
+              .map((key) => `${key}=${activePanelDebug.stageCounts[key]}`)
+              .join(', ')
+            const rejectionEntries = Object.entries(activePanelDebug.rejections)
+              .filter(([, count]) => count > 0)
+              .sort((a, b) => b[1] - a[1])
+            const mismatch =
+              activePanelDebug.activeModes.length === 1 &&
+              activePanelDebug.activeModes[0] === 'perfect' &&
+              typeof activePanelDebug.poolCount === 'number' &&
+              activePanelDebug.poolCount !== activePanelDebug.filteredCount
+                ? `Mismatch: poolCount=${activePanelDebug.poolCount} displayedCount=${activePanelDebug.filteredCount}`
+                : null
+            return (
+              <div className="mt-4 space-y-1 rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-[11px] text-amber-900/80 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100/80">
+                <div>
+                  <span className="font-semibold">Target:</span>{' '}
+                  "{activePanelDebug.rawTarget}" → "{activePanelDebug.normalizedTarget}"
+                </div>
+                <div>
+                  <span className="font-semibold">Modes:</span> {activePanelDebug.activeModes.join(', ') || '—'}
+                </div>
+                <div>
+                  <span className="font-semibold">Counts:</span>{' '}
+                  {typeof activePanelDebug.poolCount === 'number' ? `pool=${activePanelDebug.poolCount} | ` : ''}
+                  filtered={activePanelDebug.filteredCount} | rendered={activePanelDebug.renderedCount ?? 0}
+                </div>
+                {mismatch && (
+                  <div className="text-rose-600 dark:text-rose-300">
+                    <span className="font-semibold">Warning:</span> {mismatch}
+                  </div>
+                )}
+                {activePanelDebug.cap?.applied && (
+                  <div>
+                    <span className="font-semibold">Cap:</span>{' '}
+                    applied=true limit={activePanelDebug.cap.limit ?? '—'} stage="{activePanelDebug.cap.stage ?? '—'}"
+                  </div>
+                )}
+                <div>
+                  <span className="font-semibold">Stages:</span> {stageSummary || '—'}
+                </div>
+                <div>
+                  <span className="font-semibold">Filtered out:</span>
+                  {rejectionEntries.length === 0 ? ' —' : (
+                    <ul className="mt-1 space-y-0.5">
+                      {rejectionEntries.map(([reason, count]) => (
+                        <li key={reason}>
+                          {reason}: {count}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
         </div>
       </div>
     )
