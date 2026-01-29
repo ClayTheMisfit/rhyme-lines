@@ -49,11 +49,9 @@ export default function TopBar() {
   const { resolvedTheme, setTheme: setResolvedTheme } = useTheme()
 
   const { togglePanel } = useRhymePanelStore((state) => ({ togglePanel: state.togglePanel }), shallow)
-  const { mode, width: dockWidth, dock, undock } = useRhymePanel((state) => ({
+  const { mode, width: dockWidth } = useRhymePanel((state) => ({
     mode: state.mode,
     width: state.width,
-    dock: state.dock,
-    undock: state.undock,
   }))
 
   const { tabs, activeTabId, actions } = useTabsStore(
@@ -67,7 +65,6 @@ export default function TopBar() {
 
   const panelVisible = mode !== 'hidden'
   const isFloating = mode === 'detached'
-  const detachDisabled = !panelVisible
 
   useEffect(() => {
     if (!mounted) return
@@ -196,15 +193,6 @@ export default function TopBar() {
     setResolvedTheme(next)
   }, [setResolvedTheme, setThemePreference, theme])
 
-  const handleDockToggle = useCallback(() => {
-    if (detachDisabled) return
-    if (isFloating) {
-      dock()
-    } else {
-      undock()
-    }
-  }, [detachDisabled, dock, isFloating, undock])
-
   const handleRename = useCallback(
     (id: string, title: string) => {
       actions.renameTab(id, title)
@@ -277,24 +265,6 @@ export default function TopBar() {
           aria-pressed={panelVisible}
         >
           🎵
-        </motion.button>
-
-        <motion.button
-          suppressHydrationWarning
-          whileHover={{ scale: detachDisabled ? 1 : 1.05 }}
-          whileTap={{ scale: detachDisabled ? 1 : 0.95 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-          onClick={handleDockToggle}
-          disabled={detachDisabled}
-          aria-disabled={detachDisabled}
-          className={cx(
-            'inline-flex h-9 w-9 items-center justify-center rounded-md text-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30',
-            isFloating ? 'bg-white/10 text-white' : 'text-white/80 hover:text-white',
-            detachDisabled && 'cursor-not-allowed opacity-50'
-          )}
-          title={isFloating ? 'Dock rhyme panel' : 'Detach rhyme panel'}
-        >
-          ⧉
         </motion.button>
 
         <motion.div
