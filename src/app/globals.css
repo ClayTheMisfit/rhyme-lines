@@ -169,14 +169,18 @@ body.bg-white {
   position: relative;
   isolation: isolate;
   caret-color: #f9fafb;
+  background-color: transparent;
 }
 
 /* Dark theme editor styling */
-body.bg-black .rl-editor {
+body.bg-black .editor-surface {
   background-color: #1e1e1e;  /* Rich dark gray background */
   color: #d4d4d4;             /* High readability text color */
-  caret-color: #f9fafb;
   transition: background-color 150ms ease;
+}
+
+body.bg-black .rl-editor {
+  caret-color: #f9fafb;
 }
 
 .rl-editor .placeholder-line {
@@ -215,11 +219,27 @@ body.bg-white .rl-current-line-highlight {
 }
 
 /* Light theme editor styling */
-body.bg-white .rl-editor {
+body.bg-white .editor-surface {
   background-color: #ffffff;  /* Clean white background */
   color: #1a1a1a;            /* Dark text for light theme */
-  caret-color: #0f172a;
   transition: background-color 150ms ease;
+}
+
+body.bg-white .rl-editor {
+  caret-color: #0f172a;
+}
+
+.rl-current-line-debug {
+  position: absolute;
+  font-size: 11px;
+  line-height: 1.2;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #f8fafc;
+  pointer-events: none;
+  z-index: 2;
+  white-space: nowrap;
 }
 
 /* Line-based highlighting using CSS */
