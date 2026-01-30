@@ -248,17 +248,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const getActiveLineElementFromSelection = useCallback(
     (selection: Selection | null, root: HTMLElement): HTMLDivElement | null => {
       if (!selection || selection.rangeCount === 0) return null
-      const anchorNode = selection.anchorNode
-      const focusNode = selection.focusNode
-      const startNode =
-        (anchorNode && root.contains(anchorNode) && anchorNode) ||
-        (focusNode && root.contains(focusNode) && focusNode) ||
-        null
-      if (!startNode) return null
+      const candidateNode = selection.focusNode ?? selection.anchorNode
+      if (!candidateNode || !root.contains(candidateNode)) return null
       const anchorElement =
-        startNode.nodeType === Node.ELEMENT_NODE
-          ? (startNode as Element)
-          : startNode.parentElement
+        candidateNode.nodeType === Node.ELEMENT_NODE
+          ? (candidateNode as Element)
+          : candidateNode.parentElement
       const lineElement =
         anchorElement?.closest<HTMLDivElement>(
           '[data-line-id], [data-line], .editor-line, .line'
