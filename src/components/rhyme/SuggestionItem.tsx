@@ -6,6 +6,8 @@ interface SuggestionItemProps {
   suggestion: AggregatedSuggestion
   isSelected: boolean
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
+  onPreviewStart?: (word: string) => void
+  onPreviewEnd?: () => void
   index: number
   id: string
 }
@@ -26,6 +28,8 @@ function SuggestionItem({
   suggestion,
   isSelected,
   onClick,
+  onPreviewStart,
+  onPreviewEnd,
   index,
   id,
 }: SuggestionItemProps) {
@@ -36,6 +40,8 @@ function SuggestionItem({
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={() => onPreviewStart?.(word)}
+      onMouseLeave={onPreviewEnd}
       role="option"
       aria-selected={isSelected}
       data-index={index}

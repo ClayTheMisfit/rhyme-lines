@@ -2,15 +2,18 @@ import { useEffect, useMemo, useState } from 'react'
 import { assertClientOnly } from '@/lib/env/assertClientOnly'
 import { isClient } from '@/lib/env/isClient'
 import type { OverlayToken } from '@/components/editor/SyllableOverlay'
+import type { RhymeOverlayToken } from '@/components/editor/overlays/RhymeHighlightOverlay'
 import type { AnalysisResult } from '@/hooks/useAnalysisWorker'
 import type { LineInput } from '@/lib/analysis/compute'
 import { GeometryCache } from '@/lib/overlay/geometryCache'
 import type { SettingsState } from '@/store/settingsStore'
+import { tokenizeLine } from '@/lib/analysis/tokenize'
+import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 
 type UseOverlayMeasurementArgs = {
   docId: string
   enabled: boolean
-  editorRef: React.RefObject<HTMLDivElement | null>
+  overlayRootRef: React.RefObject<HTMLElement | null>
   containerRef: React.RefObject<HTMLElement | null>
   lineElementsRef: React.RefObject<HTMLDivElement[]>
   lineVersion: number
@@ -42,7 +45,7 @@ const hashText = (text: string) => {
 export function useOverlayMeasurement({
   docId,
   enabled,
-  editorRef,
+  overlayRootRef,
   containerRef,
   lineElementsRef,
   lineVersion,
@@ -54,6 +57,7 @@ export function useOverlayMeasurement({
   lineHeight,
 }: UseOverlayMeasurementArgs) {
   const [tokens, setTokens] = useState<OverlayToken[]>([])
+  const [wordTokens, setWordTokens] = useState<RhymeOverlayToken[]>([])
   const [measurementMeta, setMeasurementMeta] = useState<MeasurementMeta | null>(null)
   const [containerWidth, setContainerWidth] = useState(0)
   const [devicePixelRatio, setDevicePixelRatio] = useState(
@@ -64,6 +68,14 @@ export function useOverlayMeasurement({
     const map = new Map<string, string>()
     lines.forEach((line) => {
       map.set(line.id, hashText(line.text))
+    })
+    return map
+  }, [lines])
+
+  const lineTexts = useMemo(() => {
+    const map = new Map<string, string>()
+    lines.forEach((line) => {
+      map.set(line.id, line.text)
     })
     return map
   }, [lines])
@@ -116,14 +128,16 @@ export function useOverlayMeasurement({
       return
     }
     assertClientOnly('overlay:measure')
-    const root = editorRef.current
+    const root = overlayRootRef.current
     const linesDom = lineElementsRef.current
     if (!root || !linesDom || !linesDom.length) {
       setTokens([])
+      setWordTokens([])
       return
     }
     if (!layoutKey || !activeLineIds.size) {
       setTokens([])
+      setWordTokens([])
       return
     }
 
@@ -133,6 +147,7 @@ export function useOverlayMeasurement({
       const startedAt = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
       const rootRect = root.getBoundingClientRect()
       const nextTokens: OverlayToken[] = []
+      const nextWordTokens: RhymeOverlayToken[] = []
       let measured = 0
       let reused = 0
 
@@ -146,6 +161,7 @@ export function useOverlayMeasurement({
           reused += 1
           lineElement.style.setProperty('--badge-offset', `${cached.lineOffset}em`)
           nextTokens.push(...cached.tokens)
+          nextWordTokens.push(...cached.wordTokens)
           continue
         }
         const lineRect = lineElement.getBoundingClientRect()
@@ -220,15 +236,46 @@ export function useOverlayMeasurement({
           range.detach()
         }
 
+        const lineText = lineTexts.get(lineId) ?? ''
+        const lineWordTokens = tokenizeLine(lineText)
+        const wordTokensForLine: RhymeOverlayToken[] = []
+        for (const wordToken of lineWordTokens) {
+          const range = measureForSpan(wordToken.start, wordToken.end)
+          if (!range) continue
+          const rects = Array.from(range.getClientRects())
+            .map((rect) => ({
+              top: rect.top - rootRect.top,
+              left: rect.left - rootRect.left,
+              width: rect.width,
+              height: rect.height,
+            }))
+            .filter((rect) => rect.width > 0 && rect.height > 0)
+          range.detach()
+          if (!rects.length) continue
+          const lowerText = normalizeToken(wordToken.text)
+          if (!lowerText) continue
+          wordTokensForLine.push({
+            id: `${lineId}-${wordToken.start}-${wordToken.end}`,
+            text: wordToken.text,
+            lowerText,
+            lineId,
+            lineIndex,
+            rects,
+          })
+        }
+
         cache.set(docId, lineId, layoutKey, contentSignature, {
           tokens: lineTokens,
+          wordTokens: wordTokensForLine,
           lineOffset: badgeOffsetEm,
         })
         nextTokens.push(...lineTokens)
+        nextWordTokens.push(...wordTokensForLine)
         measured += 1
       }
 
       setTokens(nextTokens)
+      setWordTokens(nextWordTokens)
       setMeasurementMeta({
         measured,
         reused,
@@ -251,7 +298,7 @@ export function useOverlayMeasurement({
     analysis,
     containerRef,
     docId,
-    editorRef,
+    overlayRootRef,
     enabled,
     layoutKey,
     fontSize,
@@ -259,6 +306,7 @@ export function useOverlayMeasurement({
     lineHeight,
     lineSignatures,
     lineVersion,
+    lineTexts,
   ])
 
   useEffect(() => {
@@ -266,5 +314,5 @@ export function useOverlayMeasurement({
     console.debug('[overlay] measure', { docId, ...measurementMeta })
   }, [docId, measurementMeta])
 
-  return { tokens, layoutKey, measurementMeta }
+  return { tokens, wordTokens, layoutKey, measurementMeta }
 }

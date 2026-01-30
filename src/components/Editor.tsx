@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
@@ -8,12 +8,21 @@ import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
 import { SyllableOverlay } from '@/components/editor/SyllableOverlay'
 import { useBadgeSettings } from '@/store/settings'
 import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
+import { RhymeHighlightOverlay } from '@/components/editor/overlays/RhymeHighlightOverlay'
 import { useAnalysisWorker } from '@/hooks/useAnalysisWorker'
 import type { LineInput } from '@/lib/analysis/compute'
 import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
 import { useViewportWindow } from '@/hooks/useViewportWindow'
 import { useOverlayMeasurement } from '@/hooks/useOverlayMeasurement'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
+import { buildRhymeHighlightMap, type RhymeHighlightCandidate, type RhymeHighlightKind } from '@/lib/rhyme/highlights'
+import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
+import { isEnglishWord } from '@/lib/rhyme-db/isEnglishWord'
+import { fetchAggregatedRhymes, fetchAggregatedRhymesWithProviders } from '@/lib/rhyme/aggregate'
+import { onlineProviders } from '@/lib/rhyme/providers'
+import { initRhymeClient, getRhymeClient } from '@/lib/rhyme-db/rhymeClientSingleton'
+import type { Mode } from '@/lib/rhyme-db/queryRhymes'
+import { useRhymeHighlightStore } from '@/store/rhymeHighlightStore'
 
 const PLACEHOLDER_TEXT = 'Start writing...'
 const SAVE_STATUS_DELAY_MS = 200
@@ -21,6 +30,8 @@ const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
+const RHYME_CARET_DEBOUNCE_MS = 50
+const RHYME_TYPING_DEBOUNCE_MS = 250
 const ACTIVE_LINE_TUNING = {
   radius: 12,
   yInset: 1,
@@ -44,6 +55,12 @@ type EditorProps = {
 export type EditorHandle = {
   focus: () => void
   insertText: (text: string) => boolean
+}
+
+type RhymeTarget = {
+  tokenId: string
+  text: string
+  lowerText: string
 }
 
 const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
@@ -82,12 +99,23 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     debugTextColLeft: 0,
     debugLineLeft: 0,
   })
+  const [rhymeTarget, setRhymeTarget] = useState<RhymeTarget | null>(null)
+  const [rhymeHighlights, setRhymeHighlights] = useState<Map<string, RhymeHighlightKind>>(new Map())
 
   const composingRef = useRef(false)
   const highlightDebounceRef = useRef<number | null>(null)
   const lastHighlightRef = useRef(lineHighlight)
   const debugLogRef = useRef(0)
   const debugForceRef = useRef({ forceShow: false })
+  const rhymeTargetTimerRef = useRef<number | null>(null)
+  const rhymeComputeTimerRef = useRef<number | null>(null)
+  const rhymeRequestIdRef = useRef(0)
+  const rhymeCacheRef = useRef<Map<string, RhymeHighlightCandidate[]>>(new Map())
+  const rhymeInFlightRef = useRef<Map<string, Promise<RhymeHighlightCandidate[]>>>(new Map())
+  const rhymeTargetRef = useRef<RhymeTarget | null>(rhymeTarget)
+  const rhymePreviewRef = useRef<{ text: string; lowerText: string } | null>(null)
+  const tokenIndexRef = useRef<Map<string, string[]>>(new Map())
+  const overlayEnabledRef = useRef(showOverlays)
 
   const { fontSize, lineHeight, showLineTotals, theme } = useSettingsStore(
     (state) => ({
@@ -98,6 +126,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     }),
     shallow
   )
+  const rhymePreview = useRhymeHighlightStore((state) => state.preview)
 
   useEffect(() => {
     const root = document.documentElement
@@ -115,11 +144,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const { activeLineIds, viewportRange } = useViewportWindow(containerRef, lineElementsRef, lineVersion, {
     bufferLines: 12,
   })
-  const overlayEnabled = showOverlays && badgeMode !== 'off'
-  const { tokens, measurementMeta } = useOverlayMeasurement({
+  const overlayMeasurementEnabled = showOverlays
+  const overlayEnabled = overlayMeasurementEnabled && badgeMode !== 'off'
+  const { tokens, wordTokens, measurementMeta } = useOverlayMeasurement({
     docId: ANALYSIS_DOC_ID,
-    enabled: overlayEnabled,
-    editorRef,
+    enabled: overlayMeasurementEnabled,
+    overlayRootRef: textColRef,
     containerRef,
     lineElementsRef,
     lineVersion,
@@ -130,6 +160,35 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     fontSize,
     lineHeight,
   })
+  const tokenIndex = useMemo(() => {
+    const map = new Map<string, string[]>()
+    wordTokens.forEach((token) => {
+      if (!token.lowerText) return
+      const existing = map.get(token.lowerText)
+      if (existing) {
+        existing.push(token.id)
+      } else {
+        map.set(token.lowerText, [token.id])
+      }
+    })
+    return map
+  }, [wordTokens])
+
+  useEffect(() => {
+    tokenIndexRef.current = tokenIndex
+  }, [tokenIndex])
+
+  useEffect(() => {
+    rhymeTargetRef.current = rhymeTarget
+  }, [rhymeTarget])
+
+  useEffect(() => {
+    rhymePreviewRef.current = rhymePreview
+  }, [rhymePreview])
+
+  useEffect(() => {
+    overlayEnabledRef.current = showOverlays
+  }, [showOverlays])
 
   const captureSelectionSnapshot = useCallback(() => {
     if (typeof window === 'undefined') return null
@@ -151,6 +210,212 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       console.debug(`[editor:${type}]`, { ...payload, selection })
     },
     [captureSelectionSnapshot]
+  )
+
+  const findTokenForSelection = useCallback(() => {
+    if (typeof window === 'undefined') return null
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return null
+    const range = selection.getRangeAt(0)
+    const rect = range.getClientRects()[0] ?? range.getBoundingClientRect()
+    if (!rect || (!rect.width && !rect.height)) return null
+    const rootRect = textColRef.current?.getBoundingClientRect()
+    if (!rootRect) return null
+    const x = rect.width > 0 ? rect.left + rect.width / 2 : rect.left
+    const y = rect.top + rect.height / 2
+    const localX = x - rootRect.left
+    const localY = y - rootRect.top
+
+    for (const token of wordTokens) {
+      for (const tokenRect of token.rects) {
+        if (
+          localX >= tokenRect.left &&
+          localX <= tokenRect.left + tokenRect.width &&
+          localY >= tokenRect.top &&
+          localY <= tokenRect.top + tokenRect.height
+        ) {
+          return token
+        }
+      }
+    }
+    return null
+  }, [wordTokens])
+
+  const fetchRhymeCandidates = useCallback(async (lowerText: string) => {
+    const cached = rhymeCacheRef.current.get(lowerText)
+    if (cached) return cached
+    const inflight = rhymeInFlightRef.current.get(lowerText)
+    if (inflight) return inflight
+
+    const promise = (async () => {
+      if (!isEnglishWord(lowerText)) return []
+      const candidateMap = new Map<string, RhymeHighlightKind>()
+      const priority: Record<RhymeHighlightKind, number> = {
+        target: 0,
+        perfect: 1,
+        near: 2,
+        slant: 3,
+      }
+      const addCandidate = (word: string, kind: Exclude<RhymeHighlightKind, 'target'>) => {
+        const normalized = normalizeToken(word)
+        if (!normalized || !isEnglishWord(normalized)) return
+        const existing = candidateMap.get(normalized)
+        if (!existing || priority[kind] < priority[existing]) {
+          candidateMap.set(normalized, kind)
+        }
+      }
+
+      addCandidate(lowerText, 'perfect')
+
+      let usedLocal = false
+      try {
+        await initRhymeClient()
+        const modes: Mode[] = ['perfect', 'near']
+        const settled = await Promise.allSettled(
+          modes.map((mode) =>
+            getRhymeClient().getRhymes({
+              targets: { caret: lowerText },
+              mode,
+              max: 200,
+              context: {
+                commonWordsOnly: false,
+                multiSyllable: false,
+                showVariants: false,
+              },
+            })
+          )
+        )
+
+        const hasDbUnavailable = settled.some(
+          (entry) =>
+            entry.status === 'rejected' &&
+            (entry.reason as Error & { code?: string }).code === 'DB_UNAVAILABLE'
+        )
+
+        if (!hasDbUnavailable) {
+          usedLocal = true
+          settled.forEach((entry, index) => {
+            if (entry.status !== 'fulfilled') return
+            const mode = modes[index]
+            const words = entry.value.results.caret ?? entry.value.results.lineLast ?? []
+            words.forEach((word) => addCandidate(word, mode === 'perfect' ? 'perfect' : 'near'))
+          })
+        }
+      } catch {
+        usedLocal = false
+      }
+
+      if (!usedLocal) {
+        try {
+          const controller = new AbortController()
+          const result = await fetchAggregatedRhymesWithProviders(
+            lowerText,
+            {
+              filters: { perfect: true, near: true, slant: true },
+              signal: controller.signal,
+            },
+            onlineProviders
+          )
+          result.suggestions.forEach((suggestion) => addCandidate(suggestion.word, suggestion.quality))
+        } catch {
+          // Ignore fallback provider failures.
+        }
+      }
+
+      try {
+        const controller = new AbortController()
+        const result = await fetchAggregatedRhymes(lowerText, {
+          filters: { perfect: false, near: false, slant: true },
+          signal: controller.signal,
+          offline: true,
+        })
+        result.buckets.slant.forEach((suggestion) => addCandidate(suggestion.word, 'slant'))
+      } catch {
+        // Ignore slant provider failures.
+      }
+
+      const candidates: RhymeHighlightCandidate[] = Array.from(candidateMap.entries()).map(([word, kind]) => ({
+        word,
+        kind: kind === 'target' ? 'perfect' : kind,
+      }))
+
+      return candidates
+    })()
+
+    rhymeInFlightRef.current.set(lowerText, promise)
+    promise
+      .then((results) => {
+        rhymeCacheRef.current.set(lowerText, results)
+        rhymeInFlightRef.current.delete(lowerText)
+      })
+      .catch(() => {
+        rhymeInFlightRef.current.delete(lowerText)
+      })
+
+    return promise
+  }, [])
+
+  const refreshRhymeHighlights = useCallback(async () => {
+    if (!overlayEnabledRef.current) {
+      setRhymeHighlights(new Map())
+      return
+    }
+    const activePreview = rhymePreviewRef.current
+    const activeTarget = rhymeTargetRef.current
+    const activeQuery = activePreview ?? activeTarget
+    if (!activeQuery?.lowerText || !isEnglishWord(activeQuery.lowerText)) {
+      setRhymeHighlights(new Map())
+      return
+    }
+    const tokenIndex = tokenIndexRef.current
+    if (!tokenIndex.size) {
+      setRhymeHighlights(new Map())
+      return
+    }
+    const requestId = rhymeRequestIdRef.current + 1
+    rhymeRequestIdRef.current = requestId
+    const candidates = await fetchRhymeCandidates(activeQuery.lowerText)
+    if (rhymeRequestIdRef.current !== requestId) return
+
+    const targetTokenId = activePreview ? null : activeTarget?.tokenId ?? null
+    const highlightMap = buildRhymeHighlightMap({
+      tokenIndex,
+      candidates,
+      targetTokenId,
+    })
+    setRhymeHighlights(highlightMap)
+  }, [fetchRhymeCandidates])
+
+  const scheduleRhymeHighlightRefresh = useCallback(
+    (delayMs: number) => {
+      if (typeof window === 'undefined') return
+      if (rhymeComputeTimerRef.current) {
+        window.clearTimeout(rhymeComputeTimerRef.current)
+      }
+      rhymeComputeTimerRef.current = window.setTimeout(() => {
+        void refreshRhymeHighlights()
+      }, delayMs)
+    },
+    [refreshRhymeHighlights]
+  )
+
+  const scheduleRhymeTargetUpdate = useCallback(
+    (delayMs = RHYME_CARET_DEBOUNCE_MS) => {
+      if (typeof window === 'undefined') return
+      if (rhymeTargetTimerRef.current) {
+        window.clearTimeout(rhymeTargetTimerRef.current)
+      }
+      rhymeTargetTimerRef.current = window.setTimeout(() => {
+        const token = findTokenForSelection()
+        if (!token || !isEnglishWord(token.lowerText)) return
+        if (rhymeTargetRef.current?.tokenId === token.id) return
+        const nextTarget = { tokenId: token.id, text: token.text, lowerText: token.lowerText }
+        rhymeTargetRef.current = nextTarget
+        setRhymeTarget(nextTarget)
+        scheduleRhymeHighlightRefresh(0)
+      }, delayMs)
+    },
+    [findTokenForSelection, scheduleRhymeHighlightRefresh]
   )
 
   const isPlaceholderLine = useCallback(
@@ -647,6 +912,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setLines(collectedLines.map((line) => line.text))
     scheduleAnalysis(collectedLines, 'typing')
     setLineVersion((v) => v + 1)
+    scheduleRhymeHighlightRefresh(RHYME_TYPING_DEBOUNCE_MS)
+    scheduleRhymeTargetUpdate(RHYME_TYPING_DEBOUNCE_MS)
 
     const serialized = serializeFromEditor(el)
     if (serialized !== lastSerializedRef.current) {
@@ -667,6 +934,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     scheduleAnalysis,
     syncPlaceholderLine,
     updateCurrentLineHighlight,
+    scheduleRhymeHighlightRefresh,
+    scheduleRhymeTargetUpdate,
   ])
 
   const handleShortcutKeyDown = useCallback(
@@ -725,10 +994,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const handleSelectionChange = useCallback(() => {
     scheduleCurrentLineHighlight()
+    scheduleRhymeTargetUpdate()
     if (analysisLinesRef.current.length) {
       scheduleAnalysis(analysisLinesRef.current, 'caret')
     }
-  }, [scheduleAnalysis, scheduleCurrentLineHighlight])
+  }, [scheduleAnalysis, scheduleCurrentLineHighlight, scheduleRhymeTargetUpdate])
 
   useEffect(() => {
     if (!showLineTotals) {
@@ -753,6 +1023,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       console.debug('[analysis] metrics', { mode: analysisMode, metrics })
     }
   }, [analysisMode, metrics])
+
+  useEffect(() => {
+    if (!showOverlays) {
+      setRhymeHighlights(new Map())
+    }
+  }, [showOverlays])
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') return
@@ -820,6 +1096,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       document.removeEventListener('selectionchange', handleSelectionChange)
       if (saveStatusTimer.current) window.clearTimeout(saveStatusTimer.current)
       if (highlightDebounceRef.current) window.clearTimeout(highlightDebounceRef.current)
+      if (rhymeTargetTimerRef.current) window.clearTimeout(rhymeTargetTimerRef.current)
+      if (rhymeComputeTimerRef.current) window.clearTimeout(rhymeComputeTimerRef.current)
     }
   }, [handleSelectionChange])
 
@@ -842,6 +1120,14 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   useEffect(() => {
     scheduleCurrentLineHighlight()
   }, [fontSize, lineHeight, scheduleCurrentLineHighlight])
+
+  useEffect(() => {
+    scheduleRhymeHighlightRefresh(0)
+  }, [rhymePreview, scheduleRhymeHighlightRefresh])
+
+  useEffect(() => {
+    scheduleRhymeHighlightRefresh(0)
+  }, [tokenIndex, scheduleRhymeHighlightRefresh])
 
   useEffect(() => {
     if (!DEBUG_ACTIVE_LINE) return
@@ -991,6 +1277,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                   data-editor-overlay="current-line"
                   data-testid="active-line-highlight"
                   id="rl-active-line-highlight"
+                />
+                <RhymeHighlightOverlay
+                  tokens={wordTokens}
+                  highlights={rhymeHighlights}
+                  enabled={showOverlays}
                 />
                 {DEBUG_ACTIVE_LINE ? (
                   <div

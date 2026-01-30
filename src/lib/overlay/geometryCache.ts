@@ -1,4 +1,5 @@
 import type { OverlayToken } from '@/components/editor/SyllableOverlay'
+import type { RhymeOverlayToken } from '@/components/editor/overlays/RhymeHighlightOverlay'
 
 type LayoutKey = string
 
@@ -6,6 +7,7 @@ type CachedLine = {
   layoutKey: LayoutKey
   contentSignature: string
   tokens: OverlayToken[]
+  wordTokens: RhymeOverlayToken[]
   lineOffset: number
 }
 
@@ -29,7 +31,7 @@ export class GeometryCache {
     lineId: string,
     layoutKey: LayoutKey,
     contentSignature: string,
-    payload: { tokens: OverlayToken[]; lineOffset: number }
+    payload: { tokens: OverlayToken[]; wordTokens: RhymeOverlayToken[]; lineOffset: number }
   ) {
     if (!this.store.has(docId)) {
       this.store.set(docId, new Map())
@@ -40,6 +42,7 @@ export class GeometryCache {
       layoutKey,
       contentSignature,
       tokens: payload.tokens,
+      wordTokens: payload.wordTokens,
       lineOffset: payload.lineOffset,
     })
   }

@@ -14,6 +14,7 @@ import { getLocalInitFailureReason } from '@/lib/rhymes/rhymeSource'
 import { useMemo, useState } from 'react'
 import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 import { buildVisibleSuggestions } from '@/components/rhyme/buildVisibleSuggestions'
+import { useRhymeHighlightStore } from '@/store/rhymeHighlightStore'
 
 const MIN_WIDTH = 280
 const MAX_WIDTH = 640
@@ -72,6 +73,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const [advancedOpen, setAdvancedOpen] = useState(false)
     const [debugEnabled, setDebugEnabled] = useState(false)
     const [debouncedQuery, setDebouncedQuery] = useState(searchQuery)
+    const { setPreview, clearPreview } = useRhymeHighlightStore((state) => ({
+      setPreview: state.setPreview,
+      clearPreview: state.clearPreview,
+    }))
 
     const {
       commonWordsOnly,
@@ -108,6 +113,12 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
     const normalizedQueryToken = useMemo(() => normalizeToken(debouncedQuery), [debouncedQuery])
     const isQueryActive = Boolean(normalizedQueryToken)
+
+    React.useEffect(() => {
+      return () => {
+        clearPreview()
+      }
+    }, [clearPreview])
 
     const {
       status,
@@ -656,6 +667,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                   key={`${suggestion}-${index}`}
                   type="button"
                   onClick={handleSuggestionClick}
+                  onMouseEnter={() => setPreview(suggestion)}
+                  onMouseLeave={clearPreview}
                   role="option"
                   aria-selected={index === selectedIndex}
                   data-index={index}
