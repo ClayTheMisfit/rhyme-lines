@@ -1,4 +1,4 @@
-import { normalizeTokenForSyllables } from './normalizeTokenForSyllables'
+import { normalizeTokenForSyllables, splitNormalizedTokenForSyllables } from './normalizeTokenForSyllables'
 import { numberToWords } from '@/utils/numberToWords'
 
 describe('numberToWords', () => {
@@ -28,5 +28,16 @@ describe('normalizeTokenForSyllables', () => {
     expect(normalizeTokenForSyllables('time')).toBe('time')
     expect(normalizeTokenForSyllables('7pm')).toBe('7pm')
     expect(normalizeTokenForSyllables('7.5')).toBe('7.5')
+  })
+})
+
+describe('splitNormalizedTokenForSyllables', () => {
+  it('splits normalized numeric tokens on word boundaries', () => {
+    expect(splitNormalizedTokenForSyllables('101')).toEqual(['one', 'hundred', 'one'])
+    expect(splitNormalizedTokenForSyllables('20')).toEqual(['twenty'])
+  })
+
+  it('passes through non-numeric tokens as a single entry', () => {
+    expect(splitNormalizedTokenForSyllables('time')).toEqual(['time'])
   })
 })

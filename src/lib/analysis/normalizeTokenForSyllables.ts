@@ -8,3 +8,7 @@ export const normalizeTokenForSyllables = (token: string): string => {
   if (!Number.isFinite(value) || value < 0 || value > 9999) return token
   return numberToWords(value)
 }
+
+export const splitNormalizedTokenForSyllables = (token: string): string[] => {
+  return normalizeTokenForSyllables(token).split(/\s+/).filter(Boolean)
+}

@@ -1,5 +1,5 @@
 import { countSyllables } from '@/lib/nlp/syllables'
-import { normalizeTokenForSyllables } from './normalizeTokenForSyllables'
+import { splitNormalizedTokenForSyllables } from './normalizeTokenForSyllables'
 import { tokenizeLine } from './tokenize'
 import type { AnalysisResponseV1 } from './protocol'
 
@@ -20,7 +20,10 @@ export function computeAnalysis(
     wordSyllables[line.id] = tokens.map((token) => ({
       start: token.start,
       end: token.end,
-      syllables: countSyllables(normalizeTokenForSyllables(token.text)),
+      syllables: splitNormalizedTokenForSyllables(token.text).reduce(
+        (sum, word) => sum + countSyllables(word),
+        0
+      ),
     }))
     lineTotals[line.id] = wordSyllables[line.id].reduce((sum, word) => sum + word.syllables, 0)
   }
