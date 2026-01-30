@@ -194,39 +194,24 @@ body.bg-black .rl-editor .placeholder-line {
   user-select: none;
 }
 
-/* Current line highlighting - pill style overlay */
-/* Layer order: highlight (z-0, pointer-events:none) -> text (z-10 via inline class) -> badges (z-20 overlay container) */
-.rl-editor .current-line-highlight {
+/* Current line highlight overlay (non-interactive) */
+.rl-current-line-highlight {
   position: absolute;
   border-radius: 6px;
-  padding: 2px 4px;
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
   pointer-events: none;
   z-index: 0;
-  inset-inline: 0;
-  isolation: isolate;
+  transition: top 120ms ease, height 120ms ease, opacity 120ms ease;
+  will-change: top, height;
 }
 
-body.bg-black .rl-editor .current-line-highlight {
-  background-color: rgba(255, 255, 255, 0.08);
-  box-shadow: none;
+body.bg-black .rl-current-line-highlight {
+  background-color: rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
-body.bg-black .rl-editor .current-line-highlight:hover,
-body.bg-black .rl-editor .current-line-highlight.active {
-  background-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.15);
-}
-
-body.bg-white .rl-editor .current-line-highlight {
-  background-color: rgba(0, 0, 0, 0.08);
-  box-shadow: none;
-}
-
-body.bg-white .rl-editor .current-line-highlight:hover,
-body.bg-white .rl-editor .current-line-highlight.active {
-  background-color: rgba(0, 0, 0, 0.15);
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
+body.bg-white .rl-current-line-highlight {
+  background-color: rgba(0, 0, 0, 0.035);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
 /* Light theme editor styling */
@@ -253,15 +238,6 @@ body.bg-white .rl-editor .line {
   margin: 0;
   transition: background-color 0.2s ease, color 0.2s ease;
   line-height: var(--rl-line-height);
-}
-
-/* Enhanced hover effect when highlight is present */
-body.bg-black .rl-editor .line:hover .current-line-highlight {
-  background-color: rgba(255, 255, 255, 0.15) !important;
-}
-
-body.bg-white .rl-editor .line:hover .current-line-highlight {
-  background-color: rgba(0, 0, 0, 0.15) !important;
 }
 
 /* Make sure empty lines still have height */
