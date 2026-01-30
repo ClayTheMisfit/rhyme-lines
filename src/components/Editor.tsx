@@ -128,7 +128,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       focusNode: selection.focusNode?.nodeName ?? null,
       isCollapsed: selection.isCollapsed,
     }
-  }, [scheduleCurrentLineHighlight])
+  }, [])
 
   const logDebugEvent = useCallback(
     (type: string, payload: Record<string, unknown>) => {
@@ -187,7 +187,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     range.collapse(true)
     selection.removeAllRanges()
     selection.addRange(range)
-  }, [scheduleCurrentLineHighlight])
+  }, [])
 
   const replacePlaceholderWithEmptyLine = useCallback(
     (placeholderLine: HTMLDivElement) => {
