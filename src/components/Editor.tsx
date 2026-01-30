@@ -450,7 +450,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     } catch {
       // Ignore errors
     }
-  }, [getActiveLineElementFromSelection, measureLineRect, setHighlightState])
+  }, [findLineByCaretPosition, getActiveLineElementFromSelection, measureLineRect, setHighlightState])
 
   const scheduleCurrentLineHighlight = useCallback(
     (options?: { immediate?: boolean }) => {
