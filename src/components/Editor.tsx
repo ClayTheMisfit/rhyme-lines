@@ -275,7 +275,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const caretY = rect.top + rect.height / 2
       const candidates = Array.from(
         root.querySelectorAll<HTMLDivElement>('[data-line-id], [data-line], .editor-line, .line')
-      ).filter((line) => !isPlaceholderLine(line))
+      ).filter((line) => line.getAttribute('data-placeholder-line') !== 'true')
       for (const line of candidates) {
         const lineRect = line.getBoundingClientRect()
         if (caretY >= lineRect.top && caretY <= lineRect.bottom) {
