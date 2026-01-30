@@ -20,18 +20,19 @@ const SAVE_STATUS_DELAY_MS = 200
 const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
+const PROOF_ACTIVE_LINE = process.env.NODE_ENV !== 'production' && false
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
 const ACTIVE_LINE_TUNING = {
   radius: 12,
   yInset: 1,
   hInset: 3,
-  bgDark: 0.016,
-  borderDark: 0.035,
-  bgLight: 0.025,
-  borderLight: 0.05,
-  blurOpacityWhenUnfocused: 0.45,
-  motionMsPos: 140,
-  motionMsOpacity: 90,
+  bgDark: 0.012,
+  borderDark: 0.028,
+  bgLight: 0.02,
+  borderLight: 0.04,
+  opacityBlurred: 0.45,
+  motionPosMs: 140,
+  motionOpacityMs: 90,
 }
 
 type EditorProps = {
@@ -104,6 +105,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     root.style.setProperty('--editor-font-size', `${fontSize}px`)
     root.style.setProperty('--editor-line-height', lineHeight.toString())
   }, [fontSize, lineHeight])
+
+  useEffect(() => {
+    if (PROOF_ACTIVE_LINE) {
+      console.debug('[ActiveLine] proof mode ON')
+    }
+  }, [])
   
 
   const badgeMode = useBadgeSettings((state) => state.badgeMode)
@@ -497,21 +504,22 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const adjustedHeight = Math.max(lineHighlight.height - ACTIVE_LINE_TUNING.hInset, 18)
   const highlightStyle = {
-    top: `${lineHighlight.top + ACTIVE_LINE_TUNING.yInset}px`,
+    top: `${lineHighlight.top + (PROOF_ACTIVE_LINE ? -3 : ACTIVE_LINE_TUNING.yInset)}px`,
     left: 0,
     right: 0,
-    height: `${adjustedHeight}px`,
-    opacity: lineHighlight.visible ? (isEditorFocused ? 1 : ACTIVE_LINE_TUNING.blurOpacityWhenUnfocused) : 0,
-    backgroundColor: DEBUG_ACTIVE_LINE ? 'rgba(0, 255, 0, 0.25)' : undefined,
-    borderRadius: `${ACTIVE_LINE_TUNING.radius}px`,
+    height: `${PROOF_ACTIVE_LINE ? Math.max(adjustedHeight + 6, 18) : adjustedHeight}px`,
+    opacity: lineHighlight.visible ? (isEditorFocused ? 1 : ACTIVE_LINE_TUNING.opacityBlurred) : 0,
+    backgroundColor: PROOF_ACTIVE_LINE ? 'rgba(0, 255, 0, 0.22)' : DEBUG_ACTIVE_LINE ? 'rgba(0, 255, 0, 0.25)' : undefined,
+    outline: PROOF_ACTIVE_LINE ? '2px solid rgba(0, 255, 0, 0.65)' : undefined,
+    borderRadius: `${PROOF_ACTIVE_LINE ? 18 : ACTIVE_LINE_TUNING.radius}px`,
     '--rl-active-line-bg': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
       isDarkTheme ? ACTIVE_LINE_TUNING.bgDark : ACTIVE_LINE_TUNING.bgLight
     })`,
     '--rl-active-line-border': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
       isDarkTheme ? ACTIVE_LINE_TUNING.borderDark : ACTIVE_LINE_TUNING.borderLight
     })`,
-    '--rl-active-line-transition': `${ACTIVE_LINE_TUNING.motionMsPos}ms`,
-    '--rl-active-line-opacity-transition': `${ACTIVE_LINE_TUNING.motionMsOpacity}ms`,
+    '--rl-active-line-transition': `${ACTIVE_LINE_TUNING.motionPosMs}ms`,
+    '--rl-active-line-opacity-transition': `${ACTIVE_LINE_TUNING.motionOpacityMs}ms`,
   } as const
 
   const highlightDebugStyle = {
@@ -988,11 +996,27 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 contentEditable={false}
               >
                 <div
-                  className="rl-current-line-highlight"
+                  className="rl-current-line-highlight rl-active-line"
                   style={highlightStyle}
                   aria-hidden="true"
                   data-editor-overlay="current-line"
-                />
+                  data-testid="active-line-highlight"
+                >
+                  {PROOF_ACTIVE_LINE ? (
+                    <div
+                      className="pointer-events-none"
+                      style={{
+                        position: 'absolute',
+                        right: 8,
+                        top: -16,
+                        fontSize: 10,
+                        opacity: 0.75,
+                      }}
+                    >
+                      ACTIVE LINE
+                    </div>
+                  ) : null}
+                </div>
                 {DEBUG_ACTIVE_LINE ? (
                   <div
                     className="rl-current-line-debug"
