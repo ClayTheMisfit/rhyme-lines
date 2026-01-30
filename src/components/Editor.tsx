@@ -21,14 +21,14 @@ const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
-const ACTIVE_LINE_STYLE = {
-  bgAlphaDark: 0.035,
-  bgAlphaLight: 0.035,
-  borderAlphaDark: 0.04,
-  borderAlphaLight: 0.05,
-  glowAlphaDark: 0.08,
-  glowAlphaLight: 0.06,
-  radius: 8,
+const ACTIVE_LINE_TUNING = {
+  radius: 12,
+  bgDark: 0.022,
+  bgLight: 0.025,
+  borderDark: 0.04,
+  borderLight: 0.05,
+  yInset: 1,
+  hInset: 2,
   transitionMs: 120,
 }
 
@@ -482,24 +482,20 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const resolvedTheme = resolveTheme(theme, { hydrated })
   const isDarkTheme = resolvedTheme === 'dark'
 
+  const adjustedHeight = Math.max(lineHighlight.height - ACTIVE_LINE_TUNING.hInset, 12)
   const highlightStyle = {
-    top: `${lineHighlight.top}px`,
-    left: `${lineHighlight.left}px`,
-    width: `${lineHighlight.width}px`,
-    height: `${lineHighlight.height}px`,
+    top: `${lineHighlight.top + ACTIVE_LINE_TUNING.yInset}px`,
+    height: `${adjustedHeight}px`,
     opacity: lineHighlight.visible ? (isEditorFocused ? 1 : 0.55) : 0,
     backgroundColor: DEBUG_ACTIVE_LINE ? 'rgba(0, 255, 0, 0.25)' : undefined,
-    borderRadius: `${ACTIVE_LINE_STYLE.radius}px`,
+    borderRadius: `${ACTIVE_LINE_TUNING.radius}px`,
     '--rl-active-line-bg': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
-      isDarkTheme ? ACTIVE_LINE_STYLE.bgAlphaDark : ACTIVE_LINE_STYLE.bgAlphaLight
+      isDarkTheme ? ACTIVE_LINE_TUNING.bgDark : ACTIVE_LINE_TUNING.bgLight
     })`,
     '--rl-active-line-border': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
-      isDarkTheme ? ACTIVE_LINE_STYLE.borderAlphaDark : ACTIVE_LINE_STYLE.borderAlphaLight
+      isDarkTheme ? ACTIVE_LINE_TUNING.borderDark : ACTIVE_LINE_TUNING.borderLight
     })`,
-    '--rl-active-line-glow': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
-      isDarkTheme ? ACTIVE_LINE_STYLE.glowAlphaDark : ACTIVE_LINE_STYLE.glowAlphaLight
-    })`,
-    '--rl-active-line-transition': `${ACTIVE_LINE_STYLE.transitionMs}ms`,
+    '--rl-active-line-transition': `${ACTIVE_LINE_TUNING.transitionMs}ms`,
   } as const
 
   const highlightDebugStyle = {
