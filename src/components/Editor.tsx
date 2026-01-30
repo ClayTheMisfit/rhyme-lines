@@ -105,24 +105,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     root.style.setProperty('--editor-line-height', lineHeight.toString())
   }, [fontSize, lineHeight])
 
-  useEffect(() => {
-    const el = document.getElementById('rl-active-line-highlight')
-    const editorEl = editorRef.current
-    const overlayEl = textColRef.current
-    console.debug('[ActiveLine] el?', !!el)
-    if (el) {
-      console.debug('[ActiveLine] rect', el.getBoundingClientRect())
-      const computed = window.getComputedStyle(el)
-      console.debug('[ActiveLine] computed bg', computed.backgroundColor)
-      console.debug('[ActiveLine] computed z', computed.zIndex)
-    }
-    if (overlayEl) {
-      console.debug('[ActiveLine] overlay rect', overlayEl.getBoundingClientRect())
-    }
-    if (editorEl) {
-      console.debug('[ActiveLine] editor rect', editorEl.getBoundingClientRect())
-    }
-  }, [])
   
 
   const badgeMode = useBadgeSettings((state) => state.badgeMode)
@@ -512,21 +494,21 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   )
 
   const resolvedTheme = resolveTheme(theme, { hydrated })
+  const isDarkTheme = resolvedTheme === 'dark'
 
   const adjustedHeight = Math.max(lineHighlight.height - ACTIVE_LINE_TUNING.hInset, 18)
   const highlightStyle = {
-    top: `${lineHighlight.top - 3}px`,
-    left: 0,
-    right: 0,
-    height: `${Math.max(adjustedHeight + 6, 18)}px`,
-    opacity: 1,
-    backgroundColor: 'rgba(255, 0, 255, 0.35)',
-    outline: '3px solid rgba(255, 0, 255, 0.95)',
-    boxShadow: '0 0 0 3px rgba(0, 255, 255, 0.35)',
-    borderRadius: '20px',
-    mixBlendMode: 'normal',
-    zIndex: 9999,
-    pointerEvents: 'none',
+    top: `${lineHighlight.top + ACTIVE_LINE_TUNING.yInset}px`,
+    height: `${adjustedHeight}px`,
+    opacity: lineHighlight.visible ? (isEditorFocused ? 1 : ACTIVE_LINE_TUNING.opacityBlurred) : 0,
+    '--rl-active-line-bg': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
+      isDarkTheme ? ACTIVE_LINE_TUNING.bgDark : ACTIVE_LINE_TUNING.bgLight
+    })`,
+    '--rl-active-line-border': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
+      isDarkTheme ? ACTIVE_LINE_TUNING.borderDark : ACTIVE_LINE_TUNING.borderLight
+    })`,
+    '--rl-active-line-transition': `${ACTIVE_LINE_TUNING.motionPosMs}ms`,
+    '--rl-active-line-opacity-transition': `${ACTIVE_LINE_TUNING.motionOpacityMs}ms`,
   } as const
 
   const highlightDebugStyle = {
@@ -998,7 +980,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
                 className="pointer-events-none absolute inset-0 z-10"
-                style={{ position: 'absolute', inset: 0, zIndex: 9998, pointerEvents: 'none', overflow: 'visible' }}
                 aria-hidden="true"
                 data-layer="highlight"
                 contentEditable={false}
@@ -1010,23 +991,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                   data-editor-overlay="current-line"
                   data-testid="active-line-highlight"
                   id="rl-active-line-highlight"
-                >
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: 8,
-                      top: -18,
-                      fontSize: 12,
-                      color: '#ff00ff',
-                      background: 'rgba(0, 0, 0, 0.7)',
-                      padding: '2px 6px',
-                      borderRadius: 6,
-                      pointerEvents: 'none',
-                    }}
-                  >
-                    ACTIVE LINE
-                  </div>
-                </div>
+                />
                 {DEBUG_ACTIVE_LINE ? (
                   <div
                     className="rl-current-line-debug"

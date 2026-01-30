@@ -206,8 +206,8 @@ body.bg-black .rl-editor .placeholder-line {
   z-index: 0;
   left: 0;
   right: 0;
-  background-color: var(--rl-active-line-bg, rgba(255, 255, 255, 0.016));
-  box-shadow: inset 0 0 0 1px var(--rl-active-line-border, rgba(255, 255, 255, 0.035));
+  background-color: var(--rl-active-line-bg, rgba(255, 255, 255, 0.012));
+  box-shadow: inset 0 0 0 1px var(--rl-active-line-border, rgba(255, 255, 255, 0.028));
   transition:
     top var(--rl-active-line-transition, 120ms) ease-out,
     height var(--rl-active-line-transition, 120ms) ease-out,
@@ -217,13 +217,13 @@ body.bg-black .rl-editor .placeholder-line {
 }
 
 body.bg-black .rl-current-line-highlight {
-  --rl-active-line-bg: rgba(255, 255, 255, 0.016);
-  --rl-active-line-border: rgba(255, 255, 255, 0.035);
+  --rl-active-line-bg: rgba(255, 255, 255, 0.012);
+  --rl-active-line-border: rgba(255, 255, 255, 0.028);
 }
 
 body.bg-white .rl-current-line-highlight {
-  --rl-active-line-bg: rgba(0, 0, 0, 0.025);
-  --rl-active-line-border: rgba(0, 0, 0, 0.05);
+  --rl-active-line-bg: rgba(0, 0, 0, 0.02);
+  --rl-active-line-border: rgba(0, 0, 0, 0.04);
 }
 
 /* Light theme editor styling */
