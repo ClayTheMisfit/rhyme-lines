@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { computeAnalysis } from '@/lib/analysis/compute'
-import { tokenizeLine } from '@/lib/analysis/tokenize'
+import { isWordLikeToken, tokenizeLine } from '@/lib/analysis/tokenize'
 import { useAnalysisWorker } from '@/hooks/useAnalysisWorker'
 
 describe('analysis pipeline', () => {
@@ -12,6 +12,18 @@ describe('analysis pipeline', () => {
       { start: 14, end: 18, text: "It's" },
       { start: 19, end: 23, text: 'fine' },
     ])
+  })
+
+  it('treats digit runs as word-like tokens', () => {
+    const tokens = tokenizeLine('one 1 2')
+    expect(tokens).toEqual([
+      { start: 0, end: 3, text: 'one' },
+      { start: 4, end: 5, text: '1' },
+      { start: 6, end: 7, text: '2' },
+    ])
+    expect(isWordLikeToken('1')).toBe(true)
+    expect(isWordLikeToken('two')).toBe(true)
+    expect(isWordLikeToken('!')).toBe(false)
   })
 
   it('computes syllables and totals deterministically', () => {
