@@ -19,6 +19,20 @@ const PLACEHOLDER_TEXT = 'Start writing...'
 const SAVE_STATUS_DELAY_MS = 200
 const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
+const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
+const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
+const ACTIVE_LINE_TUNING = {
+  radius: 12,
+  yInset: 1,
+  hInset: 3,
+  bgDark: 0.012,
+  borderDark: 0.028,
+  bgLight: 0.02,
+  borderLight: 0.04,
+  opacityBlurred: 0.45,
+  motionPosMs: 140,
+  motionOpacityMs: 90,
+}
 
 type EditorProps = {
   text?: string
@@ -38,7 +52,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 ) {
   const editorRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
-  const highlightLayerRef = useRef<HTMLDivElement>(null)
+  const textColRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const lineIdSeed = useRef(0)
   const lineElementsRef = useRef<HTMLDivElement[]>([])
@@ -58,6 +72,22 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [activeLineId, setActiveLineId] = useState<string | null>(null)
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
   const [lineVersion, setLineVersion] = useState(0)
+  const [isEditorFocused, setIsEditorFocused] = useState(false)
+  const [lineHighlight, setLineHighlight] = useState({
+    top: 0,
+    height: 0,
+    visible: false,
+    foundLine: false,
+    lineId: null as string | null,
+    debugTextColLeft: 0,
+    debugLineLeft: 0,
+  })
+
+  const composingRef = useRef(false)
+  const highlightDebounceRef = useRef<number | null>(null)
+  const lastHighlightRef = useRef(lineHighlight)
+  const debugLogRef = useRef(0)
+  const debugForceRef = useRef({ forceShow: false })
 
   const { fontSize, lineHeight, showLineTotals, theme } = useSettingsStore(
     (state) => ({
@@ -74,6 +104,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     root.style.setProperty('--editor-font-size', `${fontSize}px`)
     root.style.setProperty('--editor-line-height', lineHeight.toString())
   }, [fontSize, lineHeight])
+
   
 
   const badgeMode = useBadgeSettings((state) => state.badgeMode)
@@ -228,43 +259,147 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     }
   }, [createLineElement, editorIsMeaningfullyEmpty, ensureLineHasContent, logDebugEvent, setCaretToLineStart])
 
+  const getActiveLineElementFromSelection = useCallback(
+    (selection: Selection | null, root: HTMLElement): HTMLDivElement | null => {
+      if (!selection || selection.rangeCount === 0) return null
+      const candidateNode = selection.focusNode ?? selection.anchorNode
+      if (!candidateNode || !root.contains(candidateNode)) return null
+      const anchorElement =
+        candidateNode.nodeType === Node.ELEMENT_NODE
+          ? (candidateNode as Element)
+          : candidateNode.parentElement
+      const lineElement =
+        anchorElement?.closest<HTMLDivElement>(
+          '[data-line-id], [data-line], .editor-line, .line'
+        ) ?? null
+      if (!lineElement || isPlaceholderLine(lineElement)) return null
+      return lineElement
+    },
+    [isPlaceholderLine]
+  )
+
+  const findLineByCaretPosition = useCallback(
+    (selection: Selection, root: HTMLElement): HTMLDivElement | null => {
+      if (selection.rangeCount === 0) return null
+      const range = selection.getRangeAt(0)
+      const ancestor = range.commonAncestorContainer
+      if (!root.contains(ancestor)) return null
+      const rect = range.getClientRects()[0] ?? range.getBoundingClientRect()
+      if (!rect || !rect.height) return null
+      const caretY = rect.top + rect.height / 2
+      const candidates = Array.from(
+        root.querySelectorAll<HTMLDivElement>('[data-line-id], [data-line], .editor-line, .line')
+      ).filter((line) => line.getAttribute('data-placeholder-line') !== 'true')
+      for (const line of candidates) {
+        const lineRect = line.getBoundingClientRect()
+        if (caretY >= lineRect.top && caretY <= lineRect.bottom) {
+          return line
+        }
+      }
+      return null
+    },
+    [isPlaceholderLine]
+  )
+
+  const measureLineRect = useCallback((lineEl: HTMLElement, textColEl: HTMLElement) => {
+    const contentEl =
+      lineEl.querySelector<HTMLElement>('[data-line-content], .line-content') ?? lineEl
+    const contentRect = contentEl.getBoundingClientRect()
+    const textColRect = textColEl.getBoundingClientRect()
+    if (!contentRect.height || !textColRect.height) return null
+    return {
+      top: contentRect.top - textColRect.top,
+      height: contentRect.height,
+      debugTextColLeft: textColRect.left,
+      debugLineLeft: contentRect.left,
+    }
+  }, [])
+
+  const setHighlightState = useCallback((next: typeof lineHighlight) => {
+    const prev = lastHighlightRef.current
+    const delta =
+      prev.visible !== next.visible ||
+      Math.abs(prev.top - next.top) > 0.5 ||
+      Math.abs(prev.height - next.height) > 0.5 ||
+      prev.foundLine !== next.foundLine ||
+      prev.lineId !== next.lineId ||
+      (DEBUG_ACTIVE_LINE &&
+        (Math.abs(prev.debugLineLeft - next.debugLineLeft) > 0.5 ||
+          Math.abs(prev.debugTextColLeft - next.debugTextColLeft) > 0.5))
+    if (!delta) return
+    lastHighlightRef.current = next
+    setLineHighlight(next)
+  }, [])
+
   const updateCurrentLineHighlight = useCallback(() => {
-    const el = editorRef.current
-    const highlightLayer = highlightLayerRef.current
-    if (!el || !highlightLayer) return
+    const editorEl = editorRef.current
+    const textColEl = textColRef.current
+    if (!editorEl || !textColEl) return
 
     try {
       const selection = window.getSelection()
-      if (!selection || selection.rangeCount === 0) {
-        highlightLayer.replaceChildren()
-        setActiveLineId((prev) => (prev === null ? prev : null))
-        return
+      let lineElement = getActiveLineElementFromSelection(selection, editorEl)
+      if (!lineElement && selection) {
+        lineElement = findLineByCaretPosition(selection, editorEl)
       }
+      const forceShow = DEBUG_ACTIVE_LINE ? debugForceRef.current.forceShow : false
 
-      const range = selection.getRangeAt(0)
-
-      highlightLayer.replaceChildren()
-      
-      // Find the line containing the caret
-      let lineElement: HTMLElement | null = null
-      let node: Node | null = range.startContainer
-
-      while (node && node !== el) {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          const element = node as Element
-          if (element.classList.contains('line')) {
-            lineElement = element as HTMLElement
-            if (isPlaceholderLine(lineElement)) {
-              lineElement = null
-            }
-            break
+      if (forceShow) {
+        setHighlightState({
+          top: 0,
+          height: 24,
+          visible: true,
+          foundLine: false,
+          lineId: null,
+          debugTextColLeft: 0,
+          debugLineLeft: 0,
+        })
+        if (DEBUG_ACTIVE_LINE) {
+          const now = Date.now()
+          if (now - debugLogRef.current > 200) {
+            debugLogRef.current = now
+            console.debug('[active-line]', {
+              hasSelection: !!selection,
+              foundLine: false,
+              lineId: null,
+              top: 0,
+              height: 24,
+              textColLeft: 0,
+              lineLeft: 0,
+              forceShow: true,
+            })
           }
         }
-        node = node.parentNode
+        return
       }
 
       if (!lineElement) {
         setActiveLineId((prev) => (prev === null ? prev : null))
+        setHighlightState({
+          top: 0,
+          height: 0,
+          visible: false,
+          foundLine: false,
+          lineId: null,
+          debugTextColLeft: 0,
+          debugLineLeft: 0,
+        })
+        if (DEBUG_ACTIVE_LINE) {
+          const now = Date.now()
+          if (now - debugLogRef.current > 200) {
+            debugLogRef.current = now
+            console.debug('[active-line]', {
+              hasSelection: !!selection,
+              foundLine: false,
+              lineId: null,
+              top: 0,
+              height: 0,
+              textColLeft: 0,
+              lineLeft: 0,
+              forceShow: false,
+            })
+          }
+        }
         return
       }
 
@@ -275,47 +410,112 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const resolvedLineId = lineElement.dataset.lineId ?? null
       setActiveLineId((prev) => (prev === resolvedLineId ? prev : resolvedLineId))
 
-      // Create a range that spans the entire line content
-      const lineRange = document.createRange()
-      lineRange.selectNodeContents(lineElement)
-      
-      // Get the bounding rectangle of the line content
-      const rects = lineRange.getClientRects()
-      if (rects.length === 0) {
-        lineRange.detach()
+      // Overlay positioning: measure line rects in viewport space, then convert to text-column
+      // coordinates and adjust for the scroll container so the highlight tracks scrolling.
+      const lineRect = measureLineRect(lineElement, textColEl)
+      if (!lineRect) {
+        setHighlightState({
+          top: 0,
+          height: 0,
+          visible: false,
+          foundLine: true,
+          lineId: resolvedLineId,
+          debugTextColLeft: 0,
+          debugLineLeft: 0,
+        })
+        if (DEBUG_ACTIVE_LINE) {
+          const now = Date.now()
+          if (now - debugLogRef.current > 200) {
+            debugLogRef.current = now
+            console.debug('[active-line]', {
+              hasSelection: !!selection,
+              foundLine: true,
+              lineId: resolvedLineId,
+              top: 0,
+              height: 0,
+              textColLeft: 0,
+              lineLeft: 0,
+              forceShow: false,
+            })
+          }
+        }
         return
       }
 
-      // Calculate the highlight position relative to the editor
-      const editorRect = el.getBoundingClientRect()
-      const firstRect = rects[0]
-      const lastRect = rects[rects.length - 1]
-      
-      const highlightLeft = firstRect.left - editorRect.left
-      const highlightTop = firstRect.top - editorRect.top
-      const highlightWidth = lastRect.right - firstRect.left
-      const highlightHeight = firstRect.height
+      const containerEl = containerRef.current
+      const scrollTop = containerEl?.scrollTop ?? 0
+      const top = lineRect.top + scrollTop
+      const height = Math.max(lineRect.height, 18)
 
-      // Create the highlight element
-      const highlight = document.createElement('div')
-      highlight.className = 'current-line-highlight active'
-      highlight.setAttribute('aria-hidden', 'true')
-      highlight.setAttribute('data-editor-overlay', 'current-line')
-      highlight.tabIndex = -1
-      highlight.contentEditable = 'false'
-      highlight.style.pointerEvents = 'none'
-      highlight.style.left = `${highlightLeft}px`
-      highlight.style.top = `${highlightTop}px`
-      highlight.style.width = `${highlightWidth}px`
-      highlight.style.height = `${highlightHeight}px`
-
-      highlightLayer.appendChild(highlight)
-      
-      lineRange.detach()
+      setHighlightState({
+        top,
+        height,
+        visible: true,
+        foundLine: true,
+        lineId: resolvedLineId,
+        debugTextColLeft: lineRect.debugTextColLeft,
+        debugLineLeft: lineRect.debugLineLeft,
+      })
+      if (DEBUG_ACTIVE_LINE) {
+        const now = Date.now()
+        if (now - debugLogRef.current > 200) {
+          debugLogRef.current = now
+          console.debug('[active-line]', {
+            hasSelection: !!selection,
+            foundLine: true,
+            lineId: resolvedLineId,
+            top: Math.round(top),
+            height: Math.round(height),
+            textColLeft: Math.round(lineRect.debugTextColLeft),
+            lineLeft: Math.round(lineRect.debugLineLeft),
+            forceShow: false,
+          })
+        }
+      }
     } catch {
       // Ignore errors
     }
-  }, [isPlaceholderLine])
+  }, [findLineByCaretPosition, getActiveLineElementFromSelection, measureLineRect, setHighlightState])
+
+  const scheduleCurrentLineHighlight = useCallback(
+    (options?: { immediate?: boolean }) => {
+      if (composingRef.current) return
+      if (highlightDebounceRef.current) {
+        window.clearTimeout(highlightDebounceRef.current)
+      }
+      const delay = options?.immediate ? 0 : LINE_HIGHLIGHT_DEBOUNCE_MS
+      highlightDebounceRef.current = window.setTimeout(() => {
+        window.requestAnimationFrame(() => {
+          updateCurrentLineHighlight()
+        })
+      }, delay)
+    },
+    [updateCurrentLineHighlight]
+  )
+
+  const resolvedTheme = resolveTheme(theme, { hydrated })
+  const isDarkTheme = resolvedTheme === 'dark'
+
+  const adjustedHeight = Math.max(lineHighlight.height - ACTIVE_LINE_TUNING.hInset, 18)
+  const highlightStyle = {
+    top: `${lineHighlight.top + ACTIVE_LINE_TUNING.yInset}px`,
+    height: `${adjustedHeight}px`,
+    opacity: lineHighlight.visible ? (isEditorFocused ? 1 : ACTIVE_LINE_TUNING.opacityBlurred) : 0,
+    '--rl-active-line-bg': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
+      isDarkTheme ? ACTIVE_LINE_TUNING.bgDark : ACTIVE_LINE_TUNING.bgLight
+    })`,
+    '--rl-active-line-border': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
+      isDarkTheme ? ACTIVE_LINE_TUNING.borderDark : ACTIVE_LINE_TUNING.borderLight
+    })`,
+    '--rl-active-line-transition': `${ACTIVE_LINE_TUNING.motionPosMs}ms`,
+    '--rl-active-line-opacity-transition': `${ACTIVE_LINE_TUNING.motionOpacityMs}ms`,
+  } as const
+
+  const highlightDebugStyle = {
+    top: `${Math.max(lineHighlight.top - 16, 0)}px`,
+    left: '0px',
+    opacity: DEBUG_ACTIVE_LINE ? 1 : 0,
+  } as const
 
   const ensureLineStructure = useCallback(() => {
     const el = editorRef.current
@@ -441,7 +641,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     })
     if (!el) return
     const { lines: collectedLines } = collectLineInputs()
-    updateCurrentLineHighlight()
+    scheduleCurrentLineHighlight()
     analysisLinesRef.current = collectedLines
     setLineInputs(collectedLines)
     setLines(collectedLines.map((line) => line.text))
@@ -524,11 +724,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   )
 
   const handleSelectionChange = useCallback(() => {
-    updateCurrentLineHighlight()
+    scheduleCurrentLineHighlight()
     if (analysisLinesRef.current.length) {
       scheduleAnalysis(analysisLinesRef.current, 'caret')
     }
-  }, [scheduleAnalysis, updateCurrentLineHighlight])
+  }, [scheduleAnalysis, scheduleCurrentLineHighlight])
 
   useEffect(() => {
     if (!showLineTotals) {
@@ -597,9 +797,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       scheduleAnalysis(collectedLines, 'typing')
     }
     requestAnimationFrame(() => {
-      updateCurrentLineHighlight()
+      scheduleCurrentLineHighlight({ immediate: true })
     })
-  }, [collectLineInputs, scheduleAnalysis, syncPlaceholderLine, text, updateCurrentLineHighlight, ensureLineStructure])
+  }, [collectLineInputs, scheduleAnalysis, syncPlaceholderLine, text, scheduleCurrentLineHighlight, ensureLineStructure])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -619,24 +819,44 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       window.removeEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
       document.removeEventListener('selectionchange', handleSelectionChange)
       if (saveStatusTimer.current) window.clearTimeout(saveStatusTimer.current)
+      if (highlightDebounceRef.current) window.clearTimeout(highlightDebounceRef.current)
     }
   }, [handleSelectionChange])
 
   useEffect(() => {
     const onResize = () => {
-      updateCurrentLineHighlight()
+      scheduleCurrentLineHighlight({ immediate: true })
     }
     window.addEventListener('resize', onResize)
     const scroller = containerRef.current
     const onScroll = () => {
-      updateCurrentLineHighlight()
+      scheduleCurrentLineHighlight()
     }
     scroller?.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       window.removeEventListener('resize', onResize)
       scroller?.removeEventListener('scroll', onScroll)
     }
-  }, [updateCurrentLineHighlight])
+  }, [scheduleCurrentLineHighlight])
+
+  useEffect(() => {
+    scheduleCurrentLineHighlight()
+  }, [fontSize, lineHeight, scheduleCurrentLineHighlight])
+
+  useEffect(() => {
+    if (!DEBUG_ACTIVE_LINE) return
+    if (typeof window === 'undefined') return
+    const debugWindow = window as typeof window & {
+      __rlActiveLineDebug?: { forceShow: boolean; refresh?: () => void }
+    }
+    if (!debugWindow.__rlActiveLineDebug) {
+      debugWindow.__rlActiveLineDebug = {
+        forceShow: false,
+        refresh: () => scheduleCurrentLineHighlight({ immediate: true }),
+      }
+    }
+    debugForceRef.current = debugWindow.__rlActiveLineDebug
+  }, [])
 
   useEffect(() => {
     const lines = lineElementsRef.current
@@ -753,22 +973,43 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               lineTotals={lineTotals}
               lines={lines}
               showLineTotals={showLineTotals}
-              theme={resolveTheme(theme, { hydrated })}
+              theme={resolvedTheme}
             />
 
-            <div className="relative min-h-[70vh]">
+            <div ref={textColRef} className="editor-surface relative min-h-[70vh]">
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
-                ref={highlightLayerRef}
-                className="pointer-events-none absolute inset-0 z-0"
+                className="pointer-events-none absolute inset-0 z-10"
                 aria-hidden="true"
                 data-layer="highlight"
                 contentEditable={false}
-              />
+              >
+                <div
+                  className="rl-current-line-highlight rl-active-line"
+                  style={highlightStyle}
+                  aria-hidden="true"
+                  data-editor-overlay="current-line"
+                  data-testid="active-line-highlight"
+                  id="rl-active-line-highlight"
+                />
+                {DEBUG_ACTIVE_LINE ? (
+                  <div
+                    className="rl-current-line-debug"
+                    style={highlightDebugStyle}
+                    aria-hidden="true"
+                  >
+                    {`foundLine:${lineHighlight.foundLine ? 'yes' : 'no'} id:${
+                      lineHighlight.lineId ?? 'none'
+                    } top:${Math.round(lineHighlight.top)} h:${Math.round(lineHighlight.height)} textColLeft:${Math.round(
+                      lineHighlight.debugTextColLeft
+                    )} lineLeft:${Math.round(lineHighlight.debugLineLeft)}`}
+                  </div>
+                ) : null}
+              </div>
               {/* Overlay for syllable badges */}
               <div
                 ref={overlayRef}
-                className="pointer-events-none absolute inset-0 z-20"
+                className="pointer-events-none absolute inset-0 z-30"
                 aria-hidden="true"
                 tabIndex={-1}
                 data-layer="overlay"
@@ -794,15 +1035,26 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 data-layer="editable"
                 onBeforeInput={handleBeforeInput}
                 onInput={handleInputEvent}
-                onBlur={handleChange}
+                onFocus={() => setIsEditorFocused(true)}
+                onBlur={() => {
+                  setIsEditorFocused(false)
+                  handleChange()
+                }}
                 onKeyDown={handleShortcutKeyDown}
+                onCompositionStart={() => {
+                  composingRef.current = true
+                }}
+                onCompositionEnd={() => {
+                  composingRef.current = false
+                  scheduleCurrentLineHighlight({ immediate: true })
+                }}
                 onClick={(event) => {
                   ensureEditorFocus()
                   handleChange()
                   event.stopPropagation()
                 }}
                 onPointerDown={ensureEditorFocus}
-                className="rl-editor relative z-10 outline-none w-full min-h-[70vh] font-mono pointer-events-auto"
+                className="rl-editor relative z-20 outline-none w-full min-h-[70vh] font-mono pointer-events-auto"
               />
             </div>
           </div>
