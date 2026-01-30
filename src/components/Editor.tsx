@@ -50,7 +50,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 ) {
   const editorRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
-  const highlightLayerRef = useRef<HTMLDivElement>(null)
+  const textColRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const lineIdSeed = useRef(0)
   const lineElementsRef = useRef<HTMLDivElement[]>([])
@@ -73,12 +73,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [isEditorFocused, setIsEditorFocused] = useState(false)
   const [lineHighlight, setLineHighlight] = useState({
     top: 0,
-    left: 0,
-    width: 0,
     height: 0,
     visible: false,
     foundLine: false,
     lineId: null as string | null,
+    debugTextColLeft: 0,
+    debugLineLeft: 0,
   })
 
   const composingRef = useRef(false)
@@ -298,15 +298,17 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [isPlaceholderLine]
   )
 
-  const measureLineRect = useCallback((lineEl: HTMLElement, editorRoot: HTMLElement) => {
-    const lineRect = lineEl.getBoundingClientRect()
-    const editorRect = editorRoot.getBoundingClientRect()
-    if (!lineRect.height || !editorRect.height) return null
+  const measureLineRect = useCallback((lineEl: HTMLElement, textColEl: HTMLElement) => {
+    const contentEl =
+      lineEl.querySelector<HTMLElement>('[data-line-content], .line-content') ?? lineEl
+    const contentRect = contentEl.getBoundingClientRect()
+    const textColRect = textColEl.getBoundingClientRect()
+    if (!contentRect.height || !textColRect.height) return null
     return {
-      top: lineRect.top - editorRect.top,
-      left: lineRect.left - editorRect.left,
-      width: lineRect.width,
-      height: lineRect.height,
+      top: contentRect.top - textColRect.top,
+      height: contentRect.height,
+      debugTextColLeft: textColRect.left,
+      debugLineLeft: contentRect.left,
     }
   }, [])
 
@@ -315,11 +317,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const delta =
       prev.visible !== next.visible ||
       Math.abs(prev.top - next.top) > 0.5 ||
-      Math.abs(prev.left - next.left) > 0.5 ||
-      Math.abs(prev.width - next.width) > 0.5 ||
       Math.abs(prev.height - next.height) > 0.5 ||
       prev.foundLine !== next.foundLine ||
-      prev.lineId !== next.lineId
+      prev.lineId !== next.lineId ||
+      (DEBUG_ACTIVE_LINE &&
+        (Math.abs(prev.debugLineLeft - next.debugLineLeft) > 0.5 ||
+          Math.abs(prev.debugTextColLeft - next.debugTextColLeft) > 0.5))
     if (!delta) return
     lastHighlightRef.current = next
     setLineHighlight(next)
@@ -327,8 +330,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const updateCurrentLineHighlight = useCallback(() => {
     const editorEl = editorRef.current
-    const overlayEl = highlightLayerRef.current
-    if (!editorEl || !overlayEl) return
+    const textColEl = textColRef.current
+    if (!editorEl || !textColEl) return
 
     try {
       const selection = window.getSelection()
@@ -341,12 +344,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       if (forceShow) {
         setHighlightState({
           top: 0,
-          left: 0,
-          width: overlayEl.clientWidth,
           height: 24,
           visible: true,
           foundLine: false,
           lineId: null,
+          debugTextColLeft: 0,
+          debugLineLeft: 0,
         })
         if (DEBUG_ACTIVE_LINE) {
           const now = Date.now()
@@ -358,6 +361,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               lineId: null,
               top: 0,
               height: 24,
+              textColLeft: 0,
+              lineLeft: 0,
               forceShow: true,
             })
           }
@@ -369,12 +374,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         setActiveLineId((prev) => (prev === null ? prev : null))
         setHighlightState({
           top: 0,
-          left: 0,
-          width: 0,
           height: 0,
           visible: false,
           foundLine: false,
           lineId: null,
+          debugTextColLeft: 0,
+          debugLineLeft: 0,
         })
         if (DEBUG_ACTIVE_LINE) {
           const now = Date.now()
@@ -386,6 +391,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               lineId: null,
               top: 0,
               height: 0,
+              textColLeft: 0,
+              lineLeft: 0,
               forceShow: false,
             })
           }
@@ -400,18 +407,18 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const resolvedLineId = lineElement.dataset.lineId ?? null
       setActiveLineId((prev) => (prev === resolvedLineId ? prev : resolvedLineId))
 
-      // Overlay positioning: measure line rects in viewport space, then convert to editor-local
+      // Overlay positioning: measure line rects in viewport space, then convert to text-column
       // coordinates and adjust for the scroll container so the highlight tracks scrolling.
-      const lineRect = measureLineRect(lineElement, editorEl)
+      const lineRect = measureLineRect(lineElement, textColEl)
       if (!lineRect) {
         setHighlightState({
           top: 0,
-          left: 0,
-          width: 0,
           height: 0,
           visible: false,
           foundLine: true,
           lineId: resolvedLineId,
+          debugTextColLeft: 0,
+          debugLineLeft: 0,
         })
         if (DEBUG_ACTIVE_LINE) {
           const now = Date.now()
@@ -423,6 +430,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               lineId: resolvedLineId,
               top: 0,
               height: 0,
+              textColLeft: 0,
+              lineLeft: 0,
               forceShow: false,
             })
           }
@@ -437,12 +446,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
       setHighlightState({
         top,
-        left: lineRect.left,
-        width: lineRect.width,
         height,
         visible: true,
         foundLine: true,
         lineId: resolvedLineId,
+        debugTextColLeft: lineRect.debugTextColLeft,
+        debugLineLeft: lineRect.debugLineLeft,
       })
       if (DEBUG_ACTIVE_LINE) {
         const now = Date.now()
@@ -454,6 +463,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             lineId: resolvedLineId,
             top: Math.round(top),
             height: Math.round(height),
+            textColLeft: Math.round(lineRect.debugTextColLeft),
+            lineLeft: Math.round(lineRect.debugLineLeft),
             forceShow: false,
           })
         }
@@ -485,6 +496,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const adjustedHeight = Math.max(lineHighlight.height - ACTIVE_LINE_TUNING.hInset, 12)
   const highlightStyle = {
     top: `${lineHighlight.top + ACTIVE_LINE_TUNING.yInset}px`,
+    left: 0,
+    right: 0,
     height: `${adjustedHeight}px`,
     opacity: lineHighlight.visible ? (isEditorFocused ? 1 : 0.55) : 0,
     backgroundColor: DEBUG_ACTIVE_LINE ? 'rgba(0, 255, 0, 0.25)' : undefined,
@@ -500,7 +513,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const highlightDebugStyle = {
     top: `${Math.max(lineHighlight.top - 16, 0)}px`,
-    left: `${lineHighlight.left}px`,
+    left: '0px',
     opacity: DEBUG_ACTIVE_LINE ? 1 : 0,
   } as const
 
@@ -963,10 +976,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               theme={resolvedTheme}
             />
 
-            <div className="editor-surface relative min-h-[70vh]">
+            <div ref={textColRef} className="editor-surface relative min-h-[70vh]">
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
-                ref={highlightLayerRef}
                 className="pointer-events-none absolute inset-0 z-10"
                 aria-hidden="true"
                 data-layer="highlight"
@@ -986,7 +998,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                   >
                     {`foundLine:${lineHighlight.foundLine ? 'yes' : 'no'} id:${
                       lineHighlight.lineId ?? 'none'
-                    } top:${Math.round(lineHighlight.top)} h:${Math.round(lineHighlight.height)}`}
+                    } top:${Math.round(lineHighlight.top)} h:${Math.round(lineHighlight.height)} textColLeft:${Math.round(
+                      lineHighlight.debugTextColLeft
+                    )} lineLeft:${Math.round(lineHighlight.debugLineLeft)}`}
                   </div>
                 ) : null}
               </div>
