@@ -201,24 +201,24 @@ body.bg-black .rl-editor .placeholder-line {
 /* Current line highlight overlay (non-interactive) */
 .rl-current-line-highlight {
   position: absolute;
-  border-radius: 6px;
+  border-radius: 12px;
   pointer-events: none;
   z-index: 0;
-  left: calc(var(--rl-gutter-w, var(--rl-gutter-width)) + var(--rl-editor-pad-x, var(--rl-pad-inline)) + var(--rl-highlight-inset, 0.25rem));
-  right: calc(var(--rl-editor-pad-x, var(--rl-pad-inline)) + var(--rl-highlight-inset, 0.25rem));
-  background-color: var(--rl-active-line-bg, rgba(255, 255, 255, 0.022));
-  box-shadow: inset 0 0 0 1px var(--rl-active-line-border, rgba(255, 255, 255, 0.04));
+  left: 0;
+  right: 0;
+  background-color: var(--rl-active-line-bg, rgba(255, 255, 255, 0.016));
+  box-shadow: inset 0 0 0 1px var(--rl-active-line-border, rgba(255, 255, 255, 0.035));
   transition:
     top var(--rl-active-line-transition, 120ms) ease-out,
     height var(--rl-active-line-transition, 120ms) ease-out,
-    opacity 90ms ease-out;
+    opacity var(--rl-active-line-opacity-transition, 90ms) ease-out;
   will-change: top, height, opacity;
   contain: paint;
 }
 
 body.bg-black .rl-current-line-highlight {
-  --rl-active-line-bg: rgba(255, 255, 255, 0.022);
-  --rl-active-line-border: rgba(255, 255, 255, 0.04);
+  --rl-active-line-bg: rgba(255, 255, 255, 0.016);
+  --rl-active-line-border: rgba(255, 255, 255, 0.035);
 }
 
 body.bg-white .rl-current-line-highlight {

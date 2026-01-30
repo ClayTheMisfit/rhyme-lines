@@ -23,13 +23,15 @@ const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
 const ACTIVE_LINE_TUNING = {
   radius: 12,
-  bgDark: 0.022,
-  bgLight: 0.025,
-  borderDark: 0.04,
-  borderLight: 0.05,
   yInset: 1,
-  hInset: 2,
-  transitionMs: 120,
+  hInset: 3,
+  bgDark: 0.016,
+  borderDark: 0.035,
+  bgLight: 0.025,
+  borderLight: 0.05,
+  blurOpacityWhenUnfocused: 0.45,
+  motionMsPos: 140,
+  motionMsOpacity: 90,
 }
 
 type EditorProps = {
@@ -493,13 +495,13 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const resolvedTheme = resolveTheme(theme, { hydrated })
   const isDarkTheme = resolvedTheme === 'dark'
 
-  const adjustedHeight = Math.max(lineHighlight.height - ACTIVE_LINE_TUNING.hInset, 12)
+  const adjustedHeight = Math.max(lineHighlight.height - ACTIVE_LINE_TUNING.hInset, 18)
   const highlightStyle = {
     top: `${lineHighlight.top + ACTIVE_LINE_TUNING.yInset}px`,
     left: 0,
     right: 0,
     height: `${adjustedHeight}px`,
-    opacity: lineHighlight.visible ? (isEditorFocused ? 1 : 0.55) : 0,
+    opacity: lineHighlight.visible ? (isEditorFocused ? 1 : ACTIVE_LINE_TUNING.blurOpacityWhenUnfocused) : 0,
     backgroundColor: DEBUG_ACTIVE_LINE ? 'rgba(0, 255, 0, 0.25)' : undefined,
     borderRadius: `${ACTIVE_LINE_TUNING.radius}px`,
     '--rl-active-line-bg': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
@@ -508,7 +510,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     '--rl-active-line-border': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
       isDarkTheme ? ACTIVE_LINE_TUNING.borderDark : ACTIVE_LINE_TUNING.borderLight
     })`,
-    '--rl-active-line-transition': `${ACTIVE_LINE_TUNING.transitionMs}ms`,
+    '--rl-active-line-transition': `${ACTIVE_LINE_TUNING.motionMsPos}ms`,
+    '--rl-active-line-opacity-transition': `${ACTIVE_LINE_TUNING.motionMsOpacity}ms`,
   } as const
 
   const highlightDebugStyle = {
