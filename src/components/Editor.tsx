@@ -21,6 +21,16 @@ const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
+const ACTIVE_LINE_STYLE = {
+  bgAlphaDark: 0.035,
+  bgAlphaLight: 0.035,
+  borderAlphaDark: 0.04,
+  borderAlphaLight: 0.05,
+  glowAlphaDark: 0.08,
+  glowAlphaLight: 0.06,
+  radius: 8,
+  transitionMs: 120,
+}
 
 type EditorProps = {
   text?: string
@@ -60,6 +70,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [activeLineId, setActiveLineId] = useState<string | null>(null)
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
   const [lineVersion, setLineVersion] = useState(0)
+  const [isEditorFocused, setIsEditorFocused] = useState(false)
   const [lineHighlight, setLineHighlight] = useState({
     top: 0,
     left: 0,
@@ -468,13 +479,27 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [updateCurrentLineHighlight]
   )
 
+  const resolvedTheme = resolveTheme(theme, { hydrated })
+  const isDarkTheme = resolvedTheme === 'dark'
+
   const highlightStyle = {
     top: `${lineHighlight.top}px`,
     left: `${lineHighlight.left}px`,
     width: `${lineHighlight.width}px`,
     height: `${lineHighlight.height}px`,
-    opacity: lineHighlight.visible ? 1 : 0,
+    opacity: lineHighlight.visible ? (isEditorFocused ? 1 : 0.55) : 0,
     backgroundColor: DEBUG_ACTIVE_LINE ? 'rgba(0, 255, 0, 0.25)' : undefined,
+    borderRadius: `${ACTIVE_LINE_STYLE.radius}px`,
+    '--rl-active-line-bg': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
+      isDarkTheme ? ACTIVE_LINE_STYLE.bgAlphaDark : ACTIVE_LINE_STYLE.bgAlphaLight
+    })`,
+    '--rl-active-line-border': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
+      isDarkTheme ? ACTIVE_LINE_STYLE.borderAlphaDark : ACTIVE_LINE_STYLE.borderAlphaLight
+    })`,
+    '--rl-active-line-glow': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
+      isDarkTheme ? ACTIVE_LINE_STYLE.glowAlphaDark : ACTIVE_LINE_STYLE.glowAlphaLight
+    })`,
+    '--rl-active-line-transition': `${ACTIVE_LINE_STYLE.transitionMs}ms`,
   } as const
 
   const highlightDebugStyle = {
@@ -939,7 +964,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               lineTotals={lineTotals}
               lines={lines}
               showLineTotals={showLineTotals}
-              theme={resolveTheme(theme, { hydrated })}
+              theme={resolvedTheme}
             />
 
             <div className="editor-surface relative min-h-[70vh]">
@@ -998,7 +1023,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 data-layer="editable"
                 onBeforeInput={handleBeforeInput}
                 onInput={handleInputEvent}
-                onBlur={handleChange}
+                onFocus={() => setIsEditorFocused(true)}
+                onBlur={() => {
+                  setIsEditorFocused(false)
+                  handleChange()
+                }}
                 onKeyDown={handleShortcutKeyDown}
                 onCompositionStart={() => {
                   composingRef.current = true
