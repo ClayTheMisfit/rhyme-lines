@@ -20,7 +20,6 @@ const SAVE_STATUS_DELAY_MS = 200
 const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
-const PROOF_ACTIVE_LINE = process.env.NODE_ENV !== 'production' && false
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
 const ACTIVE_LINE_TUNING = {
   radius: 12,
@@ -107,8 +106,21 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }, [fontSize, lineHeight])
 
   useEffect(() => {
-    if (PROOF_ACTIVE_LINE) {
-      console.debug('[ActiveLine] proof mode ON')
+    const el = document.getElementById('rl-active-line-highlight')
+    const editorEl = editorRef.current
+    const overlayEl = textColRef.current
+    console.debug('[ActiveLine] el?', !!el)
+    if (el) {
+      console.debug('[ActiveLine] rect', el.getBoundingClientRect())
+      const computed = window.getComputedStyle(el)
+      console.debug('[ActiveLine] computed bg', computed.backgroundColor)
+      console.debug('[ActiveLine] computed z', computed.zIndex)
+    }
+    if (overlayEl) {
+      console.debug('[ActiveLine] overlay rect', overlayEl.getBoundingClientRect())
+    }
+    if (editorEl) {
+      console.debug('[ActiveLine] editor rect', editorEl.getBoundingClientRect())
     }
   }, [])
   
@@ -500,26 +512,21 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   )
 
   const resolvedTheme = resolveTheme(theme, { hydrated })
-  const isDarkTheme = resolvedTheme === 'dark'
 
   const adjustedHeight = Math.max(lineHighlight.height - ACTIVE_LINE_TUNING.hInset, 18)
   const highlightStyle = {
-    top: `${lineHighlight.top + (PROOF_ACTIVE_LINE ? -3 : ACTIVE_LINE_TUNING.yInset)}px`,
+    top: `${lineHighlight.top - 3}px`,
     left: 0,
     right: 0,
-    height: `${PROOF_ACTIVE_LINE ? Math.max(adjustedHeight + 6, 18) : adjustedHeight}px`,
-    opacity: lineHighlight.visible ? (isEditorFocused ? 1 : ACTIVE_LINE_TUNING.opacityBlurred) : 0,
-    backgroundColor: PROOF_ACTIVE_LINE ? 'rgba(0, 255, 0, 0.22)' : DEBUG_ACTIVE_LINE ? 'rgba(0, 255, 0, 0.25)' : undefined,
-    outline: PROOF_ACTIVE_LINE ? '2px solid rgba(0, 255, 0, 0.65)' : undefined,
-    borderRadius: `${PROOF_ACTIVE_LINE ? 18 : ACTIVE_LINE_TUNING.radius}px`,
-    '--rl-active-line-bg': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
-      isDarkTheme ? ACTIVE_LINE_TUNING.bgDark : ACTIVE_LINE_TUNING.bgLight
-    })`,
-    '--rl-active-line-border': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
-      isDarkTheme ? ACTIVE_LINE_TUNING.borderDark : ACTIVE_LINE_TUNING.borderLight
-    })`,
-    '--rl-active-line-transition': `${ACTIVE_LINE_TUNING.motionPosMs}ms`,
-    '--rl-active-line-opacity-transition': `${ACTIVE_LINE_TUNING.motionOpacityMs}ms`,
+    height: `${Math.max(adjustedHeight + 6, 18)}px`,
+    opacity: 1,
+    backgroundColor: 'rgba(255, 0, 255, 0.35)',
+    outline: '3px solid rgba(255, 0, 255, 0.95)',
+    boxShadow: '0 0 0 3px rgba(0, 255, 255, 0.35)',
+    borderRadius: '20px',
+    mixBlendMode: 'normal',
+    zIndex: 9999,
+    pointerEvents: 'none',
   } as const
 
   const highlightDebugStyle = {
@@ -991,6 +998,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
                 className="pointer-events-none absolute inset-0 z-10"
+                style={{ position: 'absolute', inset: 0, zIndex: 9998, pointerEvents: 'none', overflow: 'visible' }}
                 aria-hidden="true"
                 data-layer="highlight"
                 contentEditable={false}
@@ -1001,21 +1009,23 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                   aria-hidden="true"
                   data-editor-overlay="current-line"
                   data-testid="active-line-highlight"
+                  id="rl-active-line-highlight"
                 >
-                  {PROOF_ACTIVE_LINE ? (
-                    <div
-                      className="pointer-events-none"
-                      style={{
-                        position: 'absolute',
-                        right: 8,
-                        top: -16,
-                        fontSize: 10,
-                        opacity: 0.75,
-                      }}
-                    >
-                      ACTIVE LINE
-                    </div>
-                  ) : null}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: 8,
+                      top: -18,
+                      fontSize: 12,
+                      color: '#ff00ff',
+                      background: 'rgba(0, 0, 0, 0.7)',
+                      padding: '2px 6px',
+                      borderRadius: 6,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    ACTIVE LINE
+                  </div>
                 </div>
                 {DEBUG_ACTIVE_LINE ? (
                   <div
