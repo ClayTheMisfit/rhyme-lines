@@ -1,6 +1,10 @@
 export type TokenizedWord = { start: number; end: number; text: string }
 
-const WORD_REGEX = /[A-Za-z']+/g
+const WORD_REGEX = /[A-Za-z']+|\d+/g
+
+export function isWordLikeToken(token: string): boolean {
+  return /^[A-Za-z']+$/.test(token) || /^\d+$/.test(token)
+}
 
 export function tokenizeLine(text: string): TokenizedWord[] {
   const words: TokenizedWord[] = []
