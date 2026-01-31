@@ -14,12 +14,21 @@ type RhymeHighlightState = {
 export const useRhymeHighlightStore = create<RhymeHighlightState>()((set) => ({
   preview: null,
   setPreview: (text) => {
-    const normalized = text ? normalizeToken(text) : ''
-    if (!normalized) {
+    if (text == null) {
       set({ preview: null })
       return
     }
-    set({ preview: { text, lowerText: normalized } })
+    const trimmed = text.trim()
+    if (!trimmed) {
+      set({ preview: null })
+      return
+    }
+    const normalized = normalizeToken(trimmed)
+    if (normalized == null || normalized === '') {
+      set({ preview: null })
+      return
+    }
+    set({ preview: { text: trimmed, lowerText: normalized } })
   },
   clearPreview: () => set({ preview: null }),
 }))
