@@ -7,16 +7,27 @@ export type RhymeToken = {
   norm: string
 }
 
+export type RhymeTokenMeta = {
+  lineId: string
+  start: number
+  end: number
+  text: string
+  norm: string
+}
+
 export type HighlightGroup = {
-  rhymeKey: string
+  key: string
   tokenIds: string[]
   kind: 'perfect' | 'exact'
+  order: number
 }
 
 export type RhymeHighlightResult = {
   tokens: RhymeToken[]
   groups: HighlightGroup[]
+  tokenMetaById: Record<string, RhymeTokenMeta>
   activeGroupKey?: string
+  scopeHash?: string
 }
 
 export type RhymeKeySource = 'phoneme' | 'ortho' | 'none'
@@ -81,14 +92,37 @@ const pushGroup = (
   groups: Map<string, HighlightGroup>,
   key: string,
   tokenId: string,
-  kind: HighlightGroup['kind']
+  kind: HighlightGroup['kind'],
+  order: number
 ) => {
   const existing = groups.get(key)
   if (existing) {
     existing.tokenIds.push(tokenId)
+    existing.order = Math.min(existing.order, order)
     return
   }
-  groups.set(key, { rhymeKey: key, tokenIds: [tokenId], kind })
+  groups.set(key, { key, tokenIds: [tokenId], kind, order })
+}
+
+export const buildTokenGroupIndex = (groups: HighlightGroup[]) => {
+  const map = new Map<string, HighlightGroup>()
+  const sorted = [...groups].sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === 'perfect' ? -1 : 1
+    return a.order - b.order
+  })
+  for (const group of sorted) {
+    for (const tokenId of group.tokenIds) {
+      if (map.has(tokenId)) continue
+      map.set(tokenId, group)
+    }
+  }
+  return map
+}
+
+export const getTokenHighlightStyle = (tokenId: string, groups: HighlightGroup[]) => {
+  const group = buildTokenGroupIndex(groups).get(tokenId)
+  if (!group) return null
+  return group.kind === 'perfect' ? 'pill' : 'underline'
 }
 
 export const buildHighlightGroups = (tokens: RhymeToken[], options: BuildHighlightOptions = {}) => {
@@ -98,22 +132,23 @@ export const buildHighlightGroups = (tokens: RhymeToken[], options: BuildHighlig
   const perfectGroups = new Map<string, HighlightGroup>()
   const exactGroups = new Map<string, HighlightGroup>()
 
-  for (const token of tokens) {
-    if (!token.norm) continue
+  // Integration point: group order is used by the UI color registry for stable, collision-free colors.
+  tokens.forEach((token, tokenIndex) => {
+    if (!token.norm) return
     const keyResult = computeRhymeKey(token.norm, resolver ?? undefined, cache)
     if (keyResult.key) {
-      pushGroup(perfectGroups, keyResult.key, token.id, 'perfect')
+      pushGroup(perfectGroups, `rhyme:${keyResult.key}`, token.id, 'perfect', tokenIndex)
     }
     if (includeExactRepeats && token.norm && keyResult.source !== 'phoneme') {
       const exactKey = `exact:${token.norm}`
-      pushGroup(exactGroups, exactKey, token.id, 'exact')
+      pushGroup(exactGroups, exactKey, token.id, 'exact', tokenIndex)
     }
-  }
+  })
 
   const finalize = (groups: Map<string, HighlightGroup>) =>
     Array.from(groups.values())
       .filter((group) => group.tokenIds.length >= 2)
-      .sort((a, b) => a.rhymeKey.localeCompare(b.rhymeKey))
+      .sort((a, b) => a.order - b.order)
 
   return {
     groups: [...finalize(perfectGroups), ...finalize(exactGroups)],

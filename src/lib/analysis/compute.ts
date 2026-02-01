@@ -26,6 +26,7 @@ export function computeAnalysis(
   const lineTotals: Record<string, number> = {}
   const wordSyllables: Record<string, Array<{ start: number; end: number; syllables: number }>> = {}
   const rhymeTokens: RhymeToken[] = []
+  const tokenMetaById: RhymeHighlightResult['tokenMetaById'] = {}
   const rhymeEnabled = meta?.rhymeHighlights?.enabled ?? false
 
   for (const line of lines) {
@@ -40,14 +41,22 @@ export function computeAnalysis(
       lineTokens.forEach((token, tokenIndex) => {
         const norm = normalizeToken(token.text)
         if (!norm) return
+        const id = `${line.id}-${tokenIndex}-${token.start}-${token.end}`
         rhymeTokens.push({
-          id: `${line.id}-${tokenIndex}-${token.start}-${token.end}`,
+          id,
           lineId: line.id,
           start: token.start,
           end: token.end,
           text: token.text,
           norm,
         })
+        tokenMetaById[id] = {
+          lineId: line.id,
+          start: token.start,
+          end: token.end,
+          text: token.text,
+          norm,
+        }
       })
     }
   }
@@ -55,13 +64,14 @@ export function computeAnalysis(
   const includeExactRepeats = meta?.rhymeHighlights?.includeExactRepeats ?? false
   let rhymeHighlights: RhymeHighlightResult | undefined
   if (rhymeEnabled) {
+    // Integration point: analysis worker populates rhyme highlight groups for the overlay renderer.
     const resolver = meta?.rhymeRuntime
       ? {
           getPerfectKey: (normalized: string) => getPerfectKeyForWord(normalized, meta.rhymeRuntime!),
         }
       : null
     const groups = buildHighlightGroups(rhymeTokens, { includeExactRepeats, resolver, cache: rhymeKeyCache }).groups
-    rhymeHighlights = { tokens: rhymeTokens, groups }
+    rhymeHighlights = { tokens: rhymeTokens, groups, tokenMetaById }
   }
 
   return {

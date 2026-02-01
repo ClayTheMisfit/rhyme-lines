@@ -258,21 +258,46 @@ body.bg-white .rl-editor {
 
 /* Rhyme highlight pills (rendered in overlay layer). */
 :root {
-  --rl-rhyme-1: rgba(14, 116, 144, 0.22);
-  --rl-rhyme-2: rgba(37, 99, 235, 0.22);
-  --rl-rhyme-3: rgba(124, 58, 237, 0.22);
-  --rl-rhyme-4: rgba(219, 39, 119, 0.22);
-  --rl-rhyme-5: rgba(245, 158, 11, 0.22);
-  --rl-rhyme-6: rgba(16, 185, 129, 0.22);
+  --rl-rhyme-alpha: 0.22;
+  --rl-rhyme-generated-saturation: 70%;
+  --rl-rhyme-generated-lightness: 56%;
+  --rl-rhyme-c0: rgba(14, 116, 144, 0.22);
+  --rl-rhyme-c1: rgba(37, 99, 235, 0.22);
+  --rl-rhyme-c2: rgba(124, 58, 237, 0.22);
+  --rl-rhyme-c3: rgba(190, 24, 93, 0.22);
+  --rl-rhyme-c4: rgba(244, 114, 182, 0.22);
+  --rl-rhyme-c5: rgba(245, 158, 11, 0.22);
+  --rl-rhyme-c6: rgba(16, 185, 129, 0.22);
+  --rl-rhyme-c7: rgba(22, 163, 74, 0.22);
+  --rl-rhyme-c8: rgba(56, 189, 248, 0.22);
+  --rl-rhyme-c9: rgba(59, 130, 246, 0.22);
+  --rl-rhyme-c10: rgba(99, 102, 241, 0.22);
+  --rl-rhyme-c11: rgba(168, 85, 247, 0.22);
+  --rl-rhyme-c12: rgba(236, 72, 153, 0.22);
+  --rl-rhyme-c13: rgba(244, 63, 94, 0.22);
+  --rl-rhyme-c14: rgba(249, 115, 22, 0.22);
+  --rl-rhyme-c15: rgba(163, 230, 53, 0.22);
 }
 
 body.bg-black {
-  --rl-rhyme-1: rgba(14, 116, 144, 0.32);
-  --rl-rhyme-2: rgba(37, 99, 235, 0.3);
-  --rl-rhyme-3: rgba(124, 58, 237, 0.3);
-  --rl-rhyme-4: rgba(219, 39, 119, 0.28);
-  --rl-rhyme-5: rgba(245, 158, 11, 0.28);
-  --rl-rhyme-6: rgba(16, 185, 129, 0.28);
+  --rl-rhyme-alpha: 0.32;
+  --rl-rhyme-generated-lightness: 62%;
+  --rl-rhyme-c0: rgba(14, 116, 144, 0.32);
+  --rl-rhyme-c1: rgba(37, 99, 235, 0.3);
+  --rl-rhyme-c2: rgba(124, 58, 237, 0.3);
+  --rl-rhyme-c3: rgba(190, 24, 93, 0.28);
+  --rl-rhyme-c4: rgba(244, 114, 182, 0.3);
+  --rl-rhyme-c5: rgba(245, 158, 11, 0.28);
+  --rl-rhyme-c6: rgba(16, 185, 129, 0.28);
+  --rl-rhyme-c7: rgba(22, 163, 74, 0.28);
+  --rl-rhyme-c8: rgba(56, 189, 248, 0.3);
+  --rl-rhyme-c9: rgba(59, 130, 246, 0.3);
+  --rl-rhyme-c10: rgba(99, 102, 241, 0.3);
+  --rl-rhyme-c11: rgba(168, 85, 247, 0.3);
+  --rl-rhyme-c12: rgba(236, 72, 153, 0.3);
+  --rl-rhyme-c13: rgba(244, 63, 94, 0.3);
+  --rl-rhyme-c14: rgba(249, 115, 22, 0.3);
+  --rl-rhyme-c15: rgba(163, 230, 53, 0.3);
 }
 
 .rhyme-pill {
@@ -284,6 +309,18 @@ body.bg-black {
 
 .rhyme-pill--dim {
   opacity: 0.2;
+}
+
+.rhyme-underline {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.85;
+}
+
+.rhyme-underline--dim {
+  opacity: 0.25;
 }
 
 /* Line-based highlighting using CSS */

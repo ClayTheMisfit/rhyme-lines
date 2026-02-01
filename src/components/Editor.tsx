@@ -8,7 +8,7 @@ import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
 import { SyllableOverlay } from '@/components/editor/SyllableOverlay'
 import { RhymeHighlightOverlay } from '@/components/editor/RhymeHighlightOverlay'
 import { useBadgeSettings } from '@/store/settings'
-import { useRhymeHighlightStore } from '@/store/rhymeHighlightStore'
+import { useRhymeHighlightStore, type RhymeHighlightState } from '@/store/rhymeHighlightStore'
 import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
 import { useAnalysisWorker } from '@/hooks/useAnalysisWorker'
 import type { LineInput } from '@/lib/analysis/compute'
@@ -17,6 +17,7 @@ import { useViewportWindow } from '@/hooks/useViewportWindow'
 import { useOverlayMeasurement } from '@/hooks/useOverlayMeasurement'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
 import type { RhymeToken } from '@/lib/rhyme/highlight'
+import { buildTokenGroupIndex } from '@/lib/rhyme/highlight'
 
 const PLACEHOLDER_TEXT = 'Start writing...'
 const SAVE_STATUS_DELAY_MS = 200
@@ -100,7 +101,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setFocusLocked,
     clearFocus,
   } = useRhymeHighlightStore(
-    (state) => ({
+    (state: RhymeHighlightState) => ({
       activeRhymeGroupKey: state.activeRhymeGroupKey,
       focusLocked: state.focusLocked,
       setActiveRhymeGroupKey: state.setActiveRhymeGroupKey,
@@ -109,6 +110,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     }),
     shallow
   )
+  const getColorRegistry = useRhymeHighlightStore((state: RhymeHighlightState) => state.getColorRegistry)
+  const colorRegistry = useMemo(() => getColorRegistry(ANALYSIS_DOC_ID), [getColorRegistry])
 
   const {
     fontSize,
@@ -188,16 +191,10 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const groupKeyByTokenId = useMemo(() => {
     const map = new Map<string, string>()
-    const sortedGroups = [...rhymeGroups].sort((a, b) => {
-      if (a.kind !== b.kind) return a.kind === 'perfect' ? -1 : 1
-      return a.rhymeKey.localeCompare(b.rhymeKey)
+    const groupIndex = buildTokenGroupIndex(rhymeGroups)
+    groupIndex.forEach((group, tokenId) => {
+      map.set(tokenId, group.key)
     })
-    for (const group of sortedGroups) {
-      for (const tokenId of group.tokenIds) {
-        if (map.has(tokenId)) continue
-        map.set(tokenId, group.rhymeKey)
-      }
-    }
     return map
   }, [rhymeGroups])
 
@@ -1230,12 +1227,14 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               >
                 <RhymeHighlightOverlay
                   enabled={rhymeOverlayEnabled}
+                  docId={ANALYSIS_DOC_ID}
                   groups={rhymeGroups}
                   tokenPositions={rhymeTokens}
                   activeGroupKey={activeRhymeGroupKey}
                   mode={rhymeHighlightMode}
                   viewportStart={viewportRange.start}
                   viewportEnd={viewportRange.end}
+                  colorRegistry={colorRegistry}
                 />
               </div>
               {/* Overlay for syllable badges */}

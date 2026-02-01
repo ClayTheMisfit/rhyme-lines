@@ -1,4 +1,4 @@
-import { buildHighlightGroups, computeRhymeKey, stableHash, type RhymeToken } from '@/lib/rhyme/highlight'
+import { buildHighlightGroups, computeRhymeKey, getTokenHighlightStyle, stableHash, type RhymeToken } from '@/lib/rhyme/highlight'
 
 describe('computeRhymeKey', () => {
   it('returns phoneme keys when available', () => {
@@ -26,7 +26,7 @@ describe('buildHighlightGroups', () => {
     const resolver = { getPerfectKey: (normalized: string) => (normalized === 'time' ? 'AY-M' : null) }
     const result = buildHighlightGroups(tokens, { includeExactRepeats: false, resolver })
     expect(result.groups).toEqual([
-      { rhymeKey: 'AY-M', tokenIds: ['t1', 't3'], kind: 'perfect' },
+      { key: 'rhyme:AY-M', tokenIds: ['t1', 't3'], kind: 'perfect', order: 0 },
     ])
   })
 
@@ -42,6 +42,21 @@ describe('buildHighlightGroups', () => {
     }
     const result = buildHighlightGroups(tokens, { includeExactRepeats: false, resolver })
     expect(result.groups[0]?.tokenIds).toEqual(['t1', 't2', 't3', 't4'])
+  })
+})
+
+describe('getTokenHighlightStyle', () => {
+  it('returns pill for perfect groups', () => {
+    const groups = [
+      { key: 'rhyme:AY-M', tokenIds: ['t1'], kind: 'perfect' as const, order: 0 },
+      { key: 'exact:time', tokenIds: ['t1'], kind: 'exact' as const, order: 0 },
+    ]
+    expect(getTokenHighlightStyle('t1', groups)).toBe('pill')
+  })
+
+  it('returns underline for exact-only groups', () => {
+    const groups = [{ key: 'exact:time', tokenIds: ['t1'], kind: 'exact' as const, order: 0 }]
+    expect(getTokenHighlightStyle('t1', groups)).toBe('underline')
   })
 })
 
