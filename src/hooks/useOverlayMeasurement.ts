@@ -5,11 +5,15 @@ import type { OverlayToken } from '@/components/editor/SyllableOverlay'
 import type { AnalysisResult } from '@/hooks/useAnalysisWorker'
 import type { LineInput } from '@/lib/analysis/compute'
 import { GeometryCache } from '@/lib/overlay/geometryCache'
+import type { RhymeTokenPosition } from '@/lib/overlay/types'
+import type { RhymeToken } from '@/lib/rhyme/highlight'
 import type { SettingsState } from '@/store/settingsStore'
 
 type UseOverlayMeasurementArgs = {
   docId: string
   enabled: boolean
+  syllableEnabled: boolean
+  rhymeEnabled: boolean
   editorRef: React.RefObject<HTMLDivElement | null>
   containerRef: React.RefObject<HTMLElement | null>
   lineElementsRef: React.RefObject<HTMLDivElement[]>
@@ -42,6 +46,8 @@ const hashText = (text: string) => {
 export function useOverlayMeasurement({
   docId,
   enabled,
+  syllableEnabled,
+  rhymeEnabled,
   editorRef,
   containerRef,
   lineElementsRef,
@@ -54,6 +60,7 @@ export function useOverlayMeasurement({
   lineHeight,
 }: UseOverlayMeasurementArgs) {
   const [tokens, setTokens] = useState<OverlayToken[]>([])
+  const [rhymeTokens, setRhymeTokens] = useState<RhymeTokenPosition[]>([])
   const [measurementMeta, setMeasurementMeta] = useState<MeasurementMeta | null>(null)
   const [containerWidth, setContainerWidth] = useState(0)
   const [devicePixelRatio, setDevicePixelRatio] = useState(
@@ -110,9 +117,24 @@ export function useOverlayMeasurement({
     return `${fontFamily}|${fontSizePx}|${resolvedLineHeight}|${containerWidth}|${devicePixelRatio}|${theme}`
   }, [activeLineIds, containerWidth, devicePixelRatio, fontSize, lineElementsRef, lineHeight, theme])
 
+  const rhymeTokensByLine = useMemo(() => {
+    const map = new Map<string, RhymeToken[]>()
+    if (!analysis?.rhymeHighlights?.tokens) return map
+    analysis.rhymeHighlights.tokens.forEach((token) => {
+      const existing = map.get(token.lineId)
+      if (existing) {
+        existing.push(token)
+      } else {
+        map.set(token.lineId, [token])
+      }
+    })
+    return map
+  }, [analysis?.rhymeHighlights?.tokens])
+
   useEffect(() => {
     if (!enabled || !analysis || analysis.docId !== docId || !isClient()) {
       setTokens([])
+      setRhymeTokens([])
       return
     }
     assertClientOnly('overlay:measure')
@@ -120,10 +142,12 @@ export function useOverlayMeasurement({
     const linesDom = lineElementsRef.current
     if (!root || !linesDom || !linesDom.length) {
       setTokens([])
+      setRhymeTokens([])
       return
     }
     if (!layoutKey || !activeLineIds.size) {
       setTokens([])
+      setRhymeTokens([])
       return
     }
 
@@ -133,6 +157,7 @@ export function useOverlayMeasurement({
       const startedAt = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
       const rootRect = root.getBoundingClientRect()
       const nextTokens: OverlayToken[] = []
+      const nextRhymeTokens: RhymeTokenPosition[] = []
       let measured = 0
       let reused = 0
 
@@ -142,10 +167,16 @@ export function useOverlayMeasurement({
         const lineIndex = Number.parseInt(lineElement.dataset.lineIndex ?? '-1', 10)
         const contentSignature = lineSignatures.get(lineId) ?? ''
         const cached = cache.get(docId, lineId, layoutKey, contentSignature)
-        if (cached) {
+        const canReuse = cached && (!rhymeEnabled || cached.rhymeTokens)
+        if (canReuse && cached) {
           reused += 1
           lineElement.style.setProperty('--badge-offset', `${cached.lineOffset}em`)
-          nextTokens.push(...cached.tokens)
+          if (syllableEnabled) {
+            nextTokens.push(...cached.tokens)
+          }
+          if (rhymeEnabled && cached.rhymeTokens) {
+            nextRhymeTokens.push(...cached.rhymeTokens)
+          }
           continue
         }
         const lineRect = lineElement.getBoundingClientRect()
@@ -195,40 +226,72 @@ export function useOverlayMeasurement({
         }
 
         const lineTokens: OverlayToken[] = []
-        for (const span of syllableTokens) {
-          const range = measureForSpan(span.start, span.end)
-          if (!range) continue
-          const rects = range.getClientRects()
-          if (!rects.length) {
+        if (syllableEnabled) {
+          for (const span of syllableTokens) {
+            const range = measureForSpan(span.start, span.end)
+            if (!range) continue
+            const rects = range.getClientRects()
+            if (!rects.length) {
+              range.detach()
+              continue
+            }
+            const rect = rects[0]
+            const topBase = lineRect.top - rootRect.top
+            const centerX = rect.left - rootRect.left + rect.width / 2
+            lineTokens.push({
+              id: `${lineId}-${tokenId++}`,
+              value: span.syllables,
+              lineId,
+              lineIndex,
+              lineOffset: badgeOffsetEm,
+              rect: {
+                top: topBase,
+                centerX,
+              },
+            })
             range.detach()
-            continue
           }
-          const rect = rects[0]
-          const topBase = lineRect.top - rootRect.top
-          const centerX = rect.left - rootRect.left + rect.width / 2
-          lineTokens.push({
-            id: `${lineId}-${tokenId++}`,
-            value: span.syllables,
-            lineId,
-            lineIndex,
-            lineOffset: badgeOffsetEm,
-            rect: {
-              top: topBase,
-              centerX,
-            },
-          })
-          range.detach()
+        }
+
+        const lineRhymeTokens: RhymeTokenPosition[] = []
+        if (rhymeEnabled) {
+          const rhymeTokensForLine = rhymeTokensByLine.get(lineId) ?? []
+          for (const token of rhymeTokensForLine) {
+            const range = measureForSpan(token.start, token.end)
+            if (!range) continue
+            const rects = Array.from(range.getClientRects())
+            if (!rects.length) {
+              range.detach()
+              continue
+            }
+            const tokenRects = rects.map((rect) => ({
+              top: rect.top - rootRect.top,
+              left: rect.left - rootRect.left,
+              width: rect.width,
+              height: rect.height,
+            }))
+            lineRhymeTokens.push({
+              tokenId: token.id,
+              lineId,
+              lineIndex,
+              rects: tokenRects,
+            })
+            range.detach()
+          }
         }
 
         cache.set(docId, lineId, layoutKey, contentSignature, {
           tokens: lineTokens,
           lineOffset: badgeOffsetEm,
+          rhymeTokens: lineRhymeTokens,
         })
         nextTokens.push(...lineTokens)
+        nextRhymeTokens.push(...lineRhymeTokens)
         measured += 1
       }
 
       setTokens(nextTokens)
+      setRhymeTokens(nextRhymeTokens)
       setMeasurementMeta({
         measured,
         reused,
@@ -259,6 +322,9 @@ export function useOverlayMeasurement({
     lineHeight,
     lineSignatures,
     lineVersion,
+    rhymeEnabled,
+    rhymeTokensByLine,
+    syllableEnabled,
   ])
 
   useEffect(() => {
@@ -266,5 +332,5 @@ export function useOverlayMeasurement({
     console.debug('[overlay] measure', { docId, ...measurementMeta })
   }, [docId, measurementMeta])
 
-  return { tokens, layoutKey, measurementMeta }
+  return { tokens, rhymeTokens, layoutKey, measurementMeta }
 }

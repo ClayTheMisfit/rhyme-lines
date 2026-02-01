@@ -1,9 +1,14 @@
+import type { RhymeHighlightResult } from '@/lib/rhyme/highlight'
+
 export type AnalysisRequestV1 = {
   v: 1
   seq: number
   docId: string
   lines: Array<{ id: string; text: string }>
-  opts: { mode: 'typing' | 'caret' }
+  opts: {
+    mode: 'typing' | 'caret'
+    rhymeHighlights?: { enabled: boolean; includeExactRepeats?: boolean }
+  }
 }
 
 export type AnalysisResponseV1 = {
@@ -12,6 +17,7 @@ export type AnalysisResponseV1 = {
   docId: string
   lineTotals: Record<string, number>
   wordSyllables: Record<string, Array<{ start: number; end: number; syllables: number }>>
+  rhymeHighlights?: RhymeHighlightResult
   timing: { computeMs: number }
 }
 

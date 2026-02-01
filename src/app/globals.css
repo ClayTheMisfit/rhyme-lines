@@ -256,6 +256,36 @@ body.bg-white .rl-editor {
   white-space: nowrap;
 }
 
+/* Rhyme highlight pills (rendered in overlay layer). */
+:root {
+  --rl-rhyme-1: rgba(14, 116, 144, 0.22);
+  --rl-rhyme-2: rgba(37, 99, 235, 0.22);
+  --rl-rhyme-3: rgba(124, 58, 237, 0.22);
+  --rl-rhyme-4: rgba(219, 39, 119, 0.22);
+  --rl-rhyme-5: rgba(245, 158, 11, 0.22);
+  --rl-rhyme-6: rgba(16, 185, 129, 0.22);
+}
+
+body.bg-black {
+  --rl-rhyme-1: rgba(14, 116, 144, 0.32);
+  --rl-rhyme-2: rgba(37, 99, 235, 0.3);
+  --rl-rhyme-3: rgba(124, 58, 237, 0.3);
+  --rl-rhyme-4: rgba(219, 39, 119, 0.28);
+  --rl-rhyme-5: rgba(245, 158, 11, 0.28);
+  --rl-rhyme-6: rgba(16, 185, 129, 0.28);
+}
+
+.rhyme-pill {
+  position: absolute;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.rhyme-pill--dim {
+  opacity: 0.2;
+}
+
 /* Line-based highlighting using CSS */
 body.bg-black .rl-editor .line,
 body.bg-white .rl-editor .line {

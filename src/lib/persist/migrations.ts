@@ -78,6 +78,11 @@ const normalizeSettings = (value: unknown): SettingsSchema => {
   const rhymeAutoRefresh = toBoolean(payload.rhymeAutoRefresh, DEFAULT_SETTINGS.rhymeAutoRefresh ?? true)
   const showVariants = toBoolean(payload.showVariants, DEFAULT_SETTINGS.showVariants ?? false)
   const commonWordsOnly = toBoolean(payload.commonWordsOnly, DEFAULT_SETTINGS.commonWordsOnly ?? false)
+  const rhymeHighlightEnabled = toBoolean(payload.rhymeHighlightEnabled, DEFAULT_SETTINGS.rhymeHighlightEnabled ?? true)
+  const rhymeHighlightModeValue = toStringValue(payload.rhymeHighlightMode)
+  const rhymeHighlightMode: SettingsSchema['rhymeHighlightMode'] =
+    rhymeHighlightModeValue === 'focus' ? 'focus' : DEFAULT_SETTINGS.rhymeHighlightMode ?? 'all'
+  const includeExactRepeats = toBoolean(payload.includeExactRepeats, DEFAULT_SETTINGS.includeExactRepeats ?? false)
   const highContrast = toBoolean(payload.highContrast, DEFAULT_SETTINGS.highContrast ?? false)
   const lastUpdatedAt = toNumber(payload.lastUpdatedAt, Date.now())
 
@@ -90,6 +95,9 @@ const normalizeSettings = (value: unknown): SettingsSchema => {
     rhymeFilters,
     showVariants,
     commonWordsOnly,
+    rhymeHighlightEnabled,
+    rhymeHighlightMode,
+    includeExactRepeats,
     lastUpdatedAt,
     badgeSize,
     showLineTotals,

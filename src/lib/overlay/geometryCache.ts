@@ -1,4 +1,5 @@
 import type { OverlayToken } from '@/components/editor/SyllableOverlay'
+import type { RhymeTokenPosition } from '@/lib/overlay/types'
 
 type LayoutKey = string
 
@@ -7,6 +8,7 @@ type CachedLine = {
   contentSignature: string
   tokens: OverlayToken[]
   lineOffset: number
+  rhymeTokens?: RhymeTokenPosition[]
 }
 
 type DocCache = Map<string, CachedLine>
@@ -29,7 +31,7 @@ export class GeometryCache {
     lineId: string,
     layoutKey: LayoutKey,
     contentSignature: string,
-    payload: { tokens: OverlayToken[]; lineOffset: number }
+    payload: { tokens: OverlayToken[]; lineOffset: number; rhymeTokens?: RhymeTokenPosition[] }
   ) {
     if (!this.store.has(docId)) {
       this.store.set(docId, new Map())
@@ -41,6 +43,7 @@ export class GeometryCache {
       contentSignature,
       tokens: payload.tokens,
       lineOffset: payload.lineOffset,
+      rhymeTokens: payload.rhymeTokens,
     })
   }
 

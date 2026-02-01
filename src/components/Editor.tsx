@@ -1,12 +1,14 @@
 'use client'
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
 import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
 import { SyllableOverlay } from '@/components/editor/SyllableOverlay'
+import { RhymeHighlightOverlay } from '@/components/editor/RhymeHighlightOverlay'
 import { useBadgeSettings } from '@/store/settings'
+import { useRhymeHighlightStore } from '@/store/rhymeHighlightStore'
 import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
 import { useAnalysisWorker } from '@/hooks/useAnalysisWorker'
 import type { LineInput } from '@/lib/analysis/compute'
@@ -14,12 +16,14 @@ import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
 import { useViewportWindow } from '@/hooks/useViewportWindow'
 import { useOverlayMeasurement } from '@/hooks/useOverlayMeasurement'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
+import type { RhymeToken } from '@/lib/rhyme/highlight'
 
 const PLACEHOLDER_TEXT = 'Start writing...'
 const SAVE_STATUS_DELAY_MS = 200
 const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
+const ENABLE_RHYME_HIGHLIGHT_SHORTCUTS = process.env.NEXT_PUBLIC_RHYME_HIGHLIGHT_SHORTCUTS === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
 const ACTIVE_LINE_TUNING = {
   radius: 12,
@@ -89,12 +93,44 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const debugLogRef = useRef(0)
   const debugForceRef = useRef({ forceShow: false })
 
-  const { fontSize, lineHeight, showLineTotals, theme } = useSettingsStore(
+  const {
+    activeRhymeGroupKey,
+    focusLocked,
+    setActiveRhymeGroupKey,
+    setFocusLocked,
+    clearFocus,
+  } = useRhymeHighlightStore(
+    (state) => ({
+      activeRhymeGroupKey: state.activeRhymeGroupKey,
+      focusLocked: state.focusLocked,
+      setActiveRhymeGroupKey: state.setActiveRhymeGroupKey,
+      setFocusLocked: state.setFocusLocked,
+      clearFocus: state.clearFocus,
+    }),
+    shallow
+  )
+
+  const {
+    fontSize,
+    lineHeight,
+    showLineTotals,
+    theme,
+    rhymeHighlightEnabled,
+    rhymeHighlightMode,
+    includeExactRepeats,
+    setRhymeHighlightEnabled,
+    setRhymeHighlightMode,
+  } = useSettingsStore(
     (state) => ({
       fontSize: state.fontSize,
       lineHeight: state.lineHeight,
       showLineTotals: state.showLineTotals,
       theme: state.theme,
+      rhymeHighlightEnabled: state.rhymeHighlightEnabled,
+      rhymeHighlightMode: state.rhymeHighlightMode,
+      includeExactRepeats: state.includeExactRepeats,
+      setRhymeHighlightEnabled: state.setRhymeHighlightEnabled,
+      setRhymeHighlightMode: state.setRhymeHighlightMode,
     }),
     shallow
   )
@@ -115,10 +151,14 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const { activeLineIds, viewportRange } = useViewportWindow(containerRef, lineElementsRef, lineVersion, {
     bufferLines: 12,
   })
+  const rhymeOverlayEnabled = showOverlays && rhymeHighlightEnabled
   const overlayEnabled = showOverlays && badgeMode !== 'off'
-  const { tokens, measurementMeta } = useOverlayMeasurement({
+  const measurementEnabled = overlayEnabled || rhymeOverlayEnabled
+  const { tokens, rhymeTokens, measurementMeta } = useOverlayMeasurement({
     docId: ANALYSIS_DOC_ID,
-    enabled: overlayEnabled,
+    enabled: measurementEnabled,
+    syllableEnabled: overlayEnabled,
+    rhymeEnabled: rhymeOverlayEnabled,
     editorRef,
     containerRef,
     lineElementsRef,
@@ -130,6 +170,36 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     fontSize,
     lineHeight,
   })
+
+  const rhymeGroups = useMemo(() => analysis?.rhymeHighlights?.groups ?? [], [analysis?.rhymeHighlights?.groups])
+  const rhymeTokensByLine = useMemo(() => {
+    const map = new Map<string, RhymeToken[]>()
+    const analysisTokens = analysis?.rhymeHighlights?.tokens ?? []
+    for (const token of analysisTokens) {
+      const existing = map.get(token.lineId)
+      if (existing) {
+        existing.push(token)
+      } else {
+        map.set(token.lineId, [token])
+      }
+    }
+    return map
+  }, [analysis?.rhymeHighlights?.tokens])
+
+  const groupKeyByTokenId = useMemo(() => {
+    const map = new Map<string, string>()
+    const sortedGroups = [...rhymeGroups].sort((a, b) => {
+      if (a.kind !== b.kind) return a.kind === 'perfect' ? -1 : 1
+      return a.rhymeKey.localeCompare(b.rhymeKey)
+    })
+    for (const group of sortedGroups) {
+      for (const tokenId of group.tokenIds) {
+        if (map.has(tokenId)) continue
+        map.set(tokenId, group.rhymeKey)
+      }
+    }
+    return map
+  }, [rhymeGroups])
 
   const captureSelectionSnapshot = useCallback(() => {
     if (typeof window === 'undefined') return null
@@ -276,6 +346,27 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       return lineElement
     },
     [isPlaceholderLine]
+  )
+
+  const getCaretTokenId = useCallback(
+    (selection: Selection | null): string | null => {
+      const root = editorRef.current
+      if (!selection || !root || selection.rangeCount === 0) return null
+      const lineElement = getActiveLineElementFromSelection(selection, root)
+      if (!lineElement) return null
+      const lineId = lineElement.dataset.lineId
+      if (!lineId) return null
+      const lineTokens = rhymeTokensByLine.get(lineId) ?? []
+      if (!lineTokens.length) return null
+      const range = selection.getRangeAt(0)
+      const preCaretRange = range.cloneRange()
+      preCaretRange.selectNodeContents(lineElement)
+      preCaretRange.setEnd(range.endContainer, range.endOffset)
+      const offset = preCaretRange.toString().length
+      const token = lineTokens.find((candidate) => offset >= candidate.start && offset <= candidate.end)
+      return token?.id ?? null
+    },
+    [getActiveLineElementFromSelection, rhymeTokensByLine]
   )
 
   const findLineByCaretPosition = useCallback(
@@ -645,7 +736,10 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     analysisLinesRef.current = collectedLines
     setLineInputs(collectedLines)
     setLines(collectedLines.map((line) => line.text))
-    scheduleAnalysis(collectedLines, 'typing')
+    scheduleAnalysis(collectedLines, 'typing', {
+      enabled: rhymeHighlightEnabled,
+      includeExactRepeats,
+    })
     setLineVersion((v) => v + 1)
 
     const serialized = serializeFromEditor(el)
@@ -661,12 +755,14 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     announceSave,
     collectLineInputs,
     ensureLineStructure,
+    includeExactRepeats,
     logDebugEvent,
     onDirtyChange,
     onTextChange,
+    rhymeHighlightEnabled,
     scheduleAnalysis,
+    scheduleCurrentLineHighlight,
     syncPlaceholderLine,
-    updateCurrentLineHighlight,
   ])
 
   const handleShortcutKeyDown = useCallback(
@@ -723,12 +819,60 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [logDebugEvent, replacePlaceholderWithEmptyLine, setCaretToLineStart]
   )
 
+  const updateRhymeFocusFromSelection = useCallback(() => {
+    if (!rhymeHighlightEnabled || rhymeHighlightMode !== 'focus' || focusLocked) return
+    const selection = window.getSelection()
+    if (!selection) return
+    const tokenId = getCaretTokenId(selection)
+    if (!tokenId) {
+      setActiveRhymeGroupKey(null)
+      return
+    }
+    const groupKey = groupKeyByTokenId.get(tokenId) ?? null
+    setActiveRhymeGroupKey(groupKey)
+  }, [
+    focusLocked,
+    getCaretTokenId,
+    groupKeyByTokenId,
+    rhymeHighlightEnabled,
+    rhymeHighlightMode,
+    setActiveRhymeGroupKey,
+  ])
+
+  const lockRhymeFocusFromSelection = useCallback(() => {
+    if (!rhymeHighlightEnabled) return
+    const selection = window.getSelection()
+    if (!selection) return
+    const tokenId = getCaretTokenId(selection)
+    if (!tokenId) return
+    const groupKey = groupKeyByTokenId.get(tokenId)
+    if (!groupKey) return
+    setActiveRhymeGroupKey(groupKey)
+    setFocusLocked(true)
+  }, [
+    getCaretTokenId,
+    groupKeyByTokenId,
+    rhymeHighlightEnabled,
+    setActiveRhymeGroupKey,
+    setFocusLocked,
+  ])
+
   const handleSelectionChange = useCallback(() => {
     scheduleCurrentLineHighlight()
     if (analysisLinesRef.current.length) {
-      scheduleAnalysis(analysisLinesRef.current, 'caret')
+      scheduleAnalysis(analysisLinesRef.current, 'caret', {
+        enabled: rhymeHighlightEnabled,
+        includeExactRepeats,
+      })
     }
-  }, [scheduleAnalysis, scheduleCurrentLineHighlight])
+    updateRhymeFocusFromSelection()
+  }, [
+    includeExactRepeats,
+    rhymeHighlightEnabled,
+    scheduleAnalysis,
+    scheduleCurrentLineHighlight,
+    updateRhymeFocusFromSelection,
+  ])
 
   useEffect(() => {
     if (!showLineTotals) {
@@ -736,9 +880,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       return
     }
     if (analysisLinesRef.current.length) {
-      scheduleAnalysis(analysisLinesRef.current, 'caret')
+      scheduleAnalysis(analysisLinesRef.current, 'caret', {
+        enabled: rhymeHighlightEnabled,
+        includeExactRepeats,
+      })
     }
-  }, [scheduleAnalysis, showLineTotals])
+  }, [includeExactRepeats, rhymeHighlightEnabled, scheduleAnalysis, showLineTotals])
 
   useEffect(() => {
     if (!showLineTotals) return
@@ -794,18 +941,42 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setLines(collectedLines.map((line) => line.text))
     setLineVersion((v) => v + 1)
     if (collectedLines.length) {
-      scheduleAnalysis(collectedLines, 'typing')
+      scheduleAnalysis(collectedLines, 'typing', {
+        enabled: rhymeHighlightEnabled,
+        includeExactRepeats,
+      })
     }
     requestAnimationFrame(() => {
       scheduleCurrentLineHighlight({ immediate: true })
     })
-  }, [collectLineInputs, scheduleAnalysis, syncPlaceholderLine, text, scheduleCurrentLineHighlight, ensureLineStructure])
+  }, [
+    collectLineInputs,
+    ensureLineStructure,
+    includeExactRepeats,
+    rhymeHighlightEnabled,
+    scheduleAnalysis,
+    scheduleCurrentLineHighlight,
+    syncPlaceholderLine,
+    text,
+  ])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey && (e.key === 's' || e.key === 'S')) {
         e.preventDefault()
         setShowOverlays((v) => !v)
+      }
+      if (!ENABLE_RHYME_HIGHLIGHT_SHORTCUTS) return
+      const isPrimary = e.metaKey || e.ctrlKey
+      if (!isPrimary || !e.shiftKey) return
+      const key = e.key.toLowerCase()
+      if (key === 'h') {
+        e.preventDefault()
+        setRhymeHighlightEnabled(!rhymeHighlightEnabled)
+      }
+      if (key === 'f') {
+        e.preventDefault()
+        setRhymeHighlightMode(rhymeHighlightMode === 'focus' ? 'all' : 'focus')
       }
     }
     const onToggleEvent = () => setShowOverlays((v) => !v)
@@ -821,7 +992,51 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       if (saveStatusTimer.current) window.clearTimeout(saveStatusTimer.current)
       if (highlightDebounceRef.current) window.clearTimeout(highlightDebounceRef.current)
     }
-  }, [handleSelectionChange])
+  }, [
+    handleSelectionChange,
+    rhymeHighlightEnabled,
+    rhymeHighlightMode,
+    setRhymeHighlightEnabled,
+    setRhymeHighlightMode,
+  ])
+
+  useEffect(() => {
+    if (!rhymeHighlightEnabled) {
+      clearFocus()
+      return
+    }
+    updateRhymeFocusFromSelection()
+  }, [clearFocus, rhymeHighlightEnabled, rhymeHighlightMode, updateRhymeFocusFromSelection])
+
+  useEffect(() => {
+    if (!analysisLinesRef.current.length) return
+    scheduleAnalysis(analysisLinesRef.current, 'typing', {
+      enabled: rhymeHighlightEnabled,
+      includeExactRepeats,
+    })
+  }, [includeExactRepeats, rhymeHighlightEnabled, scheduleAnalysis])
+
+  useEffect(() => {
+    if (!activeRhymeGroupKey && !focusLocked) return
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null
+      const container = containerRef.current
+      if (!target || !container) return
+      if (container.contains(target)) return
+      clearFocus()
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        clearFocus()
+      }
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [activeRhymeGroupKey, clearFocus, focusLocked])
 
   useEffect(() => {
     const onResize = () => {
@@ -1006,6 +1221,23 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                   </div>
                 ) : null}
               </div>
+              {/* Rhyme highlighting overlay (rects measured via useOverlayMeasurement). */}
+              <div
+                className="pointer-events-none absolute inset-0 z-20"
+                aria-hidden="true"
+                data-layer="rhyme"
+                contentEditable={false}
+              >
+                <RhymeHighlightOverlay
+                  enabled={rhymeOverlayEnabled}
+                  groups={rhymeGroups}
+                  tokenPositions={rhymeTokens}
+                  activeGroupKey={activeRhymeGroupKey}
+                  mode={rhymeHighlightMode}
+                  viewportStart={viewportRange.start}
+                  viewportEnd={viewportRange.end}
+                />
+              </div>
               {/* Overlay for syllable badges */}
               <div
                 ref={overlayRef}
@@ -1051,6 +1283,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onClick={(event) => {
                   ensureEditorFocus()
                   handleChange()
+                  lockRhymeFocusFromSelection()
                   event.stopPropagation()
                 }}
                 onPointerDown={ensureEditorFocus}

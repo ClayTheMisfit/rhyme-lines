@@ -5,6 +5,11 @@ import { createAnalysisWorker } from '@/workers/createAnalysisWorker'
 
 type AnalysisMode = 'worker' | 'fallback'
 
+type RhymeHighlightOptions = {
+  enabled: boolean
+  includeExactRepeats?: boolean
+}
+
 type AnalysisResult = (AnalysisResponseV1 & { roundTripMs?: number }) | null
 
 const TYPING_DEBOUNCE_MS = 250
@@ -18,7 +23,11 @@ export function useAnalysisWorker(docId: string) {
   const seqRef = useRef(0)
   const latestSeqRef = useRef(0)
   const debounceTimerRef = useRef<number | null>(null)
-  const pendingPayloadRef = useRef<{ lines: LineInput[]; mode: 'typing' | 'caret' } | null>(null)
+  const pendingPayloadRef = useRef<{
+    lines: LineInput[]
+    mode: 'typing' | 'caret'
+    rhymeHighlights?: RhymeHighlightOptions
+  } | null>(null)
   const failedRef = useRef(false)
 
   const [analysis, setAnalysis] = useState<AnalysisResult>(null)
@@ -42,8 +51,12 @@ export function useAnalysisWorker(docId: string) {
   )
 
   const handleFallback = useCallback(
-    (payload: { lines: LineInput[]; seq: number }) => {
-      const result = computeAnalysis(payload.lines, { docId, seq: payload.seq })
+    (payload: { lines: LineInput[]; seq: number; rhymeHighlights?: RhymeHighlightOptions }) => {
+      const result = computeAnalysis(payload.lines, {
+        docId,
+        seq: payload.seq,
+        rhymeHighlights: payload.rhymeHighlights,
+      })
       applyResult(result, 'fallback')
     },
     [applyResult, docId]
@@ -97,14 +110,14 @@ export function useAnalysisWorker(docId: string) {
   }, [handleMessage])
 
   const dispatchRequest = useCallback(
-    (lines: LineInput[], mode: 'typing' | 'caret') => {
+    (lines: LineInput[], mode: 'typing' | 'caret', rhymeHighlights?: RhymeHighlightOptions) => {
       const seq = ++seqRef.current
       latestSeqRef.current = seq
-      const payload: AnalysisRequestV1 = { v: 1, seq, docId, lines, opts: { mode } }
+      const payload: AnalysisRequestV1 = { v: 1, seq, docId, lines, opts: { mode, rhymeHighlights } }
       const worker = ensureWorker()
 
       if (!worker) {
-        handleFallback({ lines, seq })
+        handleFallback({ lines, seq, rhymeHighlights })
         return seq
       }
 
@@ -114,7 +127,7 @@ export function useAnalysisWorker(docId: string) {
       } catch {
         inflightRef.current.delete(seq)
         failedRef.current = true
-        handleFallback({ lines, seq })
+        handleFallback({ lines, seq, rhymeHighlights })
       }
       return seq
     },
@@ -122,8 +135,8 @@ export function useAnalysisWorker(docId: string) {
   )
 
   const scheduleAnalysis = useCallback(
-    (lines: LineInput[], mode: 'typing' | 'caret' = 'typing') => {
-      pendingPayloadRef.current = { lines, mode }
+    (lines: LineInput[], mode: 'typing' | 'caret' = 'typing', rhymeHighlights?: RhymeHighlightOptions) => {
+      pendingPayloadRef.current = { lines, mode, rhymeHighlights }
       if (debounceTimerRef.current) {
         window.clearTimeout(debounceTimerRef.current)
       }
@@ -132,16 +145,16 @@ export function useAnalysisWorker(docId: string) {
         debounceTimerRef.current = null
         const pending = pendingPayloadRef.current
         if (!pending) return
-        dispatchRequest(pending.lines, pending.mode)
+        dispatchRequest(pending.lines, pending.mode, pending.rhymeHighlights)
       }, delay)
     },
     [dispatchRequest]
   )
 
   const computeAnalysisFallback = useCallback(
-    (lines: LineInput[]) => {
+    (lines: LineInput[], rhymeHighlights?: RhymeHighlightOptions) => {
       const seq = ++seqRef.current
-      const result = computeAnalysis(lines, { docId, seq })
+      const result = computeAnalysis(lines, { docId, seq, rhymeHighlights })
       applyResult(result, 'fallback')
       return result
     },

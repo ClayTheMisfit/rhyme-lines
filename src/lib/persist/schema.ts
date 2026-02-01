@@ -23,6 +23,9 @@ export interface SettingsSchema {
   includeRareRhymes?: boolean
   showVariants?: boolean
   commonWordsOnly?: boolean
+  rhymeHighlightEnabled?: boolean
+  rhymeHighlightMode?: 'all' | 'focus'
+  includeExactRepeats?: boolean
   lastUpdatedAt: number
   badgeSize?: BadgeSize
   showLineTotals?: boolean
@@ -88,6 +91,9 @@ export const DEFAULT_SETTINGS: SettingsSchema = {
   rhymeFilters: { ...DEFAULT_RHYME_FILTERS },
   showVariants: false,
   commonWordsOnly: false,
+  rhymeHighlightEnabled: true,
+  rhymeHighlightMode: 'all',
+  includeExactRepeats: false,
   lastUpdatedAt: 0,
   badgeSize: 'sm',
   showLineTotals: true,

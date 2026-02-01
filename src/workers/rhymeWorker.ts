@@ -12,6 +12,7 @@ import {
   type RhymeDbRuntimeLookups,
   type RhymeTargetsDebug,
 } from '@/lib/rhyme-db/queryRhymes'
+import { buildKeysByWordId, buildWordToId } from '@/lib/rhyme-db/runtimeMaps'
 
 type InitMsg = { type: 'init'; baseUrl: string }
 
@@ -73,31 +74,6 @@ class LruCache<K, V> {
       }
     }
   }
-}
-
-const buildKeysByWordId = (index: RhymeIndex, wordCount: number) => {
-  const keysByWordId = Array.from({ length: wordCount }, () => [] as string[])
-
-  index.keys.forEach((key, keyIndex) => {
-    const start = index.offsets[keyIndex]
-    const end = index.offsets[keyIndex + 1]
-    for (let postingIndex = start; postingIndex < end; postingIndex += 1) {
-      const wordId = index.wordIds[postingIndex]
-      if (wordId !== undefined) {
-        keysByWordId[wordId].push(key)
-      }
-    }
-  })
-
-  return keysByWordId
-}
-
-const buildWordToId = (words: string[]) => {
-  const map = new Map<string, number>()
-  words.forEach((word, index) => {
-    map.set(word.toLowerCase(), index)
-  })
-  return map
 }
 
 const assertSortedWords = (words: string[]) => {
