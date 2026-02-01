@@ -89,22 +89,22 @@ describe('queryRhymes', () => {
     const db = createTestDb()
     const result = getRhymesForToken(db, 'blue', 'perfect', 10)
 
-    expect(result).toEqual(['through', 'true'])
-    expect(result).not.toContain('blue')
+    expect(result.words).toEqual(['true', 'through'])
+    expect(result.words).not.toContain('blue')
   })
 
   it('prioritizes near rhymes that appear in both vowel and coda pools', () => {
     const db = createTestDb()
     const result = getRhymesForToken(db, 'blue', 'near', 10)
 
-    expect(result).toEqual(['clue', 'glue', 'through', 'true'])
+    expect(result.words).toEqual(['true', 'through', 'glue', 'clue'])
   })
 
   it('uses slant fallback suffix matching when token is missing', () => {
     const db = createTestDb()
     const result = getRhymesForToken(db, 'crue', 'slant', 5)
 
-    expect(result).toEqual(['true'])
+    expect(result.words).toEqual(['true'])
   })
 
   it('returns separate results for caret and line-last targets', () => {
@@ -117,7 +117,7 @@ describe('queryRhymes', () => {
       {},
     )
 
-    expect(result.caret).toEqual(['through', 'true'])
-    expect(result.lineLast).toEqual([])
+    expect(result.results.caret).toEqual(['true', 'through'])
+    expect(result.results.lineLast).toEqual([])
   })
 })

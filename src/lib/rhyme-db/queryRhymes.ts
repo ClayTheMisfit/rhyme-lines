@@ -9,7 +9,7 @@ import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 
 export { normalizeToken }
 
-export type Mode = 'perfect' | 'near' | 'Perfect' | 'Near'
+export type Mode = 'perfect' | 'near' | 'slant' | 'Perfect' | 'Near' | 'Slant'
 
 export type RhymeDbRuntimeMaps = {
   perfectKeysByWordId: string[][]
@@ -40,7 +40,10 @@ export type RhymeQueryContext = {
 const MAX_RESULTS = Number.MAX_SAFE_INTEGER
 const MAX_CANDIDATES = 2000
 
-const normalizeMode = (mode: Mode) => mode.toLowerCase() as 'perfect' | 'near'
+const normalizeMode = (mode: Mode) => {
+  const lowered = mode.toLowerCase()
+  return (lowered === 'slant' ? 'near' : lowered) as 'perfect' | 'near'
+}
 
 const STOPWORDS = new Set([
   'a',
@@ -646,7 +649,7 @@ export const getRhymesForToken = (
       entries: filtered,
     })
     return {
-      words: limited.map((entry) => entry.word),
+      words: limited.map((entry) => entry.normalizedWord),
       debug: {
         normalizedToken: normalized,
         wordId: null,
@@ -829,7 +832,7 @@ export const getRhymesForToken = (
     })
 
     return {
-      words: limited.map((entry) => entry.word),
+      words: limited.map((entry) => entry.normalizedWord),
       debug: {
         normalizedToken: normalized,
         wordId,
@@ -964,7 +967,7 @@ export const getRhymesForToken = (
     })
 
     return {
-      words: limited.map((entry) => entry.word),
+      words: limited.map((entry) => entry.normalizedWord),
       debug: {
         normalizedToken: normalized,
         wordId,

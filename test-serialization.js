@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // Quick test script to verify serialization functions
 const { JSDOM } = require('jsdom');
 

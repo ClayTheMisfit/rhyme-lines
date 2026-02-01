@@ -701,7 +701,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               <div className="mt-4 space-y-1 rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-[11px] text-amber-900/80 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100/80">
                 <div>
                   <span className="font-semibold">Target:</span>{' '}
-                  "{activePanelDebug.rawTarget}" → "{activePanelDebug.normalizedTarget}"
+                  &quot;{activePanelDebug.rawTarget}&quot; → &quot;{activePanelDebug.normalizedTarget}&quot;
                 </div>
                 <div>
                   <span className="font-semibold">Modes:</span> {activePanelDebug.activeModes.join(', ') || '—'}
@@ -719,7 +719,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 {activePanelDebug.cap?.applied && (
                   <div>
                     <span className="font-semibold">Cap:</span>{' '}
-                    applied=true limit={activePanelDebug.cap.limit ?? '—'} stage="{activePanelDebug.cap.stage ?? '—'}"
+                    applied=true limit={activePanelDebug.cap.limit ?? '—'} stage=&quot;{activePanelDebug.cap.stage ?? '—'}&quot;
                   </div>
                 )}
                 <div>

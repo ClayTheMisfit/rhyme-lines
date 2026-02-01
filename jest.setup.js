@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 require('@testing-library/jest-dom')
 
 if (typeof window !== 'undefined' && !window.requestAnimationFrame) {
@@ -24,9 +25,9 @@ if (typeof window !== 'undefined') {
       unobserve() {}
       disconnect() {}
     }
-    // @ts-ignore
+    // @ts-expect-error - jsdom lacks ResizeObserver typings in this test harness.
     window.ResizeObserver = ResizeObserver
-    // @ts-ignore
+    // @ts-expect-error - jsdom lacks ResizeObserver typings in this test harness.
     global.ResizeObserver = ResizeObserver
   }
   if (!('IntersectionObserver' in window)) {
@@ -36,9 +37,9 @@ if (typeof window !== 'undefined') {
       unobserve() {}
       disconnect() {}
     }
-    // @ts-ignore
+    // @ts-expect-error - jsdom lacks IntersectionObserver typings in this test harness.
     window.IntersectionObserver = IntersectionObserver
-    // @ts-ignore
+    // @ts-expect-error - jsdom lacks IntersectionObserver typings in this test harness.
     global.IntersectionObserver = IntersectionObserver
   }
 }
