@@ -121,6 +121,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     rhymeHighlightEnabled,
     rhymeHighlightMode,
     includeExactRepeats,
+    rhymeIgnoreStopwords,
     setRhymeHighlightEnabled,
     setRhymeHighlightMode,
   } = useSettingsStore(
@@ -132,6 +133,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       rhymeHighlightEnabled: state.rhymeHighlightEnabled,
       rhymeHighlightMode: state.rhymeHighlightMode,
       includeExactRepeats: state.includeExactRepeats,
+      rhymeIgnoreStopwords: state.rhymeIgnoreStopwords,
       setRhymeHighlightEnabled: state.setRhymeHighlightEnabled,
       setRhymeHighlightMode: state.setRhymeHighlightMode,
     }),
@@ -736,6 +738,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     scheduleAnalysis(collectedLines, 'typing', {
       enabled: rhymeHighlightEnabled,
       includeExactRepeats,
+      ignoreStopwords: rhymeIgnoreStopwords,
     })
     setLineVersion((v) => v + 1)
 
@@ -753,6 +756,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     collectLineInputs,
     ensureLineStructure,
     includeExactRepeats,
+    rhymeIgnoreStopwords,
     logDebugEvent,
     onDirtyChange,
     onTextChange,
@@ -860,11 +864,13 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       scheduleAnalysis(analysisLinesRef.current, 'caret', {
         enabled: rhymeHighlightEnabled,
         includeExactRepeats,
+        ignoreStopwords: rhymeIgnoreStopwords,
       })
     }
     updateRhymeFocusFromSelection()
   }, [
     includeExactRepeats,
+    rhymeIgnoreStopwords,
     rhymeHighlightEnabled,
     scheduleAnalysis,
     scheduleCurrentLineHighlight,
@@ -880,9 +886,10 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       scheduleAnalysis(analysisLinesRef.current, 'caret', {
         enabled: rhymeHighlightEnabled,
         includeExactRepeats,
+        ignoreStopwords: rhymeIgnoreStopwords,
       })
     }
-  }, [includeExactRepeats, rhymeHighlightEnabled, scheduleAnalysis, showLineTotals])
+  }, [includeExactRepeats, rhymeHighlightEnabled, rhymeIgnoreStopwords, scheduleAnalysis, showLineTotals])
 
   useEffect(() => {
     if (!showLineTotals) return
@@ -941,6 +948,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       scheduleAnalysis(collectedLines, 'typing', {
         enabled: rhymeHighlightEnabled,
         includeExactRepeats,
+        ignoreStopwords: rhymeIgnoreStopwords,
       })
     }
     requestAnimationFrame(() => {
@@ -950,6 +958,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     collectLineInputs,
     ensureLineStructure,
     includeExactRepeats,
+    rhymeIgnoreStopwords,
     rhymeHighlightEnabled,
     scheduleAnalysis,
     scheduleCurrentLineHighlight,
@@ -1010,8 +1019,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     scheduleAnalysis(analysisLinesRef.current, 'typing', {
       enabled: rhymeHighlightEnabled,
       includeExactRepeats,
+      ignoreStopwords: rhymeIgnoreStopwords,
     })
-  }, [includeExactRepeats, rhymeHighlightEnabled, scheduleAnalysis])
+  }, [includeExactRepeats, rhymeHighlightEnabled, rhymeIgnoreStopwords, scheduleAnalysis])
 
   useEffect(() => {
     if (!activeRhymeGroupKey && !focusLocked) return

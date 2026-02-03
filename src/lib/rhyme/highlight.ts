@@ -1,3 +1,5 @@
+import { STOPWORDS } from '@/lib/stopwords'
+
 export type RhymeToken = {
   id: string
   lineId: string
@@ -30,7 +32,7 @@ export type RhymeHighlightResult = {
   scopeHash?: string
 }
 
-export type RhymeKeySource = 'phoneme' | 'ortho' | 'none'
+export type RhymeKeySource = 'phoneme' | 'none'
 
 export type RhymeKeyResult = {
   key: string | null
@@ -43,12 +45,12 @@ export type RhymeKeyResolver = {
 
 export type BuildHighlightOptions = {
   includeExactRepeats?: boolean
+  ignoreStopwords?: boolean
   resolver?: RhymeKeyResolver | null
   cache?: Map<string, RhymeKeyResult>
 }
 
-const ORTHO_MIN_LENGTH = 4
-const ORTHO_TAIL_LEN = 4
+// Integration point: highlight keys only come from phoneme lookups to avoid false rhyme pills.
 
 export const stableHash = (value: string) => {
   let hash = 0
@@ -72,13 +74,6 @@ export const computeRhymeKey = (
   const perfectKey = resolver?.getPerfectKey(normalized) ?? null
   if (perfectKey) {
     const result = { key: perfectKey, source: 'phoneme' } as const
-    cache?.set(normalized, result)
-    return result
-  }
-
-  if (normalized.length >= ORTHO_MIN_LENGTH) {
-    const tail = normalized.slice(-ORTHO_TAIL_LEN)
-    const result = { key: `ortho:${tail}`, source: 'ortho' } as const
     cache?.set(normalized, result)
     return result
   }
@@ -127,6 +122,7 @@ export const getTokenHighlightStyle = (tokenId: string, groups: HighlightGroup[]
 
 export const buildHighlightGroups = (tokens: RhymeToken[], options: BuildHighlightOptions = {}) => {
   const includeExactRepeats = options.includeExactRepeats ?? false
+  const ignoreStopwords = options.ignoreStopwords ?? false
   const resolver = options.resolver ?? null
   const cache = options.cache
   const perfectGroups = new Map<string, HighlightGroup>()
@@ -135,6 +131,8 @@ export const buildHighlightGroups = (tokens: RhymeToken[], options: BuildHighlig
   // Integration point: group order is used by the UI color registry for stable, collision-free colors.
   tokens.forEach((token, tokenIndex) => {
     if (!token.norm) return
+    // Integration point: stopword filtering is controlled by highlight settings in the analysis worker.
+    if (ignoreStopwords && STOPWORDS.has(token.norm)) return
     const keyResult = computeRhymeKey(token.norm, resolver ?? undefined, cache)
     if (keyResult.key) {
       pushGroup(perfectGroups, `rhyme:${keyResult.key}`, token.id, 'perfect', tokenIndex)

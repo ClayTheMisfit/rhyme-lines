@@ -29,6 +29,7 @@ export type SettingsState = {
   rhymeHighlightEnabled: boolean
   rhymeHighlightMode: 'all' | 'focus'
   includeExactRepeats: boolean
+  rhymeIgnoreStopwords: boolean
   lastUpdatedAt: number
   setTheme: (theme: ThemeSetting) => void
   setFontSize: (fontSize: number) => void
@@ -44,6 +45,7 @@ export type SettingsState = {
   setRhymeHighlightEnabled: (value: boolean) => void
   setRhymeHighlightMode: (mode: 'all' | 'focus') => void
   setIncludeExactRepeats: (value: boolean) => void
+  setRhymeIgnoreStopwords: (value: boolean) => void
   resetDefaults: () => void
 }
 
@@ -70,6 +72,7 @@ const persistSettings = (state: SettingsState) => {
     rhymeHighlightEnabled: state.rhymeHighlightEnabled,
     rhymeHighlightMode: state.rhymeHighlightMode,
     includeExactRepeats: state.includeExactRepeats,
+    rhymeIgnoreStopwords: state.rhymeIgnoreStopwords,
     lastUpdatedAt: Date.now(),
   }
   writeVersioned('settings', payload)
@@ -157,6 +160,10 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
     set({ includeExactRepeats, lastUpdatedAt: Date.now() })
     schedulePersist(get())
   },
+  setRhymeIgnoreStopwords: (rhymeIgnoreStopwords) => {
+    set({ rhymeIgnoreStopwords, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
   resetDefaults: () => {
     const resetState = applySettingsDefaults({
       ...DEFAULT_SETTINGS,
@@ -184,6 +191,7 @@ export type SettingsSnapshot = Pick<
   | 'rhymeHighlightEnabled'
   | 'rhymeHighlightMode'
   | 'includeExactRepeats'
+  | 'rhymeIgnoreStopwords'
 >
 
 /**
@@ -207,6 +215,7 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     rhymeHighlightEnabled,
     rhymeHighlightMode,
     includeExactRepeats,
+    rhymeIgnoreStopwords,
   } = useSettingsStore.getState()
   return {
     theme,
@@ -223,6 +232,7 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     rhymeHighlightEnabled,
     rhymeHighlightMode,
     includeExactRepeats,
+    rhymeIgnoreStopwords,
   }
 }
 
@@ -247,6 +257,7 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
     setRhymeHighlightEnabled,
     setRhymeHighlightMode,
     setIncludeExactRepeats,
+    setRhymeIgnoreStopwords,
   } = useSettingsStore.getState()
 
   setTheme(snapshot.theme)
@@ -263,6 +274,7 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
   setRhymeHighlightEnabled(snapshot.rhymeHighlightEnabled)
   setRhymeHighlightMode(snapshot.rhymeHighlightMode)
   setIncludeExactRepeats(snapshot.includeExactRepeats)
+  setRhymeIgnoreStopwords(snapshot.rhymeIgnoreStopwords)
 }
 
 export function hydrateSettingsStore(payload: SettingsSchema) {

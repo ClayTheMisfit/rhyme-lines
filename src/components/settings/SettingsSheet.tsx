@@ -54,6 +54,7 @@ export function SettingsSheet() {
     showLineTotals,
     rhymeAutoRefresh,
     debounceMode,
+    rhymeIgnoreStopwords,
     setTheme,
     setFontSize,
     setLineHeight,
@@ -61,6 +62,7 @@ export function SettingsSheet() {
     setShowLineTotals,
     setRhymeAutoRefresh,
     setDebounceMode,
+    setRhymeIgnoreStopwords,
     resetDefaults,
   } = useSettingsStore(
     useCallback(
@@ -72,6 +74,7 @@ export function SettingsSheet() {
         showLineTotals: state.showLineTotals,
         rhymeAutoRefresh: state.rhymeAutoRefresh,
         debounceMode: state.debounceMode,
+        rhymeIgnoreStopwords: state.rhymeIgnoreStopwords,
         setTheme: state.setTheme,
         setFontSize: state.setFontSize,
         setLineHeight: state.setLineHeight,
@@ -79,6 +82,7 @@ export function SettingsSheet() {
         setShowLineTotals: state.setShowLineTotals,
         setRhymeAutoRefresh: state.setRhymeAutoRefresh,
         setDebounceMode: state.setDebounceMode,
+        setRhymeIgnoreStopwords: state.setRhymeIgnoreStopwords,
         resetDefaults: state.resetDefaults,
       }),
       []
@@ -314,6 +318,24 @@ export function SettingsSheet() {
               </div>
             </section>
 
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Rhyme highlighting</h3>
+              {/* Integration point: highlight settings are persisted and fed into the analysis worker. */}
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-white/80">
+                <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={rhymeIgnoreStopwords}
+                    onChange={(event) => setRhymeIgnoreStopwords(event.target.checked)}
+                    aria-label="Ignore stopwords in rhyme highlighting"
+                  />
+                  <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                </span>
+                Ignore stopwords in rhyme highlighting
+              </label>
+            </section>
+
             <section className="md:col-span-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Keyboard</h3>
               <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/80 sm:grid-cols-2">
@@ -370,10 +392,12 @@ export function SettingsSheet() {
       panelId,
       resetDefaults,
       rhymeAutoRefresh,
+      rhymeIgnoreStopwords,
       setBadgeSize,
       setDebounceMode,
       setFontSize,
       setLineHeight,
+      setRhymeIgnoreStopwords,
       setRhymeAutoRefresh,
       setShowLineTotals,
       setTheme,

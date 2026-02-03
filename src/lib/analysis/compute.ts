@@ -18,7 +18,7 @@ export function computeAnalysis(
   meta?: {
     docId?: string
     seq?: number
-    rhymeHighlights?: { enabled: boolean; includeExactRepeats?: boolean }
+    rhymeHighlights?: { enabled: boolean; includeExactRepeats?: boolean; ignoreStopwords?: boolean }
     rhymeRuntime?: RhymeHighlightRuntime | null
   }
 ): AnalysisResponseV1 {
@@ -62,15 +62,21 @@ export function computeAnalysis(
   }
 
   const includeExactRepeats = meta?.rhymeHighlights?.includeExactRepeats ?? false
+  const ignoreStopwords = meta?.rhymeHighlights?.ignoreStopwords ?? false
   let rhymeHighlights: RhymeHighlightResult | undefined
   if (rhymeEnabled) {
-    // Integration point: analysis worker populates rhyme highlight groups for the overlay renderer.
+    // Integration point: analysis worker passes highlight settings (exact repeats, stopwords) to group builder.
     const resolver = meta?.rhymeRuntime
       ? {
           getPerfectKey: (normalized: string) => getPerfectKeyForWord(normalized, meta.rhymeRuntime!),
         }
       : null
-    const groups = buildHighlightGroups(rhymeTokens, { includeExactRepeats, resolver, cache: rhymeKeyCache }).groups
+    const groups = buildHighlightGroups(rhymeTokens, {
+      includeExactRepeats,
+      ignoreStopwords,
+      resolver,
+      cache: rhymeKeyCache,
+    }).groups
     rhymeHighlights = { tokens: rhymeTokens, groups, tokenMetaById }
   }
 

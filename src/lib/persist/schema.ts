@@ -26,6 +26,7 @@ export interface SettingsSchema {
   rhymeHighlightEnabled?: boolean
   rhymeHighlightMode?: 'all' | 'focus'
   includeExactRepeats?: boolean
+  rhymeIgnoreStopwords?: boolean
   lastUpdatedAt: number
   badgeSize?: BadgeSize
   showLineTotals?: boolean
@@ -94,6 +95,7 @@ export const DEFAULT_SETTINGS: SettingsSchema = {
   rhymeHighlightEnabled: true,
   rhymeHighlightMode: 'all',
   includeExactRepeats: false,
+  rhymeIgnoreStopwords: false,
   lastUpdatedAt: 0,
   badgeSize: 'sm',
   showLineTotals: true,

@@ -8,6 +8,7 @@ type AnalysisMode = 'worker' | 'fallback'
 type RhymeHighlightOptions = {
   enabled: boolean
   includeExactRepeats?: boolean
+  ignoreStopwords?: boolean
 }
 
 type AnalysisResult = (AnalysisResponseV1 & { roundTripMs?: number }) | null

@@ -8,11 +8,11 @@ describe('computeRhymeKey', () => {
     expect(result).toEqual({ key: 'AY-M', source: 'phoneme' })
   })
 
-  it('falls back to orthographic tail when phonemes are missing', () => {
+  it('returns null when phonemes are missing', () => {
     const cache = new Map()
     const resolver = { getPerfectKey: () => null }
     const result = computeRhymeKey('apple', resolver, cache)
-    expect(result).toEqual({ key: 'ortho:pple', source: 'ortho' })
+    expect(result).toEqual({ key: null, source: 'none' })
   })
 })
 
@@ -42,6 +42,54 @@ describe('buildHighlightGroups', () => {
     }
     const result = buildHighlightGroups(tokens, { includeExactRepeats: false, resolver })
     expect(result.groups[0]?.tokenIds).toEqual(['t1', 't2', 't3', 't4'])
+  })
+})
+
+describe('buildHighlightGroups unknown words', () => {
+  const tokens: RhymeToken[] = [
+    { id: 't1', lineId: 'line-1', start: 0, end: 5, text: 'qwerk', norm: 'qwerk' },
+    { id: 't2', lineId: 'line-1', start: 6, end: 11, text: 'qwerk', norm: 'qwerk' },
+  ]
+
+  it('keeps unknown words as exact repeats only when enabled', () => {
+    const resolver = { getPerfectKey: () => null }
+    const result = buildHighlightGroups(tokens, { includeExactRepeats: true, resolver })
+    expect(result.groups).toEqual([{ key: 'exact:qwerk', tokenIds: ['t1', 't2'], kind: 'exact', order: 0 }])
+    expect(getTokenHighlightStyle('t1', result.groups)).toBe('underline')
+  })
+
+  it('does not highlight unknown words without exact repeats', () => {
+    const resolver = { getPerfectKey: () => null }
+    const result = buildHighlightGroups(tokens, { includeExactRepeats: false, resolver })
+    expect(result.groups).toEqual([])
+  })
+})
+
+describe('buildHighlightGroups stopwords', () => {
+  const tokens: RhymeToken[] = [
+    { id: 't1', lineId: 'line-1', start: 0, end: 3, text: 'the', norm: 'the' },
+    { id: 't2', lineId: 'line-1', start: 4, end: 7, text: 'cat', norm: 'cat' },
+    { id: 't3', lineId: 'line-1', start: 8, end: 10, text: 'in', norm: 'in' },
+    { id: 't4', lineId: 'line-1', start: 11, end: 14, text: 'the', norm: 'the' },
+    { id: 't5', lineId: 'line-1', start: 15, end: 18, text: 'hat', norm: 'hat' },
+  ]
+  const resolver = {
+    getPerfectKey: (normalized: string) => (normalized === 'cat' || normalized === 'hat' ? 'AE-T' : null),
+  }
+
+  it('includes stopwords when ignoreStopwords is off', () => {
+    const result = buildHighlightGroups(tokens, { includeExactRepeats: true, ignoreStopwords: false, resolver })
+    const keys = result.groups.map((group) => group.key)
+    expect(keys).toContain('exact:the')
+    expect(keys).toContain('rhyme:AE-T')
+  })
+
+  it('filters stopwords when ignoreStopwords is on', () => {
+    const result = buildHighlightGroups(tokens, { includeExactRepeats: true, ignoreStopwords: true, resolver })
+    const keys = result.groups.map((group) => group.key)
+    expect(keys).not.toContain('exact:the')
+    expect(keys).not.toContain('rhyme:the')
+    expect(keys).toContain('rhyme:AE-T')
   })
 })
 

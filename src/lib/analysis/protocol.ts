@@ -7,7 +7,7 @@ export type AnalysisRequestV1 = {
   lines: Array<{ id: string; text: string }>
   opts: {
     mode: 'typing' | 'caret'
-    rhymeHighlights?: { enabled: boolean; includeExactRepeats?: boolean }
+    rhymeHighlights?: { enabled: boolean; includeExactRepeats?: boolean; ignoreStopwords?: boolean }
   }
 }
 
