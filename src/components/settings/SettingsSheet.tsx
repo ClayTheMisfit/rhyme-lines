@@ -55,6 +55,7 @@ export function SettingsSheet() {
     rhymeAutoRefresh,
     debounceMode,
     rhymeIgnoreStopwords,
+    includeExactRepeats,
     setTheme,
     setFontSize,
     setLineHeight,
@@ -63,6 +64,7 @@ export function SettingsSheet() {
     setRhymeAutoRefresh,
     setDebounceMode,
     setRhymeIgnoreStopwords,
+    setIncludeExactRepeats,
     resetDefaults,
   } = useSettingsStore(
     useCallback(
@@ -75,6 +77,7 @@ export function SettingsSheet() {
         rhymeAutoRefresh: state.rhymeAutoRefresh,
         debounceMode: state.debounceMode,
         rhymeIgnoreStopwords: state.rhymeIgnoreStopwords,
+        includeExactRepeats: state.includeExactRepeats,
         setTheme: state.setTheme,
         setFontSize: state.setFontSize,
         setLineHeight: state.setLineHeight,
@@ -83,6 +86,7 @@ export function SettingsSheet() {
         setRhymeAutoRefresh: state.setRhymeAutoRefresh,
         setDebounceMode: state.setDebounceMode,
         setRhymeIgnoreStopwords: state.setRhymeIgnoreStopwords,
+        setIncludeExactRepeats: state.setIncludeExactRepeats,
         resetDefaults: state.resetDefaults,
       }),
       []
@@ -334,6 +338,24 @@ export function SettingsSheet() {
                 </span>
                 Ignore stopwords in rhyme highlighting
               </label>
+              <label className="inline-flex flex-col gap-2 text-sm font-medium text-white/80">
+                <span className="inline-flex items-center gap-3">
+                  <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
+                    <input
+                      type="checkbox"
+                      className="peer sr-only"
+                      checked={includeExactRepeats}
+                      onChange={(event) => setIncludeExactRepeats(event.target.checked)}
+                      aria-label="Include exact repeats in rhyme highlighting"
+                    />
+                    <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                  </span>
+                  Include exact repeats
+                </span>
+                <span className="text-xs font-normal text-white/50">
+                  Underlines repeated words even when they don’t have phonemes.
+                </span>
+              </label>
             </section>
 
             <section className="md:col-span-2">
@@ -393,10 +415,12 @@ export function SettingsSheet() {
       resetDefaults,
       rhymeAutoRefresh,
       rhymeIgnoreStopwords,
+      includeExactRepeats,
       setBadgeSize,
       setDebounceMode,
       setFontSize,
       setLineHeight,
+      setIncludeExactRepeats,
       setRhymeIgnoreStopwords,
       setRhymeAutoRefresh,
       setShowLineTotals,
