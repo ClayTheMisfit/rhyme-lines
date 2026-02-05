@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react'
+import { act, fireEvent, render } from '@testing-library/react'
 import Editor from '@/components/Editor'
 
 describe('Editor line normalization', () => {
@@ -17,9 +17,7 @@ describe('Editor line normalization', () => {
     const originalGetClientRects = (Range.prototype as RangeWithClientRects).getClientRects
     ;(Range.prototype as RangeWithClientRects).getClientRects = () => [] as unknown as DOMRectList
 
-    const dispatchMock = jest
-      .spyOn(window, 'dispatchEvent')
-      .mockImplementation(() => true)
+    const dispatchMock = jest.spyOn(window, 'dispatchEvent').mockImplementation(() => true)
 
     const { container, unmount } = render(<Editor />)
 
@@ -47,6 +45,49 @@ describe('Editor line normalization', () => {
       ;(Range.prototype as RangeWithClientRects).getClientRects = originalGetClientRects
       dispatchMock.mockRestore()
       getSelectionMock.mockRestore()
+      jest.runOnlyPendingTimers()
+      jest.useRealTimers()
+    }
+  })
+
+  test('paste inserts plain text and syncs document without extra typing', () => {
+    jest.useFakeTimers()
+
+    const onTextChange = jest.fn()
+    const dispatchMock = jest.spyOn(window, 'dispatchEvent').mockImplementation(() => true)
+
+    const { container, unmount } = render(<Editor onTextChange={onTextChange} />)
+
+    try {
+      const editor = container.querySelector('#lyric-editor') as HTMLDivElement
+      expect(editor).toBeTruthy()
+
+      editor.focus()
+      const range = document.createRange()
+      range.selectNodeContents(editor)
+      range.collapse(false)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+
+      act(() => {
+        fireEvent.paste(editor, {
+          clipboardData: {
+            getData: (type: string) => (type === 'text/plain' ? 'alpha\r\nbeta\n\ngamma' : '<b>ignored</b>'),
+          },
+        })
+        jest.runOnlyPendingTimers()
+      })
+
+      const lines = Array.from(editor.querySelectorAll('.line')) as HTMLDivElement[]
+      expect(lines.length).toBeGreaterThanOrEqual(3)
+      expect(onTextChange).toHaveBeenCalled()
+      const lastText = onTextChange.mock.calls.at(-1)?.[0] ?? ''
+      expect(lastText.replace(/\r\n?/g, '\n').trimEnd()).toBe('alpha\nbeta\n\ngamma')
+      expect(editor.querySelector('span[style], font, strong, em')).toBeNull()
+    } finally {
+      unmount()
+      dispatchMock.mockRestore()
       jest.runOnlyPendingTimers()
       jest.useRealTimers()
     }

@@ -26,7 +26,7 @@ export function useAnalysisWorker(docId: string) {
   const debounceTimerRef = useRef<number | null>(null)
   const pendingPayloadRef = useRef<{
     lines: LineInput[]
-    mode: 'typing' | 'caret'
+    mode: 'typing' | 'caret' | 'paste'
     rhymeHighlights?: RhymeHighlightOptions
   } | null>(null)
   const failedRef = useRef(false)
@@ -111,7 +111,7 @@ export function useAnalysisWorker(docId: string) {
   }, [handleMessage])
 
   const dispatchRequest = useCallback(
-    (lines: LineInput[], mode: 'typing' | 'caret', rhymeHighlights?: RhymeHighlightOptions) => {
+    (lines: LineInput[], mode: 'typing' | 'caret' | 'paste', rhymeHighlights?: RhymeHighlightOptions) => {
       const seq = ++seqRef.current
       latestSeqRef.current = seq
       const payload: AnalysisRequestV1 = { v: 1, seq, docId, lines, opts: { mode, rhymeHighlights } }
@@ -136,12 +136,12 @@ export function useAnalysisWorker(docId: string) {
   )
 
   const scheduleAnalysis = useCallback(
-    (lines: LineInput[], mode: 'typing' | 'caret' = 'typing', rhymeHighlights?: RhymeHighlightOptions) => {
+    (lines: LineInput[], mode: 'typing' | 'caret' | 'paste' = 'typing', rhymeHighlights?: RhymeHighlightOptions) => {
       pendingPayloadRef.current = { lines, mode, rhymeHighlights }
       if (debounceTimerRef.current) {
         window.clearTimeout(debounceTimerRef.current)
       }
-      const delay = mode === 'typing' ? TYPING_DEBOUNCE_MS : CARET_DEBOUNCE_MS
+      const delay = mode === 'paste' ? 0 : mode === 'typing' ? TYPING_DEBOUNCE_MS : CARET_DEBOUNCE_MS
       debounceTimerRef.current = window.setTimeout(() => {
         debounceTimerRef.current = null
         const pending = pendingPayloadRef.current

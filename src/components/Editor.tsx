@@ -14,7 +14,7 @@ import { useAnalysisWorker } from '@/hooks/useAnalysisWorker'
 import type { LineInput } from '@/lib/analysis/compute'
 import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
 import { useViewportWindow } from '@/hooks/useViewportWindow'
-import { useOverlayMeasurement } from '@/hooks/useOverlayMeasurement'
+import { useOverlayMeasurement, invalidateOverlayMeasurementDoc } from '@/hooks/useOverlayMeasurement'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
 import type { RhymeToken } from '@/lib/rhyme/highlight'
 import { buildTokenGroupIndex } from '@/lib/rhyme/highlight'
@@ -49,6 +49,7 @@ type EditorProps = {
 export type EditorHandle = {
   focus: () => void
   insertText: (text: string) => boolean
+  forceDocumentSync: () => void
 }
 
 const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
@@ -721,7 +722,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     }, SAVE_STATUS_DELAY_MS)
   }, [])
 
-  const handleChange = useCallback(() => {
+  const handleChange = useCallback((mode: 'typing' | 'paste' = 'typing') => {
     ensureLineStructure()
     syncPlaceholderLine()
     const el = editorRef.current
@@ -735,7 +736,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     analysisLinesRef.current = collectedLines
     setLineInputs(collectedLines)
     setLines(collectedLines.map((line) => line.text))
-    scheduleAnalysis(collectedLines, 'typing', {
+    scheduleAnalysis(collectedLines, mode, {
       enabled: rhymeHighlightEnabled,
       includeExactRepeats,
       ignoreStopwords: rhymeIgnoreStopwords,
@@ -798,6 +799,75 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [handleChange, logDebugEvent]
   )
 
+  const normalizePastedText = useCallback((value: string) => value.replace(/\r\n?/g, '\n'), [])
+
+  const normalizeEditorDom = useCallback(() => {
+    const el = editorRef.current
+    if (!el) return
+    const normalizedText = serializeFromEditor(el)
+    hydrateEditorFromText(el, normalizedText)
+    ensureLineStructure()
+    syncPlaceholderLine()
+  }, [ensureLineStructure, syncPlaceholderLine])
+
+  const insertPlainTextAtSelection = useCallback(
+    (textToInsert: string) => {
+      const node = editorRef.current
+      if (!node) return false
+      if (document.activeElement !== node) {
+        node.focus({ preventScroll: true })
+      }
+      try {
+        if (typeof document.execCommand === 'function') {
+          return document.execCommand('insertText', false, textToInsert)
+        }
+      } catch {
+        // Fall through to range insertion.
+      }
+
+      const selection = window.getSelection()
+      if (!selection) return false
+      const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : document.createRange()
+      if (selection.rangeCount === 0) {
+        range.selectNodeContents(node)
+        range.collapse(false)
+      }
+      range.deleteContents()
+      const textNode = document.createTextNode(textToInsert)
+      range.insertNode(textNode)
+      range.setStartAfter(textNode)
+      range.collapse(true)
+      selection.removeAllRanges()
+      selection.addRange(range)
+      return true
+    },
+    []
+  )
+
+  const syncDocumentAfterPaste = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      normalizeEditorDom()
+      invalidateOverlayMeasurementDoc(ANALYSIS_DOC_ID)
+      handleChange('paste')
+      scheduleCurrentLineHighlight({ immediate: true })
+    })
+  }, [handleChange, normalizeEditorDom, scheduleCurrentLineHighlight])
+
+  const processPasteText = useCallback(
+    (rawText: string) => {
+      const textToInsert = normalizePastedText(rawText)
+      if (!insertPlainTextAtSelection(textToInsert)) return false
+      syncDocumentAfterPaste()
+      return true
+    },
+    [insertPlainTextAtSelection, normalizePastedText, syncDocumentAfterPaste]
+  )
+
+  const extractClipboardText = useCallback((clipboardData: DataTransfer | null) => {
+    if (!clipboardData) return ''
+    return clipboardData.getData('text/plain')
+  }, [])
+
   const handleBeforeInput = useCallback(
     (event: React.FormEvent<HTMLDivElement>) => {
       const nativeEvent = event.nativeEvent as InputEvent
@@ -807,6 +877,16 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         data: nativeEvent?.data ?? null,
         defaultPrevented: nativeEvent?.defaultPrevented ?? event.isDefaultPrevented(),
       })
+
+      if (inputType === 'insertFromPaste' || inputType === 'insertFromDrop') {
+        event.preventDefault()
+        const clipboardText = extractClipboardText((nativeEvent as InputEvent & { dataTransfer?: DataTransfer }).dataTransfer ?? null)
+        if (clipboardText) {
+          processPasteText(clipboardText)
+        }
+        return
+      }
+
       if (inputType && !inputType.startsWith('insert')) return
 
       const el = editorRef.current
@@ -817,7 +897,23 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const replacement = replacePlaceholderWithEmptyLine(placeholderLine)
       setCaretToLineStart(replacement)
     },
-    [logDebugEvent, replacePlaceholderWithEmptyLine, setCaretToLineStart]
+    [
+      extractClipboardText,
+      logDebugEvent,
+      processPasteText,
+      replacePlaceholderWithEmptyLine,
+      setCaretToLineStart,
+    ]
+  )
+
+  const handlePasteEvent = useCallback(
+    (event: React.ClipboardEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      const clipboardText = extractClipboardText(event.clipboardData)
+      if (!clipboardText) return
+      processPasteText(clipboardText)
+    },
+    [extractClipboardText, processPasteText]
   )
 
   const updateRhymeFocusFromSelection = useCallback(() => {
@@ -1173,8 +1269,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     () => ({
       focus: ensureEditorFocus,
       insertText,
+      forceDocumentSync: () => handleChange('paste'),
     }),
-    [ensureEditorFocus, insertText]
+    [ensureEditorFocus, handleChange, insertText]
   )
 
   return (
@@ -1276,6 +1373,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 data-layer="editable"
                 onBeforeInput={handleBeforeInput}
                 onInput={handleInputEvent}
+                onPaste={handlePasteEvent}
                 onFocus={() => setIsEditorFocused(true)}
                 onBlur={() => {
                   setIsEditorFocused(false)

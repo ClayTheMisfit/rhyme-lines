@@ -6,7 +6,7 @@ export type AnalysisRequestV1 = {
   docId: string
   lines: Array<{ id: string; text: string }>
   opts: {
-    mode: 'typing' | 'caret'
+    mode: 'typing' | 'caret' | 'paste'
     rhymeHighlights?: { enabled: boolean; includeExactRepeats?: boolean; ignoreStopwords?: boolean }
   }
 }
