@@ -26,6 +26,8 @@ const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const ENABLE_RHYME_HIGHLIGHT_SHORTCUTS = process.env.NEXT_PUBLIC_RHYME_HIGHLIGHT_SHORTCUTS === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
+const DEBUG_PASTE_PERF = process.env.NEXT_PUBLIC_DEBUG_PASTE_PERF === '1'
+const PASTE_NORMALIZE_IDLE_TIMEOUT_MS = 500
 const ACTIVE_LINE_TUNING = {
   radius: 12,
   yInset: 1,
@@ -95,6 +97,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const debugLogRef = useRef(0)
   const debugForceRef = useRef({ forceShow: false })
   const beforeInputPasteHandledRef = useRef(false)
+  const postPasteRafRef = useRef<number | null>(null)
+  const postPasteIdleRef = useRef<number | null>(null)
 
   const {
     activeRhymeGroupKey,
@@ -707,7 +711,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       line.dataset.lineIndex = index.toString()
       return {
         id: lineId,
-        text: (line.innerText ?? line.textContent ?? '').replace(/\r\n?/g, '\n'),
+        text: (line.textContent ?? '').replace(/\u00A0/g, ' ').replace(/\r\n?/g, '\n'),
       }
     })
 
@@ -802,6 +806,26 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const normalizePastedText = useCallback((value: string) => value.replace(/\r\n?/g, '\n'), [])
 
+  const markPastePerf = useCallback((label: string) => {
+    if (!DEBUG_PASTE_PERF || typeof performance === 'undefined') return
+    performance.mark(label)
+  }, [])
+
+  const measurePastePerf = useCallback((name: string, start: string, end: string) => {
+    if (!DEBUG_PASTE_PERF || typeof performance === 'undefined') return
+    try {
+      performance.measure(name, start, end)
+      const entries = performance.getEntriesByName(name)
+      const entry = entries[entries.length - 1]
+      if (entry) {
+        console.debug('[paste:perf]', name, entry.duration.toFixed(2))
+      }
+      performance.clearMeasures(name)
+    } catch {
+      // ignored
+    }
+  }, [])
+
   const normalizeEditorDom = useCallback(() => {
     const el = editorRef.current
     if (!el) return
@@ -845,23 +869,49 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     []
   )
 
-  const syncDocumentAfterPaste = useCallback(() => {
-    window.requestAnimationFrame(() => {
-      normalizeEditorDom()
+  const schedulePostPasteWork = useCallback(() => {
+    if (postPasteRafRef.current) {
+      window.cancelAnimationFrame(postPasteRafRef.current)
+    }
+    postPasteRafRef.current = window.requestAnimationFrame(() => {
+      markPastePerf('paste:raf:start')
       invalidateOverlayMeasurementDoc(ANALYSIS_DOC_ID)
+      markPastePerf('paste:cache-invalidated')
       handleChange('paste')
+      markPastePerf('paste:analysis-scheduled')
       scheduleCurrentLineHighlight({ immediate: true })
+      markPastePerf('paste:measure-scheduled')
+      measurePastePerf('paste:raf-total', 'paste:start', 'paste:measure-scheduled')
+
+      const scheduleIdle = (callback: () => void) => {
+        if (typeof window.requestIdleCallback === 'function') {
+          postPasteIdleRef.current = window.requestIdleCallback(callback, {
+            timeout: PASTE_NORMALIZE_IDLE_TIMEOUT_MS,
+          })
+          return
+        }
+        postPasteIdleRef.current = window.setTimeout(callback, 32)
+      }
+
+      scheduleIdle(() => {
+        markPastePerf('paste:normalize:start')
+        normalizeEditorDom()
+        markPastePerf('paste:normalize:done')
+        handleChange('paste')
+        markPastePerf('paste:idle:done')
+        measurePastePerf('paste:normalize-total', 'paste:normalize:start', 'paste:idle:done')
+      })
     })
-  }, [handleChange, normalizeEditorDom, scheduleCurrentLineHighlight])
+  }, [handleChange, markPastePerf, measurePastePerf, normalizeEditorDom, scheduleCurrentLineHighlight])
 
   const processPasteText = useCallback(
     (rawText: string) => {
       const textToInsert = normalizePastedText(rawText)
       if (!insertPlainTextAtSelection(textToInsert)) return false
-      syncDocumentAfterPaste()
+      schedulePostPasteWork()
       return true
     },
-    [insertPlainTextAtSelection, normalizePastedText, syncDocumentAfterPaste]
+    [insertPlainTextAtSelection, normalizePastedText, schedulePostPasteWork]
   )
 
   const extractClipboardText = useCallback((clipboardData: DataTransfer | null) => {
@@ -935,6 +985,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         if (!clipboardText) return
         beforeInputPasteHandledRef.current = true
         event.preventDefault()
+        markPastePerf('paste:start')
         processPasteText(clipboardText)
         window.queueMicrotask(() => {
           beforeInputPasteHandledRef.current = false
@@ -956,6 +1007,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       extractClipboardText,
       logDebugEvent,
       processPasteText,
+      markPastePerf,
       replacePlaceholderWithEmptyLine,
       setCaretToLineStart,
       shouldHandlePasteEvent,
@@ -973,10 +1025,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         if (beforeInputPasteHandledRef.current) {
           return
         }
+        markPastePerf('paste:start')
         processPasteText(clipboardText)
       })
     },
-    [extractClipboardText, processPasteText, shouldHandlePasteEvent]
+    [extractClipboardText, markPastePerf, processPasteText, shouldHandlePasteEvent]
   )
 
   const updateRhymeFocusFromSelection = useCallback(() => {
@@ -1326,6 +1379,22 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     },
     []
   )
+
+
+  useEffect(() => {
+    return () => {
+      if (postPasteRafRef.current) {
+        window.cancelAnimationFrame(postPasteRafRef.current)
+      }
+      if (postPasteIdleRef.current) {
+        if (typeof window.cancelIdleCallback === 'function') {
+          window.cancelIdleCallback(postPasteIdleRef.current)
+        } else {
+          window.clearTimeout(postPasteIdleRef.current)
+        }
+      }
+    }
+  }, [])
 
   useImperativeHandle(
     ref,
