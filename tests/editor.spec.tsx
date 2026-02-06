@@ -50,6 +50,22 @@ describe('Editor line normalization', () => {
     }
   })
 
+
+  test('clicking editor focuses editable surface before typing', () => {
+    const { container, unmount } = render(<Editor />)
+
+    try {
+      const editor = container.querySelector('#lyric-editor') as HTMLDivElement
+      expect(editor).toBeTruthy()
+
+      fireEvent.pointerDown(editor)
+      fireEvent.click(editor)
+
+      expect(document.activeElement).toBe(editor)
+    } finally {
+      unmount()
+    }
+  })
   test('paste inserts plain text and syncs document without extra typing', () => {
     jest.useFakeTimers()
 

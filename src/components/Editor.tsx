@@ -94,6 +94,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const lastHighlightRef = useRef(lineHighlight)
   const debugLogRef = useRef(0)
   const debugForceRef = useRef({ forceShow: false })
+  const beforeInputPasteHandledRef = useRef(false)
 
   const {
     activeRhymeGroupKey,
@@ -868,6 +869,53 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return clipboardData.getData('text/plain')
   }, [])
 
+  const hasSelectionInsideEditor = useCallback((editorEl: HTMLDivElement) => {
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return false
+    const range = selection.getRangeAt(0)
+    return editorEl.contains(range.commonAncestorContainer)
+  }, [])
+
+  const ensureSelectionInEditor = useCallback((editorEl: HTMLDivElement) => {
+    const selection = window.getSelection()
+    if (!selection) return false
+    if (hasSelectionInsideEditor(editorEl)) return true
+
+    selection.removeAllRanges()
+    const range = document.createRange()
+    range.selectNodeContents(editorEl)
+    range.collapse(false)
+    selection.addRange(range)
+    return true
+  }, [hasSelectionInsideEditor])
+
+  const shouldHandlePasteEvent = useCallback(
+    (eventTarget: EventTarget | null) => {
+      const editorEl = editorRef.current
+      if (!editorEl) return { shouldHandle: false, editorEl: null as HTMLDivElement | null }
+
+      const targetNode = eventTarget instanceof Node ? eventTarget : null
+      const targetInsideEditor = targetNode ? editorEl.contains(targetNode) : false
+      if (!targetInsideEditor) {
+        return { shouldHandle: false, editorEl }
+      }
+
+      const activeInsideEditor = document.activeElement === editorEl
+      const rangeInsideEditor = hasSelectionInsideEditor(editorEl)
+
+      if (!activeInsideEditor) {
+        editorEl.focus({ preventScroll: true })
+      }
+
+      if (!rangeInsideEditor && !ensureSelectionInEditor(editorEl)) {
+        return { shouldHandle: false, editorEl }
+      }
+
+      return { shouldHandle: true, editorEl }
+    },
+    [ensureSelectionInEditor, hasSelectionInsideEditor]
+  )
+
   const handleBeforeInput = useCallback(
     (event: React.FormEvent<HTMLDivElement>) => {
       const nativeEvent = event.nativeEvent as InputEvent
@@ -879,11 +927,18 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       })
 
       if (inputType === 'insertFromPaste' || inputType === 'insertFromDrop') {
+        const { shouldHandle } = shouldHandlePasteEvent(event.target)
+        if (!shouldHandle) return
+        const clipboardText = extractClipboardText(
+          (nativeEvent as InputEvent & { dataTransfer?: DataTransfer }).dataTransfer ?? null
+        )
+        if (!clipboardText) return
+        beforeInputPasteHandledRef.current = true
         event.preventDefault()
-        const clipboardText = extractClipboardText((nativeEvent as InputEvent & { dataTransfer?: DataTransfer }).dataTransfer ?? null)
-        if (clipboardText) {
-          processPasteText(clipboardText)
-        }
+        processPasteText(clipboardText)
+        window.queueMicrotask(() => {
+          beforeInputPasteHandledRef.current = false
+        })
         return
       }
 
@@ -903,17 +958,25 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       processPasteText,
       replacePlaceholderWithEmptyLine,
       setCaretToLineStart,
+      shouldHandlePasteEvent,
     ]
   )
 
   const handlePasteEvent = useCallback(
     (event: React.ClipboardEvent<HTMLDivElement>) => {
-      event.preventDefault()
+      const { shouldHandle } = shouldHandlePasteEvent(event.target)
+      if (!shouldHandle) return
       const clipboardText = extractClipboardText(event.clipboardData)
       if (!clipboardText) return
-      processPasteText(clipboardText)
+      event.preventDefault()
+      window.queueMicrotask(() => {
+        if (beforeInputPasteHandledRef.current) {
+          return
+        }
+        processPasteText(clipboardText)
+      })
     },
-    [extractClipboardText, processPasteText]
+    [extractClipboardText, processPasteText, shouldHandlePasteEvent]
   )
 
   const updateRhymeFocusFromSelection = useCallback(() => {
@@ -1295,7 +1358,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               theme={resolvedTheme}
             />
 
-            <div ref={textColRef} className="editor-surface relative min-h-[70vh]">
+            <div
+              ref={textColRef}
+              className="editor-surface relative min-h-[70vh]"
+              onPointerDownCapture={ensureEditorFocus}
+            >
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
                 className="pointer-events-none absolute inset-0 z-10"
@@ -1374,7 +1441,13 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onBeforeInput={handleBeforeInput}
                 onInput={handleInputEvent}
                 onPaste={handlePasteEvent}
-                onFocus={() => setIsEditorFocused(true)}
+                onFocus={() => {
+                  setIsEditorFocused(true)
+                  const editorEl = editorRef.current
+                  if (editorEl) {
+                    ensureSelectionInEditor(editorEl)
+                  }
+                }}
                 onBlur={() => {
                   setIsEditorFocused(false)
                   handleChange()
