@@ -2,9 +2,16 @@ import { act, fireEvent, render } from '@testing-library/react'
 import Editor from '@/components/Editor'
 
 describe('Editor line normalization', () => {
-  test('ensures new blocks receive line class after Enter', () => {
+  beforeEach(() => {
     jest.useFakeTimers()
+  })
 
+  afterEach(() => {
+    jest.runOnlyPendingTimers()
+    jest.useRealTimers()
+  })
+
+  test('ensures new blocks receive line class after Enter', () => {
     const getSelectionMock = jest
       .spyOn(window, 'getSelection')
       .mockReturnValue({
@@ -45,8 +52,6 @@ describe('Editor line normalization', () => {
       ;(Range.prototype as RangeWithClientRects).getClientRects = originalGetClientRects
       dispatchMock.mockRestore()
       getSelectionMock.mockRestore()
-      jest.runOnlyPendingTimers()
-      jest.useRealTimers()
     }
   })
 
@@ -67,8 +72,6 @@ describe('Editor line normalization', () => {
     }
   })
   test('paste inserts plain text and syncs document without extra typing', () => {
-    jest.useFakeTimers()
-
     const onTextChange = jest.fn()
     const dispatchMock = jest.spyOn(window, 'dispatchEvent').mockImplementation(() => true)
 
@@ -112,8 +115,6 @@ describe('Editor line normalization', () => {
     } finally {
       unmount()
       dispatchMock.mockRestore()
-      jest.runOnlyPendingTimers()
-      jest.useRealTimers()
     }
   })
 })

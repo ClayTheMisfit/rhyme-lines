@@ -11,7 +11,20 @@ export type LineInput = { id: string; text: string }
 
 const now = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now())
 
-const rhymeKeyCache = new Map<string, RhymeKeyResult>()
+const rhymeKeyCacheByRuntime = new Map<string, Map<string, RhymeKeyResult>>()
+
+export function getRhymeRuntimeCacheKey(runtime: RhymeHighlightRuntime | null | undefined): string {
+  if (!runtime) return 'none'
+  return 'cmu:v1'
+}
+
+function getRhymeKeyCache(runtime: RhymeHighlightRuntime | null | undefined) {
+  const runtimeKey = getRhymeRuntimeCacheKey(runtime)
+  if (!rhymeKeyCacheByRuntime.has(runtimeKey)) {
+    rhymeKeyCacheByRuntime.set(runtimeKey, new Map())
+  }
+  return rhymeKeyCacheByRuntime.get(runtimeKey)!
+}
 
 export function computeAnalysis(
   lines: LineInput[],
@@ -75,7 +88,7 @@ export function computeAnalysis(
       includeExactRepeats,
       ignoreStopwords,
       resolver,
-      cache: rhymeKeyCache,
+      cache: getRhymeKeyCache(meta?.rhymeRuntime),
     }).groups
     rhymeHighlights = { tokens: rhymeTokens, groups, tokenMetaById }
   }

@@ -34,6 +34,32 @@ type MeasurementMeta = {
 
 const cache = new GeometryCache()
 
+
+type CacheReuseDecision = { canReuseSyllables: boolean; canReuseRhymes: boolean; canReuse: boolean }
+
+export function resolveOverlayCacheReuse(
+  cached:
+    | {
+        measured: { syllables: boolean; rhymes: boolean }
+        tokens?: OverlayToken[]
+        rhymeTokens?: RhymeTokenPosition[]
+      }
+    | null,
+  options: { syllableEnabled: boolean; rhymeEnabled: boolean }
+): CacheReuseDecision {
+  if (!cached) {
+    return { canReuseSyllables: false, canReuseRhymes: false, canReuse: false }
+  }
+
+  const canReuseSyllables = !options.syllableEnabled || cached.measured.syllables
+  const canReuseRhymes = !options.rhymeEnabled || cached.measured.rhymes
+  return {
+    canReuseSyllables,
+    canReuseRhymes,
+    canReuse: canReuseSyllables && canReuseRhymes,
+  }
+}
+
 export function invalidateOverlayMeasurementDoc(docId: string) {
   cache.invalidateDoc(docId)
 }
@@ -171,11 +197,11 @@ export function useOverlayMeasurement({
         const lineIndex = Number.parseInt(lineElement.dataset.lineIndex ?? '-1', 10)
         const contentSignature = lineSignatures.get(lineId) ?? ''
         const cached = cache.get(docId, lineId, layoutKey, contentSignature)
-        const canReuse = cached && (!rhymeEnabled || cached.rhymeTokens)
-        if (canReuse && cached) {
+        const reuseDecision = resolveOverlayCacheReuse(cached, { syllableEnabled, rhymeEnabled })
+        if (cached && reuseDecision.canReuse) {
           reused += 1
           lineElement.style.setProperty('--badge-offset', `${cached.lineOffset}em`)
-          if (syllableEnabled) {
+          if (syllableEnabled && cached.tokens) {
             nextTokens.push(...cached.tokens)
           }
           if (rhymeEnabled && cached.rhymeTokens) {
@@ -285,12 +311,20 @@ export function useOverlayMeasurement({
         }
 
         cache.set(docId, lineId, layoutKey, contentSignature, {
-          tokens: lineTokens,
           lineOffset: badgeOffsetEm,
-          rhymeTokens: lineRhymeTokens,
+          measured: {
+            syllables: syllableEnabled,
+            rhymes: rhymeEnabled,
+          },
+          tokens: syllableEnabled ? lineTokens : undefined,
+          rhymeTokens: rhymeEnabled ? lineRhymeTokens : undefined,
         })
-        nextTokens.push(...lineTokens)
-        nextRhymeTokens.push(...lineRhymeTokens)
+        if (syllableEnabled) {
+          nextTokens.push(...lineTokens)
+        }
+        if (rhymeEnabled) {
+          nextRhymeTokens.push(...lineRhymeTokens)
+        }
         measured += 1
       }
 

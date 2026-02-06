@@ -6,8 +6,9 @@ type LayoutKey = string
 type CachedLine = {
   layoutKey: LayoutKey
   contentSignature: string
-  tokens: OverlayToken[]
   lineOffset: number
+  measured: { syllables: boolean; rhymes: boolean }
+  tokens?: OverlayToken[]
   rhymeTokens?: RhymeTokenPosition[]
 }
 
@@ -31,7 +32,12 @@ export class GeometryCache {
     lineId: string,
     layoutKey: LayoutKey,
     contentSignature: string,
-    payload: { tokens: OverlayToken[]; lineOffset: number; rhymeTokens?: RhymeTokenPosition[] }
+    payload: {
+      lineOffset: number
+      measured: { syllables: boolean; rhymes: boolean }
+      tokens?: OverlayToken[]
+      rhymeTokens?: RhymeTokenPosition[]
+    }
   ) {
     if (!this.store.has(docId)) {
       this.store.set(docId, new Map())
@@ -41,8 +47,9 @@ export class GeometryCache {
     doc.set(lineId, {
       layoutKey,
       contentSignature,
-      tokens: payload.tokens,
       lineOffset: payload.lineOffset,
+      measured: payload.measured,
+      tokens: payload.tokens,
       rhymeTokens: payload.rhymeTokens,
     })
   }

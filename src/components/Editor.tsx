@@ -102,6 +102,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const postPasteRafRef = useRef<number | null>(null)
   const postPasteIdleRef = useRef<number | null>(null)
   const postPasteSyncTimerRef = useRef<number | null>(null)
+  const didPointerDownRef = useRef(false)
 
   const {
     activeRhymeGroupKey,
@@ -1388,6 +1389,14 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     }
   }, [])
 
+  const handlePointerDownCapture = useCallback(() => {
+    didPointerDownRef.current = true
+    window.queueMicrotask(() => {
+      didPointerDownRef.current = false
+    })
+    ensureEditorFocus()
+  }, [ensureEditorFocus])
+
   const insertText = useCallback(
     (textToInsert: string) => {
       const node = editorRef.current
@@ -1478,7 +1487,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             <div
               ref={textColRef}
               className="editor-surface relative min-h-[70vh]"
-              onPointerDownCapture={ensureEditorFocus}
+              onPointerDownCapture={handlePointerDownCapture}
             >
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
@@ -1561,7 +1570,10 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onFocus={() => {
                   setIsEditorFocused(true)
                   const editorEl = editorRef.current
-                  if (editorEl) {
+                  if (!editorEl) return
+                  const shouldEnsureSelection =
+                    !didPointerDownRef.current && !hasSelectionInsideEditor(editorEl)
+                  if (shouldEnsureSelection) {
                     ensureSelectionInEditor(editorEl)
                   }
                 }}
