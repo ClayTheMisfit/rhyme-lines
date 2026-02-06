@@ -987,9 +987,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         event.preventDefault()
         markPastePerf('paste:start')
         processPasteText(clipboardText)
-        window.queueMicrotask(() => {
-          beforeInputPasteHandledRef.current = false
-        })
         return
       }
 
@@ -1021,13 +1018,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const clipboardText = extractClipboardText(event.clipboardData)
       if (!clipboardText) return
       event.preventDefault()
-      window.queueMicrotask(() => {
-        if (beforeInputPasteHandledRef.current) {
-          return
-        }
-        markPastePerf('paste:start')
-        processPasteText(clipboardText)
-      })
+      if (beforeInputPasteHandledRef.current) {
+        beforeInputPasteHandledRef.current = false
+        return
+      }
+      markPastePerf('paste:start')
+      processPasteText(clipboardText)
     },
     [extractClipboardText, markPastePerf, processPasteText, shouldHandlePasteEvent]
   )
