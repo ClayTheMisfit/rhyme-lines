@@ -97,8 +97,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const debugLogRef = useRef(0)
   const debugForceRef = useRef({ forceShow: false })
   const beforeInputPasteHandledRef = useRef(false)
+  const suspendHydrationRef = useRef(false)
+  const hydrationTokenRef = useRef(0)
   const postPasteRafRef = useRef<number | null>(null)
   const postPasteIdleRef = useRef<number | null>(null)
+  const postPasteSyncTimerRef = useRef<number | null>(null)
 
   const {
     activeRhymeGroupKey,
@@ -869,11 +872,46 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     []
   )
 
-  const schedulePostPasteWork = useCallback(() => {
+  const scheduleImmediateDomStateSync = useCallback(
+    (token: number) => {
+      if (postPasteSyncTimerRef.current) {
+        window.clearTimeout(postPasteSyncTimerRef.current)
+      }
+      postPasteSyncTimerRef.current = window.setTimeout(() => {
+        if (token !== hydrationTokenRef.current) return
+        const el = editorRef.current
+        if (!el) return
+        const serialized = serializeFromEditor(el)
+        if (serialized !== lastSerializedRef.current) {
+          lastSerializedRef.current = serialized
+          lastHydratedTextRef.current = serialized
+          skipHydrateRef.current = serialized
+          onTextChange(serialized)
+          onDirtyChange?.(true)
+          announceSave()
+        }
+        if (token === hydrationTokenRef.current) {
+          suspendHydrationRef.current = false
+          beforeInputPasteHandledRef.current = false
+        }
+      }, 0)
+    },
+    [announceSave, onDirtyChange, onTextChange]
+  )
+
+  const schedulePostPasteWork = useCallback((token: number) => {
     if (postPasteRafRef.current) {
       window.cancelAnimationFrame(postPasteRafRef.current)
     }
+    if (postPasteIdleRef.current) {
+      if (typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(postPasteIdleRef.current)
+      } else {
+        window.clearTimeout(postPasteIdleRef.current)
+      }
+    }
     postPasteRafRef.current = window.requestAnimationFrame(() => {
+      if (token !== hydrationTokenRef.current) return
       markPastePerf('paste:raf:start')
       invalidateOverlayMeasurementDoc(ANALYSIS_DOC_ID)
       markPastePerf('paste:cache-invalidated')
@@ -894,6 +932,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       }
 
       scheduleIdle(() => {
+        if (token !== hydrationTokenRef.current) return
         markPastePerf('paste:normalize:start')
         normalizeEditorDom()
         markPastePerf('paste:normalize:done')
@@ -907,11 +946,20 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const processPasteText = useCallback(
     (rawText: string) => {
       const textToInsert = normalizePastedText(rawText)
-      if (!insertPlainTextAtSelection(textToInsert)) return false
-      schedulePostPasteWork()
+      suspendHydrationRef.current = true
+      const token = ++hydrationTokenRef.current
+      if (!insertPlainTextAtSelection(textToInsert)) {
+        if (token === hydrationTokenRef.current) {
+          suspendHydrationRef.current = false
+          beforeInputPasteHandledRef.current = false
+        }
+        return false
+      }
+      scheduleImmediateDomStateSync(token)
+      schedulePostPasteWork(token)
       return true
     },
-    [insertPlainTextAtSelection, normalizePastedText, schedulePostPasteWork]
+    [insertPlainTextAtSelection, normalizePastedText, scheduleImmediateDomStateSync, schedulePostPasteWork]
   )
 
   const extractClipboardText = useCallback((clipboardData: DataTransfer | null) => {
@@ -1121,6 +1169,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   useEffect(() => {
     const el = editorRef.current
     if (!el) return
+    if (suspendHydrationRef.current) return
     if (lastPropTextRef.current === text) return
     lastPropTextRef.current = text
     if (skipHydrateRef.current === text) {
@@ -1388,6 +1437,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         } else {
           window.clearTimeout(postPasteIdleRef.current)
         }
+      }
+      if (postPasteSyncTimerRef.current) {
+        window.clearTimeout(postPasteSyncTimerRef.current)
       }
     }
   }, [])

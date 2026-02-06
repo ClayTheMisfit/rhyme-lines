@@ -98,8 +98,16 @@ describe('Editor line normalization', () => {
       const lines = Array.from(editor.querySelectorAll('.line')) as HTMLDivElement[]
       expect(lines.length).toBeGreaterThanOrEqual(3)
       expect(onTextChange).toHaveBeenCalled()
-      const lastText = onTextChange.mock.calls.at(-1)?.[0] ?? ''
+      let lastText = onTextChange.mock.calls.at(-1)?.[0] ?? ''
       expect(lastText.replace(/\r\n?/g, '\n').trimEnd()).toBe('alpha\nbeta\n\ngamma')
+
+      act(() => {
+        jest.advanceTimersByTime(500)
+      })
+
+      lastText = onTextChange.mock.calls.at(-1)?.[0] ?? ''
+      expect(lastText.replace(/\r\n?/g, '\n').trimEnd()).toBe('alpha\nbeta\n\ngamma')
+      expect(editor.textContent ?? '').toContain('alpha')
       expect(editor.querySelector('span[style], font, strong, em')).toBeNull()
     } finally {
       unmount()
