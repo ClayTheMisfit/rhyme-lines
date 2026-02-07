@@ -39,6 +39,15 @@ const toNumber = (value: unknown, fallback: number): number => (isFiniteNumber(v
 const toBoolean = (value: unknown, fallback: boolean): boolean => (typeof value === 'boolean' ? value : fallback)
 
 const toStringValue = (value: unknown): string | null => (typeof value === 'string' ? value : null)
+const toNumberRecord = (value: unknown): Record<string, number> => {
+  if (!isRecord(value)) return {}
+  const entries = Object.entries(value).flatMap(([key, val]) => {
+    if (typeof key !== 'string') return []
+    if (typeof val !== 'number' || !Number.isFinite(val)) return []
+    return [[key, val]] as Array<[string, number]>
+  })
+  return Object.fromEntries(entries)
+}
 
 const normalizeRhymeFilters = (value: unknown) => {
   const base = { ...DEFAULT_RHYME_FILTERS }
@@ -74,6 +83,13 @@ const normalizeSettings = (value: unknown): SettingsSchema => {
     : undefined
 
   const rhymeFilters = normalizeRhymeFilters(payload.rhymeFilters)
+  const rhymeHighlightEnabled = toBoolean(payload.rhymeHighlightEnabled, DEFAULT_SETTINGS.rhymeHighlightEnabled ?? true)
+  const rhymeIgnoreStopwords = toBoolean(payload.rhymeIgnoreStopwords, DEFAULT_SETTINGS.rhymeIgnoreStopwords ?? true)
+  const rhymeIncludeExactRepeats = toBoolean(
+    payload.rhymeIncludeExactRepeats,
+    DEFAULT_SETTINGS.rhymeIncludeExactRepeats ?? false
+  )
+  const rhymeHighlightColors = toNumberRecord(payload.rhymeHighlightColors)
   const showLineTotals = toBoolean(payload.showLineTotals, DEFAULT_SETTINGS.showLineTotals ?? true)
   const rhymeAutoRefresh = toBoolean(payload.rhymeAutoRefresh, DEFAULT_SETTINGS.rhymeAutoRefresh ?? true)
   const showVariants = toBoolean(payload.showVariants, DEFAULT_SETTINGS.showVariants ?? false)
@@ -88,6 +104,10 @@ const normalizeSettings = (value: unknown): SettingsSchema => {
     highContrast,
     keyboardShortcuts,
     rhymeFilters,
+    rhymeHighlightEnabled,
+    rhymeIgnoreStopwords,
+    rhymeIncludeExactRepeats,
+    rhymeHighlightColors,
     showVariants,
     commonWordsOnly,
     lastUpdatedAt,

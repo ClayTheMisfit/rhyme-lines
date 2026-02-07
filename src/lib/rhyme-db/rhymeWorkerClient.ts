@@ -18,10 +18,19 @@ type RhymesOk = {
 
 type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: WorkerErrorPayload }
 
-type WorkerMessage = InitOk | InitErr | RhymesOk | RhymesErr
+type RhymeKeysOk = {
+  type: 'getRhymeKeys:ok'
+  requestId: string
+  runtimeKey: string
+  keys: Record<string, string | null>
+}
+
+type RhymeKeysErr = { type: 'getRhymeKeys:err'; requestId: string; error: WorkerErrorPayload }
+
+type WorkerMessage = InitOk | InitErr | RhymesOk | RhymesErr | RhymeKeysOk | RhymeKeysErr
 
 type PendingRequest = {
-  resolve: (value: { results: { caret?: string[]; lineLast?: string[] }; debug?: RhymeTargetsDebug }) => void
+  resolve: (value: unknown) => void
   reject: (error: Error) => void
 }
 
@@ -33,6 +42,11 @@ export class RhymeWorkerError extends Error {
     this.name = 'RhymeWorkerError'
     this.code = code
   }
+}
+
+export type RhymeKeyResponse = {
+  runtimeKey: string
+  keys: Record<string, string | null>
 }
 
 export const createRhymeWorkerClient = () => {
@@ -64,7 +78,24 @@ export const createRhymeWorkerClient = () => {
       return
     }
 
+    if (message.type === 'getRhymeKeys:ok') {
+      const request = pending.get(message.requestId)
+      if (request) {
+        pending.delete(message.requestId)
+        request.resolve({ runtimeKey: message.runtimeKey, keys: message.keys })
+      }
+      return
+    }
+
     if (message.type === 'getRhymes:err') {
+      const request = pending.get(message.requestId)
+      if (request) {
+        pending.delete(message.requestId)
+        request.reject(new RhymeWorkerError(message.error.message, message.error.code))
+      }
+    }
+
+    if (message.type === 'getRhymeKeys:err') {
       const request = pending.get(message.requestId)
       if (request) {
         pending.delete(message.requestId)
@@ -128,6 +159,23 @@ export const createRhymeWorkerClient = () => {
     return promise
   }
 
+  const getRhymeKeys = async (tokens: string[]) => {
+    await init()
+    const requestId = `${Date.now()}-${requestCounter += 1}`
+
+    const promise = new Promise<RhymeKeyResponse>((resolve, reject) => {
+      pending.set(requestId, { resolve, reject })
+    })
+
+    worker.postMessage({
+      type: 'getRhymeKeys',
+      requestId,
+      tokens,
+    })
+
+    return promise
+  }
+
   const terminate = () => {
     pending.forEach((request) => {
       request.reject(new Error('Worker terminated'))
@@ -139,6 +187,7 @@ export const createRhymeWorkerClient = () => {
   return {
     init,
     getRhymes,
+    getRhymeKeys,
     getWarning: () => warning,
     getStatus: () => status,
     terminate,

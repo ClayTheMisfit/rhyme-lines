@@ -12,6 +12,7 @@ export type AnalysisResponseV1 = {
   docId: string
   lineTotals: Record<string, number>
   wordSyllables: Record<string, Array<{ start: number; end: number; syllables: number }>>
+  lineTokens: Record<string, Array<{ start: number; end: number; text: string; norm: string; index: number }>>
   timing: { computeMs: number }
 }
 

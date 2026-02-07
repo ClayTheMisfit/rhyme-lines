@@ -24,6 +24,10 @@ export type SettingsState = {
   debounceMode: DebounceMode
   highContrast: boolean
   rhymeFilters: RhymeFilters
+  rhymeHighlightEnabled: boolean
+  rhymeIgnoreStopwords: boolean
+  rhymeIncludeExactRepeats: boolean
+  rhymeHighlightColors: Record<string, number>
   showVariants: boolean
   commonWordsOnly: boolean
   lastUpdatedAt: number
@@ -36,6 +40,10 @@ export type SettingsState = {
   setDebounceMode: (mode: DebounceMode) => void
   setHighContrast: (value: boolean) => void
   setRhymeFilters: (filters: RhymeFilters) => void
+  setRhymeHighlightEnabled: (value: boolean) => void
+  setRhymeIgnoreStopwords: (value: boolean) => void
+  setRhymeIncludeExactRepeats: (value: boolean) => void
+  setRhymeHighlightColors: (value: Record<string, number>) => void
   setShowVariants: (value: boolean) => void
   setCommonWordsOnly: (value: boolean) => void
   resetDefaults: () => void
@@ -59,6 +67,10 @@ const persistSettings = (state: SettingsState) => {
     debounceMode: state.debounceMode,
     highContrast: state.highContrast,
     rhymeFilters: state.rhymeFilters,
+    rhymeHighlightEnabled: state.rhymeHighlightEnabled,
+    rhymeIgnoreStopwords: state.rhymeIgnoreStopwords,
+    rhymeIncludeExactRepeats: state.rhymeIncludeExactRepeats,
+    rhymeHighlightColors: state.rhymeHighlightColors,
     showVariants: state.showVariants,
     commonWordsOnly: state.commonWordsOnly,
     lastUpdatedAt: Date.now(),
@@ -127,6 +139,22 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
     set({ rhymeFilters, lastUpdatedAt: Date.now() })
     schedulePersist(get())
   },
+  setRhymeHighlightEnabled: (rhymeHighlightEnabled) => {
+    set({ rhymeHighlightEnabled, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
+  setRhymeIgnoreStopwords: (rhymeIgnoreStopwords) => {
+    set({ rhymeIgnoreStopwords, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
+  setRhymeIncludeExactRepeats: (rhymeIncludeExactRepeats) => {
+    set({ rhymeIncludeExactRepeats, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
+  setRhymeHighlightColors: (rhymeHighlightColors) => {
+    set({ rhymeHighlightColors, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
   setShowVariants: (showVariants) => {
     void showVariants
     set({ showVariants: false, lastUpdatedAt: Date.now() })
@@ -158,6 +186,10 @@ export type SettingsSnapshot = Pick<
   | 'debounceMode'
   | 'highContrast'
   | 'rhymeFilters'
+  | 'rhymeHighlightEnabled'
+  | 'rhymeIgnoreStopwords'
+  | 'rhymeIncludeExactRepeats'
+  | 'rhymeHighlightColors'
   | 'showVariants'
   | 'commonWordsOnly'
 >
@@ -165,7 +197,9 @@ export type SettingsSnapshot = Pick<
 /**
  * Get a snapshot of the current settings.
  *
- * @returns A SettingsSnapshot containing the current values for `theme`, `fontSize`, `lineHeight`, `badgeSize`, `showLineTotals`, `rhymeAutoRefresh`, `debounceMode`, `highContrast`, `rhymeFilters`, `showVariants`, and `commonWordsOnly`.
+ * @returns A SettingsSnapshot containing the current values for `theme`, `fontSize`, `lineHeight`, `badgeSize`,
+ * `showLineTotals`, `rhymeAutoRefresh`, `debounceMode`, `highContrast`, `rhymeFilters`, `rhymeHighlightEnabled`,
+ * `rhymeIgnoreStopwords`, `rhymeIncludeExactRepeats`, `rhymeHighlightColors`, `showVariants`, and `commonWordsOnly`.
  */
 export function getCurrentSettingsSnapshot(): SettingsSnapshot {
   const {
@@ -178,6 +212,10 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     debounceMode,
     highContrast,
     rhymeFilters,
+    rhymeHighlightEnabled,
+    rhymeIgnoreStopwords,
+    rhymeIncludeExactRepeats,
+    rhymeHighlightColors,
     showVariants,
     commonWordsOnly,
   } = useSettingsStore.getState()
@@ -191,6 +229,10 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     debounceMode,
     highContrast,
     rhymeFilters,
+    rhymeHighlightEnabled,
+    rhymeIgnoreStopwords,
+    rhymeIncludeExactRepeats,
+    rhymeHighlightColors,
     showVariants,
     commonWordsOnly,
   }
@@ -212,6 +254,10 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
     setDebounceMode,
     setHighContrast,
     setRhymeFilters,
+    setRhymeHighlightEnabled,
+    setRhymeIgnoreStopwords,
+    setRhymeIncludeExactRepeats,
+    setRhymeHighlightColors,
     setShowVariants,
     setCommonWordsOnly,
   } = useSettingsStore.getState()
@@ -225,6 +271,10 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
   setDebounceMode(snapshot.debounceMode)
   setHighContrast(snapshot.highContrast)
   setRhymeFilters(snapshot.rhymeFilters)
+  setRhymeHighlightEnabled(snapshot.rhymeHighlightEnabled)
+  setRhymeIgnoreStopwords(snapshot.rhymeIgnoreStopwords)
+  setRhymeIncludeExactRepeats(snapshot.rhymeIncludeExactRepeats)
+  setRhymeHighlightColors(snapshot.rhymeHighlightColors)
   setShowVariants(snapshot.showVariants)
   setCommonWordsOnly(snapshot.commonWordsOnly)
 }

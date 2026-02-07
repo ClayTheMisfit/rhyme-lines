@@ -25,6 +25,9 @@ describe('settings store', () => {
     expect(state.rhymeAutoRefresh).toBe(SETTINGS_DEFAULTS.rhymeAutoRefresh)
     expect(state.debounceMode).toBe(SETTINGS_DEFAULTS.debounceMode)
     expect(state.highContrast).toBe(SETTINGS_DEFAULTS.highContrast)
+    expect(state.rhymeHighlightEnabled).toBe(SETTINGS_DEFAULTS.rhymeHighlightEnabled)
+    expect(state.rhymeIgnoreStopwords).toBe(SETTINGS_DEFAULTS.rhymeIgnoreStopwords)
+    expect(state.rhymeIncludeExactRepeats).toBe(SETTINGS_DEFAULTS.rhymeIncludeExactRepeats)
   })
 
   it('persists updates to localStorage', () => {

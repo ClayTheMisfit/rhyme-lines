@@ -1,27 +1,30 @@
-import type { OverlayToken } from '@/components/editor/SyllableOverlay'
-
 type LayoutKey = string
 
 type CachedLine = {
   layoutKey: LayoutKey
   contentSignature: string
-  tokens: OverlayToken[]
-  lineOffset: number
+  lineOffset?: number
+  overlays: Partial<Record<OverlayKind, { tokens: unknown[] }>>
 }
 
 type DocCache = Map<string, CachedLine>
 
+export type OverlayKind = 'syllables' | 'rhymes'
+
 export class GeometryCache {
   private store = new Map<string, DocCache>()
 
-  get(docId: string, lineId: string, layoutKey: LayoutKey, contentSignature: string) {
+  get<T>(docId: string, lineId: string, layoutKey: LayoutKey, contentSignature: string, overlay: OverlayKind) {
     const doc = this.store.get(docId)
     if (!doc) return null
     const entry = doc.get(lineId)
     if (!entry) return null
     if (entry.layoutKey !== layoutKey) return null
     if (entry.contentSignature !== contentSignature) return null
-    return entry
+    const overlayEntry = entry.overlays[overlay]
+    if (!overlayEntry) return null
+    if (overlay === 'syllables' && typeof entry.lineOffset !== 'number') return null
+    return { tokens: overlayEntry.tokens as T[], lineOffset: entry.lineOffset }
   }
 
   set(
@@ -29,19 +32,27 @@ export class GeometryCache {
     lineId: string,
     layoutKey: LayoutKey,
     contentSignature: string,
-    payload: { tokens: OverlayToken[]; lineOffset: number }
+    overlay: OverlayKind,
+    payload: { tokens: unknown[]; lineOffset?: number }
   ) {
     if (!this.store.has(docId)) {
       this.store.set(docId, new Map())
     }
     const doc = this.store.get(docId)
     if (!doc) return
-    doc.set(lineId, {
-      layoutKey,
-      contentSignature,
-      tokens: payload.tokens,
-      lineOffset: payload.lineOffset,
-    })
+    const existing = doc.get(lineId)
+    const resetEntry =
+      !existing || existing.layoutKey !== layoutKey || existing.contentSignature !== contentSignature
+    const entry: CachedLine = resetEntry
+      ? { layoutKey, contentSignature, overlays: {} }
+      : { ...existing, overlays: { ...existing.overlays } }
+
+    entry.overlays[overlay] = { tokens: payload.tokens }
+    if (payload.lineOffset !== undefined) {
+      entry.lineOffset = payload.lineOffset
+    }
+
+    doc.set(lineId, entry)
   }
 
   invalidateLine(docId: string, lineId: string) {

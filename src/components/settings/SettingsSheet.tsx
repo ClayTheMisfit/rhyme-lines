@@ -54,6 +54,9 @@ export function SettingsSheet() {
     showLineTotals,
     rhymeAutoRefresh,
     debounceMode,
+    rhymeHighlightEnabled,
+    rhymeIgnoreStopwords,
+    rhymeIncludeExactRepeats,
     setTheme,
     setFontSize,
     setLineHeight,
@@ -61,6 +64,9 @@ export function SettingsSheet() {
     setShowLineTotals,
     setRhymeAutoRefresh,
     setDebounceMode,
+    setRhymeHighlightEnabled,
+    setRhymeIgnoreStopwords,
+    setRhymeIncludeExactRepeats,
     resetDefaults,
   } = useSettingsStore(
     useCallback(
@@ -72,6 +78,9 @@ export function SettingsSheet() {
         showLineTotals: state.showLineTotals,
         rhymeAutoRefresh: state.rhymeAutoRefresh,
         debounceMode: state.debounceMode,
+        rhymeHighlightEnabled: state.rhymeHighlightEnabled,
+        rhymeIgnoreStopwords: state.rhymeIgnoreStopwords,
+        rhymeIncludeExactRepeats: state.rhymeIncludeExactRepeats,
         setTheme: state.setTheme,
         setFontSize: state.setFontSize,
         setLineHeight: state.setLineHeight,
@@ -79,6 +88,9 @@ export function SettingsSheet() {
         setShowLineTotals: state.setShowLineTotals,
         setRhymeAutoRefresh: state.setRhymeAutoRefresh,
         setDebounceMode: state.setDebounceMode,
+        setRhymeHighlightEnabled: state.setRhymeHighlightEnabled,
+        setRhymeIgnoreStopwords: state.setRhymeIgnoreStopwords,
+        setRhymeIncludeExactRepeats: state.setRhymeIncludeExactRepeats,
         resetDefaults: state.resetDefaults,
       }),
       []
@@ -314,6 +326,52 @@ export function SettingsSheet() {
               </div>
             </section>
 
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Rhyme highlighting</h3>
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-white/80">
+                <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={rhymeHighlightEnabled}
+                    onChange={(event) => setRhymeHighlightEnabled(event.target.checked)}
+                    aria-label="Rhyme highlighting"
+                    data-testid="settings-rhyme-highlight"
+                  />
+                  <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                </span>
+                Rhyme highlighting
+              </label>
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-white/80">
+                <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={rhymeIgnoreStopwords}
+                    onChange={(event) => setRhymeIgnoreStopwords(event.target.checked)}
+                    aria-label="Ignore stopwords"
+                    data-testid="settings-rhyme-stopwords"
+                  />
+                  <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                </span>
+                Ignore stopwords
+              </label>
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-white/80">
+                <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={rhymeIncludeExactRepeats}
+                    onChange={(event) => setRhymeIncludeExactRepeats(event.target.checked)}
+                    aria-label="Include exact repeats"
+                    data-testid="settings-rhyme-repeats"
+                  />
+                  <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                </span>
+                Include exact repeats (underline)
+              </label>
+            </section>
+
             <section className="md:col-span-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Keyboard</h3>
               <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/80 sm:grid-cols-2">
@@ -369,11 +427,17 @@ export function SettingsSheet() {
       lineHeight,
       panelId,
       resetDefaults,
+      rhymeHighlightEnabled,
+      rhymeIgnoreStopwords,
+      rhymeIncludeExactRepeats,
       rhymeAutoRefresh,
       setBadgeSize,
       setDebounceMode,
       setFontSize,
       setLineHeight,
+      setRhymeHighlightEnabled,
+      setRhymeIgnoreStopwords,
+      setRhymeIncludeExactRepeats,
       setRhymeAutoRefresh,
       setShowLineTotals,
       setTheme,

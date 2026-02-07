@@ -11,6 +11,7 @@ import { hydrateBadgeSettings } from '@/store/settings'
 import { loadPersistedAppState } from '@/lib/persist/appState'
 import { shallow } from 'zustand/shallow'
 import { useHydrated } from '@/hooks/useHydrated'
+import { CommandPalette } from '@/components/CommandPalette'
 
 export default function EditorShell() {
   const shellRef = useRef<HTMLDivElement | null>(null)
@@ -171,6 +172,7 @@ export default function EditorShell() {
             onDirtyChange={handleDirtyChange}
           />
           <RhymePanel ref={floatingPanelRef} editorRef={editorRef} />
+          <CommandPalette />
         </div>
       )}
     </div>

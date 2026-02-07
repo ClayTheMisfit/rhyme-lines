@@ -20,6 +20,10 @@ export interface SettingsSchema {
   highContrast?: boolean
   keyboardShortcuts?: Record<string, string>
   rhymeFilters: RhymeFilters
+  rhymeHighlightEnabled?: boolean
+  rhymeIgnoreStopwords?: boolean
+  rhymeIncludeExactRepeats?: boolean
+  rhymeHighlightColors?: Record<string, number>
   includeRareRhymes?: boolean
   showVariants?: boolean
   commonWordsOnly?: boolean
@@ -86,6 +90,10 @@ export const DEFAULT_SETTINGS: SettingsSchema = {
   lineHeight: 1.6,
   highContrast: false,
   rhymeFilters: { ...DEFAULT_RHYME_FILTERS },
+  rhymeHighlightEnabled: true,
+  rhymeIgnoreStopwords: true,
+  rhymeIncludeExactRepeats: false,
+  rhymeHighlightColors: {},
   showVariants: false,
   commonWordsOnly: false,
   lastUpdatedAt: 0,

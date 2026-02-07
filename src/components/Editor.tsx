@@ -1,11 +1,12 @@
 'use client'
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
 import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
 import { SyllableOverlay } from '@/components/editor/SyllableOverlay'
+import { RhymeHighlightOverlay } from '@/components/editor/RhymeHighlightOverlay'
 import { useBadgeSettings } from '@/store/settings'
 import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
 import { useAnalysisWorker } from '@/hooks/useAnalysisWorker'
@@ -13,7 +14,10 @@ import type { LineInput } from '@/lib/analysis/compute'
 import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
 import { useViewportWindow } from '@/hooks/useViewportWindow'
 import { useOverlayMeasurement } from '@/hooks/useOverlayMeasurement'
+import { useRhymeOverlayMeasurement } from '@/hooks/useRhymeOverlayMeasurement'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
+import { useRhymeHighlights } from '@/hooks/useRhymeHighlights'
+import { assignHighlightColors, getPaletteColor } from '@/lib/rhyme/highlightColors'
 
 const PLACEHOLDER_TEXT = 'Start writing...'
 const SAVE_STATUS_DELAY_MS = 200
@@ -89,12 +93,27 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const debugLogRef = useRef(0)
   const debugForceRef = useRef({ forceShow: false })
 
-  const { fontSize, lineHeight, showLineTotals, theme } = useSettingsStore(
+  const {
+    fontSize,
+    lineHeight,
+    showLineTotals,
+    theme,
+    rhymeHighlightEnabled,
+    rhymeIgnoreStopwords,
+    rhymeIncludeExactRepeats,
+    rhymeHighlightColors,
+    setRhymeHighlightColors,
+  } = useSettingsStore(
     (state) => ({
       fontSize: state.fontSize,
       lineHeight: state.lineHeight,
       showLineTotals: state.showLineTotals,
       theme: state.theme,
+      rhymeHighlightEnabled: state.rhymeHighlightEnabled,
+      rhymeIgnoreStopwords: state.rhymeIgnoreStopwords,
+      rhymeIncludeExactRepeats: state.rhymeIncludeExactRepeats,
+      rhymeHighlightColors: state.rhymeHighlightColors,
+      setRhymeHighlightColors: state.setRhymeHighlightColors,
     }),
     shallow
   )
@@ -116,6 +135,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     bufferLines: 12,
   })
   const overlayEnabled = showOverlays && badgeMode !== 'off'
+  const rhymeHighlightActive = showOverlays && rhymeHighlightEnabled
   const { tokens, measurementMeta } = useOverlayMeasurement({
     docId: ANALYSIS_DOC_ID,
     enabled: overlayEnabled,
@@ -130,6 +150,58 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     fontSize,
     lineHeight,
   })
+  const { tokens: rhymeOverlayTokens } = useRhymeOverlayMeasurement({
+    docId: ANALYSIS_DOC_ID,
+    enabled: rhymeHighlightActive,
+    editorRef,
+    containerRef,
+    lineElementsRef,
+    lineVersion,
+    activeLineIds,
+    lines: lineInputs,
+    analysis,
+    theme,
+    fontSize,
+    lineHeight,
+  })
+  const highlightResult = useRhymeHighlights({
+    analysis,
+    enabled: rhymeHighlightActive,
+    ignoreStopwords: rhymeIgnoreStopwords,
+    includeExactRepeats: rhymeIncludeExactRepeats,
+    lines: lineInputs,
+  })
+  const highlightColorAssignment = useMemo(
+    () => assignHighlightColors(highlightResult.groups, rhymeHighlightColors),
+    [highlightResult.groups, rhymeHighlightColors]
+  )
+  useEffect(() => {
+    if (!highlightColorAssignment.didUpdate) return
+    setRhymeHighlightColors(highlightColorAssignment.map)
+  }, [highlightColorAssignment, setRhymeHighlightColors])
+
+  const rhymeHighlightItems = useMemo(() => {
+    if (!rhymeHighlightActive) return []
+    const items: Array<{
+      id: string
+      kind: 'perfect' | 'exact'
+      color: string
+      rect: { top: number; left: number; width: number; height: number }
+    }> = []
+    for (const token of rhymeOverlayTokens) {
+      const assignment = highlightResult.assignments.get(`${token.lineId}:${token.tokenIndex}`)
+      if (!assignment) continue
+      const colorIndex = highlightColorAssignment.map[assignment.groupKey]
+      if (colorIndex === undefined) continue
+      items.push({
+        id: `${token.lineId}-${token.tokenIndex}-${assignment.groupKey}`,
+        kind: assignment.kind,
+        color: getPaletteColor(colorIndex),
+        rect: token.rect,
+      })
+    }
+    return items
+  }, [highlightColorAssignment.map, highlightResult.assignments, rhymeHighlightActive, rhymeOverlayTokens])
 
   const captureSelectionSnapshot = useCallback(() => {
     if (typeof window === 'undefined') return null
@@ -723,6 +795,27 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [logDebugEvent, replacePlaceholderWithEmptyLine, setCaretToLineStart]
   )
 
+  const handlePaste = useCallback(
+    (event: React.ClipboardEvent<HTMLDivElement>) => {
+      const node = editorRef.current
+      if (!node) return
+      const text = event.clipboardData?.getData('text/plain') ?? ''
+      if (!text) return
+      const selection = window.getSelection()
+      if (!selection || selection.rangeCount === 0) return
+      const range = selection.getRangeAt(0)
+      if (!node.contains(range.commonAncestorContainer)) return
+      event.preventDefault()
+      const normalized = text.replace(/\r\n?/g, '\n')
+      const inserted = insertText(normalized)
+      if (!inserted) return
+      requestAnimationFrame(() => {
+        handleChange()
+      })
+    },
+    [handleChange, insertText]
+  )
+
   const handleSelectionChange = useCallback(() => {
     scheduleCurrentLineHighlight()
     if (analysisLinesRef.current.length) {
@@ -992,6 +1085,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                   data-testid="active-line-highlight"
                   id="rl-active-line-highlight"
                 />
+                <RhymeHighlightOverlay items={rhymeHighlightItems} enabled={rhymeHighlightActive} />
                 {DEBUG_ACTIVE_LINE ? (
                   <div
                     className="rl-current-line-debug"
@@ -1035,6 +1129,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 data-layer="editable"
                 onBeforeInput={handleBeforeInput}
                 onInput={handleInputEvent}
+                onPaste={handlePaste}
                 onFocus={() => setIsEditorFocused(true)}
                 onBlur={() => {
                   setIsEditorFocused(false)

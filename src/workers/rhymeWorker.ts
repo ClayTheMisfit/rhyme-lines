@@ -24,6 +24,12 @@ type GetRhymesMsg = {
   context?: RhymeQueryContext
 }
 
+type GetRhymeKeysMsg = {
+  type: 'getRhymeKeys'
+  requestId: string
+  tokens: string[]
+}
+
 type InitOk = { type: 'init:ok'; warning?: string; status?: RhymeDbLoadStatus }
 
 type WorkerErrorPayload = { message: string; code?: 'DB_UNAVAILABLE' }
@@ -40,9 +46,18 @@ type RhymesOk = {
 
 type RhymesErr = { type: 'getRhymes:err'; requestId: string; error: WorkerErrorPayload }
 
-type IncomingMessage = InitMsg | GetRhymesMsg
+type RhymeKeysOk = {
+  type: 'getRhymeKeys:ok'
+  requestId: string
+  runtimeKey: string
+  keys: Record<string, string | null>
+}
 
-type OutgoingMessage = InitOk | InitErr | RhymesOk | RhymesErr
+type RhymeKeysErr = { type: 'getRhymeKeys:err'; requestId: string; error: WorkerErrorPayload }
+
+type IncomingMessage = InitMsg | GetRhymesMsg | GetRhymeKeysMsg
+
+type OutgoingMessage = InitOk | InitErr | RhymesOk | RhymesErr | RhymeKeysOk | RhymeKeysErr
 
 class LruCache<K, V> {
   private map = new Map<K, V>()
@@ -134,6 +149,40 @@ const validateDb = (db: RhymeDbV1) => {
   return null
 }
 
+const getPostingSize = (index: RhymeIndex, key: string) => {
+  let low = 0
+  let high = index.keys.length - 1
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2)
+    const value = index.keys[mid]
+    if (value === key) {
+      const start = index.offsets[mid]
+      const end = index.offsets[mid + 1]
+      return Math.max(0, end - start)
+    }
+    if (value < key) {
+      low = mid + 1
+    } else {
+      high = mid - 1
+    }
+  }
+  return 0
+}
+
+const selectBestPerfectKey = (index: RhymeIndex, keys: string[]) => {
+  if (!keys.length) return null
+  let bestKey = keys[0]
+  let bestSize = -1
+  for (const key of keys) {
+    const size = getPostingSize(index, key)
+    if (size > bestSize || (size === bestSize && key < bestKey)) {
+      bestKey = key
+      bestSize = size
+    }
+  }
+  return bestKey
+}
+
 const cache = new LruCache<string, { results: { caret?: string[]; lineLast?: string[] }; debug?: RhymeTargetsDebug }>(2000)
 
 let runtimeDb: RhymeDbRuntime | null = null
@@ -141,6 +190,7 @@ let initPromise: Promise<void> | null = null
 let baseUrl: string | null = null
 let initWarning: string | null = null
 let loadStatus: RhymeDbLoadStatus | null = null
+let runtimeKey = 'none'
 
 const LEGACY_WARNING = 'Using legacy rhyme DB (v1); rebuild v2 for best results.'
 
@@ -275,6 +325,7 @@ const loadDb = async () => {
 
   const freqAvailable = Array.isArray(db.freqByWordId) && db.freqByWordId.length === db.words.length
   runtimeDb = Object.assign(db, { runtime: runtimeMaps, runtimeLookups, freqAvailable })
+  runtimeKey = `cmu:v${db.version}`
 }
 
 const ensureInit = async () => {
@@ -391,5 +442,52 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
     }
 
     void handleGetRhymes()
+  }
+
+  if (message.type === 'getRhymeKeys') {
+    const handleGetRhymeKeys = async () => {
+      try {
+        await ensureInit()
+      } catch (error) {
+        const messageText = error instanceof Error ? error.message : 'Failed to initialize rhyme db'
+        const payload: WorkerErrorPayload = {
+          message: messageText,
+          code: (error as Error & { code?: 'DB_UNAVAILABLE' }).code,
+        }
+        post({ type: 'getRhymeKeys:err', requestId: message.requestId, error: payload })
+        return
+      }
+
+      if (!runtimeDb) {
+        post({
+          type: 'getRhymeKeys:ok',
+          requestId: message.requestId,
+          runtimeKey: 'none',
+          keys: {},
+        })
+        return
+      }
+
+      const activeDb = runtimeDb
+      const keys: Record<string, string | null> = {}
+      for (const token of message.tokens) {
+        const normalized = normalizeToken(token)
+        if (!normalized) {
+          keys[token] = null
+          continue
+        }
+        const wordId = activeDb.runtimeLookups?.wordToId.get(normalized)
+        if (wordId === undefined) {
+          keys[token] = null
+          continue
+        }
+        const perfectKeys = activeDb.runtime?.perfectKeysByWordId?.[wordId] ?? []
+        keys[token] = selectBestPerfectKey(activeDb.indexes.perfect, perfectKeys)
+      }
+
+      post({ type: 'getRhymeKeys:ok', requestId: message.requestId, runtimeKey, keys })
+    }
+
+    void handleGetRhymeKeys()
   }
 })
