@@ -44,8 +44,14 @@ export default function TopBar() {
   const saveStartDelayRef = useRef<number | null>(null)
   const lastSaveTabIdRef = useRef<string | null>(null)
 
-  const theme = useSettingsStore((state) => state.theme)
-  const setThemePreference = useSettingsStore((state) => state.setTheme)
+  const { theme, setThemePreference, showRhymeDecorations, setShowRhymeDecorations } = useSettingsStore(
+    (state) => ({
+      theme: state.theme,
+      setThemePreference: state.setTheme,
+      showRhymeDecorations: state.showRhymeDecorations,
+      setShowRhymeDecorations: state.setShowRhymeDecorations,
+    })
+  )
   const { resolvedTheme, setTheme: setResolvedTheme } = useTheme()
 
   const { togglePanel } = useRhymePanelStore((state) => ({ togglePanel: state.togglePanel }), shallow)
@@ -193,6 +199,10 @@ export default function TopBar() {
     setResolvedTheme(next)
   }, [setResolvedTheme, setThemePreference, theme])
 
+  const toggleRhymeDecorations = useCallback(() => {
+    setShowRhymeDecorations(!showRhymeDecorations)
+  }, [setShowRhymeDecorations, showRhymeDecorations])
+
   const handleRename = useCallback(
     (id: string, title: string) => {
       actions.renameTab(id, title)
@@ -249,6 +259,22 @@ export default function TopBar() {
           title="Toggle theme"
         >
           {theme === 'dark' ? '☀️' : '🌙'}
+        </motion.button>
+
+        <motion.button
+          suppressHydrationWarning
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          onClick={toggleRhymeDecorations}
+          className={cx(
+            'inline-flex h-9 w-9 items-center justify-center rounded-md text-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30',
+            showRhymeDecorations ? 'text-white bg-white/10' : 'text-white/80 hover:text-white'
+          )}
+          title={showRhymeDecorations ? 'Hide rhyme highlights' : 'Show rhyme highlights'}
+          aria-pressed={showRhymeDecorations}
+        >
+          ✨
         </motion.button>
 
         <motion.button

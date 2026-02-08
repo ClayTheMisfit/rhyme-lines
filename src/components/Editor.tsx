@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
@@ -14,6 +14,9 @@ import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
 import { useViewportWindow } from '@/hooks/useViewportWindow'
 import { useOverlayMeasurement } from '@/hooks/useOverlayMeasurement'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
+import { buildRhymeDecorations, DEFAULT_UNDERLINE_TARGETS } from '@/lib/rhyme/rhymeDecorations'
+import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
+import { RhymeDecorationOverlay } from '@/components/editor/RhymeDecorationOverlay'
 
 const PLACEHOLDER_TEXT = 'Start writing...'
 const SAVE_STATUS_DELAY_MS = 200
@@ -89,11 +92,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const debugLogRef = useRef(0)
   const debugForceRef = useRef({ forceShow: false })
 
-  const { fontSize, lineHeight, showLineTotals, theme } = useSettingsStore(
+  const { fontSize, lineHeight, showLineTotals, showRhymeDecorations, theme } = useSettingsStore(
     (state) => ({
       fontSize: state.fontSize,
       lineHeight: state.lineHeight,
       showLineTotals: state.showLineTotals,
+      showRhymeDecorations: state.showRhymeDecorations,
       theme: state.theme,
     }),
     shallow
@@ -129,6 +133,20 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     theme,
     fontSize,
     lineHeight,
+  })
+
+  const rhymeDecorations = useMemo(
+    () => buildRhymeDecorations(lineInputs, DEFAULT_UNDERLINE_TARGETS),
+    [lineInputs]
+  )
+
+  const rhymeRects = useRhymeDecorationOverlay({
+    enabled: showRhymeDecorations,
+    editorRef,
+    lineElementsRef,
+    decorations: rhymeDecorations,
+    viewportRange,
+    lineVersion,
   })
 
   const captureSelectionSnapshot = useCallback(() => {
@@ -1005,6 +1023,15 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                     )} lineLeft:${Math.round(lineHighlight.debugLineLeft)}`}
                   </div>
                 ) : null}
+              </div>
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{ zIndex: 15 }}
+                aria-hidden="true"
+                data-layer="rhyme-decoration"
+                contentEditable={false}
+              >
+                <RhymeDecorationOverlay rects={rhymeRects} enabled={showRhymeDecorations} />
               </div>
               {/* Overlay for syllable badges */}
               <div

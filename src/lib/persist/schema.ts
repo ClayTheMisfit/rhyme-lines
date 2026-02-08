@@ -26,6 +26,7 @@ export interface SettingsSchema {
   lastUpdatedAt: number
   badgeSize?: BadgeSize
   showLineTotals?: boolean
+  showRhymeDecorations?: boolean
   rhymeAutoRefresh?: boolean
   debounceMode?: DebounceMode
 }
@@ -91,6 +92,7 @@ export const DEFAULT_SETTINGS: SettingsSchema = {
   lastUpdatedAt: 0,
   badgeSize: 'sm',
   showLineTotals: true,
+  showRhymeDecorations: true,
   rhymeAutoRefresh: true,
   debounceMode: 'typing-250',
 }

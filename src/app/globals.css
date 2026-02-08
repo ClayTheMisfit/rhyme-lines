@@ -226,6 +226,23 @@ body.bg-white .rl-current-line-highlight {
   --rl-active-line-border: rgba(0, 0, 0, 0.04);
 }
 
+.rl-rhyme-highlight {
+  position: absolute;
+  border-radius: 0.35rem;
+  background: var(--rhyme-color, rgba(148, 163, 184, 0.2));
+  pointer-events: none;
+  transform: translateZ(0);
+}
+
+.rl-rhyme-underline {
+  position: absolute;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--rhyme-color, rgba(148, 163, 184, 0.6));
+  pointer-events: none;
+  transform: translateZ(0);
+}
+
 /* Light theme editor styling */
 body.bg-white .editor-surface {
   background-color: #ffffff;  /* Clean white background */
