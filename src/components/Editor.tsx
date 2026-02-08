@@ -649,7 +649,17 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     }, SAVE_STATUS_DELAY_MS)
   }, [])
 
-  const handleChange = useCallback(() => {
+  const schedulePostLayoutMeasurement = useCallback(() => {
+    if (typeof window === 'undefined') return
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        setLineVersion((v) => v + 1)
+        scheduleCurrentLineHighlight({ immediate: true })
+      })
+    })
+  }, [scheduleCurrentLineHighlight])
+
+  const commitEditorChange = useCallback((source: 'input' | 'paste' | 'drop' | 'program' = 'input') => {
     ensureLineStructure()
     syncPlaceholderLine()
     const el = editorRef.current
@@ -663,8 +673,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     analysisLinesRef.current = collectedLines
     setLineInputs(collectedLines)
     setLines(collectedLines.map((line) => line.text))
-    scheduleAnalysis(collectedLines, 'typing')
+    const analysisMode = source === 'paste' || source === 'drop' ? 'caret' : 'typing'
+    scheduleAnalysis(collectedLines, analysisMode)
     setLineVersion((v) => v + 1)
+    if (source === 'paste' || source === 'drop') {
+      schedulePostLayoutMeasurement()
+    }
 
     const serialized = serializeFromEditor(el)
     if (serialized !== lastSerializedRef.current) {
@@ -683,8 +697,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     onDirtyChange,
     onTextChange,
     scheduleAnalysis,
+    schedulePostLayoutMeasurement,
     syncPlaceholderLine,
-    updateCurrentLineHighlight,
   ])
 
   const handleShortcutKeyDown = useCallback(
@@ -714,9 +728,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         data: nativeEvent?.data ?? null,
         defaultPrevented: nativeEvent?.defaultPrevented ?? event.isDefaultPrevented(),
       })
-      handleChange()
+      commitEditorChange('input')
     },
-    [handleChange, logDebugEvent]
+    [commitEditorChange, logDebugEvent]
   )
 
   const handleBeforeInput = useCallback(
@@ -957,6 +971,35 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [ensureEditorFocus]
   )
 
+  const insertPlainText = useCallback(
+    (textToInsert: string) => {
+      const node = editorRef.current
+      if (!node) return false
+      ensureEditorFocus()
+      const normalized = textToInsert.replace(/\r\n?/g, '\n')
+      if (typeof document.execCommand === 'function') {
+        return document.execCommand('insertText', false, normalized)
+      }
+      const selection = window.getSelection()
+      if (!selection) return false
+      const range =
+        selection.rangeCount > 0 ? selection.getRangeAt(0) : document.createRange()
+      if (selection.rangeCount === 0) {
+        range.selectNodeContents(node)
+        range.collapse(false)
+      }
+      range.deleteContents()
+      const textNode = document.createTextNode(normalized)
+      range.insertNode(textNode)
+      range.setStartAfter(textNode)
+      range.setEndAfter(textNode)
+      selection.removeAllRanges()
+      selection.addRange(range)
+      return true
+    },
+    [ensureEditorFocus]
+  )
+
   const handleAssignEditorRef = useCallback(
     (node: HTMLDivElement | null) => {
       editorRef.current = node
@@ -1065,9 +1108,16 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onFocus={() => setIsEditorFocused(true)}
                 onBlur={() => {
                   setIsEditorFocused(false)
-                  handleChange()
+                  commitEditorChange('input')
                 }}
                 onKeyDown={handleShortcutKeyDown}
+                onPaste={(event) => {
+                  const clipboardText = event.clipboardData?.getData('text/plain') ?? ''
+                  if (!clipboardText) return
+                  event.preventDefault()
+                  insertPlainText(clipboardText)
+                  commitEditorChange('paste')
+                }}
                 onCompositionStart={() => {
                   composingRef.current = true
                 }}
@@ -1077,7 +1127,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 }}
                 onClick={(event) => {
                   ensureEditorFocus()
-                  handleChange()
+                  commitEditorChange('input')
                   event.stopPropagation()
                 }}
                 onPointerDown={ensureEditorFocus}
