@@ -676,9 +676,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const analysisMode = source === 'paste' || source === 'drop' ? 'caret' : 'typing'
     scheduleAnalysis(collectedLines, analysisMode)
     setLineVersion((v) => v + 1)
-    if (source === 'paste' || source === 'drop') {
-      schedulePostLayoutMeasurement()
-    }
 
     const serialized = serializeFromEditor(el)
     if (serialized !== lastSerializedRef.current) {
@@ -697,9 +694,28 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     onDirtyChange,
     onTextChange,
     scheduleAnalysis,
-    schedulePostLayoutMeasurement,
     syncPlaceholderLine,
   ])
+
+  const scheduleSyncFromDom = useCallback(
+    (source: 'paste' | 'drop') => {
+      if (typeof window === 'undefined') return
+      const run = () => {
+        window.requestAnimationFrame(() => {
+          commitEditorChange(source)
+          window.requestAnimationFrame(() => {
+            schedulePostLayoutMeasurement()
+          })
+        })
+      }
+      if (typeof queueMicrotask === 'function') {
+        queueMicrotask(run)
+      } else {
+        Promise.resolve().then(run)
+      }
+    },
+    [commitEditorChange, schedulePostLayoutMeasurement]
+  )
 
   const handleShortcutKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -1116,7 +1132,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                   if (!clipboardText) return
                   event.preventDefault()
                   insertPlainText(clipboardText)
-                  commitEditorChange('paste')
+                  scheduleSyncFromDom('paste')
                 }}
                 onCompositionStart={() => {
                   composingRef.current = true
