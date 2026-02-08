@@ -6,7 +6,7 @@ type ViewportRange = { start: number; end: number }
 export type RhymeDecorationRect = {
   id: string
   lineId: string
-  familyId: number
+  familyId?: number
   underline: boolean
   rect: {
     left: number

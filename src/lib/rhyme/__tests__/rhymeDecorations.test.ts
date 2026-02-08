@@ -1,5 +1,10 @@
 import { tokenizeLine, isWordLikeToken } from '@/lib/analysis/tokenize'
-import { computeRhymeFamilies, getRhymeFamilyKey, normalizeWord } from '@/lib/rhyme/rhymeDecorations'
+import {
+  buildRhymeDecorations,
+  computeRhymeFamilies,
+  getRhymeFamilyKey,
+  normalizeWord,
+} from '@/lib/rhyme/rhymeDecorations'
 
 type TokenInput = { id: string; rhymeKey: string }
 
@@ -30,6 +35,28 @@ describe('computeRhymeFamilies', () => {
     expect(familyIdByRhymeKey.size).toBe(1)
     expect(familyIdByTokenId.size).toBe(2)
     const familyIds = new Set(familyIdByTokenId.values())
+    expect(familyIds.size).toBe(1)
+  })
+})
+
+describe('buildRhymeDecorations', () => {
+  it('leaves familyId undefined when no rhyme families exist', () => {
+    const lines = [{ id: 'line-0', text: 'hey my name is clayton' }]
+    const result = buildRhymeDecorations(lines, [])
+    const tokens = result.tokensByLine.get('line-0') ?? []
+
+    expect(result.familyCount).toBe(0)
+    expect(tokens.every((token) => token.familyId === undefined)).toBe(true)
+  })
+
+  it('assigns the same familyId to a rhyme pair', () => {
+    const lines = [{ id: 'line-0', text: 'cat hat' }]
+    const result = buildRhymeDecorations(lines, [])
+    const tokens = result.tokensByLine.get('line-0') ?? []
+    const familyIds = new Set(tokens.map((token) => token.familyId))
+
+    expect(result.familyCount).toBe(1)
+    expect(familyIds.has(undefined)).toBe(false)
     expect(familyIds.size).toBe(1)
   })
 })

@@ -17,6 +17,9 @@ export function RhymeDecorationOverlay({ rects, enabled }: RhymeDecorationOverla
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden="true">
       {rects.map((rect) => {
+        if (rect.familyId === undefined) {
+          return null
+        }
         const color = palette[rect.familyId % palette.length]
         return (
           <div key={rect.id}>
