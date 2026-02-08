@@ -795,6 +795,45 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [logDebugEvent, replacePlaceholderWithEmptyLine, setCaretToLineStart]
   )
 
+  const ensureEditorFocus = useCallback(() => {
+    const node = editorRef.current
+    if (!node) return
+    if (document.activeElement !== node) {
+      node.focus({ preventScroll: true })
+    }
+  }, [])
+
+  // Keep insertText declared before hooks that reference it to avoid TDZ build errors in deps.
+  const insertText = useCallback(
+    (textToInsert: string) => {
+      const node = editorRef.current
+      if (!node) return false
+      ensureEditorFocus()
+      try {
+        const selection = window.getSelection()
+        if (!selection) return false
+        const range =
+          selection.rangeCount > 0 ? selection.getRangeAt(0) : document.createRange()
+        if (selection.rangeCount === 0) {
+          range.selectNodeContents(node)
+          range.collapse(false)
+        }
+        range.deleteContents()
+        const textNode = document.createTextNode(textToInsert)
+        range.insertNode(textNode)
+        range.setStartAfter(textNode)
+        range.setEndAfter(textNode)
+        selection.removeAllRanges()
+        selection.addRange(range)
+        return true
+      } catch (error) {
+        if (typeof document.execCommand !== 'function') return false
+        return document.execCommand('insertText', false, textToInsert)
+      }
+    },
+    [ensureEditorFocus]
+  )
+
   const handlePaste = useCallback(
     (event: React.ClipboardEvent<HTMLDivElement>) => {
       const node = editorRef.current
@@ -993,44 +1032,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       }
     })
   }, [activeLineId, lineVersion])
-
-  const ensureEditorFocus = useCallback(() => {
-    const node = editorRef.current
-    if (!node) return
-    if (document.activeElement !== node) {
-      node.focus({ preventScroll: true })
-    }
-  }, [])
-
-  const insertText = useCallback(
-    (textToInsert: string) => {
-      const node = editorRef.current
-      if (!node) return false
-      ensureEditorFocus()
-      try {
-        const selection = window.getSelection()
-        if (!selection) return false
-        const range =
-          selection.rangeCount > 0 ? selection.getRangeAt(0) : document.createRange()
-        if (selection.rangeCount === 0) {
-          range.selectNodeContents(node)
-          range.collapse(false)
-        }
-        range.deleteContents()
-        const textNode = document.createTextNode(textToInsert)
-        range.insertNode(textNode)
-        range.setStartAfter(textNode)
-        range.setEndAfter(textNode)
-        selection.removeAllRanges()
-        selection.addRange(range)
-        return true
-      } catch (error) {
-        if (typeof document.execCommand !== 'function') return false
-        return document.execCommand('insertText', false, textToInsert)
-      }
-    },
-    [ensureEditorFocus]
-  )
 
   const handleAssignEditorRef = useCallback(
     (node: HTMLDivElement | null) => {

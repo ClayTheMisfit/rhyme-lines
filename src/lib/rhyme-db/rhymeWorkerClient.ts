@@ -29,11 +29,6 @@ type RhymeKeysErr = { type: 'getRhymeKeys:err'; requestId: string; error: Worker
 
 type WorkerMessage = InitOk | InitErr | RhymesOk | RhymesErr | RhymeKeysOk | RhymeKeysErr
 
-type PendingRequest = {
-  resolve: (value: unknown) => void
-  reject: (error: Error) => void
-}
-
 export class RhymeWorkerError extends Error {
   code?: 'DB_UNAVAILABLE'
 
@@ -49,9 +44,19 @@ export type RhymeKeyResponse = {
   keys: Record<string, string | null>
 }
 
+type RhymeResultsResponse = {
+  results: { caret?: string[]; lineLast?: string[] }
+  debug?: RhymeTargetsDebug
+}
+
+type PendingRequest<T> = {
+  resolve: (value: T) => void
+  reject: (error: Error) => void
+}
+
 export const createRhymeWorkerClient = () => {
   const worker = new Worker(new URL('../../workers/rhymeWorker.ts', import.meta.url), { type: 'module' })
-  const pending = new Map<string, PendingRequest>()
+  const pending = new Map<string, PendingRequest<unknown>>()
   let initPromise: Promise<void> | null = null
   let requestCounter = 0
   let warning: string | null = null
@@ -143,8 +148,8 @@ export const createRhymeWorkerClient = () => {
     await init()
     const requestId = `${Date.now()}-${requestCounter += 1}`
 
-    const promise = new Promise<{ results: { caret?: string[]; lineLast?: string[] }; debug?: RhymeTargetsDebug }>((resolve, reject) => {
-      pending.set(requestId, { resolve, reject })
+    const promise = new Promise<RhymeResultsResponse>((resolve, reject) => {
+      pending.set(requestId, { resolve: resolve as PendingRequest<unknown>['resolve'], reject })
     })
 
     worker.postMessage({
@@ -164,7 +169,7 @@ export const createRhymeWorkerClient = () => {
     const requestId = `${Date.now()}-${requestCounter += 1}`
 
     const promise = new Promise<RhymeKeyResponse>((resolve, reject) => {
-      pending.set(requestId, { resolve, reject })
+      pending.set(requestId, { resolve: resolve as PendingRequest<unknown>['resolve'], reject })
     })
 
     worker.postMessage({
