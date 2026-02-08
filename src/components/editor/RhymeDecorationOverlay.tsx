@@ -17,11 +17,12 @@ export function RhymeDecorationOverlay({ rects, enabled }: RhymeDecorationOverla
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden="true">
       {rects.map((rect) => {
-        const color = palette[rect.familyIndex % palette.length]
+        const color = palette[rect.familyId % palette.length]
         return (
           <div key={rect.id}>
             <span
               className="rl-rhyme-highlight"
+              data-rhyme-family={rect.familyId}
               style={{
                 left: rect.rect.left,
                 top: rect.rect.top,
@@ -33,6 +34,7 @@ export function RhymeDecorationOverlay({ rects, enabled }: RhymeDecorationOverla
             {rect.underline ? (
               <span
                 className="rl-rhyme-underline"
+                data-rhyme-family={rect.familyId}
                 style={{
                   left: rect.rect.left,
                   top: rect.rect.top + rect.rect.height - 2,

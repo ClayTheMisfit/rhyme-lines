@@ -13,6 +13,7 @@ export const RHYME_FAMILY_COLORS = [
 ]
 
 export const DEFAULT_UNDERLINE_TARGETS = ['time', 'rhyme', 'line', 'flow']
+export const MIN_FAMILY_SIZE = 2
 
 const RHYME_TAIL_REGEX = /([aeiouy]+[^aeiouy]*)$/i
 
@@ -24,13 +25,15 @@ export type RhymeDecorationToken = {
   end: number
   word: string
   familyKey: string
-  familyIndex: number
+  familyId?: number
   underline: boolean
 }
 
 export type RhymeDecorationSnapshot = {
   tokensByLine: Map<string, RhymeDecorationToken[]>
   familyCount: number
+  tokenIdToFamilyId: Map<string, number>
+  rhymeKeyToTokenIds: Map<string, string[]>
 }
 
 export const normalizeWord = (word: string) =>
@@ -48,13 +51,45 @@ export function getRhymeFamilyKey(word: string): string | null {
   return normalized.slice(-2)
 }
 
+export function computeRhymeFamilies(tokens: Array<{ id: string; rhymeKey: string }>): {
+  familyIdByTokenId: Map<string, number>
+  familyIdByRhymeKey: Map<string, number>
+  rhymeKeyToTokenIds: Map<string, string[]>
+} {
+  const rhymeKeyToTokenIds = new Map<string, string[]>()
+
+  tokens.forEach((token) => {
+    const existing = rhymeKeyToTokenIds.get(token.rhymeKey)
+    if (existing) {
+      existing.push(token.id)
+    } else {
+      rhymeKeyToTokenIds.set(token.rhymeKey, [token.id])
+    }
+  })
+
+  const familyIdByTokenId = new Map<string, number>()
+  const familyIdByRhymeKey = new Map<string, number>()
+  let nextFamilyId = 0
+
+  for (const [rhymeKey, tokenIds] of rhymeKeyToTokenIds.entries()) {
+    if (tokenIds.length < MIN_FAMILY_SIZE) continue
+    const familyId = nextFamilyId++
+    familyIdByRhymeKey.set(rhymeKey, familyId)
+    tokenIds.forEach((tokenId) => {
+      familyIdByTokenId.set(tokenId, familyId)
+    })
+  }
+
+  return { familyIdByTokenId, familyIdByRhymeKey, rhymeKeyToTokenIds }
+}
+
 export function buildRhymeDecorations(
   lines: LineInput[],
   underlineTargets: string[]
 ): RhymeDecorationSnapshot {
   const tokensByLine = new Map<string, RhymeDecorationToken[]>()
-  const familyIndexByKey = new Map<string, number>()
   const underlineSet = new Set(underlineTargets.map((target) => normalizeWord(target)))
+  const allTokens: Array<{ id: string; rhymeKey: string }> = []
 
   lines.forEach((line, lineIndex) => {
     const tokens = tokenizeLine(line.text)
@@ -65,28 +100,33 @@ export function buildRhymeDecorations(
       if (!normalized) return
       const familyKey = getRhymeFamilyKey(normalized)
       if (!familyKey) return
-      let familyIndex = familyIndexByKey.get(familyKey)
-      if (familyIndex === undefined) {
-        familyIndex = familyIndexByKey.size
-        familyIndexByKey.set(familyKey, familyIndex)
-      }
+      const tokenId = `${line.id}-${tokenIndex}`
+      allTokens.push({ id: tokenId, rhymeKey: familyKey })
       lineTokens.push({
-        id: `${line.id}-${tokenIndex}`,
+        id: tokenId,
         lineId: line.id,
         lineIndex,
         start: token.start,
         end: token.end,
         word: normalized,
         familyKey,
-        familyIndex,
         underline: underlineSet.has(normalized),
       })
     })
     tokensByLine.set(line.id, lineTokens)
   })
 
+  const { familyIdByTokenId, familyIdByRhymeKey, rhymeKeyToTokenIds } = computeRhymeFamilies(allTokens)
+  tokensByLine.forEach((lineTokens) => {
+    lineTokens.forEach((token) => {
+      token.familyId = familyIdByTokenId.get(token.id)
+    })
+  })
+
   return {
     tokensByLine,
-    familyCount: familyIndexByKey.size,
+    familyCount: familyIdByRhymeKey.size,
+    tokenIdToFamilyId: familyIdByTokenId,
+    rhymeKeyToTokenIds,
   }
 }

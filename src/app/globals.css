@@ -226,7 +226,7 @@ body.bg-white .rl-current-line-highlight {
   --rl-active-line-border: rgba(0, 0, 0, 0.04);
 }
 
-.rl-rhyme-highlight {
+.rl-rhyme-highlight[data-rhyme-family] {
   position: absolute;
   border-radius: 0.35rem;
   background: var(--rhyme-color, rgba(148, 163, 184, 0.2));
@@ -234,7 +234,7 @@ body.bg-white .rl-current-line-highlight {
   transform: translateZ(0);
 }
 
-.rl-rhyme-underline {
+.rl-rhyme-underline[data-rhyme-family] {
   position: absolute;
   height: 2px;
   border-radius: 999px;

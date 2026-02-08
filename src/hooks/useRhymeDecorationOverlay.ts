@@ -6,7 +6,7 @@ type ViewportRange = { start: number; end: number }
 export type RhymeDecorationRect = {
   id: string
   lineId: string
-  familyIndex: number
+  familyId: number
   underline: boolean
   rect: {
     left: number
@@ -104,6 +104,7 @@ export function useRhymeDecorationOverlay({
         if (!lineTokens?.length) continue
 
         lineTokens.forEach((token, tokenIndex) => {
+          if (token.familyId === undefined) return
           const range = measureForSpan(lineElement, token.start, token.end)
           if (!range) return
           const rectList = Array.from(range.getClientRects())
@@ -111,7 +112,7 @@ export function useRhymeDecorationOverlay({
             nextRects.push({
               id: `${lineId}-${tokenIndex}-${rectIndex}`,
               lineId,
-              familyIndex: token.familyIndex,
+              familyId: token.familyId,
               underline: token.underline,
               rect: {
                 left: rect.left - rootRect.left,
