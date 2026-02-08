@@ -703,7 +703,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     }, SAVE_STATUS_DELAY_MS)
   }, [])
 
-  const handleChange = useCallback(() => {
+  const handleChange = useCallback((mode: 'typing' | 'caret' = 'typing') => {
     ensureLineStructure()
     syncPlaceholderLine()
     const el = editorRef.current
@@ -717,7 +717,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     analysisLinesRef.current = collectedLines
     setLineInputs(collectedLines)
     setLines(collectedLines.map((line) => line.text))
-    scheduleAnalysis(collectedLines, 'typing')
+    scheduleAnalysis(collectedLines, mode)
     setLineVersion((v) => v + 1)
 
     const serialized = serializeFromEditor(el)
@@ -848,8 +848,13 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const normalized = text.replace(/\r\n?/g, '\n')
       const inserted = insertText(normalized)
       if (!inserted) return
-      requestAnimationFrame(() => {
-        handleChange()
+      queueMicrotask(() => {
+        requestAnimationFrame(() => {
+          handleChange('caret')
+          requestAnimationFrame(() => {
+            setLineVersion((v) => v + 1)
+          })
+        })
       })
     },
     [handleChange, insertText]
