@@ -52,6 +52,8 @@ export function SettingsSheet() {
     lineHeight,
     badgeSize,
     showLineTotals,
+    showInternalRhymes,
+    highlightStopwords,
     rhymeAutoRefresh,
     debounceMode,
     setTheme,
@@ -59,6 +61,8 @@ export function SettingsSheet() {
     setLineHeight,
     setBadgeSize,
     setShowLineTotals,
+    setShowInternalRhymes,
+    setHighlightStopwords,
     setRhymeAutoRefresh,
     setDebounceMode,
     resetDefaults,
@@ -70,6 +74,8 @@ export function SettingsSheet() {
         lineHeight: state.lineHeight,
         badgeSize: state.badgeSize,
         showLineTotals: state.showLineTotals,
+        showInternalRhymes: state.showInternalRhymes,
+        highlightStopwords: state.highlightStopwords,
         rhymeAutoRefresh: state.rhymeAutoRefresh,
         debounceMode: state.debounceMode,
         setTheme: state.setTheme,
@@ -77,6 +83,8 @@ export function SettingsSheet() {
         setLineHeight: state.setLineHeight,
         setBadgeSize: state.setBadgeSize,
         setShowLineTotals: state.setShowLineTotals,
+        setShowInternalRhymes: state.setShowInternalRhymes,
+        setHighlightStopwords: state.setHighlightStopwords,
         setRhymeAutoRefresh: state.setRhymeAutoRefresh,
         setDebounceMode: state.setDebounceMode,
         resetDefaults: state.resetDefaults,
@@ -272,6 +280,36 @@ export function SettingsSheet() {
                   <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
                 </span>
                 Show line totals in the gutter
+              </label>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Rhyme highlights</h3>
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-white/80">
+                <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={showInternalRhymes}
+                    onChange={(event) => setShowInternalRhymes(event.target.checked)}
+                    aria-label="Show internal rhymes"
+                  />
+                  <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                </span>
+                Show internal rhymes
+              </label>
+              <label className="inline-flex items-center gap-3 text-sm font-medium text-white/80">
+                <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={highlightStopwords}
+                    onChange={(event) => setHighlightStopwords(event.target.checked)}
+                    aria-label="Highlight stopwords"
+                  />
+                  <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+                </span>
+                Highlight stopwords
               </label>
             </section>
 

@@ -21,6 +21,8 @@ export type SettingsState = {
   badgeSize: BadgeSize
   showLineTotals: boolean
   showRhymeDecorations: boolean
+  showInternalRhymes: boolean
+  highlightStopwords: boolean
   rhymeAutoRefresh: boolean
   debounceMode: DebounceMode
   highContrast: boolean
@@ -34,6 +36,8 @@ export type SettingsState = {
   setBadgeSize: (size: BadgeSize) => void
   setShowLineTotals: (value: boolean) => void
   setShowRhymeDecorations: (value: boolean) => void
+  setShowInternalRhymes: (value: boolean) => void
+  setHighlightStopwords: (value: boolean) => void
   setRhymeAutoRefresh: (value: boolean) => void
   setDebounceMode: (mode: DebounceMode) => void
   setHighContrast: (value: boolean) => void
@@ -58,6 +62,8 @@ const persistSettings = (state: SettingsState) => {
     badgeSize: state.badgeSize,
     showLineTotals: state.showLineTotals,
     showRhymeDecorations: state.showRhymeDecorations,
+    showInternalRhymes: state.showInternalRhymes,
+    highlightStopwords: state.highlightStopwords,
     rhymeAutoRefresh: state.rhymeAutoRefresh,
     debounceMode: state.debounceMode,
     highContrast: state.highContrast,
@@ -118,6 +124,14 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
     set({ showRhymeDecorations, lastUpdatedAt: Date.now() })
     schedulePersist(get())
   },
+  setShowInternalRhymes: (showInternalRhymes) => {
+    set({ showInternalRhymes, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
+  setHighlightStopwords: (highlightStopwords) => {
+    set({ highlightStopwords, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
   setRhymeAutoRefresh: (rhymeAutoRefresh) => {
     set({ rhymeAutoRefresh, lastUpdatedAt: Date.now() })
     schedulePersist(get())
@@ -162,6 +176,8 @@ export type SettingsSnapshot = Pick<
   | 'badgeSize'
   | 'showLineTotals'
   | 'showRhymeDecorations'
+  | 'showInternalRhymes'
+  | 'highlightStopwords'
   | 'rhymeAutoRefresh'
   | 'debounceMode'
   | 'highContrast'
@@ -173,7 +189,7 @@ export type SettingsSnapshot = Pick<
 /**
  * Get a snapshot of the current settings.
  *
- * @returns A SettingsSnapshot containing the current values for `theme`, `fontSize`, `lineHeight`, `badgeSize`, `showLineTotals`, `showRhymeDecorations`, `rhymeAutoRefresh`, `debounceMode`, `highContrast`, `rhymeFilters`, `showVariants`, and `commonWordsOnly`.
+ * @returns A SettingsSnapshot containing the current values for `theme`, `fontSize`, `lineHeight`, `badgeSize`, `showLineTotals`, `showRhymeDecorations`, `showInternalRhymes`, `highlightStopwords`, `rhymeAutoRefresh`, `debounceMode`, `highContrast`, `rhymeFilters`, `showVariants`, and `commonWordsOnly`.
  */
 export function getCurrentSettingsSnapshot(): SettingsSnapshot {
   const {
@@ -183,6 +199,8 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     badgeSize,
     showLineTotals,
     showRhymeDecorations,
+    showInternalRhymes,
+    highlightStopwords,
     rhymeAutoRefresh,
     debounceMode,
     highContrast,
@@ -197,6 +215,8 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     badgeSize,
     showLineTotals,
     showRhymeDecorations,
+    showInternalRhymes,
+    highlightStopwords,
     rhymeAutoRefresh,
     debounceMode,
     highContrast,
@@ -219,6 +239,8 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
     setBadgeSize,
     setShowLineTotals,
     setShowRhymeDecorations,
+    setShowInternalRhymes,
+    setHighlightStopwords,
     setRhymeAutoRefresh,
     setDebounceMode,
     setHighContrast,
@@ -233,6 +255,8 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
   setBadgeSize(snapshot.badgeSize)
   setShowLineTotals(snapshot.showLineTotals)
   setShowRhymeDecorations(snapshot.showRhymeDecorations)
+  setShowInternalRhymes(snapshot.showInternalRhymes)
+  setHighlightStopwords(snapshot.highlightStopwords)
   setRhymeAutoRefresh(snapshot.rhymeAutoRefresh)
   setDebounceMode(snapshot.debounceMode)
   setHighContrast(snapshot.highContrast)

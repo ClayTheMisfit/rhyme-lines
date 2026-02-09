@@ -1,4 +1,5 @@
 import { tokenizeLine, isWordLikeToken } from '@/lib/analysis/tokenize'
+import { isStopword } from '@/lib/nlp/stopwords'
 import type { LineInput } from '@/lib/analysis/compute'
 
 export const RHYME_FAMILY_COLORS = [
@@ -27,6 +28,7 @@ export type RhymeDecorationToken = {
   familyKey: string
   familyId?: number
   underline: boolean
+  isEndWord: boolean
 }
 
 export type RhymeDecorationSnapshot = {
@@ -49,6 +51,13 @@ export function getRhymeFamilyKey(word: string): string | null {
   if (match?.[1]) return match[1]
   if (normalized.length <= 2) return normalized
   return normalized.slice(-2)
+}
+
+export function getEndWordTokenIndex(tokens: ReturnType<typeof tokenizeLine>): number | null {
+  for (let index = tokens.length - 1; index >= 0; index -= 1) {
+    if (isWordLikeToken(tokens[index].text)) return index
+  }
+  return null
 }
 
 export function computeRhymeFamilies(tokens: Array<{ id: string; rhymeKey: string }>): {
@@ -85,7 +94,8 @@ export function computeRhymeFamilies(tokens: Array<{ id: string; rhymeKey: strin
 
 export function buildRhymeDecorations(
   lines: LineInput[],
-  underlineTargets: string[]
+  underlineTargets: string[],
+  options: { showInternalRhymes: boolean; highlightStopwords: boolean }
 ): RhymeDecorationSnapshot {
   const tokensByLine = new Map<string, RhymeDecorationToken[]>()
   const underlineSet = new Set(underlineTargets.map((target) => normalizeWord(target)))
@@ -93,15 +103,20 @@ export function buildRhymeDecorations(
 
   lines.forEach((line, lineIndex) => {
     const tokens = tokenizeLine(line.text)
+    const endWordIndex = getEndWordTokenIndex(tokens)
     const lineTokens: RhymeDecorationToken[] = []
     tokens.forEach((token, tokenIndex) => {
       if (!isWordLikeToken(token.text)) return
       const normalized = normalizeWord(token.text)
       if (!normalized) return
+      if (!options.highlightStopwords && isStopword(normalized)) return
       const familyKey = getRhymeFamilyKey(normalized)
       if (!familyKey) return
       const tokenId = `${line.id}-${tokenIndex}`
-      allTokens.push({ id: tokenId, rhymeKey: familyKey })
+      const isEndWord = tokenIndex === endWordIndex
+      if (options.showInternalRhymes || isEndWord) {
+        allTokens.push({ id: tokenId, rhymeKey: familyKey })
+      }
       lineTokens.push({
         id: tokenId,
         lineId: line.id,
@@ -111,6 +126,7 @@ export function buildRhymeDecorations(
         word: normalized,
         familyKey,
         underline: underlineSet.has(normalized),
+        isEndWord,
       })
     })
     tokensByLine.set(line.id, lineTokens)

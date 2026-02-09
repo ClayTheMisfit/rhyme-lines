@@ -76,6 +76,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
   const [lineVersion, setLineVersion] = useState(0)
   const [isEditorFocused, setIsEditorFocused] = useState(false)
+  const [activeRhymeFamilyId, setActiveRhymeFamilyId] = useState<number | null>(null)
   const [lineHighlight, setLineHighlight] = useState({
     top: 0,
     height: 0,
@@ -92,12 +93,22 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const debugLogRef = useRef(0)
   const debugForceRef = useRef({ forceShow: false })
 
-  const { fontSize, lineHeight, showLineTotals, showRhymeDecorations, theme } = useSettingsStore(
+  const {
+    fontSize,
+    lineHeight,
+    showLineTotals,
+    showRhymeDecorations,
+    showInternalRhymes,
+    highlightStopwords,
+    theme,
+  } = useSettingsStore(
     (state) => ({
       fontSize: state.fontSize,
       lineHeight: state.lineHeight,
       showLineTotals: state.showLineTotals,
       showRhymeDecorations: state.showRhymeDecorations,
+      showInternalRhymes: state.showInternalRhymes,
+      highlightStopwords: state.highlightStopwords,
       theme: state.theme,
     }),
     shallow
@@ -136,8 +147,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   })
 
   const rhymeDecorations = useMemo(
-    () => buildRhymeDecorations(lineInputs, DEFAULT_UNDERLINE_TARGETS),
-    [lineInputs]
+    () =>
+      buildRhymeDecorations(lineInputs, DEFAULT_UNDERLINE_TARGETS, {
+        showInternalRhymes,
+        highlightStopwords,
+      }),
+    [lineInputs, showInternalRhymes, highlightStopwords]
   )
 
   const rhymeRects = useRhymeDecorationOverlay({
@@ -771,12 +786,36 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [logDebugEvent, replacePlaceholderWithEmptyLine, setCaretToLineStart]
   )
 
+  const resolveActiveFamilyFromSelection = useCallback(() => {
+    if (typeof window === 'undefined') return null
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return null
+    const range = selection.getRangeAt(0)
+    const focusNode = range.endContainer
+    const lineElement =
+      focusNode instanceof Element
+        ? focusNode.closest('.line')
+        : focusNode.parentElement?.closest('.line')
+    if (!lineElement) return null
+    const lineId = lineElement.getAttribute('data-line-id')
+    if (!lineId) return null
+    const caretRange = range.cloneRange()
+    caretRange.setStart(lineElement, 0)
+    const offset = caretRange.toString().length
+    const lineTokens = rhymeDecorations.tokensByLine.get(lineId) ?? []
+    const token = lineTokens.find((candidate) => offset >= candidate.start && offset <= candidate.end)
+    return token?.familyId ?? null
+  }, [rhymeDecorations.tokensByLine])
+
   const handleSelectionChange = useCallback(() => {
     scheduleCurrentLineHighlight()
     if (analysisLinesRef.current.length) {
       scheduleAnalysis(analysisLinesRef.current, 'caret')
     }
-  }, [scheduleAnalysis, scheduleCurrentLineHighlight])
+    if (showRhymeDecorations) {
+      setActiveRhymeFamilyId(resolveActiveFamilyFromSelection())
+    }
+  }, [resolveActiveFamilyFromSelection, scheduleAnalysis, scheduleCurrentLineHighlight, showRhymeDecorations])
 
   useEffect(() => {
     if (!showLineTotals) {
@@ -949,6 +988,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     })
   }, [activeLineId, lineVersion])
 
+  useEffect(() => {
+    if (!showRhymeDecorations) {
+      setActiveRhymeFamilyId(null)
+    }
+  }, [showRhymeDecorations])
+
   const ensureEditorFocus = useCallback(() => {
     const node = editorRef.current
     if (!node) return
@@ -1090,7 +1135,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 data-layer="rhyme-decoration"
                 contentEditable={false}
               >
-                <RhymeDecorationOverlay rects={rhymeRects} enabled={showRhymeDecorations} />
+                <RhymeDecorationOverlay
+                  rects={rhymeRects}
+                  enabled={showRhymeDecorations}
+                  activeFamilyId={activeRhymeFamilyId}
+                />
               </div>
               {/* Overlay for syllable badges */}
               <div

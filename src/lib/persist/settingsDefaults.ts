@@ -6,6 +6,8 @@ export const applySettingsDefaults = (incoming: SettingsSchema): SettingsSchema 
   rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters, ...incoming.rhymeFilters },
   showVariants: false,
   showRhymeDecorations: incoming.showRhymeDecorations ?? DEFAULT_SETTINGS.showRhymeDecorations,
+  showInternalRhymes: incoming.showInternalRhymes ?? DEFAULT_SETTINGS.showInternalRhymes,
+  highlightStopwords: incoming.highlightStopwords ?? DEFAULT_SETTINGS.highlightStopwords,
   lastUpdatedAt: incoming.lastUpdatedAt || Date.now(),
 })
 

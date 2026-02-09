@@ -230,17 +230,28 @@ body.bg-white .rl-current-line-highlight {
   position: absolute;
   border-radius: 0.35rem;
   background: var(--rhyme-color, rgba(148, 163, 184, 0.2));
+  border-bottom: 1px solid color-mix(in srgb, var(--rhyme-color, rgba(148, 163, 184, 0.2)) 70%, transparent);
   pointer-events: none;
   transform: translateZ(0);
 }
 
 .rl-rhyme-underline[data-rhyme-family] {
   position: absolute;
-  height: 2px;
+  height: 1px;
   border-radius: 999px;
   background: var(--rhyme-color, rgba(148, 163, 184, 0.6));
   pointer-events: none;
   transform: translateZ(0);
+}
+
+.rl-rhyme-highlight[data-rhyme-family][data-rhyme-muted],
+.rl-rhyme-underline[data-rhyme-family][data-rhyme-muted] {
+  opacity: 0.4;
+}
+
+.rl-rhyme-highlight[data-rhyme-family][data-rhyme-active],
+.rl-rhyme-underline[data-rhyme-family][data-rhyme-active] {
+  opacity: 0.95;
 }
 
 /* Light theme editor styling */

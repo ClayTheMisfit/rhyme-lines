@@ -2,6 +2,7 @@ import { tokenizeLine, isWordLikeToken } from '@/lib/analysis/tokenize'
 import {
   buildRhymeDecorations,
   computeRhymeFamilies,
+  getEndWordTokenIndex,
   getRhymeFamilyKey,
   normalizeWord,
 } from '@/lib/rhyme/rhymeDecorations'
@@ -42,7 +43,7 @@ describe('computeRhymeFamilies', () => {
 describe('buildRhymeDecorations', () => {
   it('leaves familyId undefined when no rhyme families exist', () => {
     const lines = [{ id: 'line-0', text: 'hey my name is clayton' }]
-    const result = buildRhymeDecorations(lines, [])
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: false, highlightStopwords: false })
     const tokens = result.tokensByLine.get('line-0') ?? []
 
     expect(result.familyCount).toBe(0)
@@ -51,12 +52,17 @@ describe('buildRhymeDecorations', () => {
 
   it('assigns the same familyId to a rhyme pair', () => {
     const lines = [{ id: 'line-0', text: 'cat hat' }]
-    const result = buildRhymeDecorations(lines, [])
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: false })
     const tokens = result.tokensByLine.get('line-0') ?? []
     const familyIds = new Set(tokens.map((token) => token.familyId))
 
     expect(result.familyCount).toBe(1)
     expect(familyIds.has(undefined)).toBe(false)
     expect(familyIds.size).toBe(1)
+  })
+
+  it('marks the last word token as end word despite trailing punctuation', () => {
+    const tokens = tokenizeLine('brain, rest—')
+    expect(getEndWordTokenIndex(tokens)).toBe(tokens.length - 1)
   })
 })
