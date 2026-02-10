@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useMounted } from '@/hooks/useMounted'
@@ -9,20 +9,16 @@ import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useTabsStore } from '@/store/tabsStore'
+import { useAutosaveStore } from '@/store/autosaveStore'
 import TabBar from '@/components/tabs/TabBar'
 import { shallow } from 'zustand/shallow'
 import SettingsSheet from './settings/SettingsSheet'
 import { layers } from '@/lib/layers'
 
 const PANEL_SPACING_REM = '1.5rem'
-const SAVE_STATUS_START_DELAY_MS = 150
-const SAVE_STATUS_HIDE_DELAY_MS = 2000
-
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
 
 type ThemeChoice = 'dark' | 'light'
-type SaveStatus = 'saving' | 'saved' | null
-
 function applyBodyTheme(theme: ThemeChoice) {
   const body = document.body
   if (!body) return
@@ -38,11 +34,9 @@ function applyBodyTheme(theme: ThemeChoice) {
 export default function TopBar() {
   const mounted = useMounted()
   const headerRef = useRef<HTMLElement>(null)
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>(null)
-  const saveStatusRef = useRef<SaveStatus>(null)
-  const saveStatusTimerRef = useRef<number | null>(null)
-  const saveStartDelayRef = useRef<number | null>(null)
-  const lastSaveTabIdRef = useRef<string | null>(null)
+  const status = useAutosaveStore((state) => state.status)
+  const errorMessage = useAutosaveStore((state) => state.errorMessage)
+  const runSave = useAutosaveStore((state) => state.runSave)
 
   const { theme, setThemePreference, showRhymeDecorations, setShowRhymeDecorations } = useSettingsStore(
     (state) => ({
@@ -129,69 +123,22 @@ export default function TopBar() {
     }
   }, [mounted, resolvedTheme, setResolvedTheme, theme])
 
-  useEffect(() => {
-    saveStatusRef.current = saveStatus
-  }, [saveStatus])
-
-  useEffect(() => {
-    if (!mounted) return
-
-    const clearSaveStartDelay = () => {
-      if (saveStartDelayRef.current) {
-        window.clearTimeout(saveStartDelayRef.current)
-        saveStartDelayRef.current = null
-      }
+  const saveDisplay = useMemo(() => {
+    switch (status) {
+      case 'dirty':
+        return { tone: 'warning', label: 'Unsaved changes' }
+      case 'saving':
+        return { tone: 'saving', label: 'Saving...' }
+      case 'saved':
+        return { tone: 'saved', label: 'Saved' }
+      case 'offline':
+        return { tone: 'offline', label: 'Offline — saved locally' }
+      case 'error':
+        return { tone: 'error', label: errorMessage ?? 'Save failed' }
+      default:
+        return null
     }
-
-    const clearSaveStatusTimer = () => {
-      if (saveStatusTimerRef.current) {
-        window.clearTimeout(saveStatusTimerRef.current)
-        saveStatusTimerRef.current = null
-      }
-    }
-
-    const handleSaveStart = () => {
-      const { activeTabId } = useTabsStore.getState()
-      lastSaveTabIdRef.current = activeTabId
-      clearSaveStatusTimer()
-
-      if (saveStatusRef.current === 'saved') {
-        setSaveStatus(null)
-      }
-
-      if (saveStatusRef.current === 'saving' || saveStartDelayRef.current) return
-
-      saveStartDelayRef.current = window.setTimeout(() => {
-        setSaveStatus('saving')
-        saveStartDelayRef.current = null
-      }, SAVE_STATUS_START_DELAY_MS)
-    }
-
-    const handleSaveComplete = () => {
-      clearSaveStartDelay()
-      const { actions } = useTabsStore.getState()
-      const tabId = lastSaveTabIdRef.current ?? useTabsStore.getState().activeTabId
-      if (tabId) {
-        actions.markDirty(tabId, false)
-      }
-      setSaveStatus('saved')
-      clearSaveStatusTimer()
-      saveStatusTimerRef.current = window.setTimeout(() => {
-        setSaveStatus(null)
-        saveStatusTimerRef.current = null
-      }, SAVE_STATUS_HIDE_DELAY_MS)
-    }
-
-    window.addEventListener('rhyme:save-start', handleSaveStart)
-    window.addEventListener('rhyme:save-complete', handleSaveComplete)
-
-    return () => {
-      window.removeEventListener('rhyme:save-start', handleSaveStart)
-      window.removeEventListener('rhyme:save-complete', handleSaveComplete)
-      clearSaveStartDelay()
-      clearSaveStatusTimer()
-    }
-  }, [mounted])
+  }, [errorMessage, status])
 
   const toggleTheme = useCallback(() => {
     const next: ThemeChoice = theme === 'dark' ? 'light' : 'dark'
@@ -230,21 +177,34 @@ export default function TopBar() {
 
       <div className="ml-2 flex items-center gap-2">
         <AnimatePresence mode="wait">
-          {saveStatus ? (
+          {saveDisplay ? (
             <motion.div
-              key={saveStatus}
+              key={saveDisplay.label}
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.2 }}
               className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70"
             >
-              {saveStatus === 'saving' ? (
+              {saveDisplay.tone === 'saving' ? (
                 <span className="inline-flex h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white/80" />
+              ) : saveDisplay.tone === 'error' ? (
+                <span className="text-rose-300">!</span>
+              ) : saveDisplay.tone === 'offline' ? (
+                <span className="text-amber-300">●</span>
               ) : (
                 <span className="text-emerald-300">✓</span>
               )}
-              <span>{saveStatus === 'saving' ? 'Saving...' : 'All changes saved'}</span>
+              <span>{saveDisplay.label}</span>
+              {saveDisplay.tone === 'error' && runSave ? (
+                <button
+                  type="button"
+                  onClick={() => runSave()}
+                  className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/70 transition hover:text-white"
+                >
+                  Retry
+                </button>
+              ) : null}
             </motion.div>
           ) : null}
         </AnimatePresence>

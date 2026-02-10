@@ -19,7 +19,6 @@ import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
 import { RhymeDecorationOverlay } from '@/components/editor/RhymeDecorationOverlay'
 
 const PLACEHOLDER_TEXT = 'Start writing...'
-const SAVE_STATUS_DELAY_MS = 200
 const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
@@ -65,7 +64,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const lastHydratedTextRef = useRef<string>('')
   const lastPropTextRef = useRef<string | null>(null)
   const hasInitializedRef = useRef(false)
-  const saveStatusTimer = useRef<number | null>(null)
   const skipHydrateRef = useRef<string | null>(null)
 
   const [lineInputs, setLineInputs] = useState<LineInput[]>([])
@@ -656,14 +654,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return { lines, elements }
   }, [isPlaceholderLine])
 
-  const announceSave = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('rhyme:save-start'))
-    if (saveStatusTimer.current) window.clearTimeout(saveStatusTimer.current)
-    saveStatusTimer.current = window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('rhyme:save-complete'))
-    }, SAVE_STATUS_DELAY_MS)
-  }, [])
-
   const schedulePostLayoutMeasurement = useCallback(() => {
     if (typeof window === 'undefined') return
     window.requestAnimationFrame(() => {
@@ -699,10 +689,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       skipHydrateRef.current = serialized
       onTextChange(serialized)
       onDirtyChange?.(true)
-      announceSave()
     }
   }, [
-    announceSave,
     collectLineInputs,
     ensureLineStructure,
     logDebugEvent,
@@ -905,7 +893,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
       document.removeEventListener('selectionchange', handleSelectionChange)
-      if (saveStatusTimer.current) window.clearTimeout(saveStatusTimer.current)
       if (highlightDebounceRef.current) window.clearTimeout(highlightDebounceRef.current)
     }
   }, [handleSelectionChange])
