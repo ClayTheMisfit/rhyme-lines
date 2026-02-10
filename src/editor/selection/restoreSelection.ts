@@ -19,7 +19,7 @@ function findPointNode(root: HTMLElement, point: SelectionPoint): { node: Node; 
     textNode = walker.nextNode()
   }
 
-  return { node: line, offset: Math.min(line.childNodes.length, target) }
+  return { node: line, offset: line.childNodes.length }
 }
 
 export function restoreSelection(root: HTMLElement, snapshot: SelectionSnapshot | null): boolean {
