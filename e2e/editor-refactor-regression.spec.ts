@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test.describe('Editor refactor regressions', () => {
   test.beforeEach(async ({ page }) => {
+    await page.context().grantPermissions(['clipboard-write', 'clipboard-read'])
     await page.goto('/')
     await page.waitForSelector('#lyric-editor')
   })
