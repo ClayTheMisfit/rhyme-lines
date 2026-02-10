@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { shallow } from 'zustand/shallow'
 
 import {
@@ -10,6 +10,8 @@ import {
 } from '@/store/settingsStore'
 import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTrigger } from '@/components/ui/dialog'
 import { useSettingsClickDebug } from '@/lib/dev/useSettingsClickDebug'
+import { ToggleRow } from '@/components/settings/ToggleRow'
+import { useRhymeRecomputeScheduler } from '@/hooks/useRhymeRecomputeScheduler'
 
 const BADGE_SIZE_LABEL: Record<'xs' | 'sm' | 'md', string> = {
   xs: 'Compact',
@@ -36,6 +38,46 @@ const DEBOUNCE_OPTIONS: { value: 'cursor-50' | 'typing-250'; label: string; desc
     description: 'Debounce typing for a steadier experience',
   },
 ]
+
+const RhymeHighlightsSection = memo(function RhymeHighlightsSection() {
+  const showInternalRhymes = useSettingsStore((state) => state.showInternalRhymes)
+  const highlightStopwords = useSettingsStore((state) => state.highlightStopwords)
+  const setShowInternalRhymes = useSettingsStore((state) => state.setShowInternalRhymes)
+  const setHighlightStopwords = useSettingsStore((state) => state.setHighlightStopwords)
+  const { requestRecompute } = useRhymeRecomputeScheduler()
+
+  const scheduleRecompute = useCallback(() => {
+    if (typeof queueMicrotask === 'function') {
+      queueMicrotask(() => requestRecompute())
+    } else {
+      Promise.resolve().then(() => requestRecompute())
+    }
+  }, [requestRecompute])
+
+  const handleInternalRhymesChange = useCallback(
+    (checked: boolean) => {
+      setShowInternalRhymes(checked)
+      scheduleRecompute()
+    },
+    [scheduleRecompute, setShowInternalRhymes]
+  )
+
+  const handleStopwordsChange = useCallback(
+    (checked: boolean) => {
+      setHighlightStopwords(checked)
+      scheduleRecompute()
+    },
+    [scheduleRecompute, setHighlightStopwords]
+  )
+
+  return (
+    <section className="space-y-3">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Rhyme highlights</h3>
+      <ToggleRow label="Show internal rhymes" checked={showInternalRhymes} onCheckedChange={handleInternalRhymesChange} />
+      <ToggleRow label="Highlight stopwords" checked={highlightStopwords} onCheckedChange={handleStopwordsChange} />
+    </section>
+  )
+})
 
 // Repro (pre-fix): open Settings from the gear icon, then try toggles/sliders; clicks do not register.
 export function SettingsSheet() {
@@ -274,6 +316,8 @@ export function SettingsSheet() {
                 Show line totals in the gutter
               </label>
             </section>
+
+            <RhymeHighlightsSection />
 
             <section className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Rhyme suggestions</h3>

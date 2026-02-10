@@ -75,6 +75,18 @@ const normalizeSettings = (value: unknown): SettingsSchema => {
 
   const rhymeFilters = normalizeRhymeFilters(payload.rhymeFilters)
   const showLineTotals = toBoolean(payload.showLineTotals, DEFAULT_SETTINGS.showLineTotals ?? true)
+  const showRhymeDecorations = toBoolean(
+    payload.showRhymeDecorations,
+    DEFAULT_SETTINGS.showRhymeDecorations ?? true
+  )
+  const showInternalRhymes = toBoolean(
+    payload.showInternalRhymes,
+    DEFAULT_SETTINGS.showInternalRhymes ?? false
+  )
+  const highlightStopwords = toBoolean(
+    payload.highlightStopwords,
+    DEFAULT_SETTINGS.highlightStopwords ?? false
+  )
   const rhymeAutoRefresh = toBoolean(payload.rhymeAutoRefresh, DEFAULT_SETTINGS.rhymeAutoRefresh ?? true)
   const showVariants = toBoolean(payload.showVariants, DEFAULT_SETTINGS.showVariants ?? false)
   const commonWordsOnly = toBoolean(payload.commonWordsOnly, DEFAULT_SETTINGS.commonWordsOnly ?? false)
@@ -93,6 +105,9 @@ const normalizeSettings = (value: unknown): SettingsSchema => {
     lastUpdatedAt,
     badgeSize,
     showLineTotals,
+    showRhymeDecorations,
+    showInternalRhymes,
+    highlightStopwords,
     rhymeAutoRefresh,
     debounceMode,
   }

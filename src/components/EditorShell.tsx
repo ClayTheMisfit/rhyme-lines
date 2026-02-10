@@ -11,6 +11,7 @@ import { hydrateBadgeSettings } from '@/store/settings'
 import { loadPersistedAppState } from '@/lib/persist/appState'
 import { shallow } from 'zustand/shallow'
 import { useHydrated } from '@/hooks/useHydrated'
+import { useAutosave } from '@/hooks/useAutosave'
 
 export default function EditorShell() {
   const shellRef = useRef<HTMLDivElement | null>(null)
@@ -140,13 +141,36 @@ export default function EditorShell() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [focusRhymePanel, mode, setMode])
 
+  const getPayload = useCallback(() => {
+    const state = useTabsStore.getState()
+    const currentTab = state.tabs.find((tab) => tab.id === state.activeTabId)
+    return {
+      tabId: currentTab?.id ?? '',
+      title: currentTab?.title ?? '',
+      text: currentTab?.snapshot.text ?? '',
+      updatedAt: currentTab?.updatedAt ?? Date.now(),
+    }
+  }, [])
+
+  const { markDirty } = useAutosave({
+    getPayload,
+    onSaved: () => {
+      const state = useTabsStore.getState()
+      const currentTab = state.tabs.find((tab) => tab.id === state.activeTabId)
+      if (currentTab) {
+        state.actions.markDirty(currentTab.id, false)
+      }
+    },
+  })
+
   const handleTextChange = useCallback(
     (text: string) => {
       if (!activeTab) return
       actions.updateSnapshot(activeTab.id, { text })
       actions.markDirty(activeTab.id, true)
+      markDirty()
     },
-    [actions, activeTab]
+    [actions, activeTab, markDirty]
   )
 
   const handleDirtyChange = useCallback(

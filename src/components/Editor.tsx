@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
 import { useSettingsStore } from '@/store/settingsStore'
 import { shallow } from 'zustand/shallow'
@@ -14,9 +14,11 @@ import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
 import { useViewportWindow } from '@/hooks/useViewportWindow'
 import { useOverlayMeasurement } from '@/hooks/useOverlayMeasurement'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
+import { buildRhymeDecorations, DEFAULT_UNDERLINE_TARGETS } from '@/lib/rhyme/rhymeDecorations'
+import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
+import { RhymeDecorationOverlay } from '@/components/editor/RhymeDecorationOverlay'
 
 const PLACEHOLDER_TEXT = 'Start writing...'
-const SAVE_STATUS_DELAY_MS = 200
 const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
@@ -62,7 +64,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const lastHydratedTextRef = useRef<string>('')
   const lastPropTextRef = useRef<string | null>(null)
   const hasInitializedRef = useRef(false)
-  const saveStatusTimer = useRef<number | null>(null)
   const skipHydrateRef = useRef<string | null>(null)
 
   const [lineInputs, setLineInputs] = useState<LineInput[]>([])
@@ -73,6 +74,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
   const [lineVersion, setLineVersion] = useState(0)
   const [isEditorFocused, setIsEditorFocused] = useState(false)
+  const [activeRhymeFamilyId, setActiveRhymeFamilyId] = useState<number | null>(null)
   const [lineHighlight, setLineHighlight] = useState({
     top: 0,
     height: 0,
@@ -89,11 +91,18 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const debugLogRef = useRef(0)
   const debugForceRef = useRef({ forceShow: false })
 
-  const { fontSize, lineHeight, showLineTotals, theme } = useSettingsStore(
+  const {
+    fontSize,
+    lineHeight,
+    showLineTotals,
+    showRhymeDecorations,
+    theme,
+  } = useSettingsStore(
     (state) => ({
       fontSize: state.fontSize,
       lineHeight: state.lineHeight,
       showLineTotals: state.showLineTotals,
+      showRhymeDecorations: state.showRhymeDecorations,
       theme: state.theme,
     }),
     shallow
@@ -129,6 +138,52 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     theme,
     fontSize,
     lineHeight,
+  })
+
+  const rhymeOptionsRef = useRef({
+    showInternalRhymes: useSettingsStore.getState().showInternalRhymes,
+    highlightStopwords: useSettingsStore.getState().highlightStopwords,
+  })
+  const [rhymeRecomputeSignal, setRhymeRecomputeSignal] = useState(0)
+
+  useEffect(() => {
+    const unsubscribe = useSettingsStore.subscribe((state) => {
+      rhymeOptionsRef.current = {
+        showInternalRhymes: state.showInternalRhymes,
+        highlightStopwords: state.highlightStopwords,
+      }
+    })
+    return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    const handleRecompute = () => {
+      window.requestAnimationFrame(() => {
+        setRhymeRecomputeSignal((value) => value + 1)
+      })
+    }
+    window.addEventListener('rhyme:recompute', handleRecompute)
+    return () => {
+      window.removeEventListener('rhyme:recompute', handleRecompute)
+    }
+  }, [])
+
+  const rhymeDecorations = useMemo(
+    () =>
+      buildRhymeDecorations(lineInputs, DEFAULT_UNDERLINE_TARGETS, {
+        showInternalRhymes: rhymeOptionsRef.current.showInternalRhymes,
+        highlightStopwords: rhymeOptionsRef.current.highlightStopwords,
+      }),
+    [lineInputs, rhymeRecomputeSignal]
+  )
+
+  const rhymeRects = useRhymeDecorationOverlay({
+    enabled: showRhymeDecorations,
+    editorRef,
+    lineElementsRef,
+    decorations: rhymeDecorations,
+    viewportRange,
+    lineVersion,
   })
 
   const captureSelectionSnapshot = useCallback(() => {
@@ -623,15 +678,17 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return { lines, elements }
   }, [isPlaceholderLine])
 
-  const announceSave = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('rhyme:save-start'))
-    if (saveStatusTimer.current) window.clearTimeout(saveStatusTimer.current)
-    saveStatusTimer.current = window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('rhyme:save-complete'))
-    }, SAVE_STATUS_DELAY_MS)
-  }, [])
+  const schedulePostLayoutMeasurement = useCallback(() => {
+    if (typeof window === 'undefined') return
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        setLineVersion((v) => v + 1)
+        scheduleCurrentLineHighlight({ immediate: true })
+      })
+    })
+  }, [scheduleCurrentLineHighlight])
 
-  const handleChange = useCallback(() => {
+  const commitEditorChange = useCallback((source: 'input' | 'paste' | 'drop' | 'program' = 'input') => {
     ensureLineStructure()
     syncPlaceholderLine()
     const el = editorRef.current
@@ -645,7 +702,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     analysisLinesRef.current = collectedLines
     setLineInputs(collectedLines)
     setLines(collectedLines.map((line) => line.text))
-    scheduleAnalysis(collectedLines, 'typing')
+    const analysisMode = source === 'paste' || source === 'drop' ? 'caret' : 'typing'
+    scheduleAnalysis(collectedLines, analysisMode)
     setLineVersion((v) => v + 1)
 
     const serialized = serializeFromEditor(el)
@@ -655,10 +713,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       skipHydrateRef.current = serialized
       onTextChange(serialized)
       onDirtyChange?.(true)
-      announceSave()
     }
   }, [
-    announceSave,
     collectLineInputs,
     ensureLineStructure,
     logDebugEvent,
@@ -666,8 +722,27 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     onTextChange,
     scheduleAnalysis,
     syncPlaceholderLine,
-    updateCurrentLineHighlight,
   ])
+
+  const scheduleSyncFromDom = useCallback(
+    (source: 'paste' | 'drop') => {
+      if (typeof window === 'undefined') return
+      const run = () => {
+        window.requestAnimationFrame(() => {
+          commitEditorChange(source)
+          window.requestAnimationFrame(() => {
+            schedulePostLayoutMeasurement()
+          })
+        })
+      }
+      if (typeof queueMicrotask === 'function') {
+        queueMicrotask(run)
+      } else {
+        Promise.resolve().then(run)
+      }
+    },
+    [commitEditorChange, schedulePostLayoutMeasurement]
+  )
 
   const handleShortcutKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -696,9 +771,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         data: nativeEvent?.data ?? null,
         defaultPrevented: nativeEvent?.defaultPrevented ?? event.isDefaultPrevented(),
       })
-      handleChange()
+      commitEditorChange('input')
     },
-    [handleChange, logDebugEvent]
+    [commitEditorChange, logDebugEvent]
   )
 
   const handleBeforeInput = useCallback(
@@ -723,12 +798,36 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [logDebugEvent, replacePlaceholderWithEmptyLine, setCaretToLineStart]
   )
 
+  const resolveActiveFamilyFromSelection = useCallback(() => {
+    if (typeof window === 'undefined') return null
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return null
+    const range = selection.getRangeAt(0)
+    const focusNode = range.endContainer
+    const lineElement =
+      focusNode instanceof Element
+        ? focusNode.closest('.line')
+        : focusNode.parentElement?.closest('.line')
+    if (!lineElement) return null
+    const lineId = lineElement.getAttribute('data-line-id')
+    if (!lineId) return null
+    const caretRange = range.cloneRange()
+    caretRange.setStart(lineElement, 0)
+    const offset = caretRange.toString().length
+    const lineTokens = rhymeDecorations.tokensByLine.get(lineId) ?? []
+    const token = lineTokens.find((candidate) => offset >= candidate.start && offset <= candidate.end)
+    return token?.familyId ?? null
+  }, [rhymeDecorations.tokensByLine])
+
   const handleSelectionChange = useCallback(() => {
     scheduleCurrentLineHighlight()
     if (analysisLinesRef.current.length) {
       scheduleAnalysis(analysisLinesRef.current, 'caret')
     }
-  }, [scheduleAnalysis, scheduleCurrentLineHighlight])
+    if (showRhymeDecorations) {
+      setActiveRhymeFamilyId(resolveActiveFamilyFromSelection())
+    }
+  }, [resolveActiveFamilyFromSelection, scheduleAnalysis, scheduleCurrentLineHighlight, showRhymeDecorations])
 
   useEffect(() => {
     if (!showLineTotals) {
@@ -818,7 +917,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
       document.removeEventListener('selectionchange', handleSelectionChange)
-      if (saveStatusTimer.current) window.clearTimeout(saveStatusTimer.current)
       if (highlightDebounceRef.current) window.clearTimeout(highlightDebounceRef.current)
     }
   }, [handleSelectionChange])
@@ -901,6 +999,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     })
   }, [activeLineId, lineVersion])
 
+  useEffect(() => {
+    if (!showRhymeDecorations) {
+      setActiveRhymeFamilyId(null)
+    }
+  }, [showRhymeDecorations])
+
   const ensureEditorFocus = useCallback(() => {
     const node = editorRef.current
     if (!node) return
@@ -935,6 +1039,35 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         if (typeof document.execCommand !== 'function') return false
         return document.execCommand('insertText', false, textToInsert)
       }
+    },
+    [ensureEditorFocus]
+  )
+
+  const insertPlainText = useCallback(
+    (textToInsert: string) => {
+      const node = editorRef.current
+      if (!node) return false
+      ensureEditorFocus()
+      const normalized = textToInsert.replace(/\r\n?/g, '\n')
+      if (typeof document.execCommand === 'function') {
+        return document.execCommand('insertText', false, normalized)
+      }
+      const selection = window.getSelection()
+      if (!selection) return false
+      const range =
+        selection.rangeCount > 0 ? selection.getRangeAt(0) : document.createRange()
+      if (selection.rangeCount === 0) {
+        range.selectNodeContents(node)
+        range.collapse(false)
+      }
+      range.deleteContents()
+      const textNode = document.createTextNode(normalized)
+      range.insertNode(textNode)
+      range.setStartAfter(textNode)
+      range.setEndAfter(textNode)
+      selection.removeAllRanges()
+      selection.addRange(range)
+      return true
     },
     [ensureEditorFocus]
   )
@@ -1006,6 +1139,19 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                   </div>
                 ) : null}
               </div>
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{ zIndex: 15 }}
+                aria-hidden="true"
+                data-layer="rhyme-decoration"
+                contentEditable={false}
+              >
+                <RhymeDecorationOverlay
+                  rects={rhymeRects}
+                  enabled={showRhymeDecorations}
+                  activeFamilyId={activeRhymeFamilyId}
+                />
+              </div>
               {/* Overlay for syllable badges */}
               <div
                 ref={overlayRef}
@@ -1038,9 +1184,16 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onFocus={() => setIsEditorFocused(true)}
                 onBlur={() => {
                   setIsEditorFocused(false)
-                  handleChange()
+                  commitEditorChange('input')
                 }}
                 onKeyDown={handleShortcutKeyDown}
+                onPaste={(event) => {
+                  const clipboardText = event.clipboardData?.getData('text/plain') ?? ''
+                  if (!clipboardText) return
+                  event.preventDefault()
+                  insertPlainText(clipboardText)
+                  scheduleSyncFromDom('paste')
+                }}
                 onCompositionStart={() => {
                   composingRef.current = true
                 }}
@@ -1050,7 +1203,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 }}
                 onClick={(event) => {
                   ensureEditorFocus()
-                  handleChange()
+                  commitEditorChange('input')
                   event.stopPropagation()
                 }}
                 onPointerDown={ensureEditorFocus}
