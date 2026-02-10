@@ -61,9 +61,14 @@ export function serializeSelection(root: HTMLElement, selection: Selection | nul
   if (!selection.anchorNode || !root.contains(selection.anchorNode)) return null
   if (!selection.focusNode || !root.contains(selection.focusNode)) return null
 
+  const anchor = resolvePoint(root, selection.anchorNode, selection.anchorOffset)
+  const focus = resolvePoint(root, selection.focusNode, selection.focusOffset)
+  if (!anchor.lineId || !focus.lineId) return null
+  if (anchor.offset < 0 || focus.offset < 0) return null
+
   return {
-    anchor: resolvePoint(root, selection.anchorNode, selection.anchorOffset),
-    focus: resolvePoint(root, selection.focusNode, selection.focusOffset),
+    anchor,
+    focus,
     direction: detectDirection(selection),
     isCollapsed: selection.isCollapsed,
   }
