@@ -9,10 +9,10 @@ test.describe('Editor refactor regressions', () => {
   test('typing does not jump caret', async ({ page }) => {
     const editor = page.locator('#lyric-editor')
     await editor.click()
-    await editor.type('hello world')
+    await editor.pressSequentially(['h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd'].join(''))
     await editor.press('ArrowLeft')
     await editor.press('ArrowLeft')
-    await editor.type('X')
+    await editor.pressSequentially(['X'].join(''))
 
     const text = await editor.textContent()
     expect(text).toContain('hello worXld')
@@ -27,7 +27,7 @@ test.describe('Editor refactor regressions', () => {
       await navigator.clipboard.writeText(text)
     }, block)
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+V' : 'Control+V')
-    await editor.type('\nend')
+    await editor.pressSequentially(['\n', 'e', 'n', 'd'].join(''))
 
     await expect(editor).toContainText('line 120')
     await expect(editor).toContainText('end')
@@ -36,7 +36,7 @@ test.describe('Editor refactor regressions', () => {
   test('selection persists through overlay updates', async ({ page }) => {
     const editor = page.locator('#lyric-editor')
     await editor.click()
-    await editor.type('select this phrase')
+    await editor.pressSequentially(['s', 'e', 'l', 'e', 'c', 't', ' ', 't', 'h', 'i', 's', ' ', 'p', 'h', 'r', 'a', 's', 'e'].join(''))
 
     await page.keyboard.down('Shift')
     for (let i = 0; i < 6; i += 1) {
