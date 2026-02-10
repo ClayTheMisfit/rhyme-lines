@@ -96,8 +96,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     lineHeight,
     showLineTotals,
     showRhymeDecorations,
-    showInternalRhymes,
-    highlightStopwords,
     theme,
   } = useSettingsStore(
     (state) => ({
@@ -105,8 +103,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       lineHeight: state.lineHeight,
       showLineTotals: state.showLineTotals,
       showRhymeDecorations: state.showRhymeDecorations,
-      showInternalRhymes: state.showInternalRhymes,
-      highlightStopwords: state.highlightStopwords,
       theme: state.theme,
     }),
     shallow
@@ -144,13 +140,41 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     lineHeight,
   })
 
+  const rhymeOptionsRef = useRef({
+    showInternalRhymes: useSettingsStore.getState().showInternalRhymes,
+    highlightStopwords: useSettingsStore.getState().highlightStopwords,
+  })
+  const [rhymeRecomputeSignal, setRhymeRecomputeSignal] = useState(0)
+
+  useEffect(() => {
+    const unsubscribe = useSettingsStore.subscribe((state) => {
+      rhymeOptionsRef.current = {
+        showInternalRhymes: state.showInternalRhymes,
+        highlightStopwords: state.highlightStopwords,
+      }
+    })
+    return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    const handleRecompute = () => {
+      window.requestAnimationFrame(() => {
+        setRhymeRecomputeSignal((value) => value + 1)
+      })
+    }
+    window.addEventListener('rhyme:recompute', handleRecompute)
+    return () => {
+      window.removeEventListener('rhyme:recompute', handleRecompute)
+    }
+  }, [])
+
   const rhymeDecorations = useMemo(
     () =>
       buildRhymeDecorations(lineInputs, DEFAULT_UNDERLINE_TARGETS, {
-        showInternalRhymes,
-        highlightStopwords,
+        showInternalRhymes: rhymeOptionsRef.current.showInternalRhymes,
+        highlightStopwords: rhymeOptionsRef.current.highlightStopwords,
       }),
-    [lineInputs, showInternalRhymes, highlightStopwords]
+    [lineInputs, rhymeRecomputeSignal]
   )
 
   const rhymeRects = useRhymeDecorationOverlay({

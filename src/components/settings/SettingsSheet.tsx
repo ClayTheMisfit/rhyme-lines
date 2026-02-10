@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { shallow } from 'zustand/shallow'
 
 import {
@@ -10,6 +10,8 @@ import {
 } from '@/store/settingsStore'
 import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTrigger } from '@/components/ui/dialog'
 import { useSettingsClickDebug } from '@/lib/dev/useSettingsClickDebug'
+import { ToggleRow } from '@/components/settings/ToggleRow'
+import { useRhymeRecomputeScheduler } from '@/hooks/useRhymeRecomputeScheduler'
 
 const BADGE_SIZE_LABEL: Record<'xs' | 'sm' | 'md', string> = {
   xs: 'Compact',
@@ -37,6 +39,46 @@ const DEBOUNCE_OPTIONS: { value: 'cursor-50' | 'typing-250'; label: string; desc
   },
 ]
 
+const RhymeHighlightsSection = memo(function RhymeHighlightsSection() {
+  const showInternalRhymes = useSettingsStore((state) => state.showInternalRhymes)
+  const highlightStopwords = useSettingsStore((state) => state.highlightStopwords)
+  const setShowInternalRhymes = useSettingsStore((state) => state.setShowInternalRhymes)
+  const setHighlightStopwords = useSettingsStore((state) => state.setHighlightStopwords)
+  const { requestRecompute } = useRhymeRecomputeScheduler()
+
+  const scheduleRecompute = useCallback(() => {
+    if (typeof queueMicrotask === 'function') {
+      queueMicrotask(() => requestRecompute())
+    } else {
+      Promise.resolve().then(() => requestRecompute())
+    }
+  }, [requestRecompute])
+
+  const handleInternalRhymesChange = useCallback(
+    (checked: boolean) => {
+      setShowInternalRhymes(checked)
+      scheduleRecompute()
+    },
+    [scheduleRecompute, setShowInternalRhymes]
+  )
+
+  const handleStopwordsChange = useCallback(
+    (checked: boolean) => {
+      setHighlightStopwords(checked)
+      scheduleRecompute()
+    },
+    [scheduleRecompute, setHighlightStopwords]
+  )
+
+  return (
+    <section className="space-y-3">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Rhyme highlights</h3>
+      <ToggleRow label="Show internal rhymes" checked={showInternalRhymes} onCheckedChange={handleInternalRhymesChange} />
+      <ToggleRow label="Highlight stopwords" checked={highlightStopwords} onCheckedChange={handleStopwordsChange} />
+    </section>
+  )
+})
+
 // Repro (pre-fix): open Settings from the gear icon, then try toggles/sliders; clicks do not register.
 export function SettingsSheet() {
   const [isOpen, setIsOpen] = useState(false)
@@ -52,8 +94,6 @@ export function SettingsSheet() {
     lineHeight,
     badgeSize,
     showLineTotals,
-    showInternalRhymes,
-    highlightStopwords,
     rhymeAutoRefresh,
     debounceMode,
     setTheme,
@@ -61,8 +101,6 @@ export function SettingsSheet() {
     setLineHeight,
     setBadgeSize,
     setShowLineTotals,
-    setShowInternalRhymes,
-    setHighlightStopwords,
     setRhymeAutoRefresh,
     setDebounceMode,
     resetDefaults,
@@ -74,8 +112,6 @@ export function SettingsSheet() {
         lineHeight: state.lineHeight,
         badgeSize: state.badgeSize,
         showLineTotals: state.showLineTotals,
-        showInternalRhymes: state.showInternalRhymes,
-        highlightStopwords: state.highlightStopwords,
         rhymeAutoRefresh: state.rhymeAutoRefresh,
         debounceMode: state.debounceMode,
         setTheme: state.setTheme,
@@ -83,8 +119,6 @@ export function SettingsSheet() {
         setLineHeight: state.setLineHeight,
         setBadgeSize: state.setBadgeSize,
         setShowLineTotals: state.setShowLineTotals,
-        setShowInternalRhymes: state.setShowInternalRhymes,
-        setHighlightStopwords: state.setHighlightStopwords,
         setRhymeAutoRefresh: state.setRhymeAutoRefresh,
         setDebounceMode: state.setDebounceMode,
         resetDefaults: state.resetDefaults,
@@ -283,35 +317,7 @@ export function SettingsSheet() {
               </label>
             </section>
 
-            <section className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Rhyme highlights</h3>
-              <label className="inline-flex items-center gap-3 text-sm font-medium text-white/80">
-                <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
-                  <input
-                    type="checkbox"
-                    className="peer sr-only"
-                    checked={showInternalRhymes}
-                    onChange={(event) => setShowInternalRhymes(event.target.checked)}
-                    aria-label="Show internal rhymes"
-                  />
-                  <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
-                </span>
-                Show internal rhymes
-              </label>
-              <label className="inline-flex items-center gap-3 text-sm font-medium text-white/80">
-                <span className="relative inline-flex h-5 w-9 items-center rounded-full bg-white/20 transition">
-                  <input
-                    type="checkbox"
-                    className="peer sr-only"
-                    checked={highlightStopwords}
-                    onChange={(event) => setHighlightStopwords(event.target.checked)}
-                    aria-label="Highlight stopwords"
-                  />
-                  <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
-                </span>
-                Highlight stopwords
-              </label>
-            </section>
+            <RhymeHighlightsSection />
 
             <section className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Rhyme suggestions</h3>
