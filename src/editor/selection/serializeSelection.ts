@@ -30,14 +30,30 @@ function resolvePoint(root: HTMLElement, node: Node | null, offset: number) {
 
 function detectDirection(selection: Selection): 'forward' | 'backward' {
   if (selection.isCollapsed) return 'forward'
-  if (selection.anchorNode === selection.focusNode) {
+  const anchor = selection.anchorNode
+  const focus = selection.focusNode
+  if (anchor === focus) {
     return selection.anchorOffset <= selection.focusOffset ? 'forward' : 'backward'
   }
-  const probe = selection.anchorNode?.ownerDocument.createRange()
-  if (!probe || !selection.anchorNode || !selection.focusNode) return 'forward'
-  probe.setStart(selection.anchorNode, selection.anchorOffset)
-  probe.setEnd(selection.focusNode, selection.focusOffset)
-  return probe.collapsed ? 'backward' : 'forward'
+
+  if (!anchor || !focus) return 'forward'
+
+  const doc =
+    anchor.nodeType === 9
+      ? (anchor as unknown as Document)
+      : anchor.ownerDocument
+
+  if (!doc) return 'forward'
+
+  const probe = doc.createRange()
+
+  try {
+    probe.setStart(anchor, selection.anchorOffset)
+    probe.setEnd(focus, selection.focusOffset)
+    return probe.collapsed ? 'backward' : 'forward'
+  } catch {
+    return 'forward'
+  }
 }
 
 export function serializeSelection(root: HTMLElement, selection: Selection | null): SelectionSnapshot | null {
