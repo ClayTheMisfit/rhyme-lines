@@ -41,6 +41,7 @@ export function measureTokenRects(
   tokenRanges: TokenRange[],
   cacheKey: string
 ): Promise<TokenRect[]> {
+  const doc = editableRoot.ownerDocument
   const cached = cacheGet(cacheKey)
   if (cached) return Promise.resolve(cached)
 
@@ -52,7 +53,7 @@ export function measureTokenRects(
       for (const token of tokenRanges) {
         const lineElement = editableRoot.querySelector<HTMLDivElement>(`[data-line-id="${token.lineId}"]`)
         if (!lineElement) continue
-        const walker = document.createTreeWalker(lineElement, NodeFilter.SHOW_TEXT)
+        const walker = doc.createTreeWalker(lineElement, NodeFilter.SHOW_TEXT)
         let node: Node | null = walker.nextNode()
         let offset = 0
         let startNode: Node | null = null
@@ -75,7 +76,7 @@ export function measureTokenRects(
           node = walker.nextNode()
         }
         if (!startNode || !endNode) continue
-        const range = document.createRange()
+        const range = doc.createRange()
         range.setStart(startNode, Math.max(0, startOffset))
         range.setEnd(endNode, Math.max(0, endOffset))
         for (const rect of Array.from(range.getClientRects())) {
