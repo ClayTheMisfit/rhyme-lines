@@ -4,6 +4,30 @@ type TokenRange = { id: string; lineId: string; start: number; end: number }
 
 type CacheKey = string
 const rectCache = new Map<CacheKey, TokenRect[]>()
+const MAX_CACHE_ENTRIES = 300
+
+const cacheGet = (cacheKey: CacheKey): TokenRect[] | undefined => {
+  const value = rectCache.get(cacheKey)
+  if (!value) return undefined
+  // Refresh recency for simple LRU semantics.
+  rectCache.delete(cacheKey)
+  rectCache.set(cacheKey, value)
+  return value
+}
+
+const cacheSet = (cacheKey: CacheKey, value: TokenRect[]) => {
+  if (rectCache.has(cacheKey)) {
+    rectCache.delete(cacheKey)
+  }
+  rectCache.set(cacheKey, value)
+
+  if (rectCache.size <= MAX_CACHE_ENTRIES) return
+
+  const oldestKey = rectCache.keys().next().value as CacheKey | undefined
+  if (oldestKey !== undefined) {
+    rectCache.delete(oldestKey)
+  }
+}
 
 const toRectLike = (rect: DOMRect): DOMRectLike => ({
   left: rect.left,
@@ -17,7 +41,7 @@ export function measureTokenRects(
   tokenRanges: TokenRange[],
   cacheKey: string
 ): Promise<TokenRect[]> {
-  const cached = rectCache.get(cacheKey)
+  const cached = cacheGet(cacheKey)
   if (cached) return Promise.resolve(cached)
 
   return new Promise((resolve) => {
@@ -67,7 +91,7 @@ export function measureTokenRects(
         }
       }
 
-      rectCache.set(cacheKey, next)
+      cacheSet(cacheKey, next)
       resolve(next)
     })
   })
