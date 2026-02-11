@@ -10,6 +10,19 @@ type UseEditorInputArgs = {
   logDebugEvent: (type: string, payload: Record<string, unknown>) => void
 }
 
+/**
+ * Wires editor input events to commit-and-measure actions, handling IME composition and emitting debug events.
+ *
+ * @param commitEditorChange - Commits the current editor change; accepts an optional source string.
+ * @param onShortcutKeyDown - Handler for keydown events used to detect and handle shortcut keys.
+ * @param onFocusChange - Notified with `true`/`false` when the editor gains or loses focus.
+ * @param scheduleMeasurement - Schedules a layout/size measurement after changes are committed.
+ * @param logDebugEvent - Records debug events with a type and payload for instrumentation.
+ * @returns An object containing:
+ *  - `handlers`: event handlers to attach to the editor element (beforeinput, input, keydown, focus, blur, compositionstart, compositionend),
+ *  - `scheduleAnalysis`: a function to commit changes and schedule a measurement unless an IME composition is active,
+ *  - `isComposingRef`: a ref whose `.current` is `true` when an IME composition is in progress and `false` otherwise.
+ */
 export function useEditorInput({
   commitEditorChange,
   onShortcutKeyDown,
