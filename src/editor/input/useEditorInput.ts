@@ -5,7 +5,6 @@ type Source = 'input' | 'paste' | 'drop' | 'program'
 type UseEditorInputArgs = {
   commitEditorChange: (source?: Source) => void
   onShortcutKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void
-  onBeforeInsertIntoPlaceholder: () => void
   onFocusChange: (focused: boolean) => void
   scheduleMeasurement: () => void
   logDebugEvent: (type: string, payload: Record<string, unknown>) => void
@@ -14,7 +13,6 @@ type UseEditorInputArgs = {
 export function useEditorInput({
   commitEditorChange,
   onShortcutKeyDown,
-  onBeforeInsertIntoPlaceholder,
   onFocusChange,
   scheduleMeasurement,
   logDebugEvent,
@@ -33,8 +31,6 @@ export function useEditorInput({
         const nativeEvent = event.nativeEvent as InputEvent
         const inputType = typeof nativeEvent?.inputType === 'string' ? nativeEvent.inputType : ''
         logDebugEvent('beforeinput', { inputType, data: nativeEvent?.data ?? null })
-        if (inputType && !inputType.startsWith('insert')) return
-        onBeforeInsertIntoPlaceholder()
       },
       onInput: (event: React.FormEvent<HTMLDivElement>) => {
         const nativeEvent = event.nativeEvent as InputEvent
@@ -56,7 +52,7 @@ export function useEditorInput({
         scheduleAnalysis('input')
       },
     }),
-    [commitEditorChange, logDebugEvent, onBeforeInsertIntoPlaceholder, onFocusChange, onShortcutKeyDown, scheduleAnalysis]
+    [commitEditorChange, logDebugEvent, onFocusChange, onShortcutKeyDown, scheduleAnalysis]
   )
 
   return { handlers, scheduleAnalysis, isComposingRef }

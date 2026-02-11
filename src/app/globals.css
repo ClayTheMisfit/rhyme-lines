@@ -183,19 +183,23 @@ body.bg-black .rl-editor {
   caret-color: #f9fafb;
 }
 
-.rl-editor .placeholder-line {
-  color: #6b7280;
-  opacity: 0.7;
-}
-
-body.bg-black .rl-editor .placeholder-line {
-  color: #9ca3af;
+.rl-editor[data-empty="true"]:not(:focus)::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--rl-pad-top);
   opacity: 0.55;
-}
-
-.rl-editor .placeholder-text {
   pointer-events: none;
   user-select: none;
+}
+
+body.bg-black .rl-editor[data-empty="true"]:not(:focus)::before {
+  color: #9ca3af;
+}
+
+body.bg-white .rl-editor[data-empty="true"]:not(:focus)::before {
+  color: #6b7280;
 }
 
 /* Current line highlight overlay (non-interactive) */
