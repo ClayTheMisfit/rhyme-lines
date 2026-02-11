@@ -35,7 +35,7 @@ export default function TopBar() {
   const mounted = useMounted()
   const headerRef = useRef<HTMLElement>(null)
   const status = useAutosaveStore((state) => state.status)
-  const errorMessage = useAutosaveStore((state) => state.errorMessage)
+  const lastError = useAutosaveStore((state) => state.lastError)
   const runSave = useAutosaveStore((state) => state.runSave)
 
   const { theme, setThemePreference, showRhymeDecorations, setShowRhymeDecorations } = useSettingsStore(
@@ -130,15 +130,13 @@ export default function TopBar() {
       case 'saving':
         return { tone: 'saving', label: 'Saving...' }
       case 'saved':
-        return { tone: 'saved', label: 'Saved' }
-      case 'offline':
-        return { tone: 'offline', label: 'Offline — saved locally' }
+        return { tone: 'saved', label: 'All changes saved' }
       case 'error':
-        return { tone: 'error', label: errorMessage ?? 'Save failed' }
+        return { tone: 'error', label: 'Save failed' }
       default:
         return null
     }
-  }, [errorMessage, status])
+  }, [status])
 
   const toggleTheme = useCallback(() => {
     const next: ThemeChoice = theme === 'dark' ? 'light' : 'dark'
@@ -190,12 +188,10 @@ export default function TopBar() {
                 <span className="inline-flex h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white/80" />
               ) : saveDisplay.tone === 'error' ? (
                 <span className="text-rose-300">!</span>
-              ) : saveDisplay.tone === 'offline' ? (
-                <span className="text-amber-300">●</span>
               ) : (
                 <span className="text-emerald-300">✓</span>
               )}
-              <span>{saveDisplay.label}</span>
+              <span title={saveDisplay.tone === 'error' ? lastError ?? undefined : undefined}>{saveDisplay.label}</span>
               {saveDisplay.tone === 'error' && runSave ? (
                 <button
                   type="button"

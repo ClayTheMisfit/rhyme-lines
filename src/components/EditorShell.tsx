@@ -141,19 +141,7 @@ export default function EditorShell() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [focusRhymePanel, mode, setMode])
 
-  const getPayload = useCallback(() => {
-    const state = useTabsStore.getState()
-    const currentTab = state.tabs.find((tab) => tab.id === state.activeTabId)
-    return {
-      tabId: currentTab?.id ?? '',
-      title: currentTab?.title ?? '',
-      text: currentTab?.snapshot.text ?? '',
-      updatedAt: currentTab?.updatedAt ?? Date.now(),
-    }
-  }, [])
-
-  const { markDirty } = useAutosave({
-    getPayload,
+  const { markTextChanged } = useAutosave({
     onSaved: () => {
       const state = useTabsStore.getState()
       const currentTab = state.tabs.find((tab) => tab.id === state.activeTabId)
@@ -166,11 +154,12 @@ export default function EditorShell() {
   const handleTextChange = useCallback(
     (text: string) => {
       if (!activeTab) return
+      if (text === activeTab.snapshot.text) return
       actions.updateSnapshot(activeTab.id, { text })
       actions.markDirty(activeTab.id, true)
-      markDirty()
+      markTextChanged()
     },
-    [actions, activeTab, markDirty]
+    [actions, activeTab, markTextChanged]
   )
 
   const handleDirtyChange = useCallback(
