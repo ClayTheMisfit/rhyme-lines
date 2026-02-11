@@ -102,12 +102,24 @@ export function writeVersioned<K extends StorageKey>(
   data: StorageDataMap[K],
   version = CURRENT_SCHEMA_VERSION
 ): void {
-  if (!isClientStorageAvailable()) return
+  void tryWriteVersioned(key, data, version)
+}
+
+export function tryWriteVersioned<K extends StorageKey>(
+  key: K,
+  data: StorageDataMap[K],
+  version = CURRENT_SCHEMA_VERSION
+): { ok: true } | { ok: false; error: string } {
+  if (!isClientStorageAvailable()) {
+    return { ok: false, error: 'localStorage is unavailable' }
+  }
+
   try {
     const payload = JSON.stringify({ version, data })
     window.localStorage.setItem(STORAGE_KEYS[key], payload)
+    return { ok: true }
   } catch {
-    // No-op: storage failures should not crash the app
+    return { ok: false, error: 'Unable to write to localStorage' }
   }
 }
 

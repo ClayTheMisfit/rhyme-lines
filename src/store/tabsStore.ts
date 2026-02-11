@@ -81,7 +81,7 @@ const buildDraftFromTab = (tab: Tab, previousDraft?: DraftSchema): DraftSchema =
   }
 }
 
-const buildDraftCollection = (state: TabsState, previous: DraftCollection | null): DraftCollection => {
+export const buildDraftCollection = (state: Pick<TabsState, 'tabs' | 'activeTabId'>, previous: DraftCollection | null): DraftCollection => {
   const previousMap = new Map<string, DraftSchema>()
   previous?.drafts.forEach((draft) => {
     previousMap.set(draft.docId, draft)
