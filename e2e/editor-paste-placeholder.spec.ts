@@ -22,6 +22,7 @@ test.describe('Editor empty paste flow', () => {
     await expect(editor).toHaveAttribute('data-empty', 'false')
     await expect(editor).toContainText('line one')
     await expect(editor).toContainText('line two')
+    // This is a DOM-placeholder guard (not a visual check): visual empty-state is verified by the data-empty flip above.
     await expect(editor).not.toContainText('Start writing…')
 
     await expect.poll(async () => page.locator('.syllable-badge').count()).toBeGreaterThan(0)
