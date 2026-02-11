@@ -17,7 +17,7 @@ import { buildRhymeDecorations, DEFAULT_UNDERLINE_TARGETS } from '@/lib/rhyme/rh
 import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
 import { RhymeDecorationOverlay } from '@/components/editor/RhymeDecorationOverlay'
 
-const PLACEHOLDER_TEXT = 'Start writing...'
+const PLACEHOLDER_TEXT = 'Start writing…'
 const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
@@ -73,6 +73,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
   const [lineVersion, setLineVersion] = useState(0)
   const [isEditorFocused, setIsEditorFocused] = useState(false)
+  const [isEditorEmpty, setIsEditorEmpty] = useState(true)
   const [activeRhymeFamilyId, setActiveRhymeFamilyId] = useState<number | null>(null)
   const [lineHighlight, setLineHighlight] = useState({
     top: 0,
@@ -211,112 +212,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [captureSelectionSnapshot]
   )
 
-  const isPlaceholderLine = useCallback(
-    (element: Element | null): element is HTMLDivElement =>
-      !!element && element.getAttribute('data-placeholder-line') === 'true',
-    []
-  )
-
-  const createLineElement = useCallback(
-    (doc: Document, options?: { placeholder?: boolean }) => {
-      const line = doc.createElement('div')
-      line.className = 'line'
-      if (options?.placeholder) {
-        line.dataset.placeholderLine = 'true'
-        line.classList.add('placeholder-line')
-        const placeholder = doc.createElement('span')
-        placeholder.className = 'placeholder-text'
-        placeholder.setAttribute('aria-hidden', 'true')
-        placeholder.setAttribute('data-placeholder-content', 'true')
-        placeholder.textContent = PLACEHOLDER_TEXT
-        placeholder.contentEditable = 'false'
-        line.appendChild(placeholder)
-      }
-
-      if (!line.dataset.lineId) {
-        line.dataset.lineId = `line-${lineIdSeed.current++}`
-      }
-      return line
-    },
-    []
-  )
-
-  const ensureLineHasContent = useCallback(
-    (line: HTMLDivElement, doc: Document) => {
-      const hasBreak = Array.from(line.childNodes).some((node) => node.nodeName === 'BR')
-      if (!hasBreak) {
-        line.appendChild(doc.createElement('br'))
-      }
-    },
-    []
-  )
-
-  const setCaretToLineStart = useCallback((line: HTMLDivElement) => {
-    const selection = line.ownerDocument.getSelection()
-    if (!selection) return
-    const range = line.ownerDocument.createRange()
-    range.setStart(line, 0)
-    range.collapse(true)
-    selection.removeAllRanges()
-    selection.addRange(range)
-  }, [])
-
-  const replacePlaceholderWithEmptyLine = useCallback(
-    (placeholderLine: HTMLDivElement) => {
-      const doc = placeholderLine.ownerDocument
-      const replacement = createLineElement(doc)
-      replacement.dataset.lineId = placeholderLine.dataset.lineId ?? `line-${lineIdSeed.current++}`
-      ensureLineHasContent(replacement, doc)
-      placeholderLine.replaceWith(replacement)
-      return replacement
-    },
-    [createLineElement, ensureLineHasContent]
-  )
-
-  const editorIsMeaningfullyEmpty = useCallback((el: HTMLElement) => {
-    const lines: HTMLDivElement[] = Array.from(el.querySelectorAll<HTMLDivElement>('.line')).filter(
-      (line): line is HTMLDivElement => !isPlaceholderLine(line)
-    )
-    if (lines.length === 0) return true
-    return lines.every((line) => ((line.textContent || '').replace(/\u00A0/g, ' ').trim().length === 0))
-  }, [isPlaceholderLine])
-
-  const syncPlaceholderLine = useCallback(() => {
-    const el = editorRef.current
-    if (!el) return
-    const doc = el.ownerDocument || document
-    const placeholderLine = el.querySelector<HTMLDivElement>('[data-placeholder-line="true"]')
-    const hasContent = !editorIsMeaningfullyEmpty(el)
-    logDebugEvent('sync-placeholder', {
-      hasContent,
-      placeholderPresent: !!placeholderLine,
-      lineCount: el.querySelectorAll('.line').length,
-    })
-
-    if (hasContent) {
-      if (placeholderLine) {
-        placeholderLine.remove()
-      }
-      return
-    }
-
-    if (placeholderLine) {
-      ensureLineHasContent(placeholderLine, doc)
-      if (document.activeElement === el) {
-        setCaretToLineStart(placeholderLine)
-      }
-      return
-    }
-
-    el.innerHTML = ''
-    const placeholder = createLineElement(doc, { placeholder: true })
-    ensureLineHasContent(placeholder, doc)
-    el.appendChild(placeholder)
-    if (document.activeElement === el) {
-      setCaretToLineStart(placeholder)
-    }
-  }, [createLineElement, editorIsMeaningfullyEmpty, ensureLineHasContent, logDebugEvent, setCaretToLineStart])
-
   const getActiveLineElementFromSelection = useCallback(
     (selection: Selection | null, root: HTMLElement): HTMLDivElement | null => {
       if (!selection || selection.rangeCount === 0) return null
@@ -330,10 +225,10 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         anchorElement?.closest<HTMLDivElement>(
           '[data-line-id], [data-line], .editor-line, .line'
         ) ?? null
-      if (!lineElement || isPlaceholderLine(lineElement)) return null
+      if (!lineElement) return null
       return lineElement
     },
-    [isPlaceholderLine]
+    []
   )
 
   const findLineByCaretPosition = useCallback(
@@ -347,7 +242,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const caretY = rect.top + rect.height / 2
       const candidates = Array.from(
         root.querySelectorAll<HTMLDivElement>('[data-line-id], [data-line], .editor-line, .line')
-      ).filter((line) => line.getAttribute('data-placeholder-line') !== 'true')
+      )
       for (const line of candidates) {
         const lineRect = line.getBoundingClientRect()
         if (caretY >= lineRect.top && caretY <= lineRect.bottom) {
@@ -356,7 +251,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       }
       return null
     },
-    [isPlaceholderLine]
+    []
   )
 
   const measureLineRect = useCallback((lineEl: HTMLElement, textColEl: HTMLElement) => {
@@ -575,6 +470,26 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     opacity: DEBUG_ACTIVE_LINE ? 1 : 0,
   } as const
 
+
+  const createLineElement = useCallback((doc: Document) => {
+    const line = doc.createElement('div')
+    line.className = 'line'
+    if (!line.dataset.lineId) {
+      line.dataset.lineId = `line-${lineIdSeed.current++}`
+    }
+    return line
+  }, [])
+
+  const ensureLineHasContent = useCallback(
+    (line: HTMLDivElement, doc: Document) => {
+      const hasBreak = Array.from(line.childNodes).some((node) => node.nodeName === 'BR')
+      if (!hasBreak) {
+        line.appendChild(doc.createElement('br'))
+      }
+    },
+    []
+  )
+
   const ensureLineStructure = useCallback(() => {
     const el = editorRef.current
     if (!el) return
@@ -597,9 +512,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
         if (element.tagName === 'DIV') {
           element.classList.add('line')
-          if (isPlaceholderLine(element)) {
-            element.classList.add('placeholder-line')
-          }
           if (!element.dataset.lineId) {
             element.dataset.lineId = `line-${lineIdSeed.current++}`
           }
@@ -649,15 +561,13 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       ensureLineHasContent(line, doc)
       el.appendChild(line)
     }
-  }, [createLineElement, ensureLineHasContent, isPlaceholderLine])
+  }, [createLineElement, ensureLineHasContent])
 
   const collectLineInputs = useCallback((): { lines: LineInput[]; elements: HTMLDivElement[] } => {
     const el = editorRef.current
     if (!el) return { lines: [], elements: [] }
 
-    const elements = Array.from(el.querySelectorAll<HTMLDivElement>('.line')).filter(
-      (line): line is HTMLDivElement => !isPlaceholderLine(line)
-    )
+    const elements = Array.from(el.querySelectorAll<HTMLDivElement>('.line'))
 
     const seenIds = new Set<string>()
     const nextLineId = () => `line-${lineIdSeed.current++}`
@@ -679,7 +589,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
     lineElementsRef.current = elements
     return { lines, elements }
-  }, [isPlaceholderLine])
+  }, [])
 
   const schedulePostLayoutMeasurement = useCallback(() => {
     if (typeof window === 'undefined') return
@@ -693,7 +603,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const commitEditorChange = useCallback((source: 'input' | 'paste' | 'drop' | 'program' = 'input') => {
     ensureLineStructure()
-    syncPlaceholderLine()
     const el = editorRef.current
     logDebugEvent('change', {
       phase: 'post-structure',
@@ -705,6 +614,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     analysisLinesRef.current = collectedLines
     setLineInputs(collectedLines)
     setLines(collectedLines.map((line) => line.text))
+    setIsEditorEmpty(collectedLines.every((line) => line.text.trim().length === 0))
     const analysisMode = source === 'paste' || source === 'drop' ? 'caret' : 'typing'
     scheduleAnalysis(collectedLines, analysisMode)
     setLineVersion((v) => v + 1)
@@ -724,7 +634,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     onDirtyChange,
     onTextChange,
     scheduleAnalysis,
-    syncPlaceholderLine,
   ])
 
   const scheduleSyncFromDom = useCallback(
@@ -807,14 +716,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const { handlers: inputHandlers, isComposingRef } = useEditorInput({
     commitEditorChange,
     onShortcutKeyDown: handleShortcutKeyDown,
-    onBeforeInsertIntoPlaceholder: () => {
-      const el = editorRef.current
-      if (!el) return
-      const placeholderLine = el.querySelector<HTMLDivElement>('[data-placeholder-line="true"]')
-      if (!placeholderLine) return
-      const replacement = replacePlaceholderWithEmptyLine(placeholderLine)
-      setCaretToLineStart(replacement)
-    },
     onFocusChange: setIsEditorFocused,
     scheduleMeasurement: () => scheduleCurrentLineHighlight({ immediate: true }),
     logDebugEvent,
@@ -871,7 +772,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
     hydrateEditorFromText(el, text)
     ensureLineStructure()
-    syncPlaceholderLine()
     lastHydratedTextRef.current = text
     lastSerializedRef.current = text
     if (!hasInitializedRef.current) {
@@ -882,6 +782,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     analysisLinesRef.current = collectedLines
     setLineInputs(collectedLines)
     setLines(collectedLines.map((line) => line.text))
+    setIsEditorEmpty(collectedLines.every((line) => line.text.trim().length === 0))
     setLineVersion((v) => v + 1)
     if (collectedLines.length) {
       scheduleAnalysis(collectedLines, 'typing')
@@ -889,7 +790,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     requestAnimationFrame(() => {
       scheduleCurrentLineHighlight({ immediate: true })
     })
-  }, [collectLineInputs, scheduleAnalysis, syncPlaceholderLine, text, scheduleCurrentLineHighlight, ensureLineStructure])
+  }, [collectLineInputs, scheduleAnalysis, text, scheduleCurrentLineHighlight, ensureLineStructure])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1187,6 +1088,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                   event.stopPropagation()
                 }}
                 onPointerDown={ensureEditorFocus}
+                data-placeholder={PLACEHOLDER_TEXT}
+                data-empty={isEditorEmpty ? 'true' : 'false'}
                 className="rl-editor relative z-20 outline-none w-full min-h-[70vh] font-mono pointer-events-auto"
               />
             </div>
