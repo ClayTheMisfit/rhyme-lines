@@ -11,8 +11,7 @@ import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
 import { useAnalysisWorker } from '@/hooks/useAnalysisWorker'
 import type { LineInput } from '@/lib/analysis/compute'
 import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
-import { useViewportWindow } from '@/hooks/useViewportWindow'
-import { useOverlayMeasurement } from '@/hooks/useOverlayMeasurement'
+import { useOverlayMeasurement, useLineVirtualization, useEditorInput, useEditorClipboard, useEditorSelection, useDecorationDiff } from '@/editor'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
 import { buildRhymeDecorations, DEFAULT_UNDERLINE_TARGETS } from '@/lib/rhyme/rhymeDecorations'
 import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
@@ -85,7 +84,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     debugLineLeft: 0,
   })
 
-  const composingRef = useRef(false)
   const highlightDebounceRef = useRef<number | null>(null)
   const lastHighlightRef = useRef(lineHighlight)
   const debugLogRef = useRef(0)
@@ -121,8 +119,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   useBadgeShortcuts()
 
   const { analysis, analysisMode, scheduleAnalysis, metrics } = useAnalysisWorker(ANALYSIS_DOC_ID)
-  const { activeLineIds, viewportRange } = useViewportWindow(containerRef, lineElementsRef, lineVersion, {
-    bufferLines: 12,
+  const { activeLineIds, viewportRange } = useLineVirtualization({
+    containerRef,
+    lineElementsRef,
+    lineVersion,
+    overscan: 12,
   })
   const overlayEnabled = showOverlays && badgeMode !== 'off'
   const { tokens, measurementMeta } = useOverlayMeasurement({
@@ -176,6 +177,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       }),
     [lineInputs, rhymeRecomputeSignal]
   )
+
+  const decorationPatch = useDecorationDiff(rhymeDecorations.tokensByLine)
 
   const rhymeRects = useRhymeDecorationOverlay({
     enabled: showRhymeDecorations,
@@ -534,7 +537,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const scheduleCurrentLineHighlight = useCallback(
     (options?: { immediate?: boolean }) => {
-      if (composingRef.current) return
+      if (isComposingRef.current) return
       if (highlightDebounceRef.current) {
         window.clearTimeout(highlightDebounceRef.current)
       }
@@ -763,40 +766,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [logDebugEvent]
   )
 
-  const handleInputEvent = useCallback(
-    (event: React.FormEvent<HTMLDivElement>) => {
-      const nativeEvent = event.nativeEvent as InputEvent
-      logDebugEvent('input', {
-        inputType: typeof nativeEvent?.inputType === 'string' ? nativeEvent.inputType : '',
-        data: nativeEvent?.data ?? null,
-        defaultPrevented: nativeEvent?.defaultPrevented ?? event.isDefaultPrevented(),
-      })
-      commitEditorChange('input')
-    },
-    [commitEditorChange, logDebugEvent]
-  )
 
-  const handleBeforeInput = useCallback(
-    (event: React.FormEvent<HTMLDivElement>) => {
-      const nativeEvent = event.nativeEvent as InputEvent
-      const inputType = typeof nativeEvent?.inputType === 'string' ? nativeEvent.inputType : ''
-      logDebugEvent('beforeinput', {
-        inputType,
-        data: nativeEvent?.data ?? null,
-        defaultPrevented: nativeEvent?.defaultPrevented ?? event.isDefaultPrevented(),
-      })
-      if (inputType && !inputType.startsWith('insert')) return
-
-      const el = editorRef.current
-      if (!el) return
-      const placeholderLine = el.querySelector<HTMLDivElement>('[data-placeholder-line="true"]')
-      if (!placeholderLine) return
-
-      const replacement = replacePlaceholderWithEmptyLine(placeholderLine)
-      setCaretToLineStart(replacement)
-    },
-    [logDebugEvent, replacePlaceholderWithEmptyLine, setCaretToLineStart]
-  )
 
   const resolveActiveFamilyFromSelection = useCallback(() => {
     if (typeof window === 'undefined') return null
@@ -829,6 +799,27 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     }
   }, [resolveActiveFamilyFromSelection, scheduleAnalysis, scheduleCurrentLineHighlight, showRhymeDecorations])
 
+  useEditorSelection({
+    editorRef,
+    onSelectionChange: handleSelectionChange,
+  })
+
+  const { handlers: inputHandlers, isComposingRef } = useEditorInput({
+    commitEditorChange,
+    onShortcutKeyDown: handleShortcutKeyDown,
+    onBeforeInsertIntoPlaceholder: () => {
+      const el = editorRef.current
+      if (!el) return
+      const placeholderLine = el.querySelector<HTMLDivElement>('[data-placeholder-line="true"]')
+      if (!placeholderLine) return
+      const replacement = replacePlaceholderWithEmptyLine(placeholderLine)
+      setCaretToLineStart(replacement)
+    },
+    onFocusChange: setIsEditorFocused,
+    scheduleMeasurement: () => scheduleCurrentLineHighlight({ immediate: true }),
+    logDebugEvent,
+  })
+
   useEffect(() => {
     if (!showLineTotals) {
       setLineTotals([])
@@ -855,8 +846,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') return
-    console.debug('[overlay] render', { tokenCount: tokens.length, measured: measurementMeta?.measured ?? 0 })
-  }, [measurementMeta, tokens.length])
+    console.debug('[overlay] render', { tokenCount: tokens.length, measured: measurementMeta?.measured ?? 0, decorationPatch: decorationPatch.length })
+  }, [decorationPatch.length, measurementMeta, tokens.length])
 
   useEffect(() => {
     const el = editorRef.current
@@ -911,15 +902,13 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
     window.addEventListener('keydown', onKey)
     window.addEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
-    document.addEventListener('selectionchange', handleSelectionChange)
 
     return () => {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
-      document.removeEventListener('selectionchange', handleSelectionChange)
       if (highlightDebounceRef.current) window.clearTimeout(highlightDebounceRef.current)
     }
-  }, [handleSelectionChange])
+  }, [])
 
   useEffect(() => {
     const onResize = () => {
@@ -1072,6 +1061,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [ensureEditorFocus]
   )
 
+  const { onPaste } = useEditorClipboard({
+    insertPlainText,
+    scheduleSyncFromDom,
+  })
+
   const handleAssignEditorRef = useCallback(
     (node: HTMLDivElement | null) => {
       editorRef.current = node
@@ -1179,28 +1173,14 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 suppressContentEditableWarning
                 spellCheck={false}
                 data-layer="editable"
-                onBeforeInput={handleBeforeInput}
-                onInput={handleInputEvent}
-                onFocus={() => setIsEditorFocused(true)}
-                onBlur={() => {
-                  setIsEditorFocused(false)
-                  commitEditorChange('input')
-                }}
-                onKeyDown={handleShortcutKeyDown}
-                onPaste={(event) => {
-                  const clipboardText = event.clipboardData?.getData('text/plain') ?? ''
-                  if (!clipboardText) return
-                  event.preventDefault()
-                  insertPlainText(clipboardText)
-                  scheduleSyncFromDom('paste')
-                }}
-                onCompositionStart={() => {
-                  composingRef.current = true
-                }}
-                onCompositionEnd={() => {
-                  composingRef.current = false
-                  scheduleCurrentLineHighlight({ immediate: true })
-                }}
+                onBeforeInput={inputHandlers.onBeforeInput}
+                onInput={inputHandlers.onInput}
+                onFocus={inputHandlers.onFocus}
+                onBlur={inputHandlers.onBlur}
+                onKeyDown={inputHandlers.onKeyDown}
+                onPaste={onPaste}
+                onCompositionStart={inputHandlers.onCompositionStart}
+                onCompositionEnd={inputHandlers.onCompositionEnd}
                 onClick={(event) => {
                   ensureEditorFocus()
                   commitEditorChange('input')
