@@ -28,7 +28,8 @@ test.describe('Editor refactor regressions', () => {
       await navigator.clipboard.writeText(text)
     }, block)
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+V' : 'Control+V')
-    await editor.pressSequentially(['\n', 'e', 'n', 'd'].join(''))
+    await editor.press('Enter')
+    await editor.pressSequentially('end')
 
     await expect(editor).toContainText('line 120')
     await expect(editor).toContainText('end')
