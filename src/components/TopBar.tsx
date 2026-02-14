@@ -35,17 +35,14 @@ function applyBodyTheme(theme: ThemeChoice) {
  * Render the editor's top bar with tab controls, theme and panel toggles, and settings.
  *
  * Synchronizes header height and panel offsets to CSS variables, applies the resolved theme
- * to the document body, and keeps save announcements available to assistive technology.
+ * to the document body.
  *
  * @returns The header element containing tab controls, toggle buttons, and the settings trigger.
  */
 export default function TopBar() {
   const mounted = useMounted()
   const headerRef = useRef<HTMLElement>(null)
-  const { status, isSaving, lastSavedAt } = useAutosaveStore(
-    (state) => ({ status: state.status, isSaving: state.isSaving, lastSavedAt: state.lastSavedAt }),
-    shallow
-  )
+  const isSaving = useAutosaveStore((state) => state.isSaving)
 
   const { theme, setThemePreference, showRhymeDecorations, setShowRhymeDecorations } = useSettingsStore(
     (state) => ({
@@ -132,7 +129,6 @@ export default function TopBar() {
     }
   }, [mounted, resolvedTheme, setResolvedTheme, theme])
 
-
   const toggleTheme = useCallback(() => {
     const next: ThemeChoice = theme === 'dark' ? 'light' : 'dark'
     setThemePreference(next)
@@ -150,14 +146,6 @@ export default function TopBar() {
     [actions]
   )
 
-  const saveLiveMessage =
-    status === 'saving'
-      ? 'Saving…'
-      : status === 'error'
-        ? 'Save failed'
-        : status === 'saved' && lastSavedAt
-          ? 'Saved'
-          : ''
 
   return (
     <header
@@ -234,9 +222,6 @@ export default function TopBar() {
           <SettingsSheet />
         </motion.div>
       </div>
-      <span className="sr-only" aria-live="polite">
-        {saveLiveMessage}
-      </span>
     </header>
   )
 }

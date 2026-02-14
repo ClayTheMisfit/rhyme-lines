@@ -60,7 +60,7 @@ export function TabBar({ tabs, activeTabId, isSaving, onNew, onSelect, onClose, 
           {tabs.map((tab) => {
             const isActive = tab.id === activeTabId
             const isEditing = editingId === tab.id
-            const showSavingSpinner = isSaving && isActive
+            const showSavingSpinner = tab.isDirty || (isSaving && isActive)
 
             return (
               <button
@@ -96,6 +96,7 @@ export function TabBar({ tabs, activeTabId, isSaving, onNew, onSelect, onClose, 
                     <span className="truncate">{tab.title || 'Untitled'}</span>
                     <span className="inline-flex w-3 items-center justify-center" aria-hidden="true">
                       <span
+                        aria-hidden="true"
                         className={cx(
                           'h-3 w-3 rounded-full border-2 border-muted-foreground/40 border-t-transparent transition-opacity',
                           showSavingSpinner ? 'animate-spin opacity-100' : 'pointer-events-none opacity-0'
