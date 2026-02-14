@@ -32,6 +32,14 @@ function applyBodyTheme(theme: ThemeChoice) {
   }
 }
 
+/**
+ * Render the editor's top bar with tab controls, theme and panel toggles, and settings.
+ *
+ * Synchronizes header height and panel offsets to CSS variables, applies the resolved theme
+ * to the document body, and displays autosave status via the save status indicator.
+ *
+ * @returns The header element containing tab controls, toggle buttons, settings trigger, and save status indicator.
+ */
 export default function TopBar() {
   const mounted = useMounted()
   const headerRef = useRef<HTMLElement>(null)
