@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useMounted } from '@/hooks/useMounted'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
@@ -14,6 +14,7 @@ import TabBar from '@/components/tabs/TabBar'
 import { shallow } from 'zustand/shallow'
 import SettingsSheet from './settings/SettingsSheet'
 import { layers } from '@/lib/layers'
+import SaveStatusDot from '@/components/save-status-dot'
 
 const PANEL_SPACING_REM = '1.5rem'
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
@@ -35,8 +36,6 @@ export default function TopBar() {
   const mounted = useMounted()
   const headerRef = useRef<HTMLElement>(null)
   const status = useAutosaveStore((state) => state.status)
-  const lastError = useAutosaveStore((state) => state.lastError)
-  const runSave = useAutosaveStore((state) => state.runSave)
 
   const { theme, setThemePreference, showRhymeDecorations, setShowRhymeDecorations } = useSettingsStore(
     (state) => ({
@@ -123,16 +122,16 @@ export default function TopBar() {
     }
   }, [mounted, resolvedTheme, setResolvedTheme, theme])
 
-  const saveDisplay = useMemo(() => {
+  const saveState = useMemo<'saving' | 'saved' | 'error' | null>(() => {
     switch (status) {
       case 'dirty':
-        return { tone: 'warning', label: 'Unsaved changes' }
+        return 'saving'
       case 'saving':
-        return { tone: 'saving', label: 'Saving...' }
+        return 'saving'
       case 'saved':
-        return { tone: 'saved', label: 'All changes saved' }
+        return 'saved'
       case 'error':
-        return { tone: 'error', label: 'Save failed' }
+        return 'error'
       default:
         return null
     }
@@ -174,36 +173,7 @@ export default function TopBar() {
       </div>
 
       <div className="ml-2 flex items-center gap-2">
-        <AnimatePresence mode="wait">
-          {saveDisplay ? (
-            <motion.div
-              key={saveDisplay.label}
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.2 }}
-              className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70"
-            >
-              {saveDisplay.tone === 'saving' ? (
-                <span className="inline-flex h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white/80" />
-              ) : saveDisplay.tone === 'error' ? (
-                <span className="text-rose-300">!</span>
-              ) : (
-                <span className="text-emerald-300">✓</span>
-              )}
-              <span title={saveDisplay.tone === 'error' ? lastError ?? undefined : undefined}>{saveDisplay.label}</span>
-              {saveDisplay.tone === 'error' && runSave ? (
-                <button
-                  type="button"
-                  onClick={() => runSave()}
-                  className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/70 transition hover:text-white"
-                >
-                  Retry
-                </button>
-              ) : null}
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+        {saveState ? <SaveStatusDot state={saveState} /> : null}
 
         <motion.button
           suppressHydrationWarning
