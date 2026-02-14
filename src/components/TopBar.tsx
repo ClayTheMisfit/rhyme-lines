@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useMounted } from '@/hooks/useMounted'
@@ -14,7 +14,6 @@ import TabBar from '@/components/tabs/TabBar'
 import { shallow } from 'zustand/shallow'
 import SettingsSheet from './settings/SettingsSheet'
 import { layers } from '@/lib/layers'
-import SaveStatusDot from '@/components/save-status-dot'
 
 const PANEL_SPACING_REM = '1.5rem'
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
@@ -36,14 +35,14 @@ function applyBodyTheme(theme: ThemeChoice) {
  * Render the editor's top bar with tab controls, theme and panel toggles, and settings.
  *
  * Synchronizes header height and panel offsets to CSS variables, applies the resolved theme
- * to the document body, and displays autosave status via the save status indicator.
+ * to the document body.
  *
- * @returns The header element containing tab controls, toggle buttons, settings trigger, and save status indicator.
+ * @returns The header element containing tab controls, toggle buttons, and the settings trigger.
  */
 export default function TopBar() {
   const mounted = useMounted()
   const headerRef = useRef<HTMLElement>(null)
-  const status = useAutosaveStore((state) => state.status)
+  const isSaving = useAutosaveStore((state) => state.isSaving)
 
   const { theme, setThemePreference, showRhymeDecorations, setShowRhymeDecorations } = useSettingsStore(
     (state) => ({
@@ -130,21 +129,6 @@ export default function TopBar() {
     }
   }, [mounted, resolvedTheme, setResolvedTheme, theme])
 
-  const saveState = useMemo<'saving' | 'saved' | 'error' | null>(() => {
-    switch (status) {
-      case 'dirty':
-        return 'saving'
-      case 'saving':
-        return 'saving'
-      case 'saved':
-        return 'saved'
-      case 'error':
-        return 'error'
-      default:
-        return null
-    }
-  }, [status])
-
   const toggleTheme = useCallback(() => {
     const next: ThemeChoice = theme === 'dark' ? 'light' : 'dark'
     setThemePreference(next)
@@ -162,6 +146,7 @@ export default function TopBar() {
     [actions]
   )
 
+
   return (
     <header
       ref={headerRef}
@@ -173,6 +158,7 @@ export default function TopBar() {
         <TabBar
           tabs={tabs}
           activeTabId={activeTabId}
+          isSaving={isSaving}
           onNew={actions.newTab}
           onSelect={actions.setActive}
           onClose={actions.closeTab}
@@ -181,8 +167,6 @@ export default function TopBar() {
       </div>
 
       <div className="ml-2 flex items-center gap-2">
-        {saveState ? <SaveStatusDot state={saveState} /> : null}
-
         <motion.button
           suppressHydrationWarning
           whileHover={{ scale: 1.05 }}

@@ -8,13 +8,14 @@ const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(
 interface TabBarProps {
   tabs: Tab[]
   activeTabId: string
+  isSaving: boolean
   onNew: () => void
   onSelect: (id: string) => void
   onClose: (id: string) => void
   onRename: (id: string, title: string) => void
 }
 
-export function TabBar({ tabs, activeTabId, onNew, onSelect, onClose, onRename }: TabBarProps) {
+export function TabBar({ tabs, activeTabId, isSaving, onNew, onSelect, onClose, onRename }: TabBarProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draftTitle, setDraftTitle] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -59,6 +60,7 @@ export function TabBar({ tabs, activeTabId, onNew, onSelect, onClose, onRename }
           {tabs.map((tab) => {
             const isActive = tab.id === activeTabId
             const isEditing = editingId === tab.id
+            const showSavingSpinner = tab.isDirty || (isSaving && isActive)
 
             return (
               <button
@@ -92,7 +94,15 @@ export function TabBar({ tabs, activeTabId, onNew, onSelect, onClose, onRename }
                 ) : (
                   <span className="flex items-center gap-1">
                     <span className="truncate">{tab.title || 'Untitled'}</span>
-                    {tab.isDirty && <span className="text-xs text-rose-200" aria-label="Unsaved changes">•</span>}
+                    <span className="inline-flex w-3 items-center justify-center" aria-hidden="true">
+                      <span
+                        aria-hidden="true"
+                        className={cx(
+                          'h-3 w-3 rounded-full border-2 border-muted-foreground/40 border-t-transparent transition-opacity',
+                          showSavingSpinner ? 'animate-spin opacity-100' : 'pointer-events-none opacity-0'
+                        )}
+                      />
+                    </span>
                   </span>
                 )}
                 <span

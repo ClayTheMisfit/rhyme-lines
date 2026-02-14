@@ -12,6 +12,7 @@ import { loadPersistedAppState } from '@/lib/persist/appState'
 import { shallow } from 'zustand/shallow'
 import { useHydrated } from '@/hooks/useHydrated'
 import { useAutosave } from '@/hooks/useAutosave'
+import { useAutosaveStore } from '@/store/autosaveStore'
 
 export default function EditorShell() {
   const shellRef = useRef<HTMLDivElement | null>(null)
@@ -37,6 +38,10 @@ export default function EditorShell() {
     () => tabs.find((tab) => tab.id === activeTabId) ?? tabs[0],
     [activeTabId, tabs]
   )
+
+  const isSaving = useAutosaveStore((state) => state.isSaving)
+  const activeTabShowSaving = Boolean(activeTab?.isDirty || isSaving)
+  const saveLiveLabel = !ready ? '' : activeTabShowSaving ? 'Saving…' : 'Saved'
 
   const focusRhymePanel = useCallback(() => {
     const panelElement = floatingPanelRef.current
@@ -186,6 +191,9 @@ export default function EditorShell() {
           <RhymePanel ref={floatingPanelRef} editorRef={editorRef} />
         </div>
       )}
+      <span className="sr-only" aria-live="polite">
+        {saveLiveLabel}
+      </span>
     </div>
   )
 }
