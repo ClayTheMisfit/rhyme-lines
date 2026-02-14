@@ -42,8 +42,8 @@ function applyBodyTheme(theme: ThemeChoice) {
 export default function TopBar() {
   const mounted = useMounted()
   const headerRef = useRef<HTMLElement>(null)
-  const { status, isSaving } = useAutosaveStore(
-    (state) => ({ status: state.status, isSaving: state.isSaving }),
+  const { status, isSaving, lastSavedAt } = useAutosaveStore(
+    (state) => ({ status: state.status, isSaving: state.isSaving, lastSavedAt: state.lastSavedAt }),
     shallow
   )
 
@@ -150,6 +150,15 @@ export default function TopBar() {
     [actions]
   )
 
+  const saveLiveMessage =
+    status === 'saving'
+      ? 'Saving…'
+      : status === 'error'
+        ? 'Save failed'
+        : status === 'saved' && lastSavedAt
+          ? 'Saved'
+          : ''
+
   return (
     <header
       ref={headerRef}
@@ -226,7 +235,7 @@ export default function TopBar() {
         </motion.div>
       </div>
       <span className="sr-only" aria-live="polite">
-        {status === 'saving' ? 'Saving…' : status === 'error' ? 'Save failed' : 'Saved'}
+        {saveLiveMessage}
       </span>
     </header>
   )
