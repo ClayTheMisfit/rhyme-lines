@@ -23,6 +23,17 @@ const STATE_VISUALS: Record<SaveStatusDotState, string> = {
   error: 'h-2.5 w-2.5 rounded-full bg-destructive/80 border border-destructive/60',
 }
 
+/**
+ * Render a compact save-status indicator with an accessible tooltip and live region.
+ *
+ * The component visualizes one of three states and exposes the human-readable state
+ * to assistive technology via an `aria-label`, tooltip content, and an `aria-live`
+ * region for announcements.
+ *
+ * @param state - One of `"saving"`, `"saved"`, or `"error"` indicating the current save status
+ * @param className - Optional additional CSS classes to apply to the outer button
+ * @returns The rendered save-status indicator element
+ */
 export default function SaveStatusDot({ state, className }: SaveStatusDotProps) {
   const label = STATE_LABELS[state]
 
