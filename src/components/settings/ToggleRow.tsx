@@ -8,6 +8,17 @@ type ToggleRowProps = {
   onCheckedChange: (value: boolean) => void
 }
 
+/**
+ * Render an accessible, keyboard-operable toggle row that displays a label and a switch-like visual.
+ *
+ * The control toggles its state when clicked or when Enter/Space is pressed and reports the new state
+ * via `onCheckedChange`.
+ *
+ * @param label - The text label displayed to the left of the switch.
+ * @param checked - The current boolean state of the switch (`true` = on).
+ * @param onCheckedChange - Callback invoked with the new boolean state when the control is toggled.
+ * @returns The ToggleRow React element (a button with switch semantics).
+ */
 function ToggleRowComponent({ label, checked, onCheckedChange }: ToggleRowProps) {
   return (
     <button
