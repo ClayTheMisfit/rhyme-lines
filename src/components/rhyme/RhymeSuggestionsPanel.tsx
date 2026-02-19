@@ -12,6 +12,7 @@ import type { RhymeFilters } from '@/lib/persist/schema'
 import type { EditorHandle } from '@/components/Editor'
 import { getLocalInitFailureReason } from '@/lib/rhymes/rhymeSource'
 import { useMemo, useState } from 'react'
+import { shallow } from 'zustand/shallow'
 import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 import { buildVisibleSuggestions } from '@/components/rhyme/buildVisibleSuggestions'
 
@@ -83,7 +84,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       setCommonWordsOnly: state.setCommonWordsOnly,
       rhymeFilters: state.rhymeFilters,
       setRhymeFilters: state.setRhymeFilters,
-    }))
+    }), shallow)
 
     const { x, y, width, height, setBounds, dock, undock } = useRhymePanel(
       (state) => ({
@@ -392,8 +393,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
     const panelContent = (
       <div className="flex h-full min-h-0 flex-col">
-        <div className="px-3 pt-3">
-          <div className="space-y-3 rounded-lg border border-slate-200/70 bg-slate-50/80 p-3 text-[12px] text-slate-600 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/60 dark:text-slate-300">
+        <div className="px-3 pt-2.5">
+          <div className="space-y-2.5 rounded-[var(--rl-radius-lg)] border border-[color:var(--rl-border)] bg-slate-50/75 p-3 text-[12px] text-slate-600 shadow-sm dark:bg-slate-800/55 dark:text-slate-300">
             <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
               Rhymes
             </div>
@@ -440,7 +441,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                       const hasAny = Object.values(next).some(Boolean)
                       setRhymeFilters(hasAny ? next : { perfect: true, near: true })
                     }}
-                    className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                    className={`rounded-full border px-3 py-1 text-[11px] font-medium transition duration-100 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] dark:focus-visible:ring-offset-slate-900 ${
                       isActive
                         ? activeClasses
                         : 'border-slate-200/70 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:text-slate-100'

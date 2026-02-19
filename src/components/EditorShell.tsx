@@ -14,6 +14,13 @@ import { useHydrated } from '@/hooks/useHydrated'
 import { useAutosave } from '@/hooks/useAutosave'
 import { useAutosaveStore } from '@/store/autosaveStore'
 
+/**
+ * Render the editor shell that coordinates the lyric Editor and RhymePanel, manages hydration, focus, keyboard shortcuts, click-outside behavior, and autosave status.
+ *
+ * Renders a placeholder until client and app state hydration complete, then mounts the Editor and RhymePanel, wires focus helpers (including Alt+R to open the panel), subscribes to persisted state hydration, listens for outside clicks to hide the panel, and exposes a visually hidden live region reporting autosave status.
+ *
+ * @returns The EditorShell React element
+ */
 export default function EditorShell() {
   const shellRef = useRef<HTMLDivElement | null>(null)
   const floatingPanelRef = useRef<HTMLDivElement | null>(null)
@@ -39,9 +46,19 @@ export default function EditorShell() {
     [activeTabId, tabs]
   )
 
-  const isSaving = useAutosaveStore((state) => state.isSaving)
-  const activeTabShowSaving = Boolean(activeTab?.isDirty || isSaving)
-  const saveLiveLabel = !ready ? '' : activeTabShowSaving ? 'Saving…' : 'Saved'
+  const { saveStatus, saveError } = useAutosaveStore((state) => ({
+    saveStatus: state.status,
+    saveError: state.lastError,
+  }), shallow)
+  const saveLiveLabel = !ready
+    ? ''
+    : saveStatus === 'saving'
+      ? 'Saving'
+      : saveStatus === 'error'
+        ? `Save failed${saveError ? `: ${saveError}` : ''}`
+        : saveStatus === 'dirty'
+          ? 'Changes pending save'
+          : ''
 
   const focusRhymePanel = useCallback(() => {
     const panelElement = floatingPanelRef.current

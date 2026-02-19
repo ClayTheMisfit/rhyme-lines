@@ -48,7 +48,25 @@
   body {
     background-color: theme('colors.background');
     color: theme('colors.foreground');
+    font-family: var(--rl-font-ui);
   }
+}
+
+
+:root {
+  --rl-font-editor: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  --rl-font-ui: Inter, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --rl-space-1: 0.25rem;
+  --rl-space-2: 0.5rem;
+  --rl-space-3: 0.75rem;
+  --rl-space-4: 1rem;
+  --rl-space-5: 1.25rem;
+  --rl-radius-sm: 0.375rem;
+  --rl-radius-md: 0.5rem;
+  --rl-radius-lg: 0.75rem;
+  --rl-muted: rgba(255, 255, 255, 0.62);
+  --rl-border: rgba(255, 255, 255, 0.13);
+  --rl-accent: rgba(56, 189, 248, 0.85);
 }
 
 /* Editor-specific variables */
@@ -140,20 +158,20 @@ body.bg-white {
 /* Editor line break preservation */
 .editor-root {
   position: relative;
-  --rl-font: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  --rl-font: var(--rl-font-editor);
   --rl-font-size: var(--editor-font-size, 18px);
   --rl-line-height: max(var(--editor-line-height, 1.6), 1.35);
   --rl-line-pad-y: 2px;
   --rl-pad-top: calc(2rem + var(--editor-safe-offset));
   --rl-pad-bottom: 2rem;
-  --rl-pad-inline: 2rem;
+  --rl-pad-inline: var(--rl-space-5);
   --rl-gutter-width: clamp(2.25rem, 3vw, 2.75rem);
 }
 
 .rl-editor-grid {
   display: grid;
   grid-template-columns: var(--rl-gutter-width) 1fr;
-  column-gap: 0.75rem;
+  column-gap: var(--rl-space-3);
   padding-inline: var(--rl-pad-inline);
   align-items: flex-start;
 }

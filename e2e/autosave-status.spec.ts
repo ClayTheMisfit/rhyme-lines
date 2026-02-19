@@ -1,17 +1,18 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('Autosave status indicator', () => {
-  test('shows saved state after debounce', async ({ page }) => {
+  test('shows active tab spinner only while saving', async ({ page }) => {
     await page.goto('/')
     await page.waitForSelector('#lyric-editor')
 
-    await expect(page.getByRole('button', { name: 'Saved' })).toBeVisible()
+    const spinner = page.getByTestId('active-tab-save-spinner')
+    await expect(spinner).toHaveCSS('opacity', '0')
 
     const editor = page.locator('#lyric-editor')
     await editor.click()
     await editor.type('test')
 
-    await expect(page.getByRole('button', { name: 'Saving…' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Saved' })).toBeVisible({ timeout: 3000 })
+    await expect(spinner).toHaveCSS('opacity', '0.85')
+    await expect(spinner).toHaveCSS('opacity', '0', { timeout: 3000 })
   })
 })

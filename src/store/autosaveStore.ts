@@ -2,13 +2,14 @@
 
 import { create } from 'zustand'
 
-export type AutosaveStatus = 'dirty' | 'saving' | 'saved' | 'error'
+export type AutosaveStatus = 'idle' | 'dirty' | 'saving' | 'error'
 
 type AutosaveState = {
   rev: number
   savedRev: number
   isSaving: boolean
   lastError: string | null
+  lastErrorAt: number | null
   status: AutosaveStatus
   lastSavedAt: number | null
   runSave: (() => void) | null
@@ -24,7 +25,7 @@ const deriveStatus = (state: { isSaving: boolean; rev: number; savedRev: number;
   if (state.isSaving) return 'saving'
   if (state.lastError) return 'error'
   if (state.rev !== state.savedRev) return 'dirty'
-  return 'saved'
+  return 'idle'
 }
 
 export const useAutosaveStore = create<AutosaveState>((set, get) => ({
@@ -32,7 +33,8 @@ export const useAutosaveStore = create<AutosaveState>((set, get) => ({
   savedRev: 0,
   isSaving: false,
   lastError: null,
-  status: 'saved',
+  lastErrorAt: null,
+  status: 'idle',
   lastSavedAt: null,
   runSave: null,
   setRunSave: (runSave) => set({ runSave }),
@@ -42,7 +44,8 @@ export const useAutosaveStore = create<AutosaveState>((set, get) => ({
       savedRev: revision,
       isSaving: false,
       lastError: null,
-      status: 'saved',
+      lastErrorAt: null,
+      status: 'idle',
       lastSavedAt: Date.now(),
     }),
   markChanged: () => {
@@ -71,6 +74,7 @@ export const useAutosaveStore = create<AutosaveState>((set, get) => ({
         isSaving: false,
         savedRev: nextSavedRev,
         lastError: null,
+        lastErrorAt: null,
         lastSavedAt: isLatest ? Date.now() : state.lastSavedAt,
         status: deriveStatus({
           ...state,
@@ -86,6 +90,7 @@ export const useAutosaveStore = create<AutosaveState>((set, get) => ({
     set((state) => ({
       isSaving: false,
       lastError: message,
+      lastErrorAt: Date.now(),
       status: deriveStatus({ ...state, isSaving: false, lastError: message }),
     })),
 }))
