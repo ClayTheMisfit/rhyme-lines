@@ -39,9 +39,19 @@ export default function EditorShell() {
     [activeTabId, tabs]
   )
 
-  const isSaving = useAutosaveStore((state) => state.isSaving)
-  const activeTabShowSaving = Boolean(activeTab?.isDirty || isSaving)
-  const saveLiveLabel = !ready ? '' : activeTabShowSaving ? 'Saving…' : 'Saved'
+  const { saveStatus, saveError } = useAutosaveStore((state) => ({
+    saveStatus: state.status,
+    saveError: state.lastError,
+  }), shallow)
+  const saveLiveLabel = !ready
+    ? ''
+    : saveStatus === 'saving'
+      ? 'Saving'
+      : saveStatus === 'error'
+        ? `Save failed${saveError ? `: ${saveError}` : ''}`
+        : saveStatus === 'dirty'
+          ? 'Changes pending save'
+          : ''
 
   const focusRhymePanel = useCallback(() => {
     const panelElement = floatingPanelRef.current

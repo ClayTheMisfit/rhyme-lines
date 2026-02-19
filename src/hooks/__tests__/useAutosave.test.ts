@@ -17,8 +17,9 @@ describe('useAutosave revision state machine', () => {
       savedRev: 0,
       isSaving: false,
       lastError: null,
-      status: 'saved',
+      status: 'idle',
       lastSavedAt: null,
+      lastErrorAt: null,
       runSave: null,
     })
   })
@@ -27,7 +28,7 @@ describe('useAutosave revision state machine', () => {
     jest.useRealTimers()
   })
 
-  it('transitions dirty -> saving -> saved after debounce and successful write', async () => {
+  it('transitions dirty -> saving -> idle after debounce and successful write', async () => {
     const { result } = renderHook(() => useAutosave({ debounceMs: 10 }))
 
     act(() => {
@@ -43,7 +44,7 @@ describe('useAutosave revision state machine', () => {
       await Promise.resolve()
     })
 
-    expect(useAutosaveStore.getState().status).toBe('saved')
+    expect(useAutosaveStore.getState().status).toBe('idle')
     expect(useAutosaveStore.getState().savedRev).toBe(useAutosaveStore.getState().rev)
   })
 

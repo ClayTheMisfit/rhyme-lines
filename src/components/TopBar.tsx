@@ -14,6 +14,7 @@ import TabBar from '@/components/tabs/TabBar'
 import { shallow } from 'zustand/shallow'
 import SettingsSheet from './settings/SettingsSheet'
 import { layers } from '@/lib/layers'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const PANEL_SPACING_REM = '1.5rem'
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
@@ -31,18 +32,13 @@ function applyBodyTheme(theme: ThemeChoice) {
   }
 }
 
-/**
- * Render the editor's top bar with tab controls, theme and panel toggles, and settings.
- *
- * Synchronizes header height and panel offsets to CSS variables, applies the resolved theme
- * to the document body.
- *
- * @returns The header element containing tab controls, toggle buttons, and the settings trigger.
- */
 export default function TopBar() {
   const mounted = useMounted()
   const headerRef = useRef<HTMLElement>(null)
-  const isSaving = useAutosaveStore((state) => state.isSaving)
+  const { status: autosaveStatus, lastError } = useAutosaveStore((state) => ({
+    status: state.status,
+    lastError: state.lastError,
+  }), shallow)
 
   const { theme, setThemePreference, showRhymeDecorations, setShowRhymeDecorations } = useSettingsStore(
     (state) => ({
@@ -50,7 +46,8 @@ export default function TopBar() {
       setThemePreference: state.setTheme,
       showRhymeDecorations: state.showRhymeDecorations,
       setShowRhymeDecorations: state.setShowRhymeDecorations,
-    })
+    }),
+    shallow
   )
   const { resolvedTheme, setTheme: setResolvedTheme } = useTheme()
 
@@ -146,19 +143,18 @@ export default function TopBar() {
     [actions]
   )
 
-
   return (
     <header
       ref={headerRef}
       data-testid="editor-header"
-      className="fixed left-0 right-0 top-0 flex items-center justify-between gap-3 border-b border-white/10 bg-black/30 px-4 py-2 shadow-[0_1px_10px_rgba(255,255,255,0.05)] backdrop-blur-md"
+      className="fixed left-0 right-0 top-0 flex min-h-12 items-center justify-between gap-3 border-b border-[color:var(--rl-border)] bg-black/22 px-3 py-1.5 backdrop-blur-lg"
       style={{ zIndex: layers.topBar }}
     >
       <div className="min-w-0 flex-1">
         <TabBar
           tabs={tabs}
           activeTabId={activeTabId}
-          isSaving={isSaving}
+          saveStatus={autosaveStatus}
           onNew={actions.newTab}
           onSelect={actions.setActive}
           onClose={actions.closeTab}
@@ -166,30 +162,48 @@ export default function TopBar() {
         />
       </div>
 
-      <div className="ml-2 flex items-center gap-2">
+      <div className="ml-2 flex items-center gap-1.5">
+        {autosaveStatus === 'error' && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-sm text-rose-300 ring-1 ring-rose-300/45"
+                  aria-label={`Save failed${lastError ? `: ${lastError}` : ''}`}
+                >
+                  !
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{lastError ?? 'Save failed'}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
         <motion.button
           suppressHydrationWarning
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ duration: 0.12 }}
           onClick={toggleTheme}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-lg text-white/80 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-base text-white/80 transition-colors duration-100 hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
           title="Toggle theme"
+          aria-label="Toggle theme"
         >
           {theme === 'dark' ? '☀️' : '🌙'}
         </motion.button>
 
         <motion.button
           suppressHydrationWarning
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ duration: 0.12 }}
           onClick={toggleRhymeDecorations}
           className={cx(
-            'inline-flex h-9 w-9 items-center justify-center rounded-md text-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30',
-            showRhymeDecorations ? 'text-white bg-white/10' : 'text-white/80 hover:text-white'
+            'inline-flex h-9 w-9 items-center justify-center rounded-md text-base transition duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45',
+            showRhymeDecorations ? 'bg-white/12 text-white' : 'text-white/80 hover:bg-white/8 hover:text-white'
           )}
           title={showRhymeDecorations ? 'Hide rhyme highlights' : 'Show rhyme highlights'}
+          aria-label={showRhymeDecorations ? 'Hide rhyme highlights' : 'Show rhyme highlights'}
           aria-pressed={showRhymeDecorations}
         >
           ✨
@@ -197,15 +211,16 @@ export default function TopBar() {
 
         <motion.button
           suppressHydrationWarning
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ duration: 0.12 }}
           onClick={togglePanel}
           className={cx(
-            'inline-flex h-9 w-9 items-center justify-center rounded-md text-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30',
-            panelVisible ? 'text-white bg-white/10' : 'text-white/80 hover:text-white'
+            'inline-flex h-9 w-9 items-center justify-center rounded-md text-base transition duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45',
+            panelVisible ? 'bg-white/12 text-white' : 'text-white/80 hover:bg-white/8 hover:text-white'
           )}
           title={panelVisible ? 'Hide rhyme panel' : 'Show rhyme panel'}
+          aria-label={panelVisible ? 'Hide rhyme panel' : 'Show rhyme panel'}
           aria-pressed={panelVisible}
         >
           🎵
@@ -213,9 +228,9 @@ export default function TopBar() {
 
         <motion.div
           suppressHydrationWarning
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ duration: 0.12 }}
           className="flex"
           title="Open settings"
         >

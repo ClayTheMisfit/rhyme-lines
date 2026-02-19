@@ -12,22 +12,27 @@ function ToggleRowComponent({ label, checked, onCheckedChange }: ToggleRowProps)
   return (
     <button
       type="button"
-      className="flex min-h-11 w-full touch-manipulation select-none items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 active:bg-white/15 cursor-pointer"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      className="flex min-h-11 w-full touch-manipulation select-none items-center justify-between gap-4 rounded-lg border border-[color:var(--rl-border)] bg-white/5 px-3 py-2 text-sm font-medium text-white/80 transition duration-100 hover:bg-white/10 active:scale-[0.99] active:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
       onClick={() => onCheckedChange(!checked)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onCheckedChange(!checked)
+        }
+      }}
     >
       <span className="select-none text-left">{label}</span>
       <span
-        className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full bg-white/20 transition"
-        onClick={(event) => event.stopPropagation()}
+        aria-hidden="true"
+        className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full bg-white/20 transition-colors duration-100"
       >
-        <input
-          type="checkbox"
-          className="peer sr-only"
-          checked={checked}
-          onChange={(event) => onCheckedChange(event.target.checked)}
-          aria-label={label}
+        <span
+          className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform duration-100"
+          style={{ transform: checked ? 'translateX(16px)' : 'translateX(0px)' }}
         />
-        <span className="absolute left-1 top-1 inline-block h-3 w-3 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
       </span>
     </button>
   )

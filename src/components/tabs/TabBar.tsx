@@ -2,20 +2,21 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { Tab } from '@/store/tabsStore'
+import type { AutosaveStatus } from '@/store/autosaveStore'
 
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
 
 interface TabBarProps {
   tabs: Tab[]
   activeTabId: string
-  isSaving: boolean
+  saveStatus: AutosaveStatus
   onNew: () => void
   onSelect: (id: string) => void
   onClose: (id: string) => void
   onRename: (id: string, title: string) => void
 }
 
-export function TabBar({ tabs, activeTabId, isSaving, onNew, onSelect, onClose, onRename }: TabBarProps) {
+export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose, onRename }: TabBarProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draftTitle, setDraftTitle] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -60,7 +61,7 @@ export function TabBar({ tabs, activeTabId, isSaving, onNew, onSelect, onClose, 
           {tabs.map((tab) => {
             const isActive = tab.id === activeTabId
             const isEditing = editingId === tab.id
-            const showSavingSpinner = tab.isDirty || (isSaving && isActive)
+            const showSavingSpinner = isActive && saveStatus === 'saving'
 
             return (
               <button
@@ -68,8 +69,9 @@ export function TabBar({ tabs, activeTabId, isSaving, onNew, onSelect, onClose, 
                 role="tab"
                 aria-selected={isActive}
                 className={cx(
-                  'group relative flex items-center gap-2 rounded-md px-3 py-1 text-sm transition-colors whitespace-nowrap',
-                  isActive ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5'
+                  'group relative flex min-h-9 items-center gap-2 rounded-md px-2.5 py-1 text-[13px] transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45',
+                  isActive ? 'bg-white/12 text-white' : 'text-white/70 hover:bg-white/6',
+                  tab.isDirty && !isActive && 'text-white/85'
                 )}
                 onClick={() => onSelect(tab.id)}
                 onDoubleClick={() => startEditing(tab.id, tab.title)}
@@ -77,7 +79,7 @@ export function TabBar({ tabs, activeTabId, isSaving, onNew, onSelect, onClose, 
                 {isEditing ? (
                   <input
                     ref={inputRef}
-                    className="w-32 rounded bg-white/10 px-1 py-0.5 text-sm outline-none ring-1 ring-white/30"
+                    className="w-32 rounded bg-white/10 px-1 py-0.5 text-[13px] outline-none ring-1 ring-white/30"
                     value={draftTitle}
                     onChange={(event) => setDraftTitle(event.target.value)}
                     onBlur={commitRename}
@@ -92,14 +94,15 @@ export function TabBar({ tabs, activeTabId, isSaving, onNew, onSelect, onClose, 
                     }}
                   />
                 ) : (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1.5">
                     <span className="truncate">{tab.title || 'Untitled'}</span>
-                    <span className="inline-flex w-3 items-center justify-center" aria-hidden="true">
+                    <span className="inline-flex h-3 w-3 items-center justify-center" aria-hidden="true">
                       <span
+                        data-testid={isActive ? 'active-tab-save-spinner' : undefined}
                         aria-hidden="true"
                         className={cx(
-                          'h-3 w-3 rounded-full border-2 border-muted-foreground/40 border-t-transparent transition-opacity',
-                          showSavingSpinner ? 'animate-spin opacity-100' : 'pointer-events-none opacity-0'
+                          'h-3 w-3 rounded-full border border-current border-t-transparent transition-opacity duration-100',
+                          showSavingSpinner ? 'animate-spin opacity-85' : 'pointer-events-none opacity-0'
                         )}
                       />
                     </span>
@@ -124,7 +127,7 @@ export function TabBar({ tabs, activeTabId, isSaving, onNew, onSelect, onClose, 
 
       <button
         type="button"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/10 text-base text-white transition hover:bg-white/20"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/10 text-base text-white transition duration-100 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
         onClick={onNew}
         aria-label="Add tab"
       >
