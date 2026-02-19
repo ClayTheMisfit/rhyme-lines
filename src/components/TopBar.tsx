@@ -20,6 +20,14 @@ const PANEL_SPACING_REM = '1.5rem'
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
 
 type ThemeChoice = 'dark' | 'light'
+/**
+ * Apply theme-specific CSS classes to document.body.
+ *
+ * Adds or removes utility classes to set the page background and text color for the given theme.
+ * If document.body is not available, the function does nothing.
+ *
+ * @param theme - 'light' to apply light background and dark text, 'dark' to apply dark background and light text
+ */
 function applyBodyTheme(theme: ThemeChoice) {
   const body = document.body
   if (!body) return
@@ -32,6 +40,11 @@ function applyBodyTheme(theme: ThemeChoice) {
   }
 }
 
+/**
+ * Render the application's top bar with tab management, theme controls, rhyme UI toggles, autosave status, and settings access.
+ *
+ * @returns The JSX header element that contains the TabBar, theme toggle, rhyme decorations and panel toggles, autosave error indicator, and the settings sheet trigger.
+ */
 export default function TopBar() {
   const mounted = useMounted()
   const headerRef = useRef<HTMLElement>(null)

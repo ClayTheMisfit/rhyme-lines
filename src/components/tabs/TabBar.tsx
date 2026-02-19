@@ -16,6 +16,18 @@ interface TabBarProps {
   onRename: (id: string, title: string) => void
 }
 
+/**
+ * Renders a horizontal tab bar for managing lyric tabs with selection, creation, renaming, and closing.
+ *
+ * @param tabs - Array of tab objects to display (each should include `id`, `title`, and `isDirty`).
+ * @param activeTabId - The id of the currently selected tab.
+ * @param saveStatus - Current autosave status; when equal to `'saving'` a spinner is shown on the active tab.
+ * @param onNew - Callback invoked when the Add tab button is clicked.
+ * @param onSelect - Callback invoked with a tab id when a tab is selected.
+ * @param onClose - Callback invoked with a tab id when its close button is clicked.
+ * @param onRename - Callback invoked with `(id, newTitle)` when a tab rename is committed (on blur or Enter).
+ * @returns A React element representing the tab bar.
+ */
 export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose, onRename }: TabBarProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draftTitle, setDraftTitle] = useState('')
