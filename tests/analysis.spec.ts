@@ -14,6 +14,23 @@ describe('analysis pipeline', () => {
     ])
   })
 
+  it('groups 1-12 am/pm variants into one token', () => {
+    expect(tokenizeLine('10 pm lets ride')).toEqual([
+      { start: 0, end: 5, text: '10 pm' },
+      { start: 6, end: 10, text: 'lets' },
+      { start: 11, end: 15, text: 'ride' },
+    ])
+    expect(tokenizeLine('11p.m. sharp')).toEqual([
+      { start: 0, end: 6, text: '11p.m.' },
+      { start: 7, end: 12, text: 'sharp' },
+    ])
+    expect(tokenizeLine('13 pm no')).toEqual([
+      { start: 0, end: 2, text: '13' },
+      { start: 3, end: 5, text: 'pm' },
+      { start: 6, end: 8, text: 'no' },
+    ])
+  })
+
   it('treats digit runs as word-like tokens', () => {
     const tokens = tokenizeLine('one 1 2')
     expect(tokens).toEqual([
@@ -41,6 +58,45 @@ describe('analysis pipeline', () => {
       { start: 0, end: 4, syllables: 2 },
       { start: 5, end: 9, syllables: 1 },
     ])
+  })
+
+  it('keeps line totals equal to canonical token syllable sums for number lines', () => {
+    const line = { id: 'numbers', text: 'testing the syllable count on numbers 173, 232, 99' }
+    const result = computeAnalysis([line])
+    const tokenSum = result.wordSyllables[line.id].reduce((sum, token) => sum + token.syllables, 0)
+
+    expect(result.lineTotals[line.id]).toBe(tokenSum)
+    expect(result.lineTotals[line.id]).toBe(27)
+  })
+
+  it('avoids duplicate double-counting in totals', () => {
+    const line = { id: 'dedupe', text: 'I blame it on my depression and all my imperfections' }
+    const result = computeAnalysis([line])
+    const tokenSum = result.wordSyllables[line.id].reduce((sum, token) => sum + token.syllables, 0)
+
+    expect(result.lineTotals[line.id]).toBe(15)
+    expect(result.lineTotals[line.id]).toBe(tokenSum)
+    const tokens = tokenizeLine(line.text)
+    expect(tokens).toHaveLength(10)
+    expect(tokens.filter((token) => token.text.toLowerCase() === 'my')).toHaveLength(2)
+  })
+
+  it('handles requested regression lines for pronunciation/grouping', () => {
+    const lines = [
+      { id: 'ampm', text: "10 pm let's get high again" },
+      { id: 'ina', text: "I've been ina fucked up state" },
+      { id: 'compound', text: 'even while I vibeout' },
+    ]
+
+    const result = computeAnalysis(lines)
+
+    const ampmTokens = tokenizeLine(lines[0].text)
+    expect(ampmTokens[0]).toEqual({ start: 0, end: 5, text: '10 pm' })
+    expect(result.wordSyllables['ampm'][0]?.syllables).toBe(3)
+    expect(result.lineTotals['ampm']).toBe(8)
+
+    expect(result.lineTotals['ina']).toBe(8)
+    expect(result.lineTotals['compound']).toBe(6)
   })
 
   it('falls back to main-thread analysis when worker creation fails', () => {
