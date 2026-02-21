@@ -7,40 +7,41 @@ describe('analysis pipeline', () => {
   it('tokenizes lines with stable offsets', () => {
     const tokens = tokenizeLine("Hello, world! It's fine.")
     expect(tokens).toEqual([
-      { start: 0, end: 5, text: 'Hello' },
-      { start: 7, end: 12, text: 'world' },
-      { start: 14, end: 18, text: "It's" },
-      { start: 19, end: 23, text: 'fine' },
+      { start: 0, end: 5, text: 'Hello', kind: 'word' },
+      { start: 7, end: 12, text: 'world', kind: 'word' },
+      { start: 14, end: 18, text: "It's", kind: 'word' },
+      { start: 19, end: 23, text: 'fine', kind: 'word' },
     ])
   })
 
   it('groups 1-12 am/pm variants into one token', () => {
     expect(tokenizeLine('10 pm lets ride')).toEqual([
-      { start: 0, end: 5, text: '10 pm' },
-      { start: 6, end: 10, text: 'lets' },
-      { start: 11, end: 15, text: 'ride' },
+      { start: 0, end: 5, text: '10 pm', kind: 'meridiem', analysisKey: '10pm' },
+      { start: 6, end: 10, text: 'lets', kind: 'word' },
+      { start: 11, end: 15, text: 'ride', kind: 'word' },
     ])
     expect(tokenizeLine('11p.m. sharp')).toEqual([
-      { start: 0, end: 6, text: '11p.m.' },
-      { start: 7, end: 12, text: 'sharp' },
+      { start: 0, end: 6, text: '11p.m.', kind: 'meridiem', analysisKey: '11pm' },
+      { start: 7, end: 12, text: 'sharp', kind: 'word' },
     ])
     expect(tokenizeLine('13 pm no')).toEqual([
-      { start: 0, end: 2, text: '13' },
-      { start: 3, end: 5, text: 'pm' },
-      { start: 6, end: 8, text: 'no' },
+      { start: 0, end: 2, text: '13', kind: 'word' },
+      { start: 3, end: 5, text: 'pm', kind: 'word' },
+      { start: 6, end: 8, text: 'no', kind: 'word' },
     ])
   })
 
   it('treats digit runs as word-like tokens', () => {
     const tokens = tokenizeLine('one 1 2')
     expect(tokens).toEqual([
-      { start: 0, end: 3, text: 'one' },
-      { start: 4, end: 5, text: '1' },
-      { start: 6, end: 7, text: '2' },
+      { start: 0, end: 3, text: 'one', kind: 'word' },
+      { start: 4, end: 5, text: '1', kind: 'word' },
+      { start: 6, end: 7, text: '2', kind: 'word' },
     ])
     expect(isWordLikeToken('1')).toBe(true)
     expect(isWordLikeToken('two')).toBe(true)
     expect(isWordLikeToken('!')).toBe(false)
+    expect(isWordLikeToken({ start: 0, end: 5, text: '10 pm', kind: 'meridiem', analysisKey: '10pm' })).toBe(true)
   })
 
   it('computes syllables and totals deterministically', () => {
@@ -91,7 +92,7 @@ describe('analysis pipeline', () => {
     const result = computeAnalysis(lines)
 
     const ampmTokens = tokenizeLine(lines[0].text)
-    expect(ampmTokens[0]).toEqual({ start: 0, end: 5, text: '10 pm' })
+    expect(ampmTokens[0]).toEqual({ start: 0, end: 5, text: '10 pm', kind: 'meridiem', analysisKey: '10pm' })
     expect(result.wordSyllables['ampm'][0]?.syllables).toBe(3)
     expect(result.lineTotals['ampm']).toBe(8)
 

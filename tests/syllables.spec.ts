@@ -12,4 +12,8 @@ describe('countSyllables', () => {
   it('applies unknown compound suffix heuristic for vibeout', () => {
     expect(countSyllables('vibeout')).toBe(2)
   })
+
+  it('does not over-split unknown suffix words without lexical signal', () => {
+    expect(countSyllables('zillionover')).toBe(4)
+  })
 })

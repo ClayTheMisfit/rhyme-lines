@@ -1,10 +1,23 @@
-export type TokenizedWord = { start: number; end: number; text: string }
+export type TokenizedWord = {
+  start: number
+  end: number
+  text: string
+  kind: 'word' | 'meridiem'
+  analysisKey?: string
+}
 
 const WORD_REGEX = /[A-Za-z']+|\d+/y
 const MERIDIEM_REGEX = /^(\d{1,2})(\s*)(a\.?\s*m\.?|p\.?\s*m\.?)/i
 
-export function isWordLikeToken(token: string): boolean {
-  return /^[A-Za-z']+$/.test(token) || /^\d+$/.test(token)
+export function isWordLikeToken(token: string | TokenizedWord): boolean {
+  if (typeof token === 'string') {
+    return /^[A-Za-z']+$/.test(token) || /^\d+$/.test(token)
+  }
+
+  if (token.kind === 'meridiem') return true
+
+  const candidate = token.analysisKey ?? token.text
+  return /^[A-Za-z']+$/.test(candidate) || /^\d+$/.test(candidate)
 }
 
 export function tokenizeLine(text: string): TokenizedWord[] {
@@ -24,7 +37,7 @@ export function tokenizeLine(text: string): TokenizedWord[] {
     if (match) {
       const start = match.index
       const end = start + match[0].length
-      words.push({ start, end, text: match[0] })
+      words.push({ start, end, text: match[0], kind: 'word' })
       index = end
       continue
     }
@@ -54,5 +67,11 @@ function matchStandaloneMeridiemToken(text: string, index: number): TokenizedWor
     start: index,
     end: tokenEnd,
     text: fullToken,
+    kind: 'meridiem',
+    analysisKey: normalizeMeridiemKey(fullToken),
   }
+}
+
+function normalizeMeridiemKey(token: string): string {
+  return token.toLowerCase().replace(/[.\s]/g, '')
 }

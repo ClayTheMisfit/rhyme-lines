@@ -7,6 +7,7 @@ const SYLLABLE_OVERRIDES: Record<string, number> = {
 }
 
 const COMPOUND_SUFFIXES = ['out', 'up', 'in', 'on', 'off', 'over'] as const
+const FUSED_COMPOUND_ALLOWLIST = new Set(['vibeout', 'fadeout', 'blackout', 'burnout', 'chillout', 'freakout', 'lockout'])
 const syllableCache = new Map<string, number>()
 
 export function countSyllables(wordRaw: string): number {
@@ -54,13 +55,14 @@ function estimateCompoundSuffixSyllables(word: string): number | null {
   if (!/^[a-z]+$/.test(word) || word.length < 6) return null
   if (word in SYLLABLE_OVERRIDES || isCommonEnglishWord(word)) return null
 
+  const isAllowlistedFusion = FUSED_COMPOUND_ALLOWLIST.has(word)
+
   for (const suffix of COMPOUND_SUFFIXES) {
     if (!word.endsWith(suffix)) continue
     const prefix = word.slice(0, -suffix.length)
     if (prefix.length < 2) continue
 
-    const prefixPlausible = isCommonEnglishWord(prefix) || /[aeiouy]/.test(prefix)
-    if (!prefixPlausible) continue
+    if (!isAllowlistedFusion && !isCommonEnglishWord(prefix)) continue
 
     return countSingleTokenSyllables(prefix) + countSingleTokenSyllables(suffix)
   }

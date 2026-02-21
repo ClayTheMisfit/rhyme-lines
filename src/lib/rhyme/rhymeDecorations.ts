@@ -55,7 +55,7 @@ export function getRhymeFamilyKey(word: string): string | null {
 
 export function getEndWordTokenIndex(tokens: ReturnType<typeof tokenizeLine>): number | null {
   for (let index = tokens.length - 1; index >= 0; index -= 1) {
-    if (isWordLikeToken(tokens[index].text)) return index
+    if (isWordLikeToken(tokens[index])) return index
   }
   return null
 }
@@ -106,8 +106,8 @@ export function buildRhymeDecorations(
     const endWordIndex = getEndWordTokenIndex(tokens)
     const lineTokens: RhymeDecorationToken[] = []
     tokens.forEach((token, tokenIndex) => {
-      if (!isWordLikeToken(token.text)) return
-      const normalized = normalizeWord(token.text)
+      if (!isWordLikeToken(token)) return
+      const normalized = normalizeWord(token.analysisKey ?? token.text)
       if (!normalized) return
       if (!options.highlightStopwords && isStopword(normalized)) return
       const familyKey = getRhymeFamilyKey(normalized)
