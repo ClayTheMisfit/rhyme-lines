@@ -26,6 +26,14 @@ describe('normalizeTokenForSyllables', () => {
     expect(normalizeTokenForSyllables('007')).toBe('seven')
   })
 
+
+  it('keeps 4-digit years numeric for dedicated year syllable handling', () => {
+    expect(normalizeTokenForSyllables('1999')).toBe('1999')
+    expect(normalizeTokenForSyllables('2026')).toBe('2026')
+    expect(normalizeTokenForSyllables('(1999)')).toBe('1999')
+    expect(normalizeTokenForSyllables('2026,')).toBe('2026')
+  })
+
   it('normalizes ina as in a pronunciation', () => {
     expect(normalizeTokenForSyllables('ina')).toBe('in a')
     expect(normalizeTokenForSyllables('INA')).toBe('in a')

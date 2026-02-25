@@ -1,3 +1,4 @@
+import { parseYearToken } from '@/lib/nlp/yearSyllables'
 import { numberToWords } from '@/utils/numberToWords'
 
 const NUMERIC_ONLY = /^\d+$/
@@ -8,6 +9,9 @@ export function normalizeTokenForSyllables(token: string): string {
   const lowered = normalized.toLowerCase()
 
   if (lowered === 'ina') return 'in a'
+
+  const year = parseYearToken(normalized)
+  if (year !== null) return String(year)
 
   const meridiemMatch = MERIDIEM_NORMALIZED.exec(lowered)
   if (meridiemMatch) {

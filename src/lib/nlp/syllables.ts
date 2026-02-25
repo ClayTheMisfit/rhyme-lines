@@ -1,4 +1,5 @@
 import { isCommonEnglishWord } from '@/lib/rhyme-db/commonEnglish'
+import { countYearSyllables, parseYearToken } from '@/lib/nlp/yearSyllables'
 
 const SYLLABLE_OVERRIDES: Record<string, number> = {
   the: 1, a: 1, i: 1, you: 1, are: 1, fire: 1, hour: 1, choir: 1,
@@ -13,6 +14,11 @@ const syllableCache = new Map<string, number>()
 export function countSyllables(wordRaw: string): number {
   const normalizedInput = wordRaw.toLowerCase().trim()
   if (!normalizedInput) return 0
+
+  const possibleYear = parseYearToken(wordRaw)
+  if (possibleYear !== null) {
+    return countYearSyllables(possibleYear, countSingleTokenSyllables)
+  }
 
   const cached = syllableCache.get(normalizedInput)
   if (cached !== undefined) return cached
