@@ -276,6 +276,11 @@ body.bg-white .rl-current-line-highlight {
   opacity: 0.95;
 }
 
+.rl-rhyme-highlight[data-rhyme-family][data-rhyme-hide-colors] {
+  background: color-mix(in srgb, var(--rhyme-color, rgba(148, 163, 184, 0.2)) 12%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--rhyme-color, rgba(148, 163, 184, 0.2)) 35%, transparent);
+}
+
 /* Light theme editor styling */
 body.bg-white .editor-surface {
   background-color: #ffffff;  /* Clean white background */

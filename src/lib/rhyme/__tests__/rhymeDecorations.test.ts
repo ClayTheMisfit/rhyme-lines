@@ -5,6 +5,7 @@ import {
   getEndWordTokenIndex,
   getRhymeFamilyKey,
   normalizeWord,
+  shouldRenderRhymeToken,
 } from '@/lib/rhyme/rhymeDecorations'
 
 type TokenInput = { id: string; rhymeKey: string }
@@ -77,5 +78,30 @@ describe('buildRhymeDecorations', () => {
     expect(compact.at(-1)?.kind).toBe('meridiem')
     expect(compact.at(-1)?.analysisKey).toBe('11pm')
     expect(getEndWordTokenIndex(compact)).toBe(compact.length - 1)
+  })
+})
+
+
+describe('highlight mode selectors', () => {
+  const sample = {
+    id: 'line-0-0',
+    lineId: 'line-0',
+    lineIndex: 0,
+    start: 0,
+    end: 4,
+    word: 'time',
+    familyKey: 'ime',
+    familyId: 3,
+    underline: false,
+    isEndWord: false,
+  }
+
+  it('renders by mode rules', () => {
+    expect(shouldRenderRhymeToken(sample, 'off', null)).toBe(false)
+    expect(shouldRenderRhymeToken(sample, 'all', null)).toBe(true)
+    expect(shouldRenderRhymeToken(sample, 'end', null)).toBe(false)
+    expect(shouldRenderRhymeToken({ ...sample, isEndWord: true }, 'end', null)).toBe(true)
+    expect(shouldRenderRhymeToken(sample, 'focus', null)).toBe(false)
+    expect(shouldRenderRhymeToken(sample, 'focus', 3)).toBe(true)
   })
 })

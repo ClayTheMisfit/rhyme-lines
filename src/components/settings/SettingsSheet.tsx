@@ -21,6 +21,8 @@ const BADGE_SIZE_LABEL: Record<'xs' | 'sm' | 'md', string> = {
 
 const KEYBOARD_SHORTCUTS: { combo: string; description: string }[] = [
   { combo: '⌘/Ctrl + K', description: 'Open the command palette' },
+  { combo: 'Alt + R', description: 'Open the rhyme panel' },
+  { combo: 'Alt + H', description: 'Cycle rhyme highlight mode (Off → End → Focus → All)' },
   { combo: 'Esc', description: 'Close panels or dialogs' },
   { combo: '0–5', description: 'Filter rhyme syllables when the panel is focused' },
   { combo: 'Enter', description: 'Insert the highlighted rhyme suggestion' },
@@ -44,6 +46,12 @@ const RhymeHighlightsSection = memo(function RhymeHighlightsSection() {
   const highlightStopwords = useSettingsStore((state) => state.highlightStopwords)
   const setShowInternalRhymes = useSettingsStore((state) => state.setShowInternalRhymes)
   const setHighlightStopwords = useSettingsStore((state) => state.setHighlightStopwords)
+  const rhymeHighlightMode = useSettingsStore((state) => state.rhymeHighlightMode)
+  const hideRhymeColors = useSettingsStore((state) => state.hideRhymeColors)
+  const rhymeDebugOverlay = useSettingsStore((state) => state.rhymeDebugOverlay)
+  const setRhymeHighlightMode = useSettingsStore((state) => state.setRhymeHighlightMode)
+  const setHideRhymeColors = useSettingsStore((state) => state.setHideRhymeColors)
+  const setRhymeDebugOverlay = useSettingsStore((state) => state.setRhymeDebugOverlay)
   const { requestRecompute } = useRhymeRecomputeScheduler()
 
   const scheduleRecompute = useCallback(() => {
@@ -75,6 +83,37 @@ const RhymeHighlightsSection = memo(function RhymeHighlightsSection() {
       <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Rhyme highlights</h3>
       <ToggleRow label="Show internal rhymes" checked={showInternalRhymes} onCheckedChange={handleInternalRhymesChange} />
       <ToggleRow label="Highlight stopwords" checked={highlightStopwords} onCheckedChange={handleStopwordsChange} />
+
+      <section className="space-y-2">
+        <h4 className="text-[11px] font-semibold uppercase tracking-wide text-white/40">Highlight mode</h4>
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            { value: 'off', label: 'Off' },
+            { value: 'end', label: 'End' },
+            { value: 'focus', label: 'Focus' },
+            { value: 'all', label: 'All' },
+          ] as const).map((option) => {
+            const isActive = rhymeHighlightMode === option.value
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setRhymeHighlightMode(option.value)}
+                className={`rounded-md border px-2 py-1.5 text-xs font-medium transition ${
+                  isActive ? 'border-blue-400 bg-blue-500/20 text-white' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                }`}
+                aria-pressed={isActive}
+              >
+                {option.label}
+              </button>
+            )
+          })}
+        </div>
+      </section>
+      <ToggleRow label="Hide colorful words" checked={hideRhymeColors} onCheckedChange={setHideRhymeColors} />
+      {process.env.NODE_ENV !== 'production' ? (
+        <ToggleRow label="Show rhyme debug overlay" checked={rhymeDebugOverlay} onCheckedChange={setRhymeDebugOverlay} />
+      ) : null}
     </section>
   )
 })

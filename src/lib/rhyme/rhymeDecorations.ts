@@ -18,6 +18,8 @@ export const MIN_FAMILY_SIZE = 2
 
 const RHYME_TAIL_REGEX = /([aeiouy]+[^aeiouy]*)$/i
 
+export type RhymeHighlightMode = 'off' | 'end' | 'focus' | 'all'
+
 export type RhymeDecorationToken = {
   id: string
   lineId: string
@@ -27,6 +29,7 @@ export type RhymeDecorationToken = {
   word: string
   familyKey: string
   familyId?: number
+  colorIndex?: number
   underline: boolean
   isEndWord: boolean
 }
@@ -136,6 +139,7 @@ export function buildRhymeDecorations(
   tokensByLine.forEach((lineTokens) => {
     lineTokens.forEach((token) => {
       token.familyId = familyIdByTokenId.get(token.id)
+      token.colorIndex = hashToColorIndex(token.familyKey)
     })
   })
 
@@ -145,4 +149,29 @@ export function buildRhymeDecorations(
     tokenIdToFamilyId: familyIdByTokenId,
     rhymeKeyToTokenIds,
   }
+}
+
+export function shouldRenderRhymeToken(
+  token: RhymeDecorationToken,
+  mode: RhymeHighlightMode,
+  activeFamilyId: number | null
+): boolean {
+  if (mode === 'off') return false
+  if (token.familyId === undefined) return false
+  if (mode === 'all') return true
+  if (mode === 'end') return token.isEndWord
+  if (mode === 'focus') {
+    if (token.isEndWord) return true
+    if (activeFamilyId === null) return false
+    return token.familyId === activeFamilyId
+  }
+  return false
+}
+
+function hashToColorIndex(key: string): number {
+  let hash = 0
+  for (let index = 0; index < key.length; index += 1) {
+    hash = (hash * 31 + key.charCodeAt(index)) | 0
+  }
+  return Math.abs(hash)
 }

@@ -95,6 +95,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     lineHeight,
     showLineTotals,
     showRhymeDecorations,
+    rhymeHighlightMode,
+    hideRhymeColors,
+    rhymeDebugOverlay,
     theme,
   } = useSettingsStore(
     (state) => ({
@@ -102,6 +105,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       lineHeight: state.lineHeight,
       showLineTotals: state.showLineTotals,
       showRhymeDecorations: state.showRhymeDecorations,
+      rhymeHighlightMode: state.rhymeHighlightMode,
+      hideRhymeColors: state.hideRhymeColors,
+      rhymeDebugOverlay: state.rhymeDebugOverlay,
       theme: state.theme,
     }),
     shallow
@@ -670,6 +676,14 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const shortcut = resolveEditorShortcut(event)
       if (!shortcut) return
       event.preventDefault()
+      if (shortcut === 'rhymeHighlightMode') {
+        const state = useSettingsStore.getState()
+        const order = ['off', 'end', 'focus', 'all'] as const
+        const currentIndex = order.indexOf(state.rhymeHighlightMode)
+        const nextMode = order[(currentIndex + 1) % order.length]
+        state.setRhymeHighlightMode(nextMode)
+        return
+      }
       window.dispatchEvent(new CustomEvent('rhyme:editor-shortcut', { detail: shortcut }))
     },
     [logDebugEvent]
@@ -1045,8 +1059,25 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                   rects={rhymeRects}
                   enabled={showRhymeDecorations}
                   activeFamilyId={activeRhymeFamilyId}
+                  mode={rhymeHighlightMode}
+                  hideColors={hideRhymeColors}
                 />
               </div>
+              {rhymeDebugOverlay && process.env.NODE_ENV !== 'production' ? (
+                <div className="pointer-events-none absolute left-3 top-3 z-40 rounded bg-black/70 px-2 py-1 text-[11px] text-white" data-testid="rhyme-debug-overlay">
+                  {(() => {
+                    if (activeRhymeFamilyId === null) return 'Rhyme Debug: no active family'
+                    for (const lineTokens of rhymeDecorations.tokensByLine.values()) {
+                      const token = lineTokens.find((candidate) => candidate.familyId === activeRhymeFamilyId)
+                      if (token) {
+                        return `Rhyme Debug: word=${token.word} key=${token.familyKey} source=fallback`
+                      }
+                    }
+                    return 'Rhyme Debug: active family not found'
+                  })()}
+                </div>
+              ) : null}
+
               {/* Overlay for syllable badges */}
               <div
                 ref={overlayRef}
