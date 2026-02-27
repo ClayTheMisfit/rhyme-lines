@@ -1070,7 +1070,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                     for (const lineTokens of rhymeDecorations.tokensByLine.values()) {
                       const token = lineTokens.find((candidate) => candidate.familyId === activeRhymeFamilyId)
                       if (token) {
-                        return `Rhyme Debug: word=${token.word} key=${token.familyKey} source=fallback`
+                        return `Rhyme Debug: word=${token.word} key=${token.familyKey} source=${token.source ?? 'fallback'}`
                       }
                     }
                     return 'Rhyme Debug: active family not found'

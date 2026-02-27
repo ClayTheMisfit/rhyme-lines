@@ -1,6 +1,7 @@
 import { tokenizeLine, isWordLikeToken } from '@/lib/analysis/tokenize'
 import { isStopword } from '@/lib/nlp/stopwords'
 import type { LineInput } from '@/lib/analysis/compute'
+import type { RhymeHighlightMode } from '@/lib/persist/schema'
 
 export const RHYME_FAMILY_COLORS = [
   'rgba(248, 113, 113, 0.22)',
@@ -18,8 +19,6 @@ export const MIN_FAMILY_SIZE = 2
 
 const RHYME_TAIL_REGEX = /([aeiouy]+[^aeiouy]*)$/i
 
-export type RhymeHighlightMode = 'off' | 'end' | 'focus' | 'all'
-
 export type RhymeDecorationToken = {
   id: string
   lineId: string
@@ -32,6 +31,7 @@ export type RhymeDecorationToken = {
   colorIndex?: number
   underline: boolean
   isEndWord: boolean
+  source?: 'heuristic-tail' | 'cmu' | 'fallback'
 }
 
 export type RhymeDecorationSnapshot = {
@@ -130,6 +130,7 @@ export function buildRhymeDecorations(
         familyKey,
         underline: underlineSet.has(normalized),
         isEndWord,
+        source: 'heuristic-tail',
       })
     })
     tokensByLine.set(line.id, lineTokens)
@@ -152,18 +153,18 @@ export function buildRhymeDecorations(
 }
 
 export function shouldRenderRhymeToken(
-  token: RhymeDecorationToken,
+  tokenKey: { familyId?: number; isEndWord: boolean },
   mode: RhymeHighlightMode,
   activeFamilyId: number | null
 ): boolean {
   if (mode === 'off') return false
-  if (token.familyId === undefined) return false
+  if (tokenKey.familyId === undefined) return false
   if (mode === 'all') return true
-  if (mode === 'end') return token.isEndWord
+  if (mode === 'end') return tokenKey.isEndWord
   if (mode === 'focus') {
-    if (token.isEndWord) return true
+    if (tokenKey.isEndWord) return true
     if (activeFamilyId === null) return false
-    return token.familyId === activeFamilyId
+    return tokenKey.familyId === activeFamilyId
   }
   return false
 }

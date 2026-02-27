@@ -108,7 +108,14 @@ const baseSettings: SettingsState = applySettingsDefaults({
   lastUpdatedAt: Date.now(),
 }) as SettingsState
 
-export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get) => ({
+export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get) => {
+
+  const setAndPersist = (partial: Partial<SettingsState>) => {
+    set({ ...partial, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  }
+
+  return {
   ...baseSettings,
   setTheme: (theme) => {
     set({ theme, lastUpdatedAt: Date.now() })
@@ -147,16 +154,13 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
     schedulePersist(get())
   },
   setRhymeHighlightMode: (rhymeHighlightMode) => {
-    set({ rhymeHighlightMode, lastUpdatedAt: Date.now() })
-    schedulePersist(get())
+    setAndPersist({ rhymeHighlightMode })
   },
   setHideRhymeColors: (hideRhymeColors) => {
-    set({ hideRhymeColors, lastUpdatedAt: Date.now() })
-    schedulePersist(get())
+    setAndPersist({ hideRhymeColors })
   },
   setRhymeDebugOverlay: (rhymeDebugOverlay) => {
-    set({ rhymeDebugOverlay, lastUpdatedAt: Date.now() })
-    schedulePersist(get())
+    setAndPersist({ rhymeDebugOverlay })
   },
   setDebounceMode: (debounceMode) => {
     set({ debounceMode, lastUpdatedAt: Date.now() })
@@ -188,7 +192,8 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
     set(resetState)
     schedulePersist(get())
   },
-}), Object.is)
+}
+}, Object.is)
 
 export type SettingsSnapshot = Pick<
   SettingsState,
