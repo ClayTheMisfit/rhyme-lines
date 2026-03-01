@@ -74,6 +74,32 @@ describe('rhyme highlight settings store', () => {
     expect(state.hideColorfulWords).toBe(false)
   })
 
+
+
+  it('hydrates from legacy settings key when v1 key is missing', () => {
+    localStorage.setItem(
+      'rhyme-lines:persist:settings',
+      JSON.stringify({
+        data: {
+          showInternalRhymes: false,
+          highlightStopwords: true,
+          rhymeHighlightMode: 'all',
+          hideRhymeColors: true,
+        },
+      })
+    )
+
+    expect(localStorage.getItem(RHYME_HIGHLIGHT_STORAGE_KEY)).toBeNull()
+
+    useRhymeHighlightSettingsStore.getState().hydrate()
+    const state = useRhymeHighlightSettingsStore.getState()
+
+    expect(state.showInternalRhymes).toBe(false)
+    expect(state.highlightStopwords).toBe(true)
+    expect(state.highlightMode).toBe('all')
+    expect(state.hideColorfulWords).toBe(true)
+  })
+
   it('merges partial values with defaults', () => {
     localStorage.setItem(
       RHYME_HIGHLIGHT_STORAGE_KEY,

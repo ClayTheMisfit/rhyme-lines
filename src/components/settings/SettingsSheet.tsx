@@ -14,6 +14,7 @@ import { ToggleRow } from '@/components/settings/ToggleRow'
 import { useRhymeRecomputeScheduler } from '@/hooks/useRhymeRecomputeScheduler'
 import { RHYME_HIGHLIGHT_ORDER } from '@/lib/persist/schema'
 import { useRhymeHighlightSettingsStore } from '@/store/rhymeHighlightSettingsStore'
+import { RHYME_HIGHLIGHT_DEFAULTS, type RhymeHighlightSettings } from '@/lib/settings/rhymeHighlightSettings'
 
 const BADGE_SIZE_LABEL: Record<'xs' | 'sm' | 'md', string> = {
   xs: 'Compact',
@@ -119,10 +120,30 @@ const RhymeHighlightsSection = memo(function RhymeHighlightsSection() {
   )
 })
 
+
+const getCurrentRhymeHighlightSnapshot = (): RhymeHighlightSettings => {
+  const state = useRhymeHighlightSettingsStore.getState()
+  return {
+    showInternalRhymes: state.showInternalRhymes,
+    highlightStopwords: state.highlightStopwords,
+    highlightMode: state.highlightMode,
+    hideColorfulWords: state.hideColorfulWords,
+  }
+}
+
+const applyRhymeHighlightSnapshot = (snapshot: RhymeHighlightSettings) => {
+  useRhymeHighlightSettingsStore.setState((state) => ({
+    ...state,
+    ...snapshot,
+  }))
+}
+
 // Repro (pre-fix): open Settings from the gear icon, then try toggles/sliders; clicks do not register.
 export function SettingsSheet() {
   const [isOpen, setIsOpen] = useState(false)
   const snapshotRef = useRef(getCurrentSettingsSnapshot())
+  const rhymeSnapshotRef = useRef(getCurrentRhymeHighlightSnapshot())
+  const { requestRecompute } = useRhymeRecomputeScheduler()
 
   const headingId = useId()
   const descriptionId = useId()
@@ -170,6 +191,7 @@ export function SettingsSheet() {
 
   const openSheet = useCallback(() => {
     snapshotRef.current = getCurrentSettingsSnapshot()
+    rhymeSnapshotRef.current = getCurrentRhymeHighlightSnapshot()
     setIsOpen(true)
   }, [])
 
@@ -181,13 +203,19 @@ export function SettingsSheet() {
     if (snapshotRef.current) {
       applySettingsSnapshot(snapshotRef.current)
     }
+    if (rhymeSnapshotRef.current) {
+      applyRhymeHighlightSnapshot(rhymeSnapshotRef.current)
+      requestRecompute()
+    }
     closeSheet()
-  }, [closeSheet])
+  }, [closeSheet, requestRecompute])
 
   const handleSave = useCallback(() => {
     snapshotRef.current = getCurrentSettingsSnapshot()
+    rhymeSnapshotRef.current = getCurrentRhymeHighlightSnapshot()
+    requestRecompute()
     closeSheet()
-  }, [closeSheet])
+  }, [closeSheet, requestRecompute])
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -416,6 +444,8 @@ export function SettingsSheet() {
               type="button"
               onClick={() => {
                 resetDefaults()
+                applyRhymeHighlightSnapshot(RHYME_HIGHLIGHT_DEFAULTS)
+                requestRecompute()
               }}
               className="text-sm font-medium text-white/70 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >

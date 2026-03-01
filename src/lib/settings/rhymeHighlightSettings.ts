@@ -21,7 +21,14 @@ const MODE_SET = new Set<RhymeHighlightMode>(['off', 'end', 'focus', 'all'])
 export function loadRhymeHighlightSettings(): RhymeHighlightSettings {
   if (typeof window === 'undefined') return RHYME_HIGHLIGHT_DEFAULTS
 
-  const raw = window.localStorage.getItem(RHYME_HIGHLIGHT_STORAGE_KEY)
+  let raw: string | null = null
+  try {
+    raw = window.localStorage.getItem(RHYME_HIGHLIGHT_STORAGE_KEY)
+  } catch {
+    const legacy = loadFromLegacySettingsPayload()
+    return legacy ?? RHYME_HIGHLIGHT_DEFAULTS
+  }
+
   if (!raw) {
     const legacy = loadFromLegacySettingsPayload()
     return legacy ?? RHYME_HIGHLIGHT_DEFAULTS
@@ -63,7 +70,12 @@ function sanitizeRhymeHighlightSettings(input: Partial<RhymeHighlightSettings>):
 }
 
 function loadFromLegacySettingsPayload(): RhymeHighlightSettings | null {
-  const legacyRaw = window.localStorage.getItem('rhyme-lines:persist:settings')
+  let legacyRaw: string | null = null
+  try {
+    legacyRaw = window.localStorage.getItem('rhyme-lines:persist:settings')
+  } catch {
+    return null
+  }
   if (!legacyRaw) return null
   try {
     const parsed = JSON.parse(legacyRaw) as { data?: Record<string, unknown> } | Record<string, unknown>

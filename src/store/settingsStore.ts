@@ -15,6 +15,8 @@ import {
 import { writeVersioned } from '@/lib/persist/storage'
 import { applySettingsDefaults, SETTINGS_DEFAULTS } from '@/lib/persist/settingsDefaults'
 
+type SettingsDataPatch = Partial<Omit<SettingsSchema, 'lastUpdatedAt'>>
+
 export type SettingsState = {
   theme: ThemeSetting
   fontSize: number
@@ -110,7 +112,7 @@ const baseSettings: SettingsState = applySettingsDefaults({
 
 export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get) => {
 
-  const setAndPersist = (partial: Partial<SettingsState>) => {
+  const setAndPersist = (partial: SettingsDataPatch) => {
     set({ ...partial, lastUpdatedAt: Date.now() })
     schedulePersist(get())
   }
