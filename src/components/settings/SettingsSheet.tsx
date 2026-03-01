@@ -13,6 +13,7 @@ import { useSettingsClickDebug } from '@/lib/dev/useSettingsClickDebug'
 import { ToggleRow } from '@/components/settings/ToggleRow'
 import { useRhymeRecomputeScheduler } from '@/hooks/useRhymeRecomputeScheduler'
 import { RHYME_HIGHLIGHT_ORDER } from '@/lib/persist/schema'
+import { useRhymeHighlightSettingsStore } from '@/store/rhymeHighlightSettingsStore'
 
 const BADGE_SIZE_LABEL: Record<'xs' | 'sm' | 'md', string> = {
   xs: 'Compact',
@@ -43,15 +44,15 @@ const DEBOUNCE_OPTIONS: { value: 'cursor-50' | 'typing-250'; label: string; desc
 ]
 
 const RhymeHighlightsSection = memo(function RhymeHighlightsSection() {
-  const showInternalRhymes = useSettingsStore((state) => state.showInternalRhymes)
-  const highlightStopwords = useSettingsStore((state) => state.highlightStopwords)
-  const setShowInternalRhymes = useSettingsStore((state) => state.setShowInternalRhymes)
-  const setHighlightStopwords = useSettingsStore((state) => state.setHighlightStopwords)
-  const rhymeHighlightMode = useSettingsStore((state) => state.rhymeHighlightMode)
-  const hideRhymeColors = useSettingsStore((state) => state.hideRhymeColors)
+  const showInternalRhymes = useRhymeHighlightSettingsStore((state) => state.showInternalRhymes)
+  const highlightStopwords = useRhymeHighlightSettingsStore((state) => state.highlightStopwords)
+  const setShowInternalRhymes = useRhymeHighlightSettingsStore((state) => state.setShowInternalRhymes)
+  const setHighlightStopwords = useRhymeHighlightSettingsStore((state) => state.setHighlightStopwords)
+  const highlightMode = useRhymeHighlightSettingsStore((state) => state.highlightMode)
+  const hideColorfulWords = useRhymeHighlightSettingsStore((state) => state.hideColorfulWords)
+  const setHighlightMode = useRhymeHighlightSettingsStore((state) => state.setHighlightMode)
+  const setHideColorfulWords = useRhymeHighlightSettingsStore((state) => state.setHideColorfulWords)
   const rhymeDebugOverlay = useSettingsStore((state) => state.rhymeDebugOverlay)
-  const setRhymeHighlightMode = useSettingsStore((state) => state.setRhymeHighlightMode)
-  const setHideRhymeColors = useSettingsStore((state) => state.setHideRhymeColors)
   const setRhymeDebugOverlay = useSettingsStore((state) => state.setRhymeDebugOverlay)
   const { requestRecompute } = useRhymeRecomputeScheduler()
 
@@ -93,12 +94,12 @@ const RhymeHighlightsSection = memo(function RhymeHighlightsSection() {
               value,
               label: value === 'off' ? 'Off' : value === 'end' ? 'End' : value === 'focus' ? 'Focus' : 'All',
             }
-            const isActive = rhymeHighlightMode === option.value
+            const isActive = highlightMode === option.value
             return (
               <button
                 key={option.value}
                 type="button"
-                onClick={() => setRhymeHighlightMode(option.value)}
+                onClick={() => setHighlightMode(option.value)}
                 className={`rounded-md border px-2 py-1.5 text-xs font-medium transition ${
                   isActive ? 'border-blue-400 bg-blue-500/20 text-white' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
                 }`}
@@ -110,7 +111,7 @@ const RhymeHighlightsSection = memo(function RhymeHighlightsSection() {
           })}
         </div>
       </section>
-      <ToggleRow label="Hide colorful words" checked={hideRhymeColors} onCheckedChange={setHideRhymeColors} />
+      <ToggleRow label="Hide colorful words" checked={hideColorfulWords} onCheckedChange={setHideColorfulWords} />
       {process.env.NODE_ENV !== 'production' ? (
         <ToggleRow label="Show rhyme debug overlay" checked={rhymeDebugOverlay} onCheckedChange={setRhymeDebugOverlay} />
       ) : null}

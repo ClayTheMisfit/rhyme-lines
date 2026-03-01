@@ -4,6 +4,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
 import { useSettingsStore } from '@/store/settingsStore'
 import { RHYME_HIGHLIGHT_ORDER } from '@/lib/persist/schema'
+import { useRhymeHighlightSettingsStore } from '@/store/rhymeHighlightSettingsStore'
 import { shallow } from 'zustand/shallow'
 import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
 import { SyllableOverlay } from '@/components/editor/SyllableOverlay'
@@ -96,8 +97,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     lineHeight,
     showLineTotals,
     showRhymeDecorations,
-    rhymeHighlightMode,
-    hideRhymeColors,
     rhymeDebugOverlay,
     theme,
   } = useSettingsStore(
@@ -106,13 +105,23 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       lineHeight: state.lineHeight,
       showLineTotals: state.showLineTotals,
       showRhymeDecorations: state.showRhymeDecorations,
-      rhymeHighlightMode: state.rhymeHighlightMode,
-      hideRhymeColors: state.hideRhymeColors,
       rhymeDebugOverlay: state.rhymeDebugOverlay,
       theme: state.theme,
     }),
     shallow
   )
+
+  const {
+    showInternalRhymes,
+    highlightStopwords,
+    highlightMode,
+    hideColorfulWords,
+  } = useRhymeHighlightSettingsStore((state) => ({
+    showInternalRhymes: state.showInternalRhymes,
+    highlightStopwords: state.highlightStopwords,
+    highlightMode: state.highlightMode,
+    hideColorfulWords: state.hideColorfulWords,
+  }), shallow)
 
   useEffect(() => {
     const root = document.documentElement
@@ -149,21 +158,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     lineHeight,
   })
 
-  const rhymeOptionsRef = useRef({
-    showInternalRhymes: useSettingsStore.getState().showInternalRhymes,
-    highlightStopwords: useSettingsStore.getState().highlightStopwords,
-  })
   const [rhymeRecomputeSignal, setRhymeRecomputeSignal] = useState(0)
 
-  useEffect(() => {
-    const unsubscribe = useSettingsStore.subscribe((state) => {
-      rhymeOptionsRef.current = {
-        showInternalRhymes: state.showInternalRhymes,
-        highlightStopwords: state.highlightStopwords,
-      }
-    })
-    return () => unsubscribe()
-  }, [])
 
   useEffect(() => {
     const handleRecompute = () => {
@@ -180,10 +176,10 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const rhymeDecorations = useMemo(
     () =>
       buildRhymeDecorations(lineInputs, DEFAULT_UNDERLINE_TARGETS, {
-        showInternalRhymes: rhymeOptionsRef.current.showInternalRhymes,
-        highlightStopwords: rhymeOptionsRef.current.highlightStopwords,
+        showInternalRhymes,
+        highlightStopwords,
       }),
-    [lineInputs, rhymeRecomputeSignal]
+    [highlightStopwords, lineInputs, rhymeRecomputeSignal, showInternalRhymes]
   )
 
   const decorationPatch = useDecorationDiff(rhymeDecorations.tokensByLine)
@@ -678,10 +674,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       if (!shortcut) return
       event.preventDefault()
       if (shortcut === 'rhymeHighlightMode') {
-        const state = useSettingsStore.getState()
-        const currentIndex = RHYME_HIGHLIGHT_ORDER.indexOf(state.rhymeHighlightMode)
+        const currentIndex = RHYME_HIGHLIGHT_ORDER.indexOf(useRhymeHighlightSettingsStore.getState().highlightMode)
         const nextMode = RHYME_HIGHLIGHT_ORDER[(currentIndex + 1) % RHYME_HIGHLIGHT_ORDER.length]
-        state.setRhymeHighlightMode(nextMode)
+        useRhymeHighlightSettingsStore.getState().setHighlightMode(nextMode)
         return
       }
       window.dispatchEvent(new CustomEvent('rhyme:editor-shortcut', { detail: shortcut }))
@@ -1059,8 +1054,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                   rects={rhymeRects}
                   enabled={showRhymeDecorations}
                   activeFamilyId={activeRhymeFamilyId}
-                  mode={rhymeHighlightMode}
-                  hideColors={hideRhymeColors}
+                  mode={highlightMode}
+                  hideColors={hideColorfulWords}
                 />
               </div>
               {rhymeDebugOverlay && process.env.NODE_ENV !== 'production' ? (

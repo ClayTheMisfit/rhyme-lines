@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { ThemeProvider } from 'next-themes'
 import QueryProvider from '@/components/providers/QueryProvider'
 import RhymeWorkerBootstrap from '@/components/RhymeWorkerBootstrap'
+import RhymeHighlightSettingsHydrator from '@/components/settings/RhymeHighlightSettingsHydrator'
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -14,6 +15,7 @@ export function Providers({ children }: { children: ReactNode }) {
     >
       <QueryProvider>
         <RhymeWorkerBootstrap />
+        <RhymeHighlightSettingsHydrator />
         {children}
       </QueryProvider>
     </ThemeProvider>
