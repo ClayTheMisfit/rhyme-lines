@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTrigger } fro
 import { useSettingsClickDebug } from '@/lib/dev/useSettingsClickDebug'
 import { ToggleRow } from '@/components/settings/ToggleRow'
 import { useRhymeRecomputeScheduler } from '@/hooks/useRhymeRecomputeScheduler'
+import { RHYME_HIGHLIGHT_ORDER } from '@/lib/persist/schema'
 
 const BADGE_SIZE_LABEL: Record<'xs' | 'sm' | 'md', string> = {
   xs: 'Compact',
@@ -87,12 +88,11 @@ const RhymeHighlightsSection = memo(function RhymeHighlightsSection() {
       <section className="space-y-2">
         <h4 className="text-[11px] font-semibold uppercase tracking-wide text-white/40">Highlight mode</h4>
         <div className="grid grid-cols-2 gap-2">
-          {([
-            { value: 'off', label: 'Off' },
-            { value: 'end', label: 'End' },
-            { value: 'focus', label: 'Focus' },
-            { value: 'all', label: 'All' },
-          ] as const).map((option) => {
+          {RHYME_HIGHLIGHT_ORDER.map((value) => {
+            const option = {
+              value,
+              label: value === 'off' ? 'Off' : value === 'end' ? 'End' : value === 'focus' ? 'Focus' : 'All',
+            }
             const isActive = rhymeHighlightMode === option.value
             return (
               <button

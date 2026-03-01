@@ -3,6 +3,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
 import { useSettingsStore } from '@/store/settingsStore'
+import { RHYME_HIGHLIGHT_ORDER } from '@/lib/persist/schema'
 import { shallow } from 'zustand/shallow'
 import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
 import { SyllableOverlay } from '@/components/editor/SyllableOverlay'
@@ -678,9 +679,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       event.preventDefault()
       if (shortcut === 'rhymeHighlightMode') {
         const state = useSettingsStore.getState()
-        const order = ['off', 'end', 'focus', 'all'] as const
-        const currentIndex = order.indexOf(state.rhymeHighlightMode)
-        const nextMode = order[(currentIndex + 1) % order.length]
+        const currentIndex = RHYME_HIGHLIGHT_ORDER.indexOf(state.rhymeHighlightMode)
+        const nextMode = RHYME_HIGHLIGHT_ORDER[(currentIndex + 1) % RHYME_HIGHLIGHT_ORDER.length]
         state.setRhymeHighlightMode(nextMode)
         return
       }

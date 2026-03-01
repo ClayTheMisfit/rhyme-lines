@@ -13,6 +13,7 @@ export type DebounceMode = 'cursor-50' | 'typing-250'
 export type BadgeSize = 'xs' | 'sm' | 'md'
 export type RhymeFilters = { perfect: boolean; near: boolean }
 export type RhymeHighlightMode = 'off' | 'end' | 'focus' | 'all'
+export const RHYME_HIGHLIGHT_ORDER = ['off', 'end', 'focus', 'all'] as const satisfies readonly RhymeHighlightMode[]
 
 export interface SettingsSchema {
   theme: ThemeSetting
