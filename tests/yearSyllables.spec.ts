@@ -1,6 +1,6 @@
 import { tokenizeLine } from '@/lib/analysis/tokenize'
 import { countSyllables } from '@/lib/nlp/syllables'
-import { countYearSyllables, isYearToken, parseYearToken, yearToSpokenParts } from '@/lib/nlp/yearSyllables'
+import { countYearSyllables, isYearToken, parseYearToken, splitTokenAffixes, yearToSpokenParts } from '@/lib/nlp/yearSyllables'
 import { normalizeTokenForSyllables } from '@/lib/analysis/normalizeTokenForSyllables'
 
 describe('year syllable handling', () => {
@@ -8,6 +8,13 @@ describe('year syllable handling', () => {
     expect(isYearToken('1999')).toBe(true)
     expect(isYearToken('(1999)')).toBe(true)
     expect(isYearToken('2026,')).toBe(true)
+    expect(isYearToken('"2026"')).toBe(true)
+  })
+
+  it('splits token affixes without dropping core digits', () => {
+    expect(splitTokenAffixes('1999,')).toEqual({ leading: '', core: '1999', trailing: ',' })
+    expect(splitTokenAffixes('(2026)')).toEqual({ leading: '(', core: '2026', trailing: ')' })
+    expect(splitTokenAffixes('"2026"')).toEqual({ leading: '"', core: '2026', trailing: '"' })
   })
 
   it('enforces year range guardrails', () => {
@@ -15,6 +22,8 @@ describe('year syllable handling', () => {
     expect(isYearToken('2100')).toBe(false)
     expect(isYearToken('0999')).toBe(false)
     expect(parseYearToken('173')).toBeNull()
+    expect(parseYearToken('12345')).toBeNull()
+    expect(parseYearToken('99')).toBeNull()
   })
 
   it('returns expected spoken forms and syllable counts for target years', () => {
@@ -26,6 +35,16 @@ describe('year syllable handling', () => {
     expect(countSyllables('(1999)')).toBe(5)
     expect(countSyllables('2026')).toBe(4)
     expect(countSyllables('2026,')).toBe(4)
+    expect(countSyllables('2001')).toBe(countSyllables('2001.'))
+    expect(countSyllables('2026')).toBe(countSyllables('(2026)'))
+    expect(countSyllables('2026')).toBe(countSyllables('"2026"'))
+    expect(countSyllables('1999')).toBe(countSyllables('1999,'))
+  })
+
+  it('does not misclassify non-year numbers as years', () => {
+    expect(isYearToken('999')).toBe(false)
+    expect(isYearToken('12345')).toBe(false)
+    expect(isYearToken('99')).toBe(false)
   })
 
   it('keeps non-year numeric behavior unchanged', () => {
