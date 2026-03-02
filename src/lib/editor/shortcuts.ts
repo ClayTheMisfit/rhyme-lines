@@ -1,4 +1,4 @@
-export type EditorShortcut = 'palette' | 'theme' | 'rhymes' | 'export'
+export type EditorShortcut = 'palette' | 'theme' | 'rhymes' | 'export' | 'rhymeHighlightMode'
 
 type KeyLike = Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey' | 'defaultPrevented'>
 
@@ -12,6 +12,7 @@ export function resolveEditorShortcut(event: KeyLike): EditorShortcut | null {
   if (hasPrimaryModifier && key === 'j') return 'theme'
   if (hasPrimaryModifier && key === 's') return 'export'
   if (!hasPrimaryModifier && event.altKey && key === 'r') return 'rhymes'
+  if (!hasPrimaryModifier && event.altKey && key === 'h') return 'rhymeHighlightMode'
 
   return null
 }

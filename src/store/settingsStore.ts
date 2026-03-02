@@ -8,11 +8,14 @@ import {
   type BadgeSize,
   type DebounceMode,
   type RhymeFilters,
+  type RhymeHighlightMode,
   type SettingsSchema,
   type ThemeSetting,
 } from '@/lib/persist/schema'
 import { writeVersioned } from '@/lib/persist/storage'
 import { applySettingsDefaults, SETTINGS_DEFAULTS } from '@/lib/persist/settingsDefaults'
+
+type SettingsDataPatch = Partial<Omit<SettingsSchema, 'lastUpdatedAt'>>
 
 export type SettingsState = {
   theme: ThemeSetting
@@ -24,6 +27,9 @@ export type SettingsState = {
   showInternalRhymes: boolean
   highlightStopwords: boolean
   rhymeAutoRefresh: boolean
+  rhymeHighlightMode: RhymeHighlightMode
+  hideRhymeColors: boolean
+  rhymeDebugOverlay: boolean
   debounceMode: DebounceMode
   highContrast: boolean
   rhymeFilters: RhymeFilters
@@ -39,6 +45,9 @@ export type SettingsState = {
   setShowInternalRhymes: (value: boolean) => void
   setHighlightStopwords: (value: boolean) => void
   setRhymeAutoRefresh: (value: boolean) => void
+  setRhymeHighlightMode: (mode: RhymeHighlightMode) => void
+  setHideRhymeColors: (value: boolean) => void
+  setRhymeDebugOverlay: (value: boolean) => void
   setDebounceMode: (mode: DebounceMode) => void
   setHighContrast: (value: boolean) => void
   setRhymeFilters: (filters: RhymeFilters) => void
@@ -65,6 +74,9 @@ const persistSettings = (state: SettingsState) => {
     showInternalRhymes: state.showInternalRhymes,
     highlightStopwords: state.highlightStopwords,
     rhymeAutoRefresh: state.rhymeAutoRefresh,
+    rhymeHighlightMode: state.rhymeHighlightMode,
+    hideRhymeColors: state.hideRhymeColors,
+    rhymeDebugOverlay: state.rhymeDebugOverlay,
     debounceMode: state.debounceMode,
     highContrast: state.highContrast,
     rhymeFilters: state.rhymeFilters,
@@ -98,7 +110,14 @@ const baseSettings: SettingsState = applySettingsDefaults({
   lastUpdatedAt: Date.now(),
 }) as SettingsState
 
-export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get) => ({
+export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get) => {
+
+  const setAndPersist = (partial: SettingsDataPatch) => {
+    set({ ...partial, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  }
+
+  return {
   ...baseSettings,
   setTheme: (theme) => {
     set({ theme, lastUpdatedAt: Date.now() })
@@ -136,6 +155,15 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
     set({ rhymeAutoRefresh, lastUpdatedAt: Date.now() })
     schedulePersist(get())
   },
+  setRhymeHighlightMode: (rhymeHighlightMode) => {
+    setAndPersist({ rhymeHighlightMode })
+  },
+  setHideRhymeColors: (hideRhymeColors) => {
+    setAndPersist({ hideRhymeColors })
+  },
+  setRhymeDebugOverlay: (rhymeDebugOverlay) => {
+    setAndPersist({ rhymeDebugOverlay })
+  },
   setDebounceMode: (debounceMode) => {
     set({ debounceMode, lastUpdatedAt: Date.now() })
     schedulePersist(get())
@@ -166,7 +194,8 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
     set(resetState)
     schedulePersist(get())
   },
-}), Object.is)
+}
+}, Object.is)
 
 export type SettingsSnapshot = Pick<
   SettingsState,
@@ -179,6 +208,9 @@ export type SettingsSnapshot = Pick<
   | 'showInternalRhymes'
   | 'highlightStopwords'
   | 'rhymeAutoRefresh'
+  | 'rhymeHighlightMode'
+  | 'hideRhymeColors'
+  | 'rhymeDebugOverlay'
   | 'debounceMode'
   | 'highContrast'
   | 'rhymeFilters'
@@ -189,7 +221,7 @@ export type SettingsSnapshot = Pick<
 /**
  * Get a snapshot of the current settings.
  *
- * @returns A SettingsSnapshot containing the current values for `theme`, `fontSize`, `lineHeight`, `badgeSize`, `showLineTotals`, `showRhymeDecorations`, `showInternalRhymes`, `highlightStopwords`, `rhymeAutoRefresh`, `debounceMode`, `highContrast`, `rhymeFilters`, `showVariants`, and `commonWordsOnly`.
+ * @returns A SettingsSnapshot containing the current values for `theme`, `fontSize`, `lineHeight`, `badgeSize`, `showLineTotals`, `showRhymeDecorations`, `showInternalRhymes`, `highlightStopwords`, `rhymeAutoRefresh`, `rhymeHighlightMode`, `hideRhymeColors`, `rhymeDebugOverlay`, `debounceMode`, `highContrast`, `rhymeFilters`, `showVariants`, and `commonWordsOnly`.
  */
 export function getCurrentSettingsSnapshot(): SettingsSnapshot {
   const {
@@ -202,6 +234,9 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     showInternalRhymes,
     highlightStopwords,
     rhymeAutoRefresh,
+    rhymeHighlightMode,
+    hideRhymeColors,
+    rhymeDebugOverlay,
     debounceMode,
     highContrast,
     rhymeFilters,
@@ -218,6 +253,9 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     showInternalRhymes,
     highlightStopwords,
     rhymeAutoRefresh,
+    rhymeHighlightMode,
+    hideRhymeColors,
+    rhymeDebugOverlay,
     debounceMode,
     highContrast,
     rhymeFilters,
@@ -242,6 +280,9 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
     setShowInternalRhymes,
     setHighlightStopwords,
     setRhymeAutoRefresh,
+    setRhymeHighlightMode,
+    setHideRhymeColors,
+    setRhymeDebugOverlay,
     setDebounceMode,
     setHighContrast,
     setRhymeFilters,
@@ -258,6 +299,9 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
   setShowInternalRhymes(snapshot.showInternalRhymes)
   setHighlightStopwords(snapshot.highlightStopwords)
   setRhymeAutoRefresh(snapshot.rhymeAutoRefresh)
+  setRhymeHighlightMode(snapshot.rhymeHighlightMode)
+  setHideRhymeColors(snapshot.hideRhymeColors)
+  setRhymeDebugOverlay(snapshot.rhymeDebugOverlay)
   setDebounceMode(snapshot.debounceMode)
   setHighContrast(snapshot.highContrast)
   setRhymeFilters(snapshot.rhymeFilters)

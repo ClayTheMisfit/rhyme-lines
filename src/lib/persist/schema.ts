@@ -12,6 +12,8 @@ export type ThemeSetting = 'dark' | 'light' | 'system'
 export type DebounceMode = 'cursor-50' | 'typing-250'
 export type BadgeSize = 'xs' | 'sm' | 'md'
 export type RhymeFilters = { perfect: boolean; near: boolean }
+export type RhymeHighlightMode = 'off' | 'end' | 'focus' | 'all'
+export const RHYME_HIGHLIGHT_ORDER = ['off', 'end', 'focus', 'all'] as const satisfies readonly RhymeHighlightMode[]
 
 export interface SettingsSchema {
   theme: ThemeSetting
@@ -31,6 +33,9 @@ export interface SettingsSchema {
   highlightStopwords?: boolean
   rhymeAutoRefresh?: boolean
   debounceMode?: DebounceMode
+  rhymeHighlightMode?: RhymeHighlightMode
+  hideRhymeColors?: boolean
+  rhymeDebugOverlay?: boolean
 }
 
 export interface DraftLine {
@@ -99,6 +104,9 @@ export const DEFAULT_SETTINGS: SettingsSchema = {
   highlightStopwords: false,
   rhymeAutoRefresh: true,
   debounceMode: 'typing-250',
+  rhymeHighlightMode: 'end',
+  hideRhymeColors: false,
+  rhymeDebugOverlay: false,
 }
 
 export const DEFAULT_PANEL_STATE: PanelSchema = {

@@ -3,6 +3,8 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
 import { useSettingsStore } from '@/store/settingsStore'
+import { RHYME_HIGHLIGHT_ORDER } from '@/lib/persist/schema'
+import { useRhymeHighlightSettingsStore } from '@/store/rhymeHighlightSettingsStore'
 import { shallow } from 'zustand/shallow'
 import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
 import { SyllableOverlay } from '@/components/editor/SyllableOverlay'
@@ -95,6 +97,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     lineHeight,
     showLineTotals,
     showRhymeDecorations,
+    rhymeDebugOverlay,
     theme,
   } = useSettingsStore(
     (state) => ({
@@ -102,10 +105,23 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       lineHeight: state.lineHeight,
       showLineTotals: state.showLineTotals,
       showRhymeDecorations: state.showRhymeDecorations,
+      rhymeDebugOverlay: state.rhymeDebugOverlay,
       theme: state.theme,
     }),
     shallow
   )
+
+  const {
+    showInternalRhymes,
+    highlightStopwords,
+    highlightMode,
+    hideColorfulWords,
+  } = useRhymeHighlightSettingsStore((state) => ({
+    showInternalRhymes: state.showInternalRhymes,
+    highlightStopwords: state.highlightStopwords,
+    highlightMode: state.highlightMode,
+    hideColorfulWords: state.hideColorfulWords,
+  }), shallow)
 
   useEffect(() => {
     const root = document.documentElement
@@ -142,21 +158,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     lineHeight,
   })
 
-  const rhymeOptionsRef = useRef({
-    showInternalRhymes: useSettingsStore.getState().showInternalRhymes,
-    highlightStopwords: useSettingsStore.getState().highlightStopwords,
-  })
   const [rhymeRecomputeSignal, setRhymeRecomputeSignal] = useState(0)
 
-  useEffect(() => {
-    const unsubscribe = useSettingsStore.subscribe((state) => {
-      rhymeOptionsRef.current = {
-        showInternalRhymes: state.showInternalRhymes,
-        highlightStopwords: state.highlightStopwords,
-      }
-    })
-    return () => unsubscribe()
-  }, [])
 
   useEffect(() => {
     const handleRecompute = () => {
@@ -173,10 +176,10 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const rhymeDecorations = useMemo(
     () =>
       buildRhymeDecorations(lineInputs, DEFAULT_UNDERLINE_TARGETS, {
-        showInternalRhymes: rhymeOptionsRef.current.showInternalRhymes,
-        highlightStopwords: rhymeOptionsRef.current.highlightStopwords,
+        showInternalRhymes,
+        highlightStopwords,
       }),
-    [lineInputs, rhymeRecomputeSignal]
+    [highlightStopwords, lineInputs, rhymeRecomputeSignal, showInternalRhymes]
   )
 
   const decorationPatch = useDecorationDiff(rhymeDecorations.tokensByLine)
@@ -670,6 +673,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const shortcut = resolveEditorShortcut(event)
       if (!shortcut) return
       event.preventDefault()
+      if (shortcut === 'rhymeHighlightMode') {
+        const currentIndex = RHYME_HIGHLIGHT_ORDER.indexOf(useRhymeHighlightSettingsStore.getState().highlightMode)
+        const nextMode = RHYME_HIGHLIGHT_ORDER[(currentIndex + 1) % RHYME_HIGHLIGHT_ORDER.length]
+        useRhymeHighlightSettingsStore.getState().setHighlightMode(nextMode)
+        return
+      }
       window.dispatchEvent(new CustomEvent('rhyme:editor-shortcut', { detail: shortcut }))
     },
     [logDebugEvent]
@@ -1045,8 +1054,25 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                   rects={rhymeRects}
                   enabled={showRhymeDecorations}
                   activeFamilyId={activeRhymeFamilyId}
+                  mode={highlightMode}
+                  hideColors={hideColorfulWords}
                 />
               </div>
+              {rhymeDebugOverlay && process.env.NODE_ENV !== 'production' ? (
+                <div className="pointer-events-none absolute left-3 top-3 z-40 rounded bg-black/70 px-2 py-1 text-[11px] text-white" data-testid="rhyme-debug-overlay">
+                  {(() => {
+                    if (activeRhymeFamilyId === null) return 'Rhyme Debug: no active family'
+                    for (const lineTokens of rhymeDecorations.tokensByLine.values()) {
+                      const token = lineTokens.find((candidate) => candidate.familyId === activeRhymeFamilyId)
+                      if (token) {
+                        return `Rhyme Debug: word=${token.word} key=${token.familyKey} source=${token.source ?? 'fallback'}`
+                      }
+                    }
+                    return 'Rhyme Debug: active family not found'
+                  })()}
+                </div>
+              ) : null}
+
               {/* Overlay for syllable badges */}
               <div
                 ref={overlayRef}

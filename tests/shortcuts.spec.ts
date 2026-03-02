@@ -26,6 +26,7 @@ describe('resolveEditorShortcut', () => {
     expect(resolveEditorShortcut(buildEvent({ key: 'j', ctrlKey: true }))).toBe('theme')
     expect(resolveEditorShortcut(buildEvent({ key: 's', metaKey: true }))).toBe('export')
     expect(resolveEditorShortcut(buildEvent({ key: 'r', altKey: true }))).toBe('rhymes')
+    expect(resolveEditorShortcut(buildEvent({ key: 'h', altKey: true }))).toBe('rhymeHighlightMode')
   })
 
   it('respects default prevention', () => {

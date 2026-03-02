@@ -26,8 +26,28 @@ describe('normalizeTokenForSyllables', () => {
     expect(normalizeTokenForSyllables('007')).toBe('seven')
   })
 
-  it('leaves non-numeric tokens unchanged', () => {
-    expect(normalizeTokenForSyllables('7pm')).toBe('7pm')
+
+  it('keeps 4-digit years numeric for dedicated year syllable handling', () => {
+    expect(normalizeTokenForSyllables('1999')).toBe('1999')
+    expect(normalizeTokenForSyllables('2026')).toBe('2026')
+    expect(normalizeTokenForSyllables('(1999)')).toBe('1999')
+    expect(normalizeTokenForSyllables('2026,')).toBe('2026')
+  })
+
+  it('normalizes ina as in a pronunciation', () => {
+    expect(normalizeTokenForSyllables('ina')).toBe('in a')
+    expect(normalizeTokenForSyllables('INA')).toBe('in a')
+  })
+
+  it('normalizes standalone am/pm variants to spoken forms', () => {
+    expect(normalizeTokenForSyllables('10 pm')).toBe('ten p m')
+    expect(normalizeTokenForSyllables('1a.m.')).toBe('one a m')
+    expect(normalizeTokenForSyllables('12PM')).toBe('twelve p m')
+    expect(normalizeTokenForSyllables('13 pm')).toBe('13 pm')
+  })
+
+  it('leaves unrelated tokens unchanged', () => {
+    expect(normalizeTokenForSyllables('7pm')).toBe('seven p m')
     expect(normalizeTokenForSyllables('7.5')).toBe('7.5')
     expect(normalizeTokenForSyllables('time')).toBe('time')
   })

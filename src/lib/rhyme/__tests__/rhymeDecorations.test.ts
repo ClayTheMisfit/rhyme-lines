@@ -5,15 +5,16 @@ import {
   getEndWordTokenIndex,
   getRhymeFamilyKey,
   normalizeWord,
+  shouldRenderRhymeToken,
 } from '@/lib/rhyme/rhymeDecorations'
 
 type TokenInput = { id: string; rhymeKey: string }
 
 const buildTokens = (text: string): TokenInput[] =>
   tokenizeLine(text)
-    .filter((token) => isWordLikeToken(token.text))
+    .filter((token) => isWordLikeToken(token))
     .map((token, index) => {
-      const normalized = normalizeWord(token.text)
+      const normalized = normalizeWord(token.analysisKey ?? token.text)
       const rhymeKey = getRhymeFamilyKey(normalized)
       if (!rhymeKey) return null
       return { id: `token-${index}`, rhymeKey }
@@ -64,5 +65,43 @@ describe('buildRhymeDecorations', () => {
   it('marks the last word token as end word despite trailing punctuation', () => {
     const tokens = tokenizeLine('brain, rest—')
     expect(getEndWordTokenIndex(tokens)).toBe(tokens.length - 1)
+  })
+
+  it('keeps grouped meridiem tokens eligible for end-word detection', () => {
+    const spaced = tokenizeLine('meet at 10 pm')
+    const compact = tokenizeLine('meet at 11p.m.')
+
+    expect(spaced.at(-1)?.kind).toBe('meridiem')
+    expect(spaced.at(-1)?.analysisKey).toBe('10pm')
+    expect(getEndWordTokenIndex(spaced)).toBe(spaced.length - 1)
+
+    expect(compact.at(-1)?.kind).toBe('meridiem')
+    expect(compact.at(-1)?.analysisKey).toBe('11pm')
+    expect(getEndWordTokenIndex(compact)).toBe(compact.length - 1)
+  })
+})
+
+
+describe('highlight mode selectors', () => {
+  const sample = {
+    id: 'line-0-0',
+    lineId: 'line-0',
+    lineIndex: 0,
+    start: 0,
+    end: 4,
+    word: 'time',
+    familyKey: 'ime',
+    familyId: 3,
+    underline: false,
+    isEndWord: false,
+  }
+
+  it('renders by mode rules', () => {
+    expect(shouldRenderRhymeToken(sample, 'off', null)).toBe(false)
+    expect(shouldRenderRhymeToken(sample, 'all', null)).toBe(true)
+    expect(shouldRenderRhymeToken(sample, 'end', null)).toBe(false)
+    expect(shouldRenderRhymeToken({ ...sample, isEndWord: true }, 'end', null)).toBe(true)
+    expect(shouldRenderRhymeToken(sample, 'focus', null)).toBe(false)
+    expect(shouldRenderRhymeToken(sample, 'focus', 3)).toBe(true)
   })
 })

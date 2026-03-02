@@ -1,6 +1,7 @@
 import { tokenizeLine, isWordLikeToken } from '@/lib/analysis/tokenize'
 import { isStopword } from '@/lib/nlp/stopwords'
 import type { LineInput } from '@/lib/analysis/compute'
+import type { RhymeHighlightMode } from '@/lib/persist/schema'
 
 export const RHYME_FAMILY_COLORS = [
   'rgba(248, 113, 113, 0.22)',
@@ -27,8 +28,10 @@ export type RhymeDecorationToken = {
   word: string
   familyKey: string
   familyId?: number
+  colorIndex?: number
   underline: boolean
   isEndWord: boolean
+  source?: 'heuristic-tail' | 'cmu' | 'fallback'
 }
 
 export type RhymeDecorationSnapshot = {
@@ -55,7 +58,7 @@ export function getRhymeFamilyKey(word: string): string | null {
 
 export function getEndWordTokenIndex(tokens: ReturnType<typeof tokenizeLine>): number | null {
   for (let index = tokens.length - 1; index >= 0; index -= 1) {
-    if (isWordLikeToken(tokens[index].text)) return index
+    if (isWordLikeToken(tokens[index])) return index
   }
   return null
 }
@@ -106,8 +109,8 @@ export function buildRhymeDecorations(
     const endWordIndex = getEndWordTokenIndex(tokens)
     const lineTokens: RhymeDecorationToken[] = []
     tokens.forEach((token, tokenIndex) => {
-      if (!isWordLikeToken(token.text)) return
-      const normalized = normalizeWord(token.text)
+      if (!isWordLikeToken(token)) return
+      const normalized = normalizeWord(token.analysisKey ?? token.text)
       if (!normalized) return
       if (!options.highlightStopwords && isStopword(normalized)) return
       const familyKey = getRhymeFamilyKey(normalized)
@@ -127,6 +130,7 @@ export function buildRhymeDecorations(
         familyKey,
         underline: underlineSet.has(normalized),
         isEndWord,
+        source: 'heuristic-tail',
       })
     })
     tokensByLine.set(line.id, lineTokens)
@@ -136,6 +140,7 @@ export function buildRhymeDecorations(
   tokensByLine.forEach((lineTokens) => {
     lineTokens.forEach((token) => {
       token.familyId = familyIdByTokenId.get(token.id)
+      token.colorIndex = hashToColorIndex(token.familyKey)
     })
   })
 
@@ -145,4 +150,29 @@ export function buildRhymeDecorations(
     tokenIdToFamilyId: familyIdByTokenId,
     rhymeKeyToTokenIds,
   }
+}
+
+export function shouldRenderRhymeToken(
+  tokenKey: { familyId?: number; isEndWord: boolean },
+  mode: RhymeHighlightMode,
+  activeFamilyId: number | null
+): boolean {
+  if (mode === 'off') return false
+  if (tokenKey.familyId === undefined) return false
+  if (mode === 'all') return true
+  if (mode === 'end') return tokenKey.isEndWord
+  if (mode === 'focus') {
+    if (tokenKey.isEndWord) return true
+    if (activeFamilyId === null) return false
+    return tokenKey.familyId === activeFamilyId
+  }
+  return false
+}
+
+function hashToColorIndex(key: string): number {
+  let hash = 0
+  for (let index = 0; index < key.length; index += 1) {
+    hash = (hash * 31 + key.charCodeAt(index)) | 0
+  }
+  return Math.abs(hash)
 }

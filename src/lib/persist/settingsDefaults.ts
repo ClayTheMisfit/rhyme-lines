@@ -8,6 +8,9 @@ export const applySettingsDefaults = (incoming: SettingsSchema): SettingsSchema 
   showRhymeDecorations: incoming.showRhymeDecorations ?? DEFAULT_SETTINGS.showRhymeDecorations,
   showInternalRhymes: incoming.showInternalRhymes ?? DEFAULT_SETTINGS.showInternalRhymes,
   highlightStopwords: incoming.highlightStopwords ?? DEFAULT_SETTINGS.highlightStopwords,
+  rhymeHighlightMode: incoming.rhymeHighlightMode ?? DEFAULT_SETTINGS.rhymeHighlightMode,
+  hideRhymeColors: incoming.hideRhymeColors ?? DEFAULT_SETTINGS.hideRhymeColors,
+  rhymeDebugOverlay: incoming.rhymeDebugOverlay ?? DEFAULT_SETTINGS.rhymeDebugOverlay,
   lastUpdatedAt: incoming.lastUpdatedAt || Date.now(),
 })
 

@@ -2,15 +2,18 @@
 
 import { useMemo } from 'react'
 import type { RhymeDecorationRect } from '@/hooks/useRhymeDecorationOverlay'
-import { RHYME_FAMILY_COLORS } from '@/lib/rhyme/rhymeDecorations'
+import type { RhymeHighlightMode } from '@/lib/persist/schema'
+import { RHYME_FAMILY_COLORS, shouldRenderRhymeToken } from '@/lib/rhyme/rhymeDecorations'
 
 export type RhymeDecorationOverlayProps = {
   rects: RhymeDecorationRect[]
   enabled: boolean
   activeFamilyId: number | null
+  mode: RhymeHighlightMode
+  hideColors: boolean
 }
 
-export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId }: RhymeDecorationOverlayProps) {
+export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId, mode, hideColors }: RhymeDecorationOverlayProps) {
   const palette = useMemo(() => RHYME_FAMILY_COLORS, [])
 
   if (!enabled) return null
@@ -18,12 +21,12 @@ export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId }: Rhyme
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden="true">
       {rects.map((rect) => {
-        if (rect.familyId === undefined) {
+        if (!shouldRenderRhymeToken({ familyId: rect.familyId, isEndWord: rect.isEndWord }, mode, activeFamilyId)) {
           return null
         }
         const isActive = activeFamilyId !== null && rect.familyId === activeFamilyId
-        const isMuted = activeFamilyId !== null && rect.familyId !== activeFamilyId
-        const color = palette[rect.familyId % palette.length]
+        const isMuted = mode === 'focus' && activeFamilyId !== null && rect.familyId !== activeFamilyId
+        const color = palette[(rect.colorIndex ?? rect.familyId ?? 0) % palette.length]
         return (
           <div key={rect.id}>
             <span
@@ -31,6 +34,7 @@ export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId }: Rhyme
               data-rhyme-family={rect.familyId}
               data-rhyme-active={isActive || undefined}
               data-rhyme-muted={isMuted || undefined}
+              data-rhyme-hide-colors={hideColors || undefined}
               style={{
                 left: rect.rect.left,
                 top: rect.rect.top,
@@ -39,12 +43,13 @@ export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId }: Rhyme
                 ['--rhyme-color' as string]: color,
               }}
             />
-            {rect.underline ? (
+            {rect.underline || hideColors ? (
               <span
                 className="rl-rhyme-underline"
                 data-rhyme-family={rect.familyId}
                 data-rhyme-active={isActive || undefined}
                 data-rhyme-muted={isMuted || undefined}
+                data-rhyme-hide-colors={hideColors || undefined}
                 style={{
                   left: rect.rect.left,
                   top: rect.rect.top + rect.rect.height - 2,

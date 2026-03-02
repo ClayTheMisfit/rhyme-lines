@@ -7,6 +7,8 @@ export type RhymeDecorationRect = {
   id: string
   lineId: string
   familyId?: number
+  colorIndex?: number
+  isEndWord: boolean
   underline: boolean
   rect: {
     left: number
@@ -113,6 +115,8 @@ export function useRhymeDecorationOverlay({
               id: `${lineId}-${tokenIndex}-${rectIndex}`,
               lineId,
               familyId: token.familyId,
+              colorIndex: token.colorIndex,
+              isEndWord: token.isEndWord,
               underline: token.underline,
               rect: {
                 left: rect.left - rootRect.left,
