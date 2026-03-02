@@ -2,6 +2,12 @@ const YEAR_TOKEN_REGEX = /^\d{4}$/
 const YEAR_MIN = 1900
 const YEAR_MAX = 2099
 
+export type TokenParts = {
+  leading: string
+  core: string
+  trailing: string
+}
+
 const ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
 const TEENS = ['ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen']
 const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety']
@@ -24,10 +30,10 @@ export function isYearToken(rawToken: string): boolean {
 }
 
 export function parseYearToken(rawToken: string): number | null {
-  const stripped = stripSurroundingPunctuation(rawToken)
-  if (!YEAR_TOKEN_REGEX.test(stripped)) return null
+  const { core } = splitTokenAffixes(rawToken)
+  if (!YEAR_TOKEN_REGEX.test(core)) return null
 
-  const year = Number.parseInt(stripped, 10)
+  const year = Number(core)
   if (!Number.isFinite(year)) return null
   if (year < YEAR_MIN || year > YEAR_MAX) return null
 
@@ -87,6 +93,22 @@ function twoDigitParts(value: number): string[] {
   return ones ? [TENS[tens], ONES[ones]] : [TENS[tens]]
 }
 
-function stripSurroundingPunctuation(token: string): string {
-  return token.trim().replace(/^[\(\)\[\]{}.,;:!?"']+|[\(\)\[\]{}.,;:!?"']+$/g, '')
+export function splitTokenAffixes(token: string): TokenParts {
+  const trimmed = token.trim()
+  if (!trimmed) return { leading: '', core: '', trailing: '' }
+
+  const firstCoreIndex = trimmed.search(/[A-Za-z0-9]/)
+  if (firstCoreIndex === -1) {
+    return { leading: trimmed, core: '', trailing: '' }
+  }
+
+  const reversed = [...trimmed].reverse().join('')
+  const trailingCoreOffset = reversed.search(/[A-Za-z0-9]/)
+  const lastCoreIndex = trimmed.length - trailingCoreOffset - 1
+
+  return {
+    leading: trimmed.slice(0, firstCoreIndex),
+    core: trimmed.slice(firstCoreIndex, lastCoreIndex + 1),
+    trailing: trimmed.slice(lastCoreIndex + 1),
+  }
 }
