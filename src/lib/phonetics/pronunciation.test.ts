@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals'
-import { getPronunciation } from '@/lib/phonetics/pronunciation'
+import { getLookupCandidates, getPronunciation, normalizeApostrophes } from '@/lib/phonetics/pronunciation'
 
 describe('getPronunciation', () => {
   it('returns expected syllable counts for regression words', () => {
@@ -46,5 +46,42 @@ describe('getPronunciation', () => {
     expect(getPronunciation('resign').source).toBe('override')
     expect(getPronunciation('line').source).toBe('override')
     expect(getPronunciation('tune').source).toBe('override')
+  })
+
+  it('unifies possessives with base pronunciations for syllables and rhyme keys', () => {
+    const night = getPronunciation('night')
+    const nights = getPronunciation("night's")
+    expect(nights.syllables).toBe(night.syllables)
+    expect(nights.rhymeKey).toBe(night.rhymeKey)
+
+    const height = getPronunciation('height')
+    const heightsCurly = getPronunciation('height’s')
+    expect(heightsCurly.syllables).toBe(height.syllables)
+    expect(heightsCurly.rhymeKey).toBe(height.rhymeKey)
+
+    const light = getPronunciation('light')
+    const lights = getPronunciation("light's")
+    expect(lights.syllables).toBe(light.syllables)
+    expect(lights.rhymeKey).toBe(light.rhymeKey)
+
+    const dogs = getPronunciation('dogs')
+    const dogsPossessive = getPronunciation("dogs'")
+    expect(dogsPossessive.syllables).toBe(dogs.syllables)
+    expect(dogsPossessive.rhymeKey).toBe(dogs.rhymeKey)
+  })
+
+  it("normalizes contractions and keeps 'its' stable", () => {
+    const its = getPronunciation('its')
+    const itsContraction = getPronunciation("it's")
+    expect(itsContraction.syllables).toBe(its.syllables)
+    expect(itsContraction.rhymeKey).toBe(its.rhymeKey)
+
+    expect(getLookupCandidates("we're")).toContain('were')
+    expect(getLookupCandidates('its')).toEqual(['its'])
+  })
+
+  it('normalizes curly apostrophes', () => {
+    expect(normalizeApostrophes('night’s')).toBe("night's")
+    expect(normalizeApostrophes('dogs‘')).toBe("dogs'")
   })
 })

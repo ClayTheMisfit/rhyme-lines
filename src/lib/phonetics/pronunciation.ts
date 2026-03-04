@@ -28,17 +28,57 @@ const CMU_PRONUNCIATIONS: Record<string, string[]> = {
   light: ['L', 'AY1', 'T'],
   night: ['N', 'AY1', 'T'],
   sight: ['S', 'AY1', 'T'],
+  its: ['IH1', 'T', 'S'],
+  were: ['W', 'ER1'],
+  dogs: ['D', 'AO1', 'G', 'Z'],
   cat: ['K', 'AE1', 'T'],
   hat: ['HH', 'AE1', 'T'],
 }
 
 const cache = new LRUCache<string, Pronunciation>(10_000)
 
-export function normalizeWord(token: string): string {
-  return token
+export function normalizeApostrophes(s: string): string {
+  return s.replace(/[\u2018\u2019]/g, "'")
+}
+
+const basicNormalize = (token: string): string =>
+  token
     .trim()
     .toLowerCase()
-    .replace(/^[^a-z']+|[^a-z']+$/g, '')
+    .replace(/^[^a-z'’‘]+|[^a-z'’‘]+$/g, '')
+
+export function normalizeWord(token: string): string {
+  const candidates = getLookupCandidates(token)
+  return candidates[0] ?? ''
+}
+
+export function getLookupCandidates(token: string): string[] {
+  const t0 = basicNormalize(token)
+  const t1 = normalizeApostrophes(t0)
+  if (!t1) return []
+
+  const out: string[] = [t1]
+  const hasApostrophe = t1.includes("'")
+
+  if (hasApostrophe) {
+    if (t1.endsWith("'s") && t1.length > 2) {
+      out.push(t1.slice(0, -2))
+    }
+    if (t1.endsWith("s'") && t1.length > 1) {
+      out.push(t1.slice(0, -1))
+    }
+    out.push(t1.replace(/'/g, ''))
+  }
+
+  const deduped: string[] = []
+  const seen = new Set<string>()
+  for (const cand of out) {
+    if (!cand) continue
+    if (seen.has(cand)) continue
+    seen.add(cand)
+    deduped.push(cand)
+  }
+  return deduped
 }
 
 const isAlphabeticToken = (token: string) => /^[a-z']+$/i.test(token)
@@ -85,57 +125,63 @@ const computeSpellingRhymeKey = (normalized: string) => {
   return tail || silentENormalized || normalized
 }
 
-const lookupPhones = (normalized: string): { source: PronunciationSource; phones: string[] } | null => {
-  const apostropheFree = normalized.replace(/'/g, '')
-  const candidates = apostropheFree === normalized ? [normalized] : [normalized, apostropheFree]
-
-  for (const candidate of candidates) {
-    const override = OVERRIDE_PHONES[candidate]
-    if (override) return { source: 'override', phones: override }
-  }
-
-  for (const candidate of candidates) {
-    const cmu = CMU_PRONUNCIATIONS[candidate]
-    if (cmu) return { source: 'cmu', phones: cmu }
-  }
-
-  return null
-}
-
 export function getPronunciation(token: string): Pronunciation {
-  const normalized = normalizeWord(token)
-  if (!normalized) {
+  const candidates = getLookupCandidates(token)
+  const fallbackNormalized = candidates[0] ?? ''
+
+  if (!fallbackNormalized) {
     return { word: token, normalized: '', phones: [], syllables: 0, rhymeKey: '', source: 'heuristic' }
   }
 
-  const cached = cache.get(normalized)
-  if (cached) {
-    return { ...cached, word: token }
+  for (const candidate of candidates) {
+    const cached = cache.get(candidate)
+    if (cached) {
+      return { ...cached, word: token }
+    }
+
+    const override = OVERRIDE_PHONES[candidate]
+    if (override) {
+      const value: Pronunciation = {
+        word: token,
+        normalized: candidate,
+        phones: override,
+        syllables: Math.max(1, override.reduce((count, phone) => (isVowelPhone(phone) ? count + 1 : count), 0)),
+        rhymeKey: computeRhymeKey(override),
+        source: 'override',
+      }
+      cache.set(candidate, value)
+      return value
+    }
+
+    const cmu = CMU_PRONUNCIATIONS[candidate]
+    if (cmu) {
+      const value: Pronunciation = {
+        word: token,
+        normalized: candidate,
+        phones: cmu,
+        syllables: Math.max(1, cmu.reduce((count, phone) => (isVowelPhone(phone) ? count + 1 : count), 0)),
+        rhymeKey: computeRhymeKey(cmu),
+        source: 'cmu',
+      }
+      cache.set(candidate, value)
+      return value
+    }
   }
 
-  const lookup = lookupPhones(normalized)
-  const phones = lookup?.phones ?? []
-  const source = lookup?.source ?? 'heuristic'
-
-  let syllables = phones.length
-    ? Math.max(1, phones.reduce((count, phone) => (isVowelPhone(phone) ? count + 1 : count), 0))
-    : estimateSyllables(normalized)
-
-  if (isAlphabeticToken(normalized)) {
+  let syllables = estimateSyllables(fallbackNormalized)
+  if (isAlphabeticToken(fallbackNormalized)) {
     syllables = Math.max(1, syllables)
   }
 
-  const rhymeKey = phones.length ? computeRhymeKey(phones) : computeSpellingRhymeKey(normalized)
-
   const value: Pronunciation = {
     word: token,
-    normalized,
-    phones,
+    normalized: fallbackNormalized,
+    phones: [],
     syllables,
-    rhymeKey,
-    source,
+    rhymeKey: computeSpellingRhymeKey(fallbackNormalized),
+    source: 'heuristic',
   }
 
-  cache.set(normalized, value)
+  cache.set(fallbackNormalized, value)
   return value
 }
