@@ -6,18 +6,18 @@ export type TokenizedWord = {
   analysisKey?: string
 }
 
-const WORD_REGEX = /[A-Za-z']+|\d+/y
+const WORD_REGEX = /[A-Za-z'’‘]+|\d+/y
 const MERIDIEM_REGEX = /^(\d{1,2})(\s*)(a\.?\s*m\.?|p\.?\s*m\.?)/i
 
 export function isWordLikeToken(token: string | TokenizedWord): boolean {
   if (typeof token === 'string') {
-    return /^[A-Za-z']+$/.test(token) || /^\d+$/.test(token)
+    return /^[A-Za-z'’‘]+$/.test(token) || /^\d+$/.test(token)
   }
 
   if (token.kind === 'meridiem') return true
 
   const candidate = token.analysisKey ?? token.text
-  return /^[A-Za-z']+$/.test(candidate) || /^\d+$/.test(candidate)
+  return /^[A-Za-z'’‘]+$/.test(candidate) || /^\d+$/.test(candidate)
 }
 
 export function tokenizeLine(text: string): TokenizedWord[] {

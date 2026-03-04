@@ -19,6 +19,7 @@ const OVERRIDE_PHONES: Record<string, string[]> = {
   resign: ['R', 'IH0', 'Z', 'AY1', 'N'],
   line: ['L', 'AY1', 'N'],
   tune: ['T', 'UW1', 'N'],
+  yall: ['Y', 'AO1', 'L'],
 }
 
 const CMU_PRONUNCIATIONS: Record<string, string[]> = {

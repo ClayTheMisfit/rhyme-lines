@@ -39,6 +39,16 @@ describe('computeRhymeFamilies', () => {
     const familyIds = new Set(familyIdByTokenId.values())
     expect(familyIds.size).toBe(1)
   })
+
+
+  it('groups punctuation and casing variants into the same family', () => {
+    const tokens = buildTokens('light Light, HEIGHT. night! Sight?')
+    const { familyIdByTokenId, familyIdByRhymeKey } = computeRhymeFamilies(tokens)
+
+    expect(familyIdByRhymeKey.size).toBe(1)
+    expect(familyIdByTokenId.size).toBe(5)
+  })
+
 })
 
 describe('buildRhymeDecorations', () => {

@@ -80,6 +80,30 @@ describe('getPronunciation', () => {
     expect(getLookupCandidates('its')).toEqual(['its'])
   })
 
+
+  it('keeps rhyme keys stable across punctuation and casing', () => {
+    const base = getPronunciation('light').rhymeKey
+    expect(getPronunciation('Light,').rhymeKey).toBe(base)
+    expect(getPronunciation('HEIGHT.').rhymeKey).toBe(base)
+    expect(getPronunciation('night!').rhymeKey).toBe(base)
+    expect(getPronunciation('Sight?').rhymeKey).toBe(base)
+  })
+
+  it('normalizes curly possessives for syllables and rhyme keys', () => {
+    expect(getPronunciation('night’s').syllables).toBe(1)
+    expect(getPronunciation('height’s').syllables).toBe(1)
+    expect(getPronunciation('night’s').rhymeKey).toBe(getPronunciation('night').rhymeKey)
+    expect(getPronunciation('height’s').rhymeKey).toBe(getPronunciation('height').rhymeKey)
+  })
+
+  it("treats y’all like yall with one syllable", () => {
+    const curly = getPronunciation('y’all')
+    const plain = getPronunciation('yall')
+    expect(curly.syllables).toBe(1)
+    expect(curly.rhymeKey).toBe(plain.rhymeKey)
+    expect(curly.rhymeKey.length).toBeGreaterThan(0)
+  })
+
   it('normalizes curly apostrophes', () => {
     expect(normalizeApostrophes('night’s')).toBe("night's")
     expect(normalizeApostrophes('dogs‘')).toBe("dogs'")
