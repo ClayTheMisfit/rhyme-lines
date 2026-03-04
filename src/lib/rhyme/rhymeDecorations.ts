@@ -2,6 +2,7 @@ import { tokenizeLine, isWordLikeToken } from '@/lib/analysis/tokenize'
 import { isStopword } from '@/lib/nlp/stopwords'
 import type { LineInput } from '@/lib/analysis/compute'
 import type { RhymeHighlightMode } from '@/lib/persist/schema'
+import { getPronunciation } from '@/lib/phonetics/pronunciation'
 
 export const RHYME_FAMILY_COLORS = [
   'rgba(248, 113, 113, 0.22)',
@@ -17,8 +18,6 @@ export const RHYME_FAMILY_COLORS = [
 export const DEFAULT_UNDERLINE_TARGETS = ['time', 'rhyme', 'line', 'flow']
 export const MIN_FAMILY_SIZE = 2
 
-const RHYME_TAIL_REGEX = /([aeiouy]+[^aeiouy]*)$/i
-
 export type RhymeDecorationToken = {
   id: string
   lineId: string
@@ -31,7 +30,8 @@ export type RhymeDecorationToken = {
   colorIndex?: number
   underline: boolean
   isEndWord: boolean
-  source?: 'heuristic-tail' | 'cmu' | 'fallback'
+  source?: 'override' | 'cmu' | 'heuristic'
+  debugTitle?: string
 }
 
 export type RhymeDecorationSnapshot = {
@@ -41,19 +41,11 @@ export type RhymeDecorationSnapshot = {
   rhymeKeyToTokenIds: Map<string, string[]>
 }
 
-export const normalizeWord = (word: string) =>
-  word
-    .toLowerCase()
-    .replace(/[^a-z']/g, '')
-    .replace(/^'+|'+$/g, '')
+export const normalizeWord = (word: string) => getPronunciation(word).normalized
 
 export function getRhymeFamilyKey(word: string): string | null {
-  const normalized = normalizeWord(word)
-  if (!normalized) return null
-  const match = normalized.match(RHYME_TAIL_REGEX)
-  if (match?.[1]) return match[1]
-  if (normalized.length <= 2) return normalized
-  return normalized.slice(-2)
+  const pronunciation = getPronunciation(word)
+  return pronunciation.rhymeKey || null
 }
 
 export function getEndWordTokenIndex(tokens: ReturnType<typeof tokenizeLine>): number | null {
@@ -110,10 +102,11 @@ export function buildRhymeDecorations(
     const lineTokens: RhymeDecorationToken[] = []
     tokens.forEach((token, tokenIndex) => {
       if (!isWordLikeToken(token)) return
-      const normalized = normalizeWord(token.analysisKey ?? token.text)
+      const pronunciation = getPronunciation(token.analysisKey ?? token.text)
+      const normalized = pronunciation.normalized
       if (!normalized) return
       if (!options.highlightStopwords && isStopword(normalized)) return
-      const familyKey = getRhymeFamilyKey(normalized)
+      const familyKey = pronunciation.rhymeKey
       if (!familyKey) return
       const tokenId = `${line.id}-${tokenIndex}`
       const isEndWord = tokenIndex === endWordIndex
@@ -130,7 +123,8 @@ export function buildRhymeDecorations(
         familyKey,
         underline: underlineSet.has(normalized),
         isEndWord,
-        source: 'heuristic-tail',
+        source: pronunciation.source,
+        debugTitle: `normalized: ${pronunciation.normalized}\nsyllables: ${pronunciation.syllables}\nsource: ${pronunciation.source}\nphones: ${pronunciation.phones.join(' ') || '(none)'}\nrhymeKey: ${pronunciation.rhymeKey}`,
       })
     })
     tokensByLine.set(line.id, lineTokens)

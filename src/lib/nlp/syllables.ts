@@ -1,5 +1,6 @@
 import { isCommonEnglishWord } from '@/lib/rhyme-db/commonEnglish'
 import { countYearSyllables, parseYearToken } from '@/lib/nlp/yearSyllables'
+import { getPronunciation } from '@/lib/phonetics/pronunciation'
 
 const SYLLABLE_OVERRIDES: Record<string, number> = {
   the: 1, a: 1, i: 1, you: 1, are: 1, fire: 1, hour: 1, choir: 1,
@@ -35,6 +36,11 @@ export function countSyllables(wordRaw: string): number {
 function countSingleTokenSyllables(token: string): number {
   const word = token.toLowerCase().replace(/[^a-z']/g, '')
   if (!word) return 0
+
+  const pronunciation = getPronunciation(word)
+  if (pronunciation.normalized && pronunciation.source !== 'heuristic' && pronunciation.syllables > 0) {
+    return pronunciation.syllables
+  }
 
   if (word in SYLLABLE_OVERRIDES) return SYLLABLE_OVERRIDES[word]
 
