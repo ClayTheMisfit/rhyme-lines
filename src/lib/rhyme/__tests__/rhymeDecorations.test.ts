@@ -72,6 +72,49 @@ describe('buildRhymeDecorations', () => {
     expect(familyIds.size).toBe(1)
   })
 
+
+  it('highlights punctuation/casing variants and groups them with base words', () => {
+    const lines = [
+      { id: 'base-light', text: 'light' },
+      { id: 'base-height', text: 'height' },
+      { id: 'base-night', text: 'night' },
+      { id: 'base-sight', text: 'sight' },
+      { id: 'punct-light', text: 'Light,' },
+      { id: 'punct-height', text: 'HEIGHT.' },
+      { id: 'punct-night', text: 'night!' },
+      { id: 'punct-sight', text: 'Sight?' },
+    ]
+
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: false, highlightStopwords: false })
+
+    const tokenFor = (lineId: string) => {
+      const lineTokens = result.tokensByLine.get(lineId) ?? []
+      expect(lineTokens.length).toBeGreaterThan(0)
+      return lineTokens[0]
+    }
+
+    const baseLight = tokenFor('base-light')
+    const baseHeight = tokenFor('base-height')
+    const baseNight = tokenFor('base-night')
+    const baseSight = tokenFor('base-sight')
+    const punctLight = tokenFor('punct-light')
+    const punctHeight = tokenFor('punct-height')
+    const punctNight = tokenFor('punct-night')
+    const punctSight = tokenFor('punct-sight')
+
+    const punctuationTokens = [punctLight, punctHeight, punctNight, punctSight]
+    punctuationTokens.forEach((token) => {
+      expect(token.familyId).not.toBeUndefined()
+    })
+
+    expect(punctLight.familyId).toBe(baseLight.familyId)
+    expect(punctHeight.familyId).toBe(baseHeight.familyId)
+    expect(punctNight.familyId).toBe(baseNight.familyId)
+    expect(punctSight.familyId).toBe(baseSight.familyId)
+
+    expect(result.familyCount).toBe(1)
+  })
+
   it('marks the last word token as end word despite trailing punctuation', () => {
     const tokens = tokenizeLine('brain, rest—')
     expect(getEndWordTokenIndex(tokens)).toBe(tokens.length - 1)
