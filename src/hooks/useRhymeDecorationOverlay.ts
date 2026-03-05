@@ -10,7 +10,7 @@ export type RhymeDecorationRect = {
   colorIndex?: number
   isEndWord: boolean
   underline: boolean
-  debugTitle?: string
+  debugTitle?: () => string
   rect: {
     left: number
     top: number

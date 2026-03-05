@@ -43,7 +43,7 @@ export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId, mode, h
           <div key={rect.id}>
             <span
               className="rl-rhyme-highlight"
-              title={showDebugPronunciation ? rect.debugTitle : undefined}
+              title={showDebugPronunciation ? rect.debugTitle?.() : undefined}
               data-rhyme-family={rect.familyId}
               data-rhyme-active={isActive || undefined}
               data-rhyme-muted={isMuted || undefined}
@@ -60,7 +60,7 @@ export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId, mode, h
             {rect.underline || hideColors ? (
               <span
                 className="rl-rhyme-underline"
-                title={showDebugPronunciation ? rect.debugTitle : undefined}
+                title={showDebugPronunciation ? rect.debugTitle?.() : undefined}
                 data-rhyme-family={rect.familyId}
                 data-rhyme-active={isActive || undefined}
                 data-rhyme-muted={isMuted || undefined}

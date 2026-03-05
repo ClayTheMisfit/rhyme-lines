@@ -31,7 +31,7 @@ export type RhymeDecorationToken = {
   underline: boolean
   isEndWord: boolean
   source?: 'override' | 'cmu' | 'heuristic'
-  debugTitle?: string
+  debugTitle?: () => string
 }
 
 export type RhymeDecorationSnapshot = {
@@ -124,7 +124,7 @@ export function buildRhymeDecorations(
         underline: underlineSet.has(normalized),
         isEndWord,
         source: pronunciation.source,
-        debugTitle: `normalized: ${pronunciation.normalized}\nsyllables: ${pronunciation.syllables}\nsource: ${pronunciation.source}\nphones: ${pronunciation.phones.join(' ') || '(none)'}\nrhymeKey: ${pronunciation.rhymeKey}`,
+        debugTitle: () => `normalized: ${pronunciation.normalized}\nsyllables: ${pronunciation.syllables}\nsource: ${pronunciation.source}\nphones: ${pronunciation.phones.join(' ') || '(none)'}\nrhymeKey: ${pronunciation.rhymeKey}`,
       })
     })
     tokensByLine.set(line.id, lineTokens)
