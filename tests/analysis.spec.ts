@@ -53,7 +53,13 @@ describe('analysis pipeline', () => {
     expect(isWordLikeToken('1')).toBe(true)
     expect(isWordLikeToken('two')).toBe(true)
     expect(isWordLikeToken('!')).toBe(false)
+    expect(isWordLikeToken("'")).toBe(false)
+    expect(isWordLikeToken('’')).toBe(false)
     expect(isWordLikeToken({ start: 0, end: 5, text: '10 pm', kind: 'meridiem', analysisKey: '10pm' })).toBe(true)
+  })
+
+  it('does not tokenize apostrophe-only runs as words', () => {
+    expect(tokenizeLine("' '' ’ ‘")).toEqual([])
   })
 
   it('computes syllables and totals deterministically', () => {
