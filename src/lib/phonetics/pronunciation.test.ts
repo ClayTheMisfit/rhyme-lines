@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals'
-import { getLookupCandidates, getPronunciation, normalizeApostrophes } from '@/lib/phonetics/pronunciation'
+import { computeRhymeKey, getLookupCandidates, getPronunciation, normalizeApostrophes } from '@/lib/phonetics/pronunciation'
 
 describe('getPronunciation', () => {
   it('returns expected syllable counts for regression words', () => {
@@ -107,6 +107,23 @@ describe('getPronunciation', () => {
     expect(curly.syllables).toBe(1)
     expect(curly.rhymeKey).toBe(plain.rhymeKey)
     expect(curly.rhymeKey.length).toBeGreaterThan(0)
+  })
+
+
+  it('falls back to last vowel for rhyme key when no primary/secondary stress exists', () => {
+    expect(computeRhymeKey(['S', 'AH0', 'N'])).toBe('AH-N')
+  })
+
+  it('returns cloned phone arrays from lookup/cache paths', () => {
+    const first = getPronunciation('fine')
+    first.phones.push('ZZ')
+    const second = getPronunciation('fine')
+    expect(second.phones).toEqual(['F', 'AY1', 'N'])
+
+    const overrideFirst = getPronunciation('height')
+    overrideFirst.phones.push('ZZ')
+    const overrideSecond = getPronunciation('height')
+    expect(overrideSecond.phones).toEqual(['HH', 'AY1', 'T'])
   })
 
   it('normalizes curly apostrophes', () => {

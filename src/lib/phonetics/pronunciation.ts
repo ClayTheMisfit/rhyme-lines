@@ -82,7 +82,7 @@ export function getLookupCandidates(token: string): string[] {
   return deduped
 }
 
-const isAlphabeticToken = (token: string) => /^[a-z']+$/i.test(token)
+const isAlphabeticToken = (token: string) => /^[a-z']+$/i.test(token) && /[a-z]/i.test(token)
 
 const stripStress = (phone: string) => phone.replace(STRESS_DIGIT_REGEX, '')
 
@@ -103,8 +103,16 @@ export function computeRhymeKey(phones: string[]): string {
 
   const stressed = findLastStress('1')
   const secondary = findLastStress('2')
-  const unstressed = findLastStress('0')
-  const target = stressed !== -1 ? stressed : secondary !== -1 ? secondary : unstressed
+
+  let lastVowel = -1
+  for (let index = phones.length - 1; index >= 0; index -= 1) {
+    if (isVowelPhone(phones[index])) {
+      lastVowel = index
+      break
+    }
+  }
+
+  const target = stressed !== -1 ? stressed : secondary !== -1 ? secondary : lastVowel
 
   if (target === -1) return ''
 
@@ -137,35 +145,37 @@ export function getPronunciation(token: string): Pronunciation {
   for (const candidate of candidates) {
     const cached = cache.get(candidate)
     if (cached) {
-      return { ...cached, word: token }
+      return { ...cached, word: token, phones: [...cached.phones] }
     }
 
     const override = OVERRIDE_PHONES[candidate]
     if (override) {
+      const overridePhones = [...override]
       const value: Pronunciation = {
         word: token,
         normalized: candidate,
-        phones: override,
-        syllables: Math.max(1, override.reduce((count, phone) => (isVowelPhone(phone) ? count + 1 : count), 0)),
-        rhymeKey: computeRhymeKey(override),
+        phones: overridePhones,
+        syllables: Math.max(1, overridePhones.reduce((count, phone) => (isVowelPhone(phone) ? count + 1 : count), 0)),
+        rhymeKey: computeRhymeKey(overridePhones),
         source: 'override',
       }
-      cache.set(candidate, value)
-      return value
+      cache.set(candidate, { ...value, phones: [...overridePhones] })
+      return { ...value, phones: [...overridePhones] }
     }
 
     const cmu = CMU_PRONUNCIATIONS[candidate]
     if (cmu) {
+      const cmuPhones = [...cmu]
       const value: Pronunciation = {
         word: token,
         normalized: candidate,
-        phones: cmu,
-        syllables: Math.max(1, cmu.reduce((count, phone) => (isVowelPhone(phone) ? count + 1 : count), 0)),
-        rhymeKey: computeRhymeKey(cmu),
+        phones: cmuPhones,
+        syllables: Math.max(1, cmuPhones.reduce((count, phone) => (isVowelPhone(phone) ? count + 1 : count), 0)),
+        rhymeKey: computeRhymeKey(cmuPhones),
         source: 'cmu',
       }
-      cache.set(candidate, value)
-      return value
+      cache.set(candidate, { ...value, phones: [...cmuPhones] })
+      return { ...value, phones: [...cmuPhones] }
     }
   }
 
@@ -183,6 +193,6 @@ export function getPronunciation(token: string): Pronunciation {
     source: 'heuristic',
   }
 
-  cache.set(fallbackNormalized, value)
-  return value
+  cache.set(fallbackNormalized, { ...value, phones: [...value.phones] })
+  return { ...value, phones: [...value.phones] }
 }
