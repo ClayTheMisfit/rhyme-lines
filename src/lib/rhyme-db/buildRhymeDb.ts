@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import { normalizeLexeme } from './normalizeLexeme'
 import { RHYME_DB_VERSION } from './version'
 
@@ -208,9 +209,8 @@ const buildIndex = (entries: ParsedEntry[], wordIds: Map<string, number>) => {
 }
 
 export const buildRhymeDb = (entries: ParsedEntry[]): RhymeDbV1 => {
-  const rankMap: Record<string, number> = JSON.parse(
-    fs.readFileSync(new URL('./frequency/commonWordRanks.json', import.meta.url), 'utf8')
-  )
+  const rankMapPath = path.join(process.cwd(), 'src/lib/rhyme-db/frequency/commonWordRanks.json')
+  const rankMap: Record<string, number> = JSON.parse(fs.readFileSync(rankMapPath, 'utf8'))
   const pronunciationsByWord = new Map<string, ParsedEntry[]>()
   for (const entry of entries) {
     const existing = pronunciationsByWord.get(entry.word)

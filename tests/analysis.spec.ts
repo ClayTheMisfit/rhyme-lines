@@ -14,6 +14,18 @@ describe('analysis pipeline', () => {
     ])
   })
 
+
+  it('keeps curly apostrophe words as single tokens', () => {
+    const tokens = tokenizeLine('night’s y’all dogs’')
+    expect(tokens).toEqual([
+      { start: 0, end: 7, text: 'night’s', kind: 'word' },
+      { start: 8, end: 13, text: 'y’all', kind: 'word' },
+      { start: 14, end: 19, text: 'dogs’', kind: 'word' },
+    ])
+    expect(isWordLikeToken('night’s')).toBe(true)
+    expect(isWordLikeToken('y’all')).toBe(true)
+  })
+
   it('groups 1-12 am/pm variants into one token', () => {
     expect(tokenizeLine('10 pm lets ride')).toEqual([
       { start: 0, end: 5, text: '10 pm', kind: 'meridiem', analysisKey: '10pm' },
@@ -41,7 +53,13 @@ describe('analysis pipeline', () => {
     expect(isWordLikeToken('1')).toBe(true)
     expect(isWordLikeToken('two')).toBe(true)
     expect(isWordLikeToken('!')).toBe(false)
+    expect(isWordLikeToken("'")).toBe(false)
+    expect(isWordLikeToken('’')).toBe(false)
     expect(isWordLikeToken({ start: 0, end: 5, text: '10 pm', kind: 'meridiem', analysisKey: '10pm' })).toBe(true)
+  })
+
+  it('does not tokenize apostrophe-only runs as words', () => {
+    expect(tokenizeLine("' '' ’ ‘")).toEqual([])
   })
 
   it('computes syllables and totals deterministically', () => {
