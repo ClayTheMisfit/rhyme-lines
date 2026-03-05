@@ -110,6 +110,53 @@ describe('getPronunciation', () => {
   })
 
 
+
+  it('keeps punctuation/casing pairs equivalent for rhymeKey and syllables', () => {
+    const cases: Array<[string, string]> = [
+      ['light', 'Light,'],
+      ['height', 'HEIGHT.'],
+      ['night', 'night!'],
+      ['sight', 'Sight?'],
+    ]
+
+    for (const [baseWord, variant] of cases) {
+      const base = getPronunciation(baseWord)
+      const punct = getPronunciation(variant)
+      expect(punct.rhymeKey).toBe(base.rhymeKey)
+      expect(base.syllables).toBe(1)
+      expect(punct.syllables).toBe(1)
+    }
+  })
+
+  it('normalizes curly/apostrophe possessive variants to same rhyme family', () => {
+    const night = getPronunciation('night')
+    const nightAscii = getPronunciation("night's")
+    const nightCurly = getPronunciation('night’s')
+
+    expect(night.syllables).toBe(1)
+    expect(nightAscii.syllables).toBe(1)
+    expect(nightCurly.syllables).toBe(1)
+    expect(nightAscii.rhymeKey).toBe(night.rhymeKey)
+    expect(nightCurly.rhymeKey).toBe(night.rhymeKey)
+
+    const height = getPronunciation('height')
+    const heightAscii = getPronunciation("height's")
+    const heightCurly = getPronunciation('height’s')
+
+    expect(height.syllables).toBe(1)
+    expect(heightAscii.syllables).toBe(1)
+    expect(heightCurly.syllables).toBe(1)
+    expect(heightAscii.rhymeKey).toBe(height.rhymeKey)
+    expect(heightCurly.rhymeKey).toBe(height.rhymeKey)
+  })
+
+  it('keeps non-zero syllable invariant for normalization regressions', () => {
+    const tokens = ['light', 'Light,', 'night’s', 'y’all', 'resign', 'height’s']
+    for (const token of tokens) {
+      expect(getPronunciation(token).syllables).toBeGreaterThanOrEqual(1)
+    }
+  })
+
   it('falls back to last vowel for rhyme key when no primary/secondary stress exists', () => {
     expect(computeRhymeKey(['S', 'AH0', 'N'])).toBe('AH-N')
   })
