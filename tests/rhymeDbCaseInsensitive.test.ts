@@ -28,7 +28,8 @@ describe('getRhymesForToken', () => {
     } as RhymeDbV1
 
     const results = getRhymesForToken(db, 'fine', 'perfect', 100)
-    expect(results.words).toContain('line')
-    expect(results.words).not.toContain('fine')
+    const normalized = results.words.map((word) => word.toLowerCase())
+    expect(normalized).toContain('line')
+    expect(normalized).not.toContain('fine')
   })
 })
