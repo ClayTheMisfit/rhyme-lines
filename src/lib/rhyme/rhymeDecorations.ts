@@ -2,7 +2,7 @@ import { tokenizeLine, isWordLikeToken } from '@/lib/analysis/tokenize'
 import { isStopword } from '@/lib/nlp/stopwords'
 import type { LineInput } from '@/lib/analysis/compute'
 import type { RhymeHighlightMode } from '@/lib/persist/schema'
-import { getPronunciation } from '@/lib/phonetics/pronunciation'
+import { getPronunciation, normalizeWord as normalizePronunciationWord } from '@/lib/phonetics/pronunciation'
 
 export const RHYME_FAMILY_COLORS = [
   'rgba(248, 113, 113, 0.22)',
@@ -41,7 +41,7 @@ export type RhymeDecorationSnapshot = {
   rhymeKeyToTokenIds: Map<string, string[]>
 }
 
-export const normalizeWord = (word: string) => getPronunciation(word).normalized
+export const normalizeWord = (word: string) => normalizePronunciationWord(word)
 
 export function getRhymeFamilyKey(word: string): string | null {
   const pronunciation = getPronunciation(word)

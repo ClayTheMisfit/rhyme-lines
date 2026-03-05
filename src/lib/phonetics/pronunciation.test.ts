@@ -41,6 +41,11 @@ describe('getPronunciation', () => {
     expect(getPronunciation('blorple').syllables).toBeGreaterThanOrEqual(1)
   })
 
+  it('uses cmu source for words present in CMU pronunciations', () => {
+    expect(getPronunciation('fine').source).toBe('cmu')
+    expect(getPronunciation('cat').source).toBe('cmu')
+  })
+
   it('uses override source for known overrides', () => {
     expect(getPronunciation('height').source).toBe('override')
     expect(getPronunciation('resign').source).toBe('override')

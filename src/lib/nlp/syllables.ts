@@ -37,12 +37,12 @@ function countSingleTokenSyllables(token: string): number {
   const word = token.toLowerCase().replace(/[^a-z']/g, '')
   if (!word) return 0
 
+  if (word in SYLLABLE_OVERRIDES) return SYLLABLE_OVERRIDES[word]
+
   const pronunciation = getPronunciation(word)
   if (pronunciation.normalized && pronunciation.source !== 'heuristic' && pronunciation.syllables > 0) {
     return pronunciation.syllables
   }
-
-  if (word in SYLLABLE_OVERRIDES) return SYLLABLE_OVERRIDES[word]
 
   const compoundCount = estimateCompoundSuffixSyllables(word)
   if (compoundCount !== null) return compoundCount
