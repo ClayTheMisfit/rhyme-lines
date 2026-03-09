@@ -11,6 +11,7 @@ export const applySettingsDefaults = (incoming: SettingsSchema): SettingsSchema 
   rhymeHighlightMode: incoming.rhymeHighlightMode ?? DEFAULT_SETTINGS.rhymeHighlightMode,
   hideRhymeColors: incoming.hideRhymeColors ?? DEFAULT_SETTINGS.hideRhymeColors,
   rhymeDebugOverlay: incoming.rhymeDebugOverlay ?? DEFAULT_SETTINGS.rhymeDebugOverlay,
+  useOnlineRhymeProviders: incoming.useOnlineRhymeProviders ?? DEFAULT_SETTINGS.useOnlineRhymeProviders,
   lastUpdatedAt: incoming.lastUpdatedAt || Date.now(),
 })
 

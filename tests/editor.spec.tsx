@@ -13,8 +13,9 @@ describe('Editor line normalization', () => {
         addRange: () => {},
       } as unknown as Selection)
 
-    const originalGetClientRects = (Range.prototype as any).getClientRects
-    ;(Range.prototype as any).getClientRects = () => []
+    const rangeProto = Range.prototype as Range & { getClientRects: () => DOMRectList }
+    const originalGetClientRects = rangeProto.getClientRects
+    rangeProto.getClientRects = () => [] as unknown as DOMRectList
 
     const dispatchMock = jest
       .spyOn(window, 'dispatchEvent')
@@ -43,11 +44,64 @@ describe('Editor line normalization', () => {
       expect(lines[1]).toHaveClass('line')
     } finally {
       unmount()
-      ;(Range.prototype as any).getClientRects = originalGetClientRects
+      rangeProto.getClientRects = originalGetClientRects
       dispatchMock.mockRestore()
       getSelectionMock.mockRestore()
       jest.runOnlyPendingTimers()
       jest.useRealTimers()
+    }
+  })
+
+  test('drop inserts text/plain only', () => {
+    const originalExecCommand = (document as Document & { execCommand?: typeof document.execCommand }).execCommand
+    const execCommandMock = jest.fn((commandId: string, showUI?: boolean, value?: string) => {
+      void commandId
+      void showUI
+      void value
+      return true
+    })
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: execCommandMock,
+    })
+
+    const { container, unmount } = render(<Editor />)
+
+    try {
+      const editor = container.querySelector('#lyric-editor') as HTMLDivElement
+      expect(editor).toBeTruthy()
+
+      const preventDefault = jest.fn()
+      const getData = jest.fn((type: string) => {
+        if (type === 'text/plain') return 'hello\nworld'
+        if (type === 'text/html') return '<img src=x onerror=alert(1)>'
+        return ''
+      })
+
+      act(() => {
+        const event = new window.Event('drop', { bubbles: true, cancelable: true }) as Event & {
+          dataTransfer: { getData: (type: string) => string }
+          preventDefault: () => void
+        }
+        Object.defineProperty(event, 'dataTransfer', {
+          value: { getData },
+          configurable: true,
+        })
+        event.preventDefault = preventDefault
+        editor.dispatchEvent(event)
+      })
+
+      expect(preventDefault).toHaveBeenCalled()
+      expect(getData).toHaveBeenCalledWith('text/plain')
+      expect(execCommandMock).toHaveBeenCalledWith('insertText', false, 'hello\nworld')
+    } finally {
+      if (originalExecCommand) {
+        Object.defineProperty(document, 'execCommand', {
+          configurable: true,
+          value: originalExecCommand,
+        })
+      }
+      unmount()
     }
   })
 })

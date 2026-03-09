@@ -54,6 +54,7 @@ type UseRhymeSuggestionsArgs = {
   commonWordsOnly?: boolean
   debug?: boolean
   enabled: boolean
+  useOnlineProviders?: boolean
 }
 
 export const useRhymeSuggestions = ({
@@ -68,6 +69,7 @@ export const useRhymeSuggestions = ({
   commonWordsOnly,
   debug: debugEnabled,
   enabled,
+  useOnlineProviders = false,
 }: UseRhymeSuggestionsArgs) => {
   const showVariants = false
   const [status, setStatus] = useState<Status>('idle')
@@ -226,6 +228,9 @@ export const useRhymeSuggestions = ({
       }
 
       const fetchOnline = async () => {
+        if (!useOnlineProviders) {
+          return { results: {}, allFailed: true, hadFailure: false, debug: {} }
+        }
         const controller = new AbortController()
         onlineAbortRef.current?.abort()
         onlineAbortRef.current = controller
@@ -340,7 +345,9 @@ export const useRhymeSuggestions = ({
           const offlineMessage =
             typeof navigator !== 'undefined' && navigator.onLine === false
               ? 'No rhyme data available offline yet. Connect once to download the rhyme pack.'
-              : 'Failed to fetch rhymes from online providers.'
+: useOnlineProviders
+              ? 'Failed to fetch rhymes from online providers.'
+              : 'Online rhyme providers are disabled in settings.'
           setStatus('error')
           setError(offlineMessage)
           setPhase('error')
@@ -617,7 +624,7 @@ export const useRhymeSuggestions = ({
 
       await applyOnlineFallback('Offline DB unavailable — using online providers.')
     },
-    [commonWordsOnly, debugEnabled, enabled, max, modes, multiSyllable, showVariants, wordUsage]
+    [commonWordsOnly, debugEnabled, enabled, max, modes, multiSyllable, showVariants, useOnlineProviders, wordUsage]
   )
 
   useEffect(() => {

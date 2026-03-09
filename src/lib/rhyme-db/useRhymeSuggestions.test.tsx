@@ -79,6 +79,7 @@ describe('useRhymeSuggestions fallback', () => {
         currentLineText: 'time',
         modes: ['perfect'],
         enabled: true,
+        useOnlineProviders: true,
       })
     )
 
@@ -110,6 +111,7 @@ describe('useRhymeSuggestions fallback', () => {
         modes: ['perfect'],
         showVariants: true,
         enabled: true,
+        useOnlineProviders: true,
       })
     )
 
@@ -140,6 +142,7 @@ describe('useRhymeSuggestions fallback', () => {
         currentLineText: 'time',
         modes: ['perfect'],
         enabled: true,
+        useOnlineProviders: true,
       })
     )
 
@@ -174,6 +177,7 @@ describe('useRhymeSuggestions fallback', () => {
         currentLineText: 'time',
         modes: ['perfect'],
         enabled: true,
+        useOnlineProviders: true,
       })
     )
 
@@ -186,6 +190,36 @@ describe('useRhymeSuggestions fallback', () => {
     expect(getPreferredRhymeSource()).toBe('online')
   })
 
+
+  it('does not call online providers when disabled', async () => {
+    mockedInitRhymeClient.mockRejectedValue(new Error('init failed'))
+    mockedGetRhymeClient.mockReturnValue({
+      getRhymes: async () => ({ results: { caret: [], lineLast: [] }, debug: {} }),
+      getWarning: () => null,
+      init: () => Promise.resolve(),
+      terminate: () => {},
+    })
+
+    const { result } = renderHook(() =>
+      useRhymeSuggestions({
+        text: 'time',
+        caretIndex: 4,
+        currentLineText: 'time',
+        modes: ['perfect'],
+        enabled: true,
+        useOnlineProviders: false,
+      })
+    )
+
+    await act(async () => {
+      jest.advanceTimersByTime(260)
+      await flushPromises()
+    })
+
+    expect(mockedFetchAggregatedRhymes).not.toHaveBeenCalled()
+    expect(result.current.status).toBe('error')
+    expect(result.current.error).toBe('Online rhyme providers are disabled in settings.')
+  })
   it('returns an error when both local and online fail', async () => {
     mockedInitRhymeClient.mockRejectedValue(new Error('init failed'))
     mockedGetRhymeClient.mockReturnValue({
@@ -203,6 +237,7 @@ describe('useRhymeSuggestions fallback', () => {
         currentLineText: 'time',
         modes: ['perfect'],
         enabled: true,
+        useOnlineProviders: true,
       })
     )
 
@@ -251,6 +286,7 @@ describe('useRhymeSuggestions english filtering', () => {
         currentLineText: 'time',
         modes: ['perfect'],
         enabled: true,
+        useOnlineProviders: true,
       })
     )
 

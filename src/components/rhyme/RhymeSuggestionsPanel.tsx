@@ -78,11 +78,13 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       commonWordsOnly,
       setCommonWordsOnly,
       rhymeFilters,
+      useOnlineRhymeProviders,
       setRhymeFilters,
     } = useSettingsStore((state) => ({
       commonWordsOnly: state.commonWordsOnly,
       setCommonWordsOnly: state.setCommonWordsOnly,
       rhymeFilters: state.rhymeFilters,
+      useOnlineRhymeProviders: state.useOnlineRhymeProviders,
       setRhymeFilters: state.setRhymeFilters,
     }), shallow)
 
@@ -130,6 +132,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       commonWordsOnly,
       debug: debugEnabled,
       enabled: mode !== 'hidden',
+      useOnlineProviders: useOnlineRhymeProviders,
     })
 
     const caretSuggestions = results.caret ?? []

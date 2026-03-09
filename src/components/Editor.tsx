@@ -971,7 +971,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [ensureEditorFocus]
   )
 
-  const { onPaste } = useEditorClipboard({
+  const { onPaste, onDragOver, onDrop } = useEditorClipboard({
     insertPlainText,
     scheduleSyncFromDom,
   })
@@ -1106,6 +1106,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onBlur={inputHandlers.onBlur}
                 onKeyDown={inputHandlers.onKeyDown}
                 onPaste={onPaste}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
                 onCompositionStart={inputHandlers.onCompositionStart}
                 onCompositionEnd={inputHandlers.onCompositionEnd}
                 onClick={(event) => {

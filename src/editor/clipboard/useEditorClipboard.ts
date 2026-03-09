@@ -20,5 +20,20 @@ export function useEditorClipboard({ insertPlainText, scheduleSyncFromDom }: Use
     [insertPlainText, scheduleSyncFromDom]
   )
 
-  return { onPaste }
+  const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+  }, [])
+
+  const onDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      const droppedText = event.dataTransfer?.getData('text/plain') ?? ''
+      if (!droppedText) return
+      insertPlainText(droppedText)
+      scheduleSyncFromDom('drop')
+    },
+    [insertPlainText, scheduleSyncFromDom]
+  )
+
+  return { onPaste, onDragOver, onDrop }
 }

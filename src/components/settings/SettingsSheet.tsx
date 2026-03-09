@@ -156,6 +156,7 @@ export function SettingsSheet() {
     badgeSize,
     showLineTotals,
     rhymeAutoRefresh,
+    useOnlineRhymeProviders,
     debounceMode,
     setTheme,
     setFontSize,
@@ -164,6 +165,7 @@ export function SettingsSheet() {
     setShowLineTotals,
     setRhymeAutoRefresh,
     setDebounceMode,
+    setUseOnlineRhymeProviders,
     resetDefaults,
   } = useSettingsStore(
     useCallback(
@@ -175,12 +177,14 @@ export function SettingsSheet() {
         showLineTotals: state.showLineTotals,
         rhymeAutoRefresh: state.rhymeAutoRefresh,
         debounceMode: state.debounceMode,
+        useOnlineRhymeProviders: state.useOnlineRhymeProviders,
         setTheme: state.setTheme,
         setFontSize: state.setFontSize,
         setLineHeight: state.setLineHeight,
         setBadgeSize: state.setBadgeSize,
         setShowLineTotals: state.setShowLineTotals,
         setRhymeAutoRefresh: state.setRhymeAutoRefresh,
+        setUseOnlineRhymeProviders: state.setUseOnlineRhymeProviders,
         setDebounceMode: state.setDebounceMode,
         resetDefaults: state.resetDefaults,
       }),
@@ -403,6 +407,12 @@ export function SettingsSheet() {
                 </span>
                 Auto refresh while typing
               </label>
+              <ToggleRow
+                label="Use online rhyme providers"
+                checked={useOnlineRhymeProviders}
+                onCheckedChange={setUseOnlineRhymeProviders}
+              />
+              <p className="text-xs text-white/50">When disabled, rhyme lookups stay local-only and no external rhyme API requests are made.</p>
               <div className="space-y-2">
                 {DEBOUNCE_OPTIONS.map((option) => {
                   const isActive = debounceMode === option.value
@@ -484,11 +494,13 @@ export function SettingsSheet() {
       panelId,
       resetDefaults,
       rhymeAutoRefresh,
+      useOnlineRhymeProviders,
       setBadgeSize,
       setDebounceMode,
       setFontSize,
       setLineHeight,
       setRhymeAutoRefresh,
+      setUseOnlineRhymeProviders,
       setShowLineTotals,
       setTheme,
       showLineTotals,

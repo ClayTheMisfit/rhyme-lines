@@ -35,6 +35,7 @@ export type SettingsState = {
   rhymeFilters: RhymeFilters
   showVariants: boolean
   commonWordsOnly: boolean
+  useOnlineRhymeProviders: boolean
   lastUpdatedAt: number
   setTheme: (theme: ThemeSetting) => void
   setFontSize: (fontSize: number) => void
@@ -53,6 +54,7 @@ export type SettingsState = {
   setRhymeFilters: (filters: RhymeFilters) => void
   setShowVariants: (value: boolean) => void
   setCommonWordsOnly: (value: boolean) => void
+  setUseOnlineRhymeProviders: (value: boolean) => void
   resetDefaults: () => void
 }
 
@@ -82,6 +84,7 @@ const persistSettings = (state: SettingsState) => {
     rhymeFilters: state.rhymeFilters,
     showVariants: state.showVariants,
     commonWordsOnly: state.commonWordsOnly,
+    useOnlineRhymeProviders: state.useOnlineRhymeProviders,
     lastUpdatedAt: Date.now(),
   }
   writeVersioned('settings', payload)
@@ -185,6 +188,10 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
     set({ commonWordsOnly, lastUpdatedAt: Date.now() })
     schedulePersist(get())
   },
+  setUseOnlineRhymeProviders: (useOnlineRhymeProviders) => {
+    set({ useOnlineRhymeProviders, lastUpdatedAt: Date.now() })
+    schedulePersist(get())
+  },
   resetDefaults: () => {
     const resetState = applySettingsDefaults({
       ...DEFAULT_SETTINGS,
@@ -216,6 +223,7 @@ export type SettingsSnapshot = Pick<
   | 'rhymeFilters'
   | 'showVariants'
   | 'commonWordsOnly'
+  | 'useOnlineRhymeProviders'
 >
 
 /**
@@ -242,6 +250,7 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     rhymeFilters,
     showVariants,
     commonWordsOnly,
+    useOnlineRhymeProviders,
   } = useSettingsStore.getState()
   return {
     theme,
@@ -261,6 +270,7 @@ export function getCurrentSettingsSnapshot(): SettingsSnapshot {
     rhymeFilters,
     showVariants,
     commonWordsOnly,
+    useOnlineRhymeProviders,
   }
 }
 
@@ -288,6 +298,7 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
     setRhymeFilters,
     setShowVariants,
     setCommonWordsOnly,
+    setUseOnlineRhymeProviders,
   } = useSettingsStore.getState()
 
   setTheme(snapshot.theme)
@@ -307,6 +318,7 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
   setRhymeFilters(snapshot.rhymeFilters)
   setShowVariants(snapshot.showVariants)
   setCommonWordsOnly(snapshot.commonWordsOnly)
+  setUseOnlineRhymeProviders(snapshot.useOnlineRhymeProviders)
 }
 
 export function hydrateSettingsStore(payload: SettingsSchema) {
