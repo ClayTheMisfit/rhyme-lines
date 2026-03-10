@@ -1,4 +1,4 @@
-void import('@testing-library/jest-dom')
+import '@testing-library/jest-dom'
 
 if (typeof window !== 'undefined' && !window.requestAnimationFrame) {
   window.requestAnimationFrame = (callback) => window.setTimeout(() => callback(Date.now()), 0)

@@ -1,7 +1,6 @@
 // Quick test script to verify serialization functions
 import { JSDOM } from 'jsdom'
 
-
 // Mock DOM environment
 const dom = new JSDOM(`
 <!DOCTYPE html>
@@ -10,28 +9,26 @@ const dom = new JSDOM(`
   <div id="editor">Line 1<br>Line 2<br>Line 3</div>
 </body>
 </html>
-`);
+`)
 
-global.document = dom.window.document;
-global.window = dom.window;
+global.document = dom.window.document
+global.window = dom.window
 
-// Import our functions
-import { serializeFromEditor, hydrateEditorFromText } from './src/lib/editor/serialization'
-
+const { serializeFromEditor, hydrateEditorFromText } = await import('./src/lib/editor/serialization')
 
 // Test serialization
-const editor = document.getElementById('editor');
-console.log('Original HTML:', editor.innerHTML);
+const editor = document.getElementById('editor')
+console.log('Original HTML:', editor.innerHTML)
 
-const serialized = serializeFromEditor(editor);
-console.log('Serialized:', JSON.stringify(serialized));
+const serialized = serializeFromEditor(editor)
+console.log('Serialized:', JSON.stringify(serialized))
 
 // Test hydration
-const newEditor = document.createElement('div');
-hydrateEditorFromText(newEditor, serialized);
-console.log('Hydrated HTML:', newEditor.innerHTML);
+const newEditor = document.createElement('div')
+hydrateEditorFromText(newEditor, serialized)
+console.log('Hydrated HTML:', newEditor.innerHTML)
 
 // Test round-trip
-const roundTrip = serializeFromEditor(newEditor);
-console.log('Round-trip:', JSON.stringify(roundTrip));
-console.log('Round-trip matches:', serialized === roundTrip);
+const roundTrip = serializeFromEditor(newEditor)
+console.log('Round-trip:', JSON.stringify(roundTrip))
+console.log('Round-trip matches:', serialized === roundTrip)
