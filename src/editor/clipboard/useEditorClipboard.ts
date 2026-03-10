@@ -29,7 +29,9 @@ export function useEditorClipboard({ insertPlainText, scheduleSyncFromDom }: Use
       event.preventDefault()
       const droppedText = event.dataTransfer?.getData('text/plain') ?? ''
       if (!droppedText) return
-      insertPlainText(droppedText)
+      const normalized = normalizePastedText(droppedText)
+      if (!normalized) return
+      insertPlainText(normalized)
       scheduleSyncFromDom('drop')
     },
     [insertPlainText, scheduleSyncFromDom]

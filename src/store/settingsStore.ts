@@ -229,7 +229,7 @@ export type SettingsSnapshot = Pick<
 /**
  * Get a snapshot of the current settings.
  *
- * @returns A SettingsSnapshot containing the current values for `theme`, `fontSize`, `lineHeight`, `badgeSize`, `showLineTotals`, `showRhymeDecorations`, `showInternalRhymes`, `highlightStopwords`, `rhymeAutoRefresh`, `rhymeHighlightMode`, `hideRhymeColors`, `rhymeDebugOverlay`, `debounceMode`, `highContrast`, `rhymeFilters`, `showVariants`, and `commonWordsOnly`.
+ * @returns A SettingsSnapshot containing the current values for `theme`, `fontSize`, `lineHeight`, `badgeSize`, `showLineTotals`, `showRhymeDecorations`, `showInternalRhymes`, `highlightStopwords`, `rhymeAutoRefresh`, `rhymeHighlightMode`, `hideRhymeColors`, `rhymeDebugOverlay`, `debounceMode`, `highContrast`, `rhymeFilters`, `showVariants`, `commonWordsOnly`, and `useOnlineRhymeProviders`.
  */
 export function getCurrentSettingsSnapshot(): SettingsSnapshot {
   const {
