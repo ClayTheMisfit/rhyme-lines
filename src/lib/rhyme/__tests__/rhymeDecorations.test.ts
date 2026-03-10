@@ -152,6 +152,40 @@ describe('buildRhymeDecorations', () => {
     expect(new Set(familyIds).size).toBe(1)
   })
 
+
+  it('assigns one familyId across full -AT clusters', () => {
+    const lines = [
+      { id: 'line-mat', text: 'mat' },
+      { id: 'line-hat', text: 'hat' },
+      { id: 'line-rat', text: 'rat' },
+      { id: 'line-fat', text: 'fat' },
+      { id: 'line-cat', text: 'cat' },
+      { id: 'line-bat', text: 'bat' },
+    ]
+
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: false, highlightStopwords: false })
+    const familyIds = lines.map((line) => (result.tokensByLine.get(line.id) ?? [])[0]?.familyId)
+
+    expect(familyIds.every((familyId) => familyId !== undefined)).toBe(true)
+    expect(new Set(familyIds).size).toBe(1)
+    expect(result.familyCount).toBe(1)
+  })
+
+  it('groups time/rhyme/chime into the same family', () => {
+    const lines = [
+      { id: 'line-time', text: 'time' },
+      { id: 'line-rhyme', text: 'rhyme' },
+      { id: 'line-chime', text: 'chime' },
+    ]
+
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: false, highlightStopwords: false })
+    const familyIds = lines.map((line) => (result.tokensByLine.get(line.id) ?? [])[0]?.familyId)
+
+    expect(familyIds.every((familyId) => familyId !== undefined)).toBe(true)
+    expect(new Set(familyIds).size).toBe(1)
+    expect(result.familyCount).toBe(1)
+  })
+
   it('marks the last word token as end word despite trailing punctuation', () => {
     const tokens = tokenizeLine('brain, rest—')
     expect(getEndWordTokenIndex(tokens)).toBe(tokens.length - 1)

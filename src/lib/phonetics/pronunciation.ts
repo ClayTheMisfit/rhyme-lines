@@ -35,6 +35,12 @@ const CMU_PRONUNCIATIONS: Record<string, string[]> = {
   cat: ['K', 'AE1', 'T'],
   hat: ['HH', 'AE1', 'T'],
   mat: ['M', 'AE1', 'T'],
+  rat: ['R', 'AE1', 'T'],
+  fat: ['F', 'AE1', 'T'],
+  bat: ['B', 'AE1', 'T'],
+  time: ['T', 'AY1', 'M'],
+  rhyme: ['R', 'AY1', 'M'],
+  chime: ['CH', 'AY1', 'M'],
 }
 
 

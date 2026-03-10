@@ -37,6 +37,17 @@ describe('getPronunciation', () => {
     expect(night).toBe(sight)
   })
 
+
+  it('keeps -AT and -IME families stable across common words', () => {
+    const atWords = ['mat', 'hat', 'rat', 'fat', 'cat', 'bat']
+    const atKeys = atWords.map((word) => getPronunciation(word).rhymeKey)
+    expect(new Set(atKeys).size).toBe(1)
+
+    const imeWords = ['time', 'rhyme', 'chime']
+    const imeKeys = imeWords.map((word) => getPronunciation(word).rhymeKey)
+    expect(new Set(imeKeys).size).toBe(1)
+  })
+
   it('never returns 0 syllables for alphabetic tokens', () => {
     expect(getPronunciation('blorple').syllables).toBeGreaterThanOrEqual(1)
   })

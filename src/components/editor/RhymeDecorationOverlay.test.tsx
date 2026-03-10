@@ -31,6 +31,28 @@ describe('RhymeDecorationOverlay', () => {
     expect(highlight).toHaveAttribute('data-rhyme-active')
   })
 
+
+  it('renders all members of the same family instead of truncating to pairs', () => {
+    const rects = [
+      { id: 'line-0-0-0', lineId: 'line-0', familyId: 1, colorIndex: 1, isEndWord: true, underline: false, rect: { left: 0, top: 0, width: 20, height: 16 } },
+      { id: 'line-1-0-0', lineId: 'line-1', familyId: 1, colorIndex: 1, isEndWord: true, underline: false, rect: { left: 0, top: 24, width: 20, height: 16 } },
+      { id: 'line-2-0-0', lineId: 'line-2', familyId: 1, colorIndex: 1, isEndWord: true, underline: false, rect: { left: 0, top: 48, width: 20, height: 16 } },
+      { id: 'line-3-0-0', lineId: 'line-3', familyId: 1, colorIndex: 1, isEndWord: true, underline: false, rect: { left: 0, top: 72, width: 20, height: 16 } },
+    ]
+
+    const { container } = render(
+      <RhymeDecorationOverlay
+        rects={rects}
+        enabled
+        activeFamilyId={1}
+        mode="all"
+        hideColors={false}
+      />
+    )
+
+    expect(container.querySelectorAll('.rl-rhyme-highlight[data-rhyme-family="1"]').length).toBe(4)
+  })
+
   it('keeps syllable badges and rhyme highlights renderable together', () => {
     const rects = [
       {
