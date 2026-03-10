@@ -74,6 +74,7 @@ describe('buildRhymeDecorations', () => {
 
 
   it('highlights punctuation/casing variants and groups them with base words', () => {
+
     const lines = [
       { id: 'base-light', text: 'light' },
       { id: 'base-height', text: 'height' },
@@ -113,6 +114,42 @@ describe('buildRhymeDecorations', () => {
     expect(punctSight.familyId).toBe(baseSight.familyId)
 
     expect(result.familyCount).toBe(1)
+  })
+
+
+  it('groups hat/mat/cat together and excludes dog', () => {
+    const lines = [
+      { id: 'line-hat', text: 'hat' },
+      { id: 'line-mat', text: 'mat' },
+      { id: 'line-cat', text: 'cat' },
+      { id: 'line-dog', text: 'dog' },
+    ]
+
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: false, highlightStopwords: false })
+
+    const hat = (result.tokensByLine.get('line-hat') ?? [])[0]
+    const mat = (result.tokensByLine.get('line-mat') ?? [])[0]
+    const cat = (result.tokensByLine.get('line-cat') ?? [])[0]
+    const dog = (result.tokensByLine.get('line-dog') ?? [])[0]
+
+    expect(hat.familyId).toBeDefined()
+    expect(mat.familyId).toBe(hat.familyId)
+    expect(cat.familyId).toBe(hat.familyId)
+    expect(dog.familyId).toBeUndefined()
+  })
+
+
+  it('normalizes punctuation and casing for hat-family grouping', () => {
+    const lines = [
+      { id: 'line-0', text: 'Hat,' },
+      { id: 'line-1', text: 'MAT!' },
+      { id: 'line-2', text: 'cat?' },
+    ]
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: false, highlightStopwords: false })
+    const familyIds = lines.map((line) => (result.tokensByLine.get(line.id) ?? [])[0]?.familyId)
+
+    expect(familyIds.every((familyId) => familyId !== undefined)).toBe(true)
+    expect(new Set(familyIds).size).toBe(1)
   })
 
   it('marks the last word token as end word despite trailing punctuation', () => {

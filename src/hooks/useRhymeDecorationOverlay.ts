@@ -98,13 +98,14 @@ export function useRhymeDecorationOverlay({
         return null
       }
 
-      for (const lineElement of lines) {
+      lines.forEach((lineElement, domIndex) => {
         const lineId = lineElement.dataset.lineId ?? ''
-        if (!lineId) continue
-        const lineIndex = Number.parseInt(lineElement.dataset.lineIndex ?? '-1', 10)
-        if (!isInViewport(lineIndex, viewportRange.start, viewportRange.end)) continue
+        if (!lineId) return
+        const parsedLineIndex = Number.parseInt(lineElement.dataset.lineIndex ?? '', 10)
+        const lineIndex = Number.isNaN(parsedLineIndex) ? domIndex : parsedLineIndex
+        if (!isInViewport(lineIndex, viewportRange.start, viewportRange.end)) return
         const lineTokens = tokensByLine.get(lineId)
-        if (!lineTokens?.length) continue
+        if (!lineTokens?.length) return
 
         lineTokens.forEach((token, tokenIndex) => {
           if (token.familyId === undefined) return
@@ -130,7 +131,7 @@ export function useRhymeDecorationOverlay({
           })
           range.detach()
         })
-      }
+      })
 
       setRects(nextRects)
     }
