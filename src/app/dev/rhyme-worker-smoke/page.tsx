@@ -234,9 +234,9 @@ export default function RhymeWorkerSmokePage() {
       <section style={{ marginBottom: '1.5rem' }}>
         <h2>Sample Query</h2>
         <ul>
-          <li>caret = "{sampleQuery.targets.caret}"</li>
-          <li>lineLast = "{sampleQuery.targets.lineLast}"</li>
-          <li>mode = "{sampleQuery.mode}"</li>
+          <li>caret = &quot;{sampleQuery.targets.caret}&quot;</li>
+          <li>lineLast = &quot;{sampleQuery.targets.lineLast}&quot;</li>
+          <li>mode = &quot;{sampleQuery.mode}&quot;</li>
           <li>max = {sampleQuery.max}</li>
         </ul>
       </section>

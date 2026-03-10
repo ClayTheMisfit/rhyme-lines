@@ -1,5 +1,6 @@
 // Quick test script to verify serialization functions
-const { JSDOM } = require('jsdom');
+import { JSDOM } from 'jsdom'
+
 
 // Mock DOM environment
 const dom = new JSDOM(`
@@ -15,7 +16,8 @@ global.document = dom.window.document;
 global.window = dom.window;
 
 // Import our functions
-const { serializeFromEditor, hydrateEditorFromText } = require('./lib/editor/serialization.ts');
+import { serializeFromEditor, hydrateEditorFromText } from './src/lib/editor/serialization'
+
 
 // Test serialization
 const editor = document.getElementById('editor');

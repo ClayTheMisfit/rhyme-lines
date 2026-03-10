@@ -1,4 +1,4 @@
-require('@testing-library/jest-dom')
+void import('@testing-library/jest-dom')
 
 if (typeof window !== 'undefined' && !window.requestAnimationFrame) {
   window.requestAnimationFrame = (callback) => window.setTimeout(() => callback(Date.now()), 0)
@@ -24,9 +24,9 @@ if (typeof window !== 'undefined') {
       unobserve() {}
       disconnect() {}
     }
-    // @ts-ignore
+    // @ts-expect-error: jsdom window type lacks test polyfill assignment
     window.ResizeObserver = ResizeObserver
-    // @ts-ignore
+    // @ts-expect-error: global type lacks ResizeObserver in this test runtime
     global.ResizeObserver = ResizeObserver
   }
   if (!('IntersectionObserver' in window)) {
@@ -36,9 +36,9 @@ if (typeof window !== 'undefined') {
       unobserve() {}
       disconnect() {}
     }
-    // @ts-ignore
+    // @ts-expect-error: jsdom window type lacks test polyfill assignment
     window.IntersectionObserver = IntersectionObserver
-    // @ts-ignore
+    // @ts-expect-error: global type lacks IntersectionObserver in this test runtime
     global.IntersectionObserver = IntersectionObserver
   }
 }
