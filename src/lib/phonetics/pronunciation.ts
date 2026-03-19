@@ -129,6 +129,7 @@ const estimateSyllables = (word: string) => {
 }
 
 const computeSpellingRhymeKey = (normalized: string) => {
+  if (normalized.endsWith('ight')) return 'AY-T'
   const silentENormalized = normalized.replace(/e$/, '')
   const tail = silentENormalized.slice(-4)
   return tail || silentENormalized || normalized

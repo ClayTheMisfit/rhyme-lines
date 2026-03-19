@@ -79,10 +79,12 @@ describe('buildRhymeDecorations', () => {
       { id: 'base-height', text: 'height' },
       { id: 'base-night', text: 'night' },
       { id: 'base-sight', text: 'sight' },
+      { id: 'base-bright', text: 'bright' },
       { id: 'punct-light', text: 'Light,' },
       { id: 'punct-height', text: 'HEIGHT.' },
-      { id: 'punct-night', text: 'night!' },
-      { id: 'punct-sight', text: 'Sight?' },
+      { id: 'punct-night', text: 'NIGHT.' },
+      { id: 'punct-sight', text: 'sight?' },
+      { id: 'punct-bright', text: 'bright!' },
     ]
 
     const result = buildRhymeDecorations(lines, [], { showInternalRhymes: false, highlightStopwords: false })
@@ -97,12 +99,14 @@ describe('buildRhymeDecorations', () => {
     const baseHeight = tokenFor('base-height')
     const baseNight = tokenFor('base-night')
     const baseSight = tokenFor('base-sight')
+    const baseBright = tokenFor('base-bright')
     const punctLight = tokenFor('punct-light')
     const punctHeight = tokenFor('punct-height')
     const punctNight = tokenFor('punct-night')
     const punctSight = tokenFor('punct-sight')
+    const punctBright = tokenFor('punct-bright')
 
-    const punctuationTokens = [punctLight, punctHeight, punctNight, punctSight]
+    const punctuationTokens = [punctLight, punctHeight, punctNight, punctSight, punctBright]
     punctuationTokens.forEach((token) => {
       expect(token.familyId).not.toBeUndefined()
     })
@@ -111,6 +115,7 @@ describe('buildRhymeDecorations', () => {
     expect(punctHeight.familyId).toBe(baseHeight.familyId)
     expect(punctNight.familyId).toBe(baseNight.familyId)
     expect(punctSight.familyId).toBe(baseSight.familyId)
+    expect(punctBright.familyId).toBe(baseBright.familyId)
 
     expect(result.familyCount).toBe(1)
   })

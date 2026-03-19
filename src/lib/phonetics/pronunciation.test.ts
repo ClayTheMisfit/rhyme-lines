@@ -32,9 +32,13 @@ describe('getPronunciation', () => {
     const height = getPronunciation('height').rhymeKey
     const night = getPronunciation('night').rhymeKey
     const sight = getPronunciation('sight').rhymeKey
+    const bright = getPronunciation('bright').rhymeKey
+    const tonight = getPronunciation('tonight').rhymeKey
     expect(light).toBe(height)
     expect(height).toBe(night)
     expect(night).toBe(sight)
+    expect(sight).toBe(bright)
+    expect(bright).toBe(tonight)
   })
 
   it('never returns 0 syllables for alphabetic tokens', () => {
@@ -92,6 +96,8 @@ describe('getPronunciation', () => {
     expect(getPronunciation('HEIGHT.').rhymeKey).toBe(base)
     expect(getPronunciation('night!').rhymeKey).toBe(base)
     expect(getPronunciation('Sight?').rhymeKey).toBe(base)
+    expect(getPronunciation('bright!').rhymeKey).toBe(base)
+    expect(getPronunciation('NIGHT.').rhymeKey).toBe(base)
   })
 
   it('normalizes curly possessives for syllables and rhyme keys', () => {
