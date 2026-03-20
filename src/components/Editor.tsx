@@ -904,6 +904,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     }
   }, [showRhymeDecorations])
 
+  useEffect(() => {
+    if (!showRhymeDecorations) return
+    const nextFamilyId = resolveActiveFamilyFromSelection()
+    setActiveRhymeFamilyId((prev) => (prev === nextFamilyId ? prev : nextFamilyId))
+  }, [lineVersion, resolveActiveFamilyFromSelection, showRhymeDecorations])
+
   const ensureEditorFocus = useCallback(() => {
     const node = editorRef.current
     if (!node) return
