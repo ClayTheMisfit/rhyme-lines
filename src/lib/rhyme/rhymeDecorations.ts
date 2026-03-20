@@ -146,6 +146,27 @@ export function buildRhymeDecorations(
   }
 }
 
+
+export type ActiveRhymeSelection = {
+  lineId: string
+  caretOffset: number
+}
+
+export function resolveActiveRhymeFamilyId(
+  snapshot: Pick<RhymeDecorationSnapshot, 'tokensByLine'>,
+  selection: ActiveRhymeSelection | null
+): number | null {
+  if (!selection) return null
+  const lineTokens = snapshot.tokensByLine.get(selection.lineId) ?? []
+  if (!lineTokens.length) return null
+
+  const within = lineTokens.find((token) => selection.caretOffset >= token.start && selection.caretOffset < token.end)
+  if (within) return within.familyId ?? null
+
+  const boundary = lineTokens.find((token) => selection.caretOffset === token.end)
+  return boundary?.familyId ?? null
+}
+
 export function shouldRenderRhymeToken(
   tokenKey: { familyId?: number; isEndWord: boolean },
   mode: RhymeHighlightMode,
@@ -156,7 +177,6 @@ export function shouldRenderRhymeToken(
   if (mode === 'all') return true
   if (mode === 'end') return tokenKey.isEndWord
   if (mode === 'focus') {
-    if (tokenKey.isEndWord) return true
     if (activeFamilyId === null) return false
     return tokenKey.familyId === activeFamilyId
   }

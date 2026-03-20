@@ -5,6 +5,7 @@ import {
   getEndWordTokenIndex,
   getRhymeFamilyKey,
   normalizeWord,
+  resolveActiveRhymeFamilyId,
   shouldRenderRhymeToken,
 } from '@/lib/rhyme/rhymeDecorations'
 
@@ -72,6 +73,16 @@ describe('buildRhymeDecorations', () => {
     expect(familyIds.size).toBe(1)
   })
 
+  it('highlights the full rhyme family for the active line text', () => {
+    const lines = [{ id: 'line-0', text: 'mat cat hat rat' }]
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: false })
+    const tokens = result.tokensByLine.get('line-0') ?? []
+
+    expect(tokens).toHaveLength(4)
+    expect(tokens.every((token) => token.familyId !== undefined)).toBe(true)
+    expect(new Set(tokens.map((token) => token.familyId)).size).toBe(1)
+  })
+
 
   it('highlights punctuation/casing variants and groups them with base words', () => {
     const lines = [
@@ -135,6 +146,44 @@ describe('buildRhymeDecorations', () => {
 })
 
 
+describe('active family resolution', () => {
+  it('recomputes the active family from the current caret word', () => {
+    const lines = [
+      { id: 'line-0', text: 'mat cat hat rat' },
+      { id: 'line-1', text: 'time fine rhyme' },
+    ]
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: false })
+
+    const line0Cat = (result.tokensByLine.get('line-0') ?? []).find((token) => token.word === 'cat')
+    const line1Time = (result.tokensByLine.get('line-1') ?? []).find((token) => token.word === 'time')
+
+    expect(line0Cat).toBeDefined()
+    expect(line1Time).toBeDefined()
+
+    const firstFamily = resolveActiveRhymeFamilyId(result, { lineId: 'line-0', caretOffset: line0Cat!.start + 1 })
+    const nextFamily = resolveActiveRhymeFamilyId(result, { lineId: 'line-1', caretOffset: line1Time!.start + 1 })
+
+    expect(firstFamily).toBe(line0Cat!.familyId)
+    expect(nextFamily).toBe(line1Time!.familyId)
+    expect(firstFamily).not.toBe(nextFamily)
+  })
+
+  it('returns null when caret moves to a non-rhyme token span', () => {
+    const lines = [{ id: 'line-0', text: 'cat hat' }]
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: false })
+
+    const family = resolveActiveRhymeFamilyId(result, { lineId: 'line-0', caretOffset: 3 })
+    expect(family).not.toBeNull()
+
+    const stale = resolveActiveRhymeFamilyId(result, { lineId: 'line-0', caretOffset: 4 })
+    expect(stale).toBe(family)
+
+    const missing = resolveActiveRhymeFamilyId(result, { lineId: 'line-404', caretOffset: 1 })
+    expect(missing).toBeNull()
+  })
+})
+
+
 describe('highlight mode selectors', () => {
   const sample = {
     id: 'line-0-0',
@@ -156,5 +205,6 @@ describe('highlight mode selectors', () => {
     expect(shouldRenderRhymeToken({ ...sample, isEndWord: true }, 'end', null)).toBe(true)
     expect(shouldRenderRhymeToken(sample, 'focus', null)).toBe(false)
     expect(shouldRenderRhymeToken(sample, 'focus', 3)).toBe(true)
+    expect(shouldRenderRhymeToken({ ...sample, isEndWord: true }, 'focus', 1)).toBe(false)
   })
 })
