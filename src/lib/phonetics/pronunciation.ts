@@ -129,11 +129,38 @@ const estimateSyllables = (word: string) => {
 }
 
 const computeSpellingRhymeKey = (normalized: string) => {
+  const lowered = normalized.toLowerCase()
   const silentENormalized = normalized.replace(/e$/, '')
-  const tail = silentENormalized.slice(-4)
-  return tail || silentENormalized || normalized
+  const core = silentENormalized || normalized
+
+  const familyRules: Array<[RegExp, string]> = [
+    [/(ight)$/i, 'AY-T'],
+    [/(ash)$/i, 'AE-SH'],
+    [/(eep)$/i, 'IY-P'],
+    [/(ow)$/i, 'OW'],
+    [/(one|own)$/i, 'OW-N'],
+    [/(yme|ime)$/i, 'AY-M'],
+    [/(ag)$/i, 'AE-G'],
+    [/(at)$/i, 'AE-T'],
+  ]
+
+  for (const [pattern, family] of familyRules) {
+    if (pattern.test(lowered) || pattern.test(core)) return family
+  }
+
+  const tail = core.slice(-4)
+  return tail || core || normalized
 }
 
+/**
+ * Produce pronunciation metadata for a given token.
+ *
+ * Attempts lookup candidates derived from `token` against an internal cache, an overrides map, and CMU pronunciations.
+ * If no match is found, it returns a heuristic pronunciation based on spelling and syllable estimation.
+ *
+ * @param token - The original input token to normalize and analyze
+ * @returns A `Pronunciation` object where `word` is the original `token`, `normalized` is the chosen lookup form (empty when none), `phones` is the phoneme sequence (may be empty), `syllables` is the counted or estimated number of syllables, `rhymeKey` is the computed rhyme key (may be empty), and `source` is one of `'override'`, `'cmu'`, or `'heuristic'`.
+ */
 export function getPronunciation(token: string): Pronunciation {
   const candidates = getLookupCandidates(token)
   const fallbackNormalized = candidates[0] ?? ''

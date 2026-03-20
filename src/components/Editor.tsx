@@ -15,7 +15,7 @@ import type { LineInput } from '@/lib/analysis/compute'
 import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
 import { useOverlayMeasurement, useLineVirtualization, useEditorInput, useEditorClipboard, useEditorSelection, useDecorationDiff } from '@/editor'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
-import { buildRhymeDecorations, DEFAULT_UNDERLINE_TARGETS } from '@/lib/rhyme/rhymeDecorations'
+import { buildRhymeDecorations, DEFAULT_UNDERLINE_TARGETS, resolveActiveRhymeFamilyId } from '@/lib/rhyme/rhymeDecorations'
 import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
 import { RhymeDecorationOverlay } from '@/components/editor/RhymeDecorationOverlay'
 
@@ -701,11 +701,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (!lineId) return null
     const caretRange = range.cloneRange()
     caretRange.setStart(lineElement, 0)
-    const offset = caretRange.toString().length
-    const lineTokens = rhymeDecorations.tokensByLine.get(lineId) ?? []
-    const token = lineTokens.find((candidate) => offset >= candidate.start && offset <= candidate.end)
-    return token?.familyId ?? null
-  }, [rhymeDecorations.tokensByLine])
+    const caretOffset = caretRange.toString().length
+    return resolveActiveRhymeFamilyId(rhymeDecorations, { lineId, caretOffset })
+  }, [rhymeDecorations])
 
   const handleSelectionChange = useCallback(() => {
     scheduleCurrentLineHighlight()
@@ -721,6 +719,14 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     editorRef,
     onSelectionChange: handleSelectionChange,
   })
+
+  useEffect(() => {
+    if (!showRhymeDecorations) {
+      setActiveRhymeFamilyId(null)
+      return
+    }
+    setActiveRhymeFamilyId(resolveActiveFamilyFromSelection())
+  }, [resolveActiveFamilyFromSelection, showRhymeDecorations])
 
   const { handlers: inputHandlers, isComposingRef } = useEditorInput({
     commitEditorChange,
@@ -898,11 +904,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     })
   }, [activeLineId, lineVersion])
 
-  useEffect(() => {
-    if (!showRhymeDecorations) {
-      setActiveRhymeFamilyId(null)
-    }
-  }, [showRhymeDecorations])
 
   const ensureEditorFocus = useCallback(() => {
     const node = editorRef.current

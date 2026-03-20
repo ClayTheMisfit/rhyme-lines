@@ -35,6 +35,12 @@ describe('getPronunciation', () => {
     expect(light).toBe(height)
     expect(height).toBe(night)
     expect(night).toBe(sight)
+
+    expect(getPronunciation('glow').rhymeKey).toBe(getPronunciation('snow').rhymeKey)
+    expect(getPronunciation('snow').rhymeKey).toBe(getPronunciation('show').rhymeKey)
+
+    expect(getPronunciation('stone').rhymeKey).toBe(getPronunciation('alone').rhymeKey)
+    expect(getPronunciation('alone').rhymeKey).toBe(getPronunciation('phone').rhymeKey)
   })
 
   it('never returns 0 syllables for alphabetic tokens', () => {
