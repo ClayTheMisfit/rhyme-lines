@@ -181,6 +181,28 @@ describe('active family resolution', () => {
     const missing = resolveActiveRhymeFamilyId(result, { lineId: 'line-404', caretOffset: 1 })
     expect(missing).toBeNull()
   })
+
+  it('resolves boundary and end-of-line caret positions to the intended token family', () => {
+    const lines = [{ id: 'line-0', text: 'tag bag flag rag gag wag' }]
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: false })
+    const tokens = result.tokensByLine.get('line-0') ?? []
+    const wag = tokens.find((token) => token.word === 'wag')
+    const bag = tokens.find((token) => token.word === 'bag')
+
+    expect(wag).toBeDefined()
+    expect(bag).toBeDefined()
+    expect(new Set(tokens.map((token) => token.familyId)).size).toBe(1)
+
+    const insideWag = resolveActiveRhymeFamilyId(result, { lineId: 'line-0', caretOffset: wag!.start + 1 })
+    const wagEnd = resolveActiveRhymeFamilyId(result, { lineId: 'line-0', caretOffset: wag!.end })
+    const afterWag = resolveActiveRhymeFamilyId(result, { lineId: 'line-0', caretOffset: wag!.end + 1 })
+    const bagLeftEdge = resolveActiveRhymeFamilyId(result, { lineId: 'line-0', caretOffset: bag!.start })
+
+    expect(insideWag).toBe(wag!.familyId)
+    expect(wagEnd).toBe(wag!.familyId)
+    expect(afterWag).toBe(wag!.familyId)
+    expect(bagLeftEdge).toBe(bag!.familyId)
+  })
 })
 
 

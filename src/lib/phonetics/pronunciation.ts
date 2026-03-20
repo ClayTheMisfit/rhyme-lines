@@ -38,6 +38,12 @@ const CMU_PRONUNCIATIONS: Record<string, string[]> = {
   rat: ['R', 'AE1', 'T'],
   time: ['T', 'AY1', 'M'],
   rhyme: ['R', 'AY1', 'M'],
+  tag: ['T', 'AE1', 'G'],
+  bag: ['B', 'AE1', 'G'],
+  flag: ['F', 'L', 'AE1', 'G'],
+  rag: ['R', 'AE1', 'G'],
+  gag: ['G', 'AE1', 'G'],
+  wag: ['W', 'AE1', 'G'],
 }
 
 const cache = new LRUCache<string, Pronunciation>(10_000)

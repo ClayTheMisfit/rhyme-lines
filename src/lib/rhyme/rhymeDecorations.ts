@@ -160,11 +160,35 @@ export function resolveActiveRhymeFamilyId(
   const lineTokens = snapshot.tokensByLine.get(selection.lineId) ?? []
   if (!lineTokens.length) return null
 
-  const within = lineTokens.find((token) => selection.caretOffset >= token.start && selection.caretOffset < token.end)
+  const sorted = [...lineTokens].sort((a, b) => a.start - b.start)
+
+  const within = sorted.find((token) => selection.caretOffset >= token.start && selection.caretOffset < token.end)
   if (within) return within.familyId ?? null
 
-  const boundary = lineTokens.find((token) => selection.caretOffset === token.end)
-  return boundary?.familyId ?? null
+  const rightEdge = sorted.find((token) => selection.caretOffset === token.end)
+  if (rightEdge) return rightEdge.familyId ?? null
+
+  const leftEdge = sorted.find((token) => selection.caretOffset === token.start)
+  if (leftEdge) return leftEdge.familyId ?? null
+
+  if (selection.caretOffset > sorted[sorted.length - 1].end) {
+    return sorted[sorted.length - 1].familyId ?? null
+  }
+
+  if (selection.caretOffset < sorted[0].start) {
+    return sorted[0].familyId ?? null
+  }
+
+  let nearestLeft: typeof sorted[number] | null = null
+  for (const token of sorted) {
+    if (token.end <= selection.caretOffset) {
+      nearestLeft = token
+      continue
+    }
+    break
+  }
+
+  return nearestLeft?.familyId ?? null
 }
 
 export function shouldRenderRhymeToken(
