@@ -83,6 +83,32 @@ describe('buildRhymeDecorations', () => {
     expect(new Set(tokens.map((token) => token.familyId)).size).toBe(1)
   })
 
+  it.each([
+    'glow snow show',
+    'stone alone phone',
+    'light night sight',
+    'keep deep sleep',
+    'crash ash stash',
+  ])('groups common rhyme families for "%s"', (text) => {
+    const lines = [{ id: 'line-0', text }]
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: false })
+    const tokens = result.tokensByLine.get('line-0') ?? []
+
+    expect(tokens.length).toBe(text.split(/\s+/).length)
+    expect(tokens.every((token) => token.familyId !== undefined)).toBe(true)
+    expect(new Set(tokens.map((token) => token.familyId)).size).toBe(1)
+  })
+
+  it('groups punctuation/casing variants for common fallback families', () => {
+    const lines = [{ id: 'line-0', text: 'Glow, SNOW! show?' }]
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: false })
+    const tokens = result.tokensByLine.get('line-0') ?? []
+
+    expect(tokens).toHaveLength(3)
+    expect(tokens.every((token) => token.familyId !== undefined)).toBe(true)
+    expect(new Set(tokens.map((token) => token.familyId)).size).toBe(1)
+  })
+
 
   it('highlights punctuation/casing variants and groups them with base words', () => {
     const lines = [

@@ -34,16 +34,6 @@ const CMU_PRONUNCIATIONS: Record<string, string[]> = {
   dogs: ['D', 'AO1', 'G', 'Z'],
   cat: ['K', 'AE1', 'T'],
   hat: ['HH', 'AE1', 'T'],
-  mat: ['M', 'AE1', 'T'],
-  rat: ['R', 'AE1', 'T'],
-  time: ['T', 'AY1', 'M'],
-  rhyme: ['R', 'AY1', 'M'],
-  tag: ['T', 'AE1', 'G'],
-  bag: ['B', 'AE1', 'G'],
-  flag: ['F', 'L', 'AE1', 'G'],
-  rag: ['R', 'AE1', 'G'],
-  gag: ['G', 'AE1', 'G'],
-  wag: ['W', 'AE1', 'G'],
 }
 
 const cache = new LRUCache<string, Pronunciation>(10_000)
@@ -139,9 +129,27 @@ const estimateSyllables = (word: string) => {
 }
 
 const computeSpellingRhymeKey = (normalized: string) => {
+  const lowered = normalized.toLowerCase()
   const silentENormalized = normalized.replace(/e$/, '')
-  const tail = silentENormalized.slice(-4)
-  return tail || silentENormalized || normalized
+  const core = silentENormalized || normalized
+
+  const familyRules: Array<[RegExp, string]> = [
+    [/(ight)$/i, 'AY-T'],
+    [/(ash)$/i, 'AE-SH'],
+    [/(eep)$/i, 'IY-P'],
+    [/(ow)$/i, 'OW'],
+    [/(one|own)$/i, 'OW-N'],
+    [/(yme|ime)$/i, 'AY-M'],
+    [/(ag)$/i, 'AE-G'],
+    [/(at)$/i, 'AE-T'],
+  ]
+
+  for (const [pattern, family] of familyRules) {
+    if (pattern.test(lowered) || pattern.test(core)) return family
+  }
+
+  const tail = core.slice(-4)
+  return tail || core || normalized
 }
 
 export function getPronunciation(token: string): Pronunciation {
