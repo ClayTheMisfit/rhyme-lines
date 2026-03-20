@@ -87,6 +87,20 @@ export function computeRhymeFamilies(tokens: Array<{ id: string; rhymeKey: strin
   return { familyIdByTokenId, familyIdByRhymeKey, rhymeKeyToTokenIds }
 }
 
+/**
+ * Compute rhyme-decoration tokens for each input line and group them into rhyme families for highlighting.
+ *
+ * @param lines - Array of input lines (each providing an `id` and `text`) to analyze for rhyme decorations
+ * @param underlineTargets - Words to mark for underline; targets are normalized before matching
+ * @param options - Behavior toggles:
+ *   - `showInternalRhymes`: include non-final-word tokens when building rhyme families
+ *   - `highlightStopwords`: include tokens that are stopwords when `true`
+ * @returns A snapshot object containing:
+ *   - `tokensByLine`: Map from `lineId` to an array of tokens with positional bounds, normalized word, rhyme metadata, and rendering hints
+ *   - `familyCount`: number of rhyme families identified
+ *   - `tokenIdToFamilyId`: Map from token id to assigned family id
+ *   - `rhymeKeyToTokenIds`: Map from rhyme key to the list of token ids that share that rhyme key
+ */
 export function buildRhymeDecorations(
   lines: LineInput[],
   underlineTargets: string[],
@@ -152,6 +166,15 @@ export type ActiveRhymeSelection = {
   caretOffset: number
 }
 
+/**
+ * Determine which rhyme family should be considered active for a caret position on a given line.
+ *
+ * Chooses the token that contains the caret (start ≤ offset < end); if none, prefers a token whose boundary exactly matches the caret (offset === end or offset === start); if the caret is outside all tokens returns the first/last token's family or the nearest-left token's family as appropriate.
+ *
+ * @param snapshot - Snapshot containing `tokensByLine` for the target line
+ * @param selection - Active line and caret offset; may be `null`
+ * @returns The resolved `familyId` for the selection, or `null` if no applicable family is found
+ */
 export function resolveActiveRhymeFamilyId(
   snapshot: Pick<RhymeDecorationSnapshot, 'tokensByLine'>,
   selection: ActiveRhymeSelection | null
@@ -191,6 +214,14 @@ export function resolveActiveRhymeFamilyId(
   return nearestLeft?.familyId ?? null
 }
 
+/**
+ * Determine whether a rhyme token should be rendered given the current highlight mode and active family.
+ *
+ * @param tokenKey - Token metadata; `familyId` is undefined for tokens not assigned to a family, `isEndWord` marks line-final words
+ * @param mode - Highlighting mode (`'off'`, `'all'`, `'end'`, `'focus'`)
+ * @param activeFamilyId - Currently focused family id, or `null` when no family is active
+ * @returns `true` if the token should be rendered, `false` otherwise
+ */
 export function shouldRenderRhymeToken(
   tokenKey: { familyId?: number; isEndWord: boolean },
   mode: RhymeHighlightMode,
