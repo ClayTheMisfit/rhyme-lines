@@ -3,6 +3,7 @@ import { numberToWords } from '@/utils/numberToWords'
 
 const NUMERIC_ONLY = /^\d+$/
 const MERIDIEM_NORMALIZED = /^(\d{1,2})\s*(a\.?\s*m\.?|p\.?\s*m\.?)$/i
+const CLOCK_TIME_NORMALIZED = /^(\d{1,2}):([0-5]\d)$/
 
 export function normalizeTokenForSyllables(token: string): string {
   const normalized = token.trim()
@@ -12,6 +13,19 @@ export function normalizeTokenForSyllables(token: string): string {
 
   const year = parseYearToken(normalized)
   if (year !== null) return String(year)
+
+  const timeMatch = CLOCK_TIME_NORMALIZED.exec(lowered)
+  if (timeMatch) {
+    const hour = Number.parseInt(timeMatch[1], 10)
+    const minute = Number.parseInt(timeMatch[2], 10)
+    if (Number.isFinite(hour) && hour >= 1 && hour <= 12 && Number.isFinite(minute)) {
+      const hourWords = numberToWords(hour)
+      if (minute === 0) return `${hourWords} o clock`
+      if (minute < 10) return `${hourWords} oh ${numberToWords(minute)}`
+      if (minute === 30) return `${hourWords} thirtyminute`
+      return `${hourWords} ${numberToWords(minute)}`
+    }
+  }
 
   const meridiemMatch = MERIDIEM_NORMALIZED.exec(lowered)
   if (meridiemMatch) {

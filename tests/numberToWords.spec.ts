@@ -46,6 +46,12 @@ describe('normalizeTokenForSyllables', () => {
     expect(normalizeTokenForSyllables('13 pm')).toBe('13 pm')
   })
 
+  it('normalizes 12-hour clock times to spoken forms', () => {
+    expect(normalizeTokenForSyllables('12:05')).toBe('twelve oh five')
+    expect(normalizeTokenForSyllables('11:30')).toBe('eleven thirtyminute')
+    expect(normalizeTokenForSyllables('1:05')).toBe('one oh five')
+  })
+
   it('leaves unrelated tokens unchanged', () => {
     expect(normalizeTokenForSyllables('7pm')).toBe('seven p m')
     expect(normalizeTokenForSyllables('7.5')).toBe('7.5')

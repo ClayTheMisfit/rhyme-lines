@@ -14,7 +14,6 @@ const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 
 
 const YEAR_SYLLABLE_OVERRIDES: Record<number, number> = {
   1999: 5,
-  2026: 4,
 }
 
 const yearSyllableCache = new Map<number, number>()

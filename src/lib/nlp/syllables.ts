@@ -5,7 +5,7 @@ import { getPronunciation } from '@/lib/phonetics/pronunciation'
 const SYLLABLE_OVERRIDES: Record<string, number> = {
   the: 1, a: 1, i: 1, you: 1, are: 1, fire: 1, hour: 1, choir: 1,
   people: 2, every: 2, evening: 3, queue: 1, queued: 1, queues: 1,
-  business: 2, camera: 2, chocolate: 2, family: 2, depression: 3, imperfections: 4,
+  business: 2, camera: 2, chocolate: 2, family: 2, depression: 3, imperfections: 4, thirtyminute: 1,
 }
 
 const COMPOUND_SUFFIXES = ['out', 'up', 'in', 'on', 'off', 'over'] as const

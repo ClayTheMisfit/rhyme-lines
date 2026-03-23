@@ -30,11 +30,11 @@ describe('year syllable handling', () => {
     expect(yearToSpokenParts(1999)).toEqual(['nineteen', 'ninety', 'nine'])
     expect(yearToSpokenParts(2026)).toEqual(['twenty', 'twenty', 'six'])
     expect(countYearSyllables(1999, countSyllables)).toBe(5)
-    expect(countYearSyllables(2026, countSyllables)).toBe(4)
+    expect(countYearSyllables(2026, countSyllables)).toBe(5)
     expect(countSyllables('1999')).toBe(5)
     expect(countSyllables('(1999)')).toBe(5)
-    expect(countSyllables('2026')).toBe(4)
-    expect(countSyllables('2026,')).toBe(4)
+    expect(countSyllables('2026')).toBe(5)
+    expect(countSyllables('2026,')).toBe(5)
     expect(countSyllables('2001')).toBe(countSyllables('2001.'))
     expect(countSyllables('2026')).toBe(countSyllables('(2026)'))
     expect(countSyllables('2026')).toBe(countSyllables('"2026"'))
@@ -70,7 +70,7 @@ describe('year syllable handling', () => {
 
     expect(details).toEqual([
       { text: '1999', normalized: '1999', spoken: 'nineteen ninety nine', syllables: 5 },
-      { text: '2026', normalized: '2026', spoken: 'twenty twenty six', syllables: 4 },
+      { text: '2026', normalized: '2026', spoken: 'twenty twenty six', syllables: 5 },
     ])
   })
 })
