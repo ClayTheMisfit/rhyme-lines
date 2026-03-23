@@ -63,6 +63,19 @@ describe('analysis pipeline', () => {
       { start: 9, end: 11, text: 'at', kind: 'word' },
       { start: 12, end: 16, text: 'dawn', kind: 'word' },
     ])
+    expect(tokenizeLine('11:30:45')).toEqual([
+      { start: 0, end: 2, text: '11', kind: 'word' },
+      { start: 3, end: 5, text: '30', kind: 'word' },
+      { start: 6, end: 8, text: '45', kind: 'word' },
+    ])
+    expect(tokenizeLine('123:45')).toEqual([
+      { start: 0, end: 3, text: '123', kind: 'word' },
+      { start: 4, end: 6, text: '45', kind: 'word' },
+    ])
+    expect(tokenizeLine('11:3')).toEqual([
+      { start: 0, end: 2, text: '11', kind: 'word' },
+      { start: 3, end: 4, text: '3', kind: 'word' },
+    ])
   })
 
   it('treats digit runs as word-like tokens', () => {
@@ -161,7 +174,7 @@ describe('analysis pipeline', () => {
     expect(result.lineTotals['y2001']).toBe(4)
     expect(result.lineTotals['y2026']).toBe(5)
     expect(result.lineTotals['t1205']).toBe(3)
-    expect(result.lineTotals['t1130']).toBe(4)
+    expect(result.lineTotals['t1130']).toBe(computeAnalysis([{ id: 'spoken1130', text: 'eleven thirty' }]).lineTotals['spoken1130'])
     expect(result.lineTotals['t0105']).toBe(3)
     expect(result.lineTotals['l1999']).toBe(7)
     expect(result.lineTotals['l2001']).toBe(6)

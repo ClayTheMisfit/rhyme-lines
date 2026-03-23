@@ -20,9 +20,8 @@ export function normalizeTokenForSyllables(token: string): string {
     const minute = Number.parseInt(timeMatch[2], 10)
     if (Number.isFinite(hour) && hour >= 1 && hour <= 12 && Number.isFinite(minute)) {
       const hourWords = numberToWords(hour)
-      if (minute === 0) return `${hourWords} o clock`
+      if (minute === 0) return `${hourWords} o'clock`
       if (minute < 10) return `${hourWords} oh ${numberToWords(minute)}`
-      if (minute === 30) return `${hourWords} thirtyminute`
       return `${hourWords} ${numberToWords(minute)}`
     }
   }

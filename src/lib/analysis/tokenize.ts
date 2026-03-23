@@ -8,7 +8,7 @@ export type TokenizedWord = {
 
 const WORD_REGEX = /[A-Za-z][A-Za-z'’‘]*|\d+/y
 const MERIDIEM_REGEX = /^(\d{1,2})(\s*)(a\.?\s*m\.?|p\.?\s*m\.?)/i
-const TIME_REGEX = /^(\d{1,2}):([0-5]\d)/
+const TIME_REGEX = /^(\d{1,2}):([0-5]\d)$/
 
 export function isWordLikeToken(token: string | TokenizedWord): boolean {
   if (typeof token === 'string') {
@@ -62,20 +62,22 @@ function matchStandaloneTimeToken(text: string, index: number): TokenizedWord | 
   if (!char || char < '0' || char > '9') return null
   if (index > 0 && (text[index - 1] === ':' || /[A-Za-z0-9]/.test(text[index - 1]))) return null
 
-  const match = TIME_REGEX.exec(text.slice(index))
+  let tokenEnd = index
+  while (tokenEnd < text.length && /[A-Za-z0-9:]/.test(text[tokenEnd])) {
+    tokenEnd += 1
+  }
+
+  const candidate = text.slice(index, tokenEnd)
+  const match = TIME_REGEX.exec(candidate)
   if (!match) return null
 
   const hour = Number.parseInt(match[1], 10)
   if (!Number.isFinite(hour) || hour < 1 || hour > 12) return null
 
-  const fullToken = match[0]
-  const tokenEnd = index + fullToken.length
-  if (tokenEnd < text.length && (text[tokenEnd] === ':' || /[A-Za-z0-9]/.test(text[tokenEnd]))) return null
-
   return {
     start: index,
     end: tokenEnd,
-    text: fullToken,
+    text: candidate,
     kind: 'time',
   }
 }
