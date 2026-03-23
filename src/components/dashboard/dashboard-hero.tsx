@@ -13,7 +13,7 @@ export function DashboardHero() {
 
       <Link
         href="/editor"
-        className="inline-flex h-10 items-center border border-[#f2d000] bg-[#f2d000] px-5 text-xs font-medium tracking-[0.1em] text-black"
+        className="mt-3 inline-flex h-10 items-center self-end border border-[#f2d000] bg-[#f2d000] px-5 text-xs font-medium tracking-[0.1em] text-black sm:mt-6"
       >
         OPEN STUDIO
       </Link>

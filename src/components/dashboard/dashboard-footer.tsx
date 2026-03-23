@@ -1,6 +1,6 @@
 export function DashboardFooter() {
   return (
-    <footer className="mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.04] pt-7 text-[11px] text-white/28">
+    <footer className="mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.03] pt-7 text-[11px] text-white/28">
       <div className="flex items-center gap-5">
         <span>Sync: All changes stored locally</span>
         <span>Storage: 63% available</span>

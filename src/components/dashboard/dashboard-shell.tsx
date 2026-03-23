@@ -34,7 +34,7 @@ export function DashboardShell() {
       <div className="grid min-h-[calc(100vh-56px)] grid-cols-1 lg:grid-cols-[272px_minmax(0,1fr)]">
         <DashboardSidebar />
 
-        <main className="flex min-w-0 flex-col border-l border-white/[0.035] px-6 py-10 sm:px-10 sm:py-12 lg:px-12">
+        <main className="flex min-w-0 flex-col border-l border-white/[0.028] px-6 py-10 sm:px-10 sm:py-12 lg:px-12">
           <DashboardHero />
 
           <section className="mt-10 grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(290px,1fr)]">
