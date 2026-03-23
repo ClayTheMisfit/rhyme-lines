@@ -88,9 +88,9 @@ The key is consumed only by the server-side proxy and is never bundled in client
 ## 🔮 Roadmap
 
 * ✅ Core editor with syllable counts
-* ⏳ Rhyme suggestion engine
+* ✅ Rhyme suggestion engine
+* ✅ Rhyme Highlighting
 * ⏳ UI Polish
-* ⏳ Rhyme Highlighting
 * ⏳ Cloud sync & user accounts
 * ⏳ Mobile-friendly layout
 * ⏳ Collaboration (multi-user editing)
