@@ -160,7 +160,7 @@ export default function TopBar() {
     <header
       ref={headerRef}
       data-testid="editor-header"
-      className="fixed left-0 right-0 top-0 flex min-h-12 items-center justify-between gap-3 border-b border-[color:var(--rl-border)] bg-black/22 px-3 py-1.5 backdrop-blur-lg"
+      className="fixed left-3 right-3 top-3 flex min-h-12 items-center justify-between gap-3 rounded-[24px] border border-white/10 bg-[#111a34]/68 px-3 py-1.5 shadow-[0_16px_40px_rgba(3,8,23,0.45)] backdrop-blur-xl"
       style={{ zIndex: layers.topBar }}
     >
       <div className="min-w-0 flex-1">
@@ -181,7 +181,7 @@ export default function TopBar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <span
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-sm text-rose-300 ring-1 ring-rose-300/45"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-300/45 bg-rose-500/12 text-sm text-rose-300"
                   aria-label={`Save failed${lastError ? `: ${lastError}` : ''}`}
                 >
                   !
@@ -198,7 +198,7 @@ export default function TopBar() {
           whileTap={{ scale: 0.97 }}
           transition={{ duration: 0.12 }}
           onClick={toggleTheme}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-base text-white/80 transition-colors duration-100 hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
+          className="rl-action-btn text-base"
           title="Toggle theme"
           aria-label="Toggle theme"
         >
@@ -212,8 +212,8 @@ export default function TopBar() {
           transition={{ duration: 0.12 }}
           onClick={toggleRhymeDecorations}
           className={cx(
-            'inline-flex h-9 w-9 items-center justify-center rounded-md text-base transition duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45',
-            showRhymeDecorations ? 'bg-white/12 text-white' : 'text-white/80 hover:bg-white/8 hover:text-white'
+            'rl-action-btn text-base',
+            showRhymeDecorations && 'border-sky-300/45 bg-sky-500/18 text-sky-100'
           )}
           title={showRhymeDecorations ? 'Hide rhyme highlights' : 'Show rhyme highlights'}
           aria-label={showRhymeDecorations ? 'Hide rhyme highlights' : 'Show rhyme highlights'}
@@ -229,8 +229,8 @@ export default function TopBar() {
           transition={{ duration: 0.12 }}
           onClick={togglePanel}
           className={cx(
-            'inline-flex h-9 w-9 items-center justify-center rounded-md text-base transition duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45',
-            panelVisible ? 'bg-white/12 text-white' : 'text-white/80 hover:bg-white/8 hover:text-white'
+            'rl-action-btn text-base',
+            panelVisible && 'border-sky-300/45 bg-sky-500/18 text-sky-100'
           )}
           title={panelVisible ? 'Hide rhyme panel' : 'Show rhyme panel'}
           aria-label={panelVisible ? 'Hide rhyme panel' : 'Show rhyme panel'}

@@ -81,8 +81,10 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
                 role="tab"
                 aria-selected={isActive}
                 className={cx(
-                  'group relative flex min-h-9 items-center gap-2 rounded-md px-2.5 py-1 text-[13px] transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45',
-                  isActive ? 'bg-white/12 text-white' : 'text-white/70 hover:bg-white/6',
+                  'group relative flex min-h-9 items-center gap-2 rounded-full border px-3 py-1 text-[13px] transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60',
+                  isActive
+                    ? 'border-white/18 bg-white/14 text-white shadow-[0_8px_20px_rgba(0,0,0,0.22)]'
+                    : 'border-transparent text-white/65 hover:border-white/10 hover:bg-white/7',
                   tab.isDirty && !isActive && 'text-white/85'
                 )}
                 onClick={() => onSelect(tab.id)}
@@ -91,7 +93,7 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
                 {isEditing ? (
                   <input
                     ref={inputRef}
-                    className="w-32 rounded bg-white/10 px-1 py-0.5 text-[13px] outline-none ring-1 ring-white/30"
+                    className="w-32 rounded-full border border-white/18 bg-white/8 px-2 py-0.5 text-[13px] outline-none"
                     value={draftTitle}
                     onChange={(event) => setDraftTitle(event.target.value)}
                     onBlur={commitRename}
@@ -123,7 +125,7 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
                 <span
                   role="button"
                   aria-label={`Close tab ${tab.title}`}
-                  className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs text-white/70 transition hover:bg-white/10"
+                  className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs text-white/60 transition hover:bg-white/12 hover:text-white"
                   onClick={(event) => {
                     event.stopPropagation()
                     onClose(tab.id)
@@ -139,7 +141,7 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
 
       <button
         type="button"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/10 text-base text-white transition duration-100 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
+        className="rl-action-btn text-base"
         onClick={onNew}
         aria-label="Add tab"
       >

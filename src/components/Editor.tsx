@@ -994,7 +994,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   )
 
   return (
-    <div className="flex w-full h-full">
+    <div className="flex h-full w-full">
       {/* Editor + overlay */}
       <div
         ref={containerRef}
@@ -1005,7 +1005,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
         }}
       >
-        <div className="editor-root relative">
+        <div className="editor-root relative py-3 md:py-4">
           <div className="rl-editor-grid">
             <LineTotalsOverlay
               lineTotals={lineTotals}
@@ -1015,6 +1015,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             />
 
             <div ref={textColRef} className="editor-surface relative min-h-[70vh]">
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-20 bg-gradient-to-b from-white/[0.05] to-transparent" aria-hidden="true" />
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
                 className="pointer-events-none absolute inset-0 z-10"

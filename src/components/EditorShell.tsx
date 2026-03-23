@@ -193,7 +193,7 @@ export default function EditorShell() {
   )
 
   return (
-    <div ref={shellRef} className="relative flex h-full w-full flex-col">
+    <div ref={shellRef} className="relative flex h-full w-full flex-col px-3 pb-3 pt-1 md:px-4 md:pb-4">
       {!ready ? (
         <div className="flex h-full w-full flex-1 min-h-0" aria-hidden />
       ) : (

@@ -67,6 +67,7 @@
   --rl-muted: rgba(255, 255, 255, 0.62);
   --rl-border: rgba(255, 255, 255, 0.13);
   --rl-accent: rgba(56, 189, 248, 0.85);
+  --rl-surface-shadow: 0 30px 80px rgba(2, 8, 24, 0.48), 0 12px 28px rgba(8, 15, 36, 0.35);
 }
 
 /* Editor-specific variables */
@@ -77,6 +78,41 @@
 /* ----- Custom styles below ----- */
 
 @layer components {
+  .rl-surface-glass {
+    @apply border border-white/10 bg-white/6 backdrop-blur-xl;
+    box-shadow: var(--rl-surface-shadow);
+  }
+
+  .rl-surface-primary {
+    @apply rounded-[32px] border border-white/10 bg-white/6 backdrop-blur-xl;
+    box-shadow: var(--rl-surface-shadow);
+  }
+
+  .rl-surface-secondary {
+    @apply rounded-[26px] border border-white/10 bg-white/6 backdrop-blur-xl;
+    box-shadow: var(--rl-surface-shadow);
+  }
+
+  .rl-pill {
+    @apply inline-flex items-center rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-medium text-white/72 transition-colors;
+  }
+
+  .rl-pill[data-active="true"] {
+    @apply border-sky-300/45 bg-sky-400/18 text-sky-100;
+  }
+
+  .rl-pill:hover {
+    @apply bg-white/10 text-white;
+  }
+
+  .rl-micro-label {
+    @apply text-[10px] font-semibold uppercase tracking-[0.22em] text-white/45;
+  }
+
+  .rl-action-btn {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/72 transition-all duration-150 hover:bg-white/12 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60;
+  }
+
   /* Subtle, compact syllable badge */
   .syllable-badge {
     @apply pointer-events-none select-none rounded-full bg-muted/70 text-muted-foreground ring-1 ring-border/50 shadow-sm;
@@ -144,15 +180,30 @@ html, body, #__next {
 }
 body {
   margin: 0;
+  position: relative;
 }
 
 /* Page background to match editor */
 body.bg-black {
-  background-color: #1e1e1e;  /* Same as editor background */
+  background-color: #0b1020;
+  color: rgba(255, 255, 255, 0.92);
 }
 
 body.bg-white {
   background-color: #ffffff;  /* Clean white for light theme */
+}
+
+body.bg-black::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(45rem 35rem at 10% 8%, rgba(88, 108, 255, 0.18), transparent 66%),
+    radial-gradient(34rem 26rem at 90% 16%, rgba(56, 92, 190, 0.14), transparent 70%),
+    radial-gradient(36rem 28rem at 50% 100%, rgba(33, 59, 138, 0.16), transparent 76%),
+    linear-gradient(160deg, #0a0f1b 0%, #0b1020 52%, #0c1224 100%);
 }
 
 /* Editor line break preservation */
@@ -192,9 +243,11 @@ body.bg-white {
 
 /* Dark theme editor styling */
 body.bg-black .editor-surface {
-  background-color: #1e1e1e;  /* Rich dark gray background */
-  color: #d4d4d4;             /* High readability text color */
+  background-color: rgba(8, 15, 35, 0.7);
+  color: #dbe5ff;
   transition: background-color 150ms ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--rl-surface-shadow);
 }
 
 body.bg-black .rl-editor {
@@ -296,6 +349,8 @@ body.bg-white .editor-surface {
   --rl-editor-pad-x: var(--rl-pad-inline);
   --rl-gutter-w: var(--rl-gutter-width);
   --rl-highlight-inset: 0.25rem;
+  border-radius: 34px;
+  overflow: hidden;
 }
 
 body.bg-white .rl-editor {
@@ -326,7 +381,7 @@ body.bg-white .rl-editor .line {
 .rl-editor .line {
   position: relative;
   z-index: 1;
-  border-radius: 6px;
+  border-radius: 10px;
   padding: var(--rl-line-pad-y) 0.25rem;
   margin: 0;
   transition: background-color 0.2s ease, color 0.2s ease;
@@ -352,6 +407,9 @@ body.bg-white .rl-editor .line {
   text-align: right;
   pointer-events: none;
   user-select: none;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .gutterMirror-light {
@@ -359,7 +417,7 @@ body.bg-white .rl-editor .line {
 }
 
 .gutterMirror-dark {
-  color: #9ca3af; /* gray-400 */
+  color: rgba(203, 213, 235, 0.72);
 }
 
 /* Custom scrollbar styles */
@@ -392,7 +450,7 @@ body.bg-white .rl-editor .line {
 /* Thin themed scrollbar for rhyme suggestions panel */
 .thin-scrollbar {
   scrollbar-width: thin; /* Firefox */
-  scrollbar-color: hsl(220 13% 46%) transparent; /* gray-500 */
+  scrollbar-color: rgba(148, 163, 184, 0.48) transparent;
 }
 
 .thin-scrollbar::-webkit-scrollbar { 
@@ -404,12 +462,12 @@ body.bg-white .rl-editor .line {
 }
 
 .thin-scrollbar::-webkit-scrollbar-thumb {
-  background: hsl(220 13% 46%); /* gray-500 */
+  background: rgba(148, 163, 184, 0.45);
   border-radius: 9999px;
 }
 
 .thin-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: hsl(220 9% 46%); /* gray-600 */
+  background: rgba(148, 163, 184, 0.62);
 }
 
 /* Slider styling for editor settings */
