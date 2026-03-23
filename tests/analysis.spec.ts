@@ -43,6 +43,41 @@ describe('analysis pipeline', () => {
     ])
   })
 
+  it('groups 12-hour clock times into one token', () => {
+    expect(tokenizeLine('12:05 in the morning')).toEqual([
+      { start: 0, end: 5, text: '12:05', kind: 'time' },
+      { start: 6, end: 8, text: 'in', kind: 'word' },
+      { start: 9, end: 12, text: 'the', kind: 'word' },
+      { start: 13, end: 20, text: 'morning', kind: 'word' },
+    ])
+    expect(tokenizeLine('24:05 stays split')).toEqual([
+      { start: 0, end: 2, text: '24', kind: 'word' },
+      { start: 3, end: 5, text: '05', kind: 'word' },
+      { start: 6, end: 11, text: 'stays', kind: 'word' },
+      { start: 12, end: 17, text: 'split', kind: 'word' },
+    ])
+    expect(tokenizeLine('12:05:30 at dawn')).toEqual([
+      { start: 0, end: 2, text: '12', kind: 'word' },
+      { start: 3, end: 5, text: '05', kind: 'word' },
+      { start: 6, end: 8, text: '30', kind: 'word' },
+      { start: 9, end: 11, text: 'at', kind: 'word' },
+      { start: 12, end: 16, text: 'dawn', kind: 'word' },
+    ])
+    expect(tokenizeLine('11:30:45')).toEqual([
+      { start: 0, end: 2, text: '11', kind: 'word' },
+      { start: 3, end: 5, text: '30', kind: 'word' },
+      { start: 6, end: 8, text: '45', kind: 'word' },
+    ])
+    expect(tokenizeLine('123:45')).toEqual([
+      { start: 0, end: 3, text: '123', kind: 'word' },
+      { start: 4, end: 6, text: '45', kind: 'word' },
+    ])
+    expect(tokenizeLine('11:3')).toEqual([
+      { start: 0, end: 2, text: '11', kind: 'word' },
+      { start: 3, end: 4, text: '3', kind: 'word' },
+    ])
+  })
+
   it('treats digit runs as word-like tokens', () => {
     const tokens = tokenizeLine('one 1 2')
     expect(tokens).toEqual([
@@ -116,6 +151,37 @@ describe('analysis pipeline', () => {
 
     expect(result.lineTotals['ina']).toBe(8)
     expect(result.lineTotals['compound']).toBe(6)
+  })
+
+  it('keeps year/time/full-line regression totals stable', () => {
+    const lines = [
+      { id: 'y1999', text: '1999' },
+      { id: 'y2001', text: '2001' },
+      { id: 'y2026', text: '2026' },
+      { id: 't1205', text: '12:05' },
+      { id: 't1130', text: '11:30' },
+      { id: 't0105', text: '1:05' },
+      { id: 'l1999', text: '1999 was wild' },
+      { id: 'l2001', text: '2001 felt strange' },
+      { id: 'l2026', text: '2026 looks bright' },
+      { id: 'lock', text: "11 o'clock at night" },
+      { id: 'l1205', text: '12:05 in the morning' },
+      { id: '247', text: '24/7 on my mind' },
+    ]
+
+    const result = computeAnalysis(lines)
+    expect(result.lineTotals['y1999']).toBe(5)
+    expect(result.lineTotals['y2001']).toBe(4)
+    expect(result.lineTotals['y2026']).toBe(5)
+    expect(result.lineTotals['t1205']).toBe(3)
+    expect(result.lineTotals['t1130']).toBe(computeAnalysis([{ id: 'spoken1130', text: 'eleven thirty' }]).lineTotals['spoken1130'])
+    expect(result.lineTotals['t0105']).toBe(3)
+    expect(result.lineTotals['l1999']).toBe(7)
+    expect(result.lineTotals['l2001']).toBe(6)
+    expect(result.lineTotals['l2026']).toBe(7)
+    expect(result.lineTotals['lock']).toBe(7)
+    expect(result.lineTotals['l1205']).toBe(7)
+    expect(result.lineTotals['247']).toBe(8)
   })
 
   it('falls back to main-thread analysis when worker creation fails', () => {
