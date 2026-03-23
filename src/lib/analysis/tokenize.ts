@@ -60,7 +60,7 @@ export function tokenizeLine(text: string): TokenizedWord[] {
 function matchStandaloneTimeToken(text: string, index: number): TokenizedWord | null {
   const char = text[index]
   if (!char || char < '0' || char > '9') return null
-  if (index > 0 && /[A-Za-z0-9]/.test(text[index - 1])) return null
+  if (index > 0 && (text[index - 1] === ':' || /[A-Za-z0-9]/.test(text[index - 1]))) return null
 
   const match = TIME_REGEX.exec(text.slice(index))
   if (!match) return null
@@ -70,7 +70,7 @@ function matchStandaloneTimeToken(text: string, index: number): TokenizedWord | 
 
   const fullToken = match[0]
   const tokenEnd = index + fullToken.length
-  if (tokenEnd < text.length && /[A-Za-z0-9]/.test(text[tokenEnd])) return null
+  if (tokenEnd < text.length && (text[tokenEnd] === ':' || /[A-Za-z0-9]/.test(text[tokenEnd]))) return null
 
   return {
     start: index,

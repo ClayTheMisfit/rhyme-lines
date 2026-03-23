@@ -56,6 +56,13 @@ describe('analysis pipeline', () => {
       { start: 6, end: 11, text: 'stays', kind: 'word' },
       { start: 12, end: 17, text: 'split', kind: 'word' },
     ])
+    expect(tokenizeLine('12:05:30 at dawn')).toEqual([
+      { start: 0, end: 2, text: '12', kind: 'word' },
+      { start: 3, end: 5, text: '05', kind: 'word' },
+      { start: 6, end: 8, text: '30', kind: 'word' },
+      { start: 9, end: 11, text: 'at', kind: 'word' },
+      { start: 12, end: 16, text: 'dawn', kind: 'word' },
+    ])
   })
 
   it('treats digit runs as word-like tokens', () => {
