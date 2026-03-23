@@ -31,7 +31,7 @@ type Props = {
 }
 
 const headerButtonClass =
-  "inline-flex h-8 w-8 items-center justify-center rounded-md text-sm leading-none text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white motion-reduce:transition-none dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-slate-100 dark:focus-visible:ring-offset-slate-900"
+  "inline-flex h-7 w-7 items-center justify-center border border-transparent text-xs leading-none text-[color:var(--rl-muted)] transition-colors hover:border-[color:var(--rl-border)] hover:text-[color:var(--rl-text)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--rl-accent)]"
 
 export function DockablePanel({
   title,
@@ -51,9 +51,9 @@ export function DockablePanel({
   panelProps,
 }: Props) {
   const header = (
-    <div className="flex h-11 items-center justify-between border-b border-slate-200/60 bg-white/70 px-2 backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/70">
+    <div className="flex h-10 items-center justify-between border-b border-[color:var(--rl-border)] bg-[color:var(--rl-panel)] px-2">
       <div
-        className="rhyme-panel-drag-handle px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500/90 dark:text-slate-300/80 cursor-move select-none"
+        className="rhyme-panel-drag-handle cursor-move select-none px-2 text-[10px] font-medium uppercase tracking-[0.16em] text-[color:var(--rl-muted)]"
         aria-label="Move rhyme panel"
       >
         {title}
@@ -79,7 +79,7 @@ export function DockablePanel({
   )
 
   const basePanelClasses =
-    "border border-slate-200/60 rounded-xl shadow-xl bg-white text-slate-900 flex flex-col dark:border-slate-700/60 dark:bg-slate-900 dark:text-slate-100" +
+    "border border-[color:var(--rl-border)] bg-[color:var(--rl-panel)] text-[color:var(--rl-text)] flex flex-col" +
     (className ? ` ${className}` : "")
   const panelClasses = panelProps?.className
     ? `${basePanelClasses} ${panelProps.className}`

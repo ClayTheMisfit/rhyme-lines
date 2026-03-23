@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased bg-black text-white min-h-screen flex flex-col font-sans">
+      <body className="antialiased min-h-screen flex flex-col font-sans bg-[color:var(--rl-bg)] text-[color:var(--rl-text)]">
         <Providers>
           <TopBar />
           <main className="flex-1 flex min-h-0" style={{ paddingTop: 'var(--header-height, 48px)' }}>

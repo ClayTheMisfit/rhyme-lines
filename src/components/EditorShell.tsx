@@ -59,6 +59,13 @@ export default function EditorShell() {
         : saveStatus === 'dirty'
           ? 'Changes pending save'
           : ''
+  const saveDisplayLabel = saveStatus === 'saving'
+    ? 'SYNCING'
+    : saveStatus === 'dirty'
+      ? 'PENDING'
+      : saveStatus === 'error'
+        ? 'ERROR'
+        : 'SAVED'
 
   const focusRhymePanel = useCallback(() => {
     const panelElement = floatingPanelRef.current
@@ -197,15 +204,59 @@ export default function EditorShell() {
       {!ready ? (
         <div className="flex h-full w-full flex-1 min-h-0" aria-hidden />
       ) : (
-        <div className="flex h-full w-full flex-1 min-h-0">
-          <Editor
-            ref={editorRef}
-            hydrated={ready}
-            text={activeTab?.snapshot.text ?? ''}
-            onTextChange={handleTextChange}
-            onDirtyChange={handleDirtyChange}
-          />
-          <RhymePanel ref={floatingPanelRef} editorRef={editorRef} />
+        <div className="flex h-full w-full flex-1 min-h-0 bg-[color:var(--rl-bg)]">
+          <aside className="hidden h-full w-[272px] shrink-0 border-r border-[color:var(--rl-border)] bg-[color:var(--rl-panel)] md:flex md:flex-col">
+            <div className="border-b border-[color:var(--rl-border)] px-4 py-3">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--rl-muted)]">Project</div>
+              <div className="mt-2 text-sm text-[color:var(--rl-text)]">Current Draft</div>
+            </div>
+            <div className="border-b border-[color:var(--rl-border)] px-3 py-3">
+              <div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-[color:var(--rl-muted)]">Drafts</div>
+              <div className="space-y-1">
+                {tabs.map((tab) => {
+                  const isActive = tab.id === activeTabId
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => actions.setActive(tab.id)}
+                      className={`flex w-full items-center justify-between border px-2 py-1.5 text-left text-xs ${
+                        isActive
+                          ? 'border-[color:var(--rl-accent)] text-[color:var(--rl-text)]'
+                          : 'border-transparent text-[color:var(--rl-muted)] hover:border-[color:var(--rl-border)] hover:text-[color:var(--rl-text)]'
+                      }`}
+                    >
+                      <span className="truncate">{tab.title || 'Untitled'}</span>
+                      {tab.isDirty && <span className="text-[10px] text-[color:var(--rl-accent)]">●</span>}
+                    </button>
+                  )
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={actions.newTab}
+                className="mt-3 inline-flex w-full items-center justify-center border border-[color:var(--rl-accent)] bg-[color:var(--rl-accent)] px-2 py-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-black"
+              >
+                New Draft
+              </button>
+            </div>
+            <div className="mt-auto border-t border-[color:var(--rl-border)] px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-[color:var(--rl-muted)]">
+              <div className="flex items-center justify-between">
+                <span>Status</span>
+                <span className={saveStatus === 'idle' ? 'text-[color:var(--rl-accent)]' : ''}>{saveDisplayLabel}</span>
+              </div>
+            </div>
+          </aside>
+          <div className="flex min-h-0 flex-1">
+            <Editor
+              ref={editorRef}
+              hydrated={ready}
+              text={activeTab?.snapshot.text ?? ''}
+              onTextChange={handleTextChange}
+              onDirtyChange={handleDirtyChange}
+            />
+            <RhymePanel ref={floatingPanelRef} editorRef={editorRef} />
+          </div>
         </div>
       )}
       <span className="sr-only" aria-live="polite">

@@ -81,9 +81,11 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
                 role="tab"
                 aria-selected={isActive}
                 className={cx(
-                  'group relative flex min-h-9 items-center gap-2 rounded-md px-2.5 py-1 text-[13px] transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45',
-                  isActive ? 'bg-white/12 text-white' : 'text-white/70 hover:bg-white/6',
-                  tab.isDirty && !isActive && 'text-white/85'
+                  'group relative flex min-h-8 items-center gap-2 border px-2 py-1 text-[12px] tracking-[0.01em] whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--rl-accent)]',
+                  isActive
+                    ? 'border-[color:var(--rl-accent)] text-[color:var(--rl-text)]'
+                    : 'border-transparent text-[color:var(--rl-muted)] hover:border-[color:var(--rl-border)] hover:text-[color:var(--rl-text)]',
+                  tab.isDirty && !isActive && 'text-[color:var(--rl-text)]'
                 )}
                 onClick={() => onSelect(tab.id)}
                 onDoubleClick={() => startEditing(tab.id, tab.title)}
@@ -91,7 +93,7 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
                 {isEditing ? (
                   <input
                     ref={inputRef}
-                    className="w-32 rounded bg-white/10 px-1 py-0.5 text-[13px] outline-none ring-1 ring-white/30"
+                    className="w-32 border border-[color:var(--rl-border)] bg-[color:var(--rl-panel)] px-1 py-0.5 text-[12px] outline-none ring-1 ring-[color:var(--rl-accent)]/40"
                     value={draftTitle}
                     onChange={(event) => setDraftTitle(event.target.value)}
                     onBlur={commitRename}
@@ -123,7 +125,7 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
                 <span
                   role="button"
                   aria-label={`Close tab ${tab.title}`}
-                  className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs text-white/70 transition hover:bg-white/10"
+                  className="ml-1 inline-flex h-5 w-5 items-center justify-center text-xs text-[color:var(--rl-muted)] transition-colors hover:text-[color:var(--rl-text)]"
                   onClick={(event) => {
                     event.stopPropagation()
                     onClose(tab.id)
@@ -139,7 +141,7 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
 
       <button
         type="button"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/10 text-base text-white transition duration-100 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
+        className="inline-flex h-8 w-8 items-center justify-center border border-[color:var(--rl-accent)] bg-[color:var(--rl-accent)] text-base text-black transition duration-75 hover:brightness-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--rl-accent)]"
         onClick={onNew}
         aria-label="Add tab"
       >

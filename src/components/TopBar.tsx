@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
-import { motion } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useMounted } from '@/hooks/useMounted'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
@@ -14,7 +13,6 @@ import TabBar from '@/components/tabs/TabBar'
 import { shallow } from 'zustand/shallow'
 import SettingsSheet from './settings/SettingsSheet'
 import { layers } from '@/lib/layers'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const PANEL_SPACING_REM = '1.5rem'
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
@@ -160,10 +158,13 @@ export default function TopBar() {
     <header
       ref={headerRef}
       data-testid="editor-header"
-      className="fixed left-0 right-0 top-0 flex min-h-12 items-center justify-between gap-3 border-b border-[color:var(--rl-border)] bg-black/22 px-3 py-1.5 backdrop-blur-lg"
+      className="fixed left-0 right-0 top-0 flex min-h-12 items-center justify-between gap-3 border-b border-[color:var(--rl-border)] bg-[color:var(--rl-bg)] px-4 py-1.5"
       style={{ zIndex: layers.topBar }}
     >
-      <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 items-center gap-4">
+        <div className="shrink-0 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--rl-muted)]">
+          Rhyme Lines
+        </div>
         <TabBar
           tabs={tabs}
           activeTabId={activeTabId}
@@ -175,80 +176,59 @@ export default function TopBar() {
         />
       </div>
 
-      <div className="ml-2 flex items-center gap-1.5">
+      <div className="ml-2 flex items-center gap-1">
         {autosaveStatus === 'error' && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-sm text-rose-300 ring-1 ring-rose-300/45"
-                  aria-label={`Save failed${lastError ? `: ${lastError}` : ''}`}
-                >
-                  !
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{lastError ?? 'Save failed'}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <span
+            className="inline-flex h-8 items-center border border-red-400/40 px-2 text-[10px] uppercase tracking-[0.14em] text-red-300"
+            aria-label={`Save failed${lastError ? `: ${lastError}` : ''}`}
+            title={lastError ?? 'Save failed'}
+          >
+            Save Error
+          </span>
         )}
 
-        <motion.button
-          suppressHydrationWarning
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          transition={{ duration: 0.12 }}
+        <button
           onClick={toggleTheme}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-base text-white/80 transition-colors duration-100 hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
+          className="inline-flex h-8 min-w-8 items-center justify-center border border-[color:var(--rl-border)] px-2 text-xs text-[color:var(--rl-muted)] transition-colors duration-75 hover:text-[color:var(--rl-text)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--rl-accent)]"
           title="Toggle theme"
           aria-label="Toggle theme"
         >
           {theme === 'dark' ? '☀️' : '🌙'}
-        </motion.button>
+        </button>
 
-        <motion.button
-          suppressHydrationWarning
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          transition={{ duration: 0.12 }}
+        <button
           onClick={toggleRhymeDecorations}
           className={cx(
-            'inline-flex h-9 w-9 items-center justify-center rounded-md text-base transition duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45',
-            showRhymeDecorations ? 'bg-white/12 text-white' : 'text-white/80 hover:bg-white/8 hover:text-white'
+            'inline-flex h-8 min-w-8 items-center justify-center border px-2 text-xs transition duration-75 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--rl-accent)]',
+            showRhymeDecorations
+              ? 'border-[color:var(--rl-accent)] text-[color:var(--rl-accent)]'
+              : 'border-[color:var(--rl-border)] text-[color:var(--rl-muted)] hover:text-[color:var(--rl-text)]'
           )}
           title={showRhymeDecorations ? 'Hide rhyme highlights' : 'Show rhyme highlights'}
           aria-label={showRhymeDecorations ? 'Hide rhyme highlights' : 'Show rhyme highlights'}
           aria-pressed={showRhymeDecorations}
         >
           ✨
-        </motion.button>
+        </button>
 
-        <motion.button
-          suppressHydrationWarning
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          transition={{ duration: 0.12 }}
+        <button
           onClick={togglePanel}
           className={cx(
-            'inline-flex h-9 w-9 items-center justify-center rounded-md text-base transition duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45',
-            panelVisible ? 'bg-white/12 text-white' : 'text-white/80 hover:bg-white/8 hover:text-white'
+            'inline-flex h-8 min-w-8 items-center justify-center border px-2 text-xs transition duration-75 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--rl-accent)]',
+            panelVisible
+              ? 'border-[color:var(--rl-accent)] text-[color:var(--rl-accent)]'
+              : 'border-[color:var(--rl-border)] text-[color:var(--rl-muted)] hover:text-[color:var(--rl-text)]'
           )}
           title={panelVisible ? 'Hide rhyme panel' : 'Show rhyme panel'}
           aria-label={panelVisible ? 'Hide rhyme panel' : 'Show rhyme panel'}
           aria-pressed={panelVisible}
         >
           🎵
-        </motion.button>
+        </button>
 
-        <motion.div
-          suppressHydrationWarning
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          transition={{ duration: 0.12 }}
-          className="flex"
-          title="Open settings"
-        >
+        <div className="flex border border-[color:var(--rl-border)] px-1 text-[color:var(--rl-muted)]" title="Open settings">
           <SettingsSheet />
-        </motion.div>
+        </div>
       </div>
     </header>
   )

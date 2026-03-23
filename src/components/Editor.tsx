@@ -999,7 +999,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       <div
         ref={containerRef}
         data-editor-scroll
-        className="relative flex-1 overflow-auto transition-all duration-300"
+        className="relative flex-1 overflow-auto bg-[color:var(--rl-bg)]"
         style={{
           marginRight: 'var(--panel-right-offset, 0px)',
           maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
