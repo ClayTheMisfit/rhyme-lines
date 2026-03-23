@@ -6,22 +6,25 @@ const metrics = [
 
 export function AnalysisCard() {
   return (
-    <aside className="flex min-h-[320px] flex-col border border-white/[0.05] bg-[#1b1b1d] px-5 py-6">
+    <aside className="flex min-h-[320px] flex-col border border-white/[0.04] bg-[#1b1b1d] px-6 py-6">
       <p className="text-[10px] uppercase tracking-[0.2em] text-white/36">Analysis Snapshot</p>
-      <div className="mt-5 divide-y divide-white/[0.05] border-y border-white/[0.05]">
+      <div className="mt-6 divide-y divide-white/[0.035] border-y border-white/[0.04]">
         {metrics.map((metric) => (
-          <div key={metric.label} className="flex items-center justify-between py-4">
+          <div key={metric.label} className="flex items-center justify-between py-4.5">
             <div>
-              <p className="text-[13px] text-white/78">{metric.label}</p>
-              <p className="mt-1 text-[11px] tracking-[0.02em] text-white/33">{metric.note}</p>
+              <p className="text-[13px] text-white/74">{metric.label}</p>
+              <p className="mt-1.5 text-[11px] tracking-[0.02em] text-white/30">{metric.note}</p>
             </div>
-            <p className="text-base text-white/86">{metric.value}</p>
+            <p className="text-[15px] text-white/82">{metric.value}</p>
           </div>
         ))}
       </div>
-      <p className="mt-auto border-t border-white/[0.05] pt-6 text-xs italic leading-6 text-white/36">
-        “Keep line endings harder and reduce multisyllabic stack in bars 9–11.”
-      </p>
+      <blockquote className="mt-auto border-t border-white/[0.035] pt-6">
+        <p className="text-[11px] uppercase tracking-[0.14em] text-white/28">Editor Note</p>
+        <p className="mt-2 text-xs italic leading-6 text-white/35">
+          “Keep line endings harder and reduce multisyllabic stack in bars 9–11.”
+        </p>
+      </blockquote>
     </aside>
   )
 }
