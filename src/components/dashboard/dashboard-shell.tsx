@@ -31,18 +31,18 @@ export function DashboardShell() {
   return (
     <div className="dashboard-page min-h-screen bg-[#090909] text-white">
       <DashboardTopbar />
-      <div className="grid min-h-[calc(100vh-54px)] grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]">
+      <div className="grid min-h-[calc(100vh-56px)] grid-cols-1 lg:grid-cols-[272px_minmax(0,1fr)]">
         <DashboardSidebar />
 
-        <main className="flex min-w-0 flex-col border-l border-white/[0.05] px-5 py-8 sm:px-8 lg:px-10">
+        <main className="flex min-w-0 flex-col border-l border-white/[0.05] px-6 py-10 sm:px-10 sm:py-12 lg:px-12">
           <DashboardHero />
 
-          <section className="mt-8 grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(260px,1fr)]">
+          <section className="mt-10 grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(290px,1fr)]">
             <CurrentFocusCard />
             <AnalysisCard />
           </section>
 
-          <section className="mt-7 min-w-0">
+          <section className="mt-10 min-w-0">
             <ManuscriptList rows={manuscripts} />
           </section>
 

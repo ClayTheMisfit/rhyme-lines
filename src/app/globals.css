@@ -449,6 +449,6 @@ body.bg-white .rl-editor .line {
 
 @layer components {
   .dashboard-icon-button {
-    @apply inline-flex h-8 w-8 items-center justify-center border border-white/[0.08] bg-white/[0.02] text-xs text-white/50 transition-colors hover:text-white/75;
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-[6px] border border-white/[0.05] bg-white/[0.015] text-xs text-white/42 transition-colors hover:bg-white/[0.03] hover:text-white/72;
   }
 }
