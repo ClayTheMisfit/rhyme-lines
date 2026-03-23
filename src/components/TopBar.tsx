@@ -7,9 +7,7 @@ import { resolveTheme } from '@/lib/theme/resolveTheme'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useSettingsStore } from '@/store/settingsStore'
-import { useTabsStore } from '@/store/tabsStore'
 import { useAutosaveStore } from '@/store/autosaveStore'
-import TabBar from '@/components/tabs/TabBar'
 import { shallow } from 'zustand/shallow'
 import SettingsSheet from './settings/SettingsSheet'
 import { layers } from '@/lib/layers'
@@ -18,14 +16,7 @@ const PANEL_SPACING_REM = '1.5rem'
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
 
 type ThemeChoice = 'dark' | 'light'
-/**
- * Apply theme-specific CSS classes to document.body.
- *
- * Adds or removes utility classes to set the page background and text color for the given theme.
- * If document.body is not available, the function does nothing.
- *
- * @param theme - 'light' to apply light background and dark text, 'dark' to apply dark background and light text
- */
+
 function applyBodyTheme(theme: ThemeChoice) {
   const body = document.body
   if (!body) return
@@ -38,11 +29,6 @@ function applyBodyTheme(theme: ThemeChoice) {
   }
 }
 
-/**
- * Render the application's top bar with tab management, theme controls, rhyme UI toggles, autosave status, and settings access.
- *
- * @returns The JSX header element that contains the TabBar, theme toggle, rhyme decorations and panel toggles, autosave error indicator, and the settings sheet trigger.
- */
 export default function TopBar() {
   const mounted = useMounted()
   const headerRef = useRef<HTMLElement>(null)
@@ -67,15 +53,6 @@ export default function TopBar() {
     mode: state.mode,
     width: state.width,
   }))
-
-  const { tabs, activeTabId, actions } = useTabsStore(
-    (state) => ({
-      tabs: state.tabs,
-      activeTabId: state.activeTabId,
-      actions: state.actions,
-    }),
-    shallow
-  )
 
   const panelVisible = mode !== 'hidden'
   const isFloating = mode === 'detached'
@@ -147,86 +124,77 @@ export default function TopBar() {
     setShowRhymeDecorations(!showRhymeDecorations)
   }, [setShowRhymeDecorations, showRhymeDecorations])
 
-  const handleRename = useCallback(
-    (id: string, title: string) => {
-      actions.renameTab(id, title)
-    },
-    [actions]
-  )
-
   return (
     <header
       ref={headerRef}
       data-testid="editor-header"
-      className="fixed left-0 right-0 top-0 flex min-h-12 items-center justify-between gap-3 border-b border-[color:var(--rl-border)] bg-[color:var(--rl-bg)] px-4 py-1.5"
+      className="fixed left-0 right-0 top-0 flex h-12 items-center justify-between border-b border-[color:var(--rl-border)] bg-[color:var(--rl-bg)] px-6"
       style={{ zIndex: layers.topBar }}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-4">
-        <div className="shrink-0 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--rl-muted)]">
-          Rhyme Lines
-        </div>
-        <TabBar
-          tabs={tabs}
-          activeTabId={activeTabId}
-          saveStatus={autosaveStatus}
-          onNew={actions.newTab}
-          onSelect={actions.setActive}
-          onClose={actions.closeTab}
-          onRename={handleRename}
-        />
+      <div className="w-[240px] shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--rl-accent)]">
+        Lyricist
       </div>
 
-      <div className="ml-2 flex items-center gap-1">
+      <nav className="flex flex-1 items-center justify-center gap-8 text-xs uppercase tracking-[0.09em]">
+        <button type="button" className="border-l border-[color:var(--rl-accent)] pl-3 text-[color:var(--rl-accent)]">Projects</button>
+        <button type="button" className="text-[color:var(--rl-muted)] hover:text-[color:var(--rl-text)]">Library</button>
+        <button type="button" className="text-[color:var(--rl-muted)] hover:text-[color:var(--rl-text)]">Archive</button>
+      </nav>
+
+      <div className="flex w-[240px] items-center justify-end gap-1">
+        <span className="mr-2 text-[10px] uppercase tracking-[0.16em] text-[color:var(--rl-muted)]">
+          {autosaveStatus === 'saving' ? 'Syncing' : autosaveStatus === 'dirty' ? 'Pending' : autosaveStatus === 'error' ? 'Error' : 'Saved'}
+        </span>
         {autosaveStatus === 'error' && (
           <span
-            className="inline-flex h-8 items-center border border-red-400/40 px-2 text-[10px] uppercase tracking-[0.14em] text-red-300"
+            className="inline-flex h-7 items-center border border-red-400/40 px-2 text-[10px] uppercase tracking-[0.14em] text-red-300"
             aria-label={`Save failed${lastError ? `: ${lastError}` : ''}`}
             title={lastError ?? 'Save failed'}
           >
-            Save Error
+            !
           </span>
         )}
 
         <button
-          onClick={toggleTheme}
-          className="inline-flex h-8 min-w-8 items-center justify-center border border-[color:var(--rl-border)] px-2 text-xs text-[color:var(--rl-muted)] transition-colors duration-75 hover:text-[color:var(--rl-text)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--rl-accent)]"
-          title="Toggle theme"
-          aria-label="Toggle theme"
-        >
-          {theme === 'dark' ? '☀️' : '🌙'}
-        </button>
-
-        <button
-          onClick={toggleRhymeDecorations}
-          className={cx(
-            'inline-flex h-8 min-w-8 items-center justify-center border px-2 text-xs transition duration-75 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--rl-accent)]',
-            showRhymeDecorations
-              ? 'border-[color:var(--rl-accent)] text-[color:var(--rl-accent)]'
-              : 'border-[color:var(--rl-border)] text-[color:var(--rl-muted)] hover:text-[color:var(--rl-text)]'
-          )}
-          title={showRhymeDecorations ? 'Hide rhyme highlights' : 'Show rhyme highlights'}
-          aria-label={showRhymeDecorations ? 'Hide rhyme highlights' : 'Show rhyme highlights'}
-          aria-pressed={showRhymeDecorations}
-        >
-          ✨
-        </button>
-
-        <button
           onClick={togglePanel}
           className={cx(
-            'inline-flex h-8 min-w-8 items-center justify-center border px-2 text-xs transition duration-75 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--rl-accent)]',
+            'inline-flex h-7 min-w-7 items-center justify-center border px-2 text-xs transition duration-75 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--rl-accent)]',
             panelVisible
               ? 'border-[color:var(--rl-accent)] text-[color:var(--rl-accent)]'
-              : 'border-[color:var(--rl-border)] text-[color:var(--rl-muted)] hover:text-[color:var(--rl-text)]'
+              : 'border-transparent text-[color:var(--rl-muted)] hover:border-[color:var(--rl-border)] hover:text-[color:var(--rl-text)]'
           )}
           title={panelVisible ? 'Hide rhyme panel' : 'Show rhyme panel'}
           aria-label={panelVisible ? 'Hide rhyme panel' : 'Show rhyme panel'}
           aria-pressed={panelVisible}
         >
-          🎵
+          ◫
         </button>
 
-        <div className="flex border border-[color:var(--rl-border)] px-1 text-[color:var(--rl-muted)]" title="Open settings">
+        <button
+          onClick={toggleRhymeDecorations}
+          className={cx(
+            'inline-flex h-7 min-w-7 items-center justify-center border px-2 text-xs transition duration-75 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--rl-accent)]',
+            showRhymeDecorations
+              ? 'border-[color:var(--rl-accent)] text-[color:var(--rl-accent)]'
+              : 'border-transparent text-[color:var(--rl-muted)] hover:border-[color:var(--rl-border)] hover:text-[color:var(--rl-text)]'
+          )}
+          title={showRhymeDecorations ? 'Hide rhyme highlights' : 'Show rhyme highlights'}
+          aria-label={showRhymeDecorations ? 'Hide rhyme highlights' : 'Show rhyme highlights'}
+          aria-pressed={showRhymeDecorations}
+        >
+          ◌
+        </button>
+
+        <button
+          onClick={toggleTheme}
+          className="inline-flex h-7 min-w-7 items-center justify-center border border-transparent px-2 text-xs text-[color:var(--rl-muted)] transition-colors duration-75 hover:border-[color:var(--rl-border)] hover:text-[color:var(--rl-text)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--rl-accent)]"
+          title="Toggle theme"
+          aria-label="Toggle theme"
+        >
+          {theme === 'dark' ? '◐' : '◑'}
+        </button>
+
+        <div className="flex border border-transparent px-1 text-[color:var(--rl-muted)] hover:border-[color:var(--rl-border)]" title="Open settings">
           <SettingsSheet />
         </div>
       </div>
