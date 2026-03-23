@@ -446,3 +446,9 @@ body.bg-white .rl-editor .line {
 [data-inline-line-total] { 
   display: none !important; 
 }
+
+@layer components {
+  .dashboard-icon-button {
+    @apply inline-flex h-8 w-8 items-center justify-center border border-white/[0.08] bg-white/[0.02] text-xs text-white/50 transition-colors hover:text-white/75;
+  }
+}

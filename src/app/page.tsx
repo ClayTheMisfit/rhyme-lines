@@ -1,6 +1,5 @@
-import EditorShell from '@/components/EditorShell'
-
+import { DashboardShell } from '@/components/dashboard/dashboard-shell'
 
 export default function Home() {
-  return <EditorShell />
+  return <DashboardShell />
 }
