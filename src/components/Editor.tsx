@@ -25,15 +25,15 @@ const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
 const ACTIVE_LINE_TUNING = {
-  radius: 4,
+  radius: 2,
   yInset: 1,
   hInset: 2,
-  bgDark: 0.006,
-  borderDark: 0.014,
-  bgLight: 0.012,
-  borderLight: 0.02,
-  opacityBlurred: 0.3,
-  motionPosMs: 110,
+  bgDark: 0.003,
+  borderDark: 0.008,
+  bgLight: 0.008,
+  borderLight: 0.014,
+  opacityBlurred: 0.24,
+  motionPosMs: 90,
   motionOpacityMs: 90,
 }
 

@@ -79,7 +79,7 @@
 @layer components {
   /* Subtle, compact syllable badge */
   .syllable-badge {
-    @apply pointer-events-none select-none rounded-full bg-muted/70 text-muted-foreground ring-1 ring-border/50 shadow-sm;
+    @apply pointer-events-none select-none rounded-full bg-white/[0.03] text-white/35 ring-1 ring-white/[0.06];
     --badge-base-size: clamp(0.9rem, 1.6vw, 1.05rem);
     --badge-scale: 1;
     --badge-offset: 0.95em;
@@ -92,7 +92,7 @@
     left: 50%;
     transform: translateX(-50%);
     top: calc(-1 * var(--badge-offset));
-    opacity: 0.75;
+    opacity: 0.4;
     transition: opacity 120ms ease;
   }
 
@@ -103,12 +103,12 @@
   }
 
   [data-active-line="true"] .syllable-badge {
-    @apply bg-primary/15 ring-primary/50 text-primary;
-    opacity: 0.98;
+    @apply bg-[#f2d000]/8 ring-[#f2d000]/25 text-[#f2d000]/80;
+    opacity: 0.7;
   }
 
   [data-line-id]:hover .syllable-badge {
-    opacity: 0.95;
+    opacity: 0.55;
   }
 
   .leading-tight .syllable-badge {
@@ -159,10 +159,10 @@ body.bg-white {
 .editor-root {
   position: relative;
   --rl-font: var(--rl-font-editor);
-  --rl-font-size: var(--editor-font-size, 21px);
-  --rl-line-height: max(var(--editor-line-height, 1.85), 1.6);
+  --rl-font-size: var(--editor-font-size, 22px);
+  --rl-line-height: max(var(--editor-line-height, 1.95), 1.68);
   --rl-line-pad-y: 2px;
-  --rl-pad-top: calc(2.6rem + var(--editor-safe-offset));
+  --rl-pad-top: calc(3.1rem + var(--editor-safe-offset));
   --rl-pad-bottom: 2.5rem;
   --rl-pad-inline: clamp(1.5rem, 4vw, 4rem);
   --rl-meta-width: clamp(130px, 12vw, 170px);
@@ -230,8 +230,8 @@ body.bg-white .rl-editor[data-empty="true"]:not(:focus)::before {
   z-index: 0;
   left: 0;
   right: 0;
-  background-color: var(--rl-active-line-bg, rgba(255, 255, 255, 0.006));
-  box-shadow: inset 0 0 0 1px var(--rl-active-line-border, rgba(255, 255, 255, 0.014));
+  background-color: var(--rl-active-line-bg, rgba(255, 255, 255, 0.003));
+  box-shadow: inset 0 0 0 1px var(--rl-active-line-border, rgba(255, 255, 255, 0.008));
   transition:
     top var(--rl-active-line-transition, 120ms) ease-out,
     height var(--rl-active-line-transition, 120ms) ease-out,
@@ -241,8 +241,8 @@ body.bg-white .rl-editor[data-empty="true"]:not(:focus)::before {
 }
 
 body.bg-black .rl-current-line-highlight {
-  --rl-active-line-bg: rgba(255, 255, 255, 0.006);
-  --rl-active-line-border: rgba(255, 255, 255, 0.014);
+  --rl-active-line-bg: rgba(255, 255, 255, 0.003);
+  --rl-active-line-border: rgba(255, 255, 255, 0.008);
 }
 
 body.bg-white .rl-current-line-highlight {
@@ -349,7 +349,7 @@ body.bg-white .rl-editor .line {
   padding-block: var(--rl-pad-top) var(--rl-pad-bottom);
   white-space: pre;
   font-family: var(--rl-font-ui);
-  font-size: clamp(11px, 0.8vw, 12px);
+  font-size: clamp(9px, 0.7vw, 10px);
   line-height: calc(var(--rl-font-size) * var(--rl-line-height) + var(--rl-line-pad-y) * 2);
   text-align: right;
   pointer-events: none;
@@ -362,15 +362,15 @@ body.bg-white .rl-editor .line {
 }
 
 .gutterMirror-dark {
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.14);
 }
 
 .editor-meta-col {
   margin: 0;
   padding-block: var(--rl-pad-top) var(--rl-pad-bottom);
-  color: rgba(255, 255, 255, 0.27);
-  font-size: 11px;
-  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 10px;
+  line-height: 1.75;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }

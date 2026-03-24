@@ -163,7 +163,8 @@ export default function TopBar() {
       className="fixed left-0 right-0 top-0 flex min-h-11 items-center justify-between gap-3 border-b border-white/[0.05] bg-[#0d0d0e] px-3 py-1.5"
       style={{ zIndex: layers.topBar }}
     >
-      <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="hidden text-[10px] uppercase tracking-[0.2em] text-white/35 lg:inline">Rhyme Lines</span>
         <TabBar
           tabs={tabs}
           activeTabId={activeTabId}
@@ -181,7 +182,7 @@ export default function TopBar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <span
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-rose-300/35 text-sm text-rose-300"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-rose-300/25 text-xs text-rose-300/80"
                   aria-label={`Save failed${lastError ? `: ${lastError}` : ''}`}
                 >
                   !
@@ -198,11 +199,11 @@ export default function TopBar() {
           whileTap={{ scale: 0.99 }}
           transition={{ duration: 0.12 }}
           onClick={toggleTheme}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-white/[0.04] bg-white/[0.01] text-[13px] text-white/50 transition-colors duration-100 hover:text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-white/[0.025] bg-white/[0.005] text-[10px] text-white/34 transition-colors duration-100 hover:text-white/62 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
           title="Toggle theme"
           aria-label="Toggle theme"
         >
-          {theme === 'dark' ? 'Light' : 'Dark'}
+          ◐
         </motion.button>
 
         <motion.button
@@ -212,14 +213,14 @@ export default function TopBar() {
           transition={{ duration: 0.12 }}
           onClick={toggleRhymeDecorations}
           className={cx(
-            'inline-flex h-8 w-8 items-center justify-center rounded-sm border border-white/[0.04] bg-white/[0.01] text-[13px] transition duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25',
-            showRhymeDecorations ? 'text-[#f2d000]' : 'text-white/50 hover:text-white/75'
+            'inline-flex h-7 w-7 items-center justify-center rounded-sm border border-white/[0.025] bg-white/[0.005] text-[10px] transition duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
+            showRhymeDecorations ? 'text-[#f2d000]/85' : 'text-white/34 hover:text-white/62'
           )}
           title={showRhymeDecorations ? 'Hide rhyme highlights' : 'Show rhyme highlights'}
           aria-label={showRhymeDecorations ? 'Hide rhyme highlights' : 'Show rhyme highlights'}
           aria-pressed={showRhymeDecorations}
         >
-          Rh
+          ∿
         </motion.button>
 
         <motion.button
@@ -229,20 +230,20 @@ export default function TopBar() {
           transition={{ duration: 0.12 }}
           onClick={togglePanel}
           className={cx(
-            'inline-flex h-8 w-8 items-center justify-center rounded-sm border border-white/[0.04] bg-white/[0.01] text-[13px] transition duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25',
-            panelVisible ? 'text-[#f2d000]' : 'text-white/50 hover:text-white/75'
+            'inline-flex h-7 w-7 items-center justify-center rounded-sm border border-white/[0.025] bg-white/[0.005] text-[10px] transition duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
+            panelVisible ? 'text-[#f2d000]/85' : 'text-white/34 hover:text-white/62'
           )}
           title={panelVisible ? 'Hide rhyme panel' : 'Show rhyme panel'}
           aria-label={panelVisible ? 'Hide rhyme panel' : 'Show rhyme panel'}
           aria-pressed={panelVisible}
         >
-          Rm
+          ≡
         </motion.button>
 
         <motion.div
           suppressHydrationWarning
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
           transition={{ duration: 0.12 }}
           className="flex"
           title="Open settings"

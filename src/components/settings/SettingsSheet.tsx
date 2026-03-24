@@ -501,14 +501,14 @@ export function SettingsSheet() {
       <DialogTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-white/[0.04] bg-white/[0.01] text-[11px] font-medium tracking-[0.08em] text-white/50 transition hover:text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-white/[0.025] bg-white/[0.005] text-[10px] font-medium tracking-[0.08em] text-white/34 transition hover:text-white/62 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
           aria-label="Open settings"
           aria-haspopup="dialog"
           aria-expanded={isOpen}
           aria-controls={isOpen ? panelId : undefined}
           data-testid="settings-trigger"
         >
-          Set
+          •
         </button>
       </DialogTrigger>
       {isOpen ? dialogContent : null}
