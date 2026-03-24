@@ -42,6 +42,11 @@ type EditorProps = {
   onTextChange?: (text: string) => void
   onDirtyChange?: (dirty: boolean) => void
   hydrated?: boolean
+  metadata?: {
+    documentTitle?: string
+    draftId?: string
+    stage?: string
+  }
 }
 
 export type EditorHandle = {
@@ -50,7 +55,7 @@ export type EditorHandle = {
 }
 
 const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { text = '', onTextChange = () => {}, onDirtyChange, hydrated = false },
+  { text = '', onTextChange = () => {}, onDirtyChange, hydrated = false, metadata },
   ref
 ) {
   const editorRef = useRef<HTMLDivElement>(null)
@@ -86,6 +91,15 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     debugTextColLeft: 0,
     debugLineLeft: 0,
   })
+  const metadataEntries = useMemo(
+    () =>
+      [
+        metadata?.documentTitle ? `Document: ${metadata.documentTitle}` : null,
+        metadata?.stage ? `Stage: ${metadata.stage}` : null,
+        metadata?.draftId ? `Draft: ${metadata.draftId}` : null,
+      ].filter((value): value is string => Boolean(value)),
+    [metadata?.documentTitle, metadata?.draftId, metadata?.stage]
+  )
 
   const highlightDebounceRef = useRef<number | null>(null)
   const lastHighlightRef = useRef(lineHighlight)
@@ -1007,11 +1021,15 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       >
         <div className="editor-root relative mx-auto w-full max-w-[1560px]">
           <div className="rl-editor-grid">
-            <aside className="editor-meta-col" aria-hidden>
-              <p>Project: Golden Static</p>
-              <p>Section: Verse 2</p>
-              <p>Draft: 03</p>
-            </aside>
+            {metadataEntries.length > 0 ? (
+              <aside className="editor-meta-col" aria-label="Document metadata">
+                {metadataEntries.map((entry) => (
+                  <p key={entry}>{entry}</p>
+                ))}
+              </aside>
+            ) : (
+              <div className="editor-meta-col" aria-hidden="true" />
+            )}
             <LineTotalsOverlay
               lineTotals={lineTotals}
               lines={lines}
