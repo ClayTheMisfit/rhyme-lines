@@ -25,15 +25,15 @@ const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
 const ACTIVE_LINE_TUNING = {
-  radius: 12,
+  radius: 4,
   yInset: 1,
-  hInset: 3,
-  bgDark: 0.012,
-  borderDark: 0.028,
-  bgLight: 0.02,
-  borderLight: 0.04,
-  opacityBlurred: 0.45,
-  motionPosMs: 140,
+  hInset: 2,
+  bgDark: 0.006,
+  borderDark: 0.014,
+  bgLight: 0.012,
+  borderLight: 0.02,
+  opacityBlurred: 0.3,
+  motionPosMs: 110,
   motionOpacityMs: 90,
 }
 
@@ -994,7 +994,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   )
 
   return (
-    <div className="flex w-full h-full">
+    <div className="flex h-full w-full bg-[#0c0c0d]">
       {/* Editor + overlay */}
       <div
         ref={containerRef}
@@ -1005,8 +1005,13 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
         }}
       >
-        <div className="editor-root relative">
+        <div className="editor-root relative mx-auto w-full max-w-[1560px]">
           <div className="rl-editor-grid">
+            <aside className="editor-meta-col" aria-hidden>
+              <p>Project: Golden Static</p>
+              <p>Section: Verse 2</p>
+              <p>Draft: 03</p>
+            </aside>
             <LineTotalsOverlay
               lineTotals={lineTotals}
               lines={lines}
@@ -1014,7 +1019,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               theme={resolvedTheme}
             />
 
-            <div ref={textColRef} className="editor-surface relative min-h-[70vh]">
+            <div ref={textColRef} className="editor-surface relative min-h-[70vh] max-w-[820px]">
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
                 className="pointer-events-none absolute inset-0 z-10"
@@ -1117,7 +1122,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onPointerDown={ensureEditorFocus}
                 data-placeholder={PLACEHOLDER_TEXT}
                 data-empty={isEditorEmpty ? 'true' : 'false'}
-                className="rl-editor relative z-20 outline-none w-full min-h-[70vh] font-mono pointer-events-auto"
+                className="rl-editor relative z-20 min-h-[70vh] w-full outline-none pointer-events-auto"
               />
             </div>
           </div>
