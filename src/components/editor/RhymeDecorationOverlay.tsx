@@ -70,7 +70,7 @@ export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId, mode, h
                 style={{
                   pointerEvents: showDebugPronunciation ? 'auto' : 'none',
                   left: rect.rect.left,
-                  top: rect.rect.top + rect.rect.height - 1,
+                  top: rect.rect.top + rect.rect.height - 2,
                   width: rect.rect.width,
                   ['--rhyme-color' as string]: color,
                 }}
