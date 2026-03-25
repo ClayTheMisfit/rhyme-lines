@@ -252,9 +252,9 @@ body.bg-white .rl-current-line-highlight {
 
 .rl-rhyme-highlight[data-rhyme-family] {
   position: absolute;
-  border-radius: 0.15rem;
-  background: rgba(242, 208, 0, 0.06);
-  border-bottom: 1px solid rgba(242, 208, 0, 0.26);
+  border-radius: 2px;
+  background: transparent;
+  border-bottom: 0;
   pointer-events: none;
   transform: translateZ(0);
 }
@@ -263,28 +263,40 @@ body.bg-white .rl-current-line-highlight {
   position: absolute;
   height: 1px;
   border-radius: 999px;
-  background: rgba(242, 208, 0, 0.62);
+  background: var(--rhyme-color, rgba(212, 176, 102, 0.72));
   pointer-events: none;
   transform: translateZ(0);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.16em;
+  text-decoration-skip-ink: auto;
 }
 
 .rl-rhyme-highlight[data-rhyme-family][data-rhyme-muted],
 .rl-rhyme-underline[data-rhyme-family][data-rhyme-muted] {
-  opacity: 0.25;
+  opacity: 0.35;
 }
 
 .rl-rhyme-highlight[data-rhyme-family][data-rhyme-active],
 .rl-rhyme-underline[data-rhyme-family][data-rhyme-active] {
-  opacity: 0.85;
+  opacity: 0.98;
 }
 
 .rl-rhyme-highlight[data-rhyme-family][data-rhyme-hide-colors] {
-  background: rgba(242, 208, 0, 0.05);
-  border-bottom-color: rgba(242, 208, 0, 0.22);
+  background: transparent;
 }
 
 .rl-rhyme-underline[data-rhyme-family][data-rhyme-hide-colors] {
-  background: rgba(242, 208, 0, 0.48);
+  background: rgba(242, 208, 0, 0.55);
+}
+
+.rl-rhyme-highlight[data-rhyme-family][data-rhyme-active]:not([data-rhyme-debug]) {
+  background: color-mix(in srgb, var(--rhyme-color, rgba(212, 176, 102, 0.72)) 11%, transparent);
+}
+
+.rl-rhyme-highlight[data-rhyme-family][data-rhyme-debug] {
+  background: color-mix(in srgb, var(--rhyme-color, rgba(212, 176, 102, 0.72)) 28%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--rhyme-color, rgba(212, 176, 102, 0.72)) 44%, transparent);
 }
 
 /* Light theme editor styling */

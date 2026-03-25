@@ -48,6 +48,7 @@ export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId, mode, h
               data-rhyme-active={isActive || undefined}
               data-rhyme-muted={isMuted || undefined}
               data-rhyme-hide-colors={hideColors || undefined}
+              data-rhyme-debug={showDebugPronunciation || undefined}
               style={{
                 pointerEvents: showDebugPronunciation ? 'auto' : 'none',
                 left: rect.rect.left,
@@ -65,10 +66,11 @@ export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId, mode, h
                 data-rhyme-active={isActive || undefined}
                 data-rhyme-muted={isMuted || undefined}
                 data-rhyme-hide-colors={hideColors || undefined}
+                data-rhyme-debug={showDebugPronunciation || undefined}
                 style={{
                   pointerEvents: showDebugPronunciation ? 'auto' : 'none',
                   left: rect.rect.left,
-                  top: rect.rect.top + rect.rect.height - 2,
+                  top: rect.rect.top + rect.rect.height - 1,
                   width: rect.rect.width,
                   ['--rhyme-color' as string]: color,
                 }}
