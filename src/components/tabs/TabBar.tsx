@@ -81,9 +81,9 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
                 role="tab"
                 aria-selected={isActive}
                 className={cx(
-                  'group relative flex min-h-8 items-center gap-2 rounded-sm border border-transparent px-2 py-1 text-[12px] transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25',
-                  isActive ? 'border-white/[0.05] bg-white/[0.02] text-white/90' : 'text-white/52 hover:text-white/72',
-                  tab.isDirty && !isActive && 'text-white/66'
+                  'group relative flex min-h-8 items-center gap-2 rounded-sm border-b border-transparent px-2 py-1 text-[12px] transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
+                  isActive ? 'border-[#f2d000]/75 text-white/90' : 'text-white/40 hover:text-white/65',
+                  tab.isDirty && !isActive && 'text-white/55'
                 )}
                 onClick={() => onSelect(tab.id)}
                 onDoubleClick={() => startEditing(tab.id, tab.title)}
@@ -139,7 +139,7 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
 
       <button
         type="button"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-white/[0.03] bg-white/[0.01] text-base text-white/55 transition duration-100 hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-base text-white/34 transition duration-100 hover:text-white/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
         onClick={onNew}
         aria-label="Add tab"
       >

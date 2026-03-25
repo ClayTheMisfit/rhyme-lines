@@ -6,11 +6,11 @@ export default function EditorPage() {
     <div className="flex min-h-screen flex-col bg-black text-white">
       <TopBar />
       <div className="flex min-h-0 flex-1" style={{ paddingTop: 'var(--header-height, 48px)' }}>
-        <aside className="hidden w-[236px] flex-col border-r border-white/[0.03] bg-[#111112] px-4 py-6 lg:flex">
-          <div className="border border-white/[0.03] bg-[#171718] px-4 py-5">
+        <aside className="hidden w-[236px] flex-col border-r border-white/[0.025] bg-[#111112] px-4 py-6 lg:flex">
+          <div className="border border-white/[0.025] bg-[#171718] px-4 py-5.5">
             <p className="text-[10px] uppercase tracking-[0.18em] text-white/32">Current Project</p>
-            <p className="mt-3.5 text-sm tracking-tight text-white/86">Golden Static</p>
-            <p className="mt-1.5 text-xs text-white/28">Act II · Night Session</p>
+            <p className="mt-4 text-sm tracking-tight text-white/84">Golden Static</p>
+            <p className="mt-1.5 text-xs text-white/24">Act II · Night Session</p>
           </div>
 
           <nav className="mt-7 space-y-1.5">
@@ -20,8 +20,8 @@ export default function EditorPage() {
                 type="button"
                 className={`flex w-full items-center justify-between border px-3 py-2 text-left text-xs tracking-[0.09em] ${
                   item === 'Editor'
-                    ? 'border-white/[0.045] bg-[#f2d000]/10 text-white/85'
-                    : 'border-transparent text-white/24 hover:border-white/[0.03] hover:text-white/52'
+                    ? 'border-white/[0.035] bg-[#f2d000]/8 text-white/84'
+                    : 'border-transparent text-white/20 hover:border-white/[0.025] hover:text-white/48'
                 }`}
               >
                 {item}
@@ -32,14 +32,14 @@ export default function EditorPage() {
 
           <button
             type="button"
-            className="mt-8 h-9 border border-[#f2d000] bg-[#f2d000] text-xs font-medium tracking-[0.09em] text-black"
+            className="mt-9 h-9 border border-[#f2d000] bg-[#f2d000] text-xs font-medium tracking-[0.09em] text-black"
           >
             NEW VERSE
           </button>
 
           <button
             type="button"
-            className="mt-auto border border-white/[0.02] bg-white/[0.005] px-3 py-2 text-left text-xs tracking-[0.09em] text-white/24 hover:text-white/44"
+            className="mt-auto border border-white/[0.018] bg-white/[0.004] px-3 py-2 text-left text-xs tracking-[0.09em] text-white/20 hover:text-white/40"
           >
             Help & Support
           </button>
@@ -49,7 +49,7 @@ export default function EditorPage() {
           <main className="flex min-h-0 flex-1">
             <EditorShell />
           </main>
-          <footer className="flex h-9 items-center justify-between border-t border-white/[0.03] bg-[#0f0f10] px-4 text-[11px] tracking-[0.08em] text-white/26 sm:px-6">
+          <footer className="flex h-9 items-center justify-between border-t border-white/[0.025] bg-[#0f0f10] px-4 text-[11px] tracking-[0.08em] text-white/24 sm:px-6">
             <div className="flex items-center gap-4">
               <span>Scheme: AABB</span>
               <span className="text-[#f2d000]/90">Sync: saved</span>

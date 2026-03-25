@@ -164,7 +164,7 @@ export default function TopBar() {
       style={{ zIndex: layers.topBar }}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span className="hidden text-[10px] uppercase tracking-[0.2em] text-white/35 lg:inline">Rhyme Lines</span>
+        <span className="hidden text-[10px] uppercase tracking-[0.2em] text-white/28 lg:inline">Document</span>
         <TabBar
           tabs={tabs}
           activeTabId={activeTabId}
