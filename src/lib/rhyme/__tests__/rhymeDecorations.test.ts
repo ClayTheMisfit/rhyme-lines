@@ -110,6 +110,16 @@ describe('buildRhymeDecorations', () => {
     expect(new Set(tokens.map((token) => token.familyKey)).size).toBeGreaterThan(1)
   })
 
+  it('groups short one-syllable terminal-y rhymes together', () => {
+    const lines = [{ id: 'line-0', text: 'dry my try fly cry' }]
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: true })
+    const tokens = result.tokensByLine.get('line-0') ?? []
+
+    expect(tokens).toHaveLength(5)
+    expect(tokens.every((token) => token.familyId !== undefined)).toBe(true)
+    expect(new Set(tokens.map((token) => token.familyId)).size).toBe(1)
+  })
+
   it('groups punctuation/casing variants for common fallback families', () => {
     const lines = [{ id: 'line-0', text: 'Glow, SNOW! show?' }]
     const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: false })

@@ -49,17 +49,21 @@ describe('getPronunciation', () => {
   it('prevents broad terminal-y fallback collapse for heuristic words', () => {
     const my = getPronunciation('my').rhymeKey
     const dry = getPronunciation('dry').rhymeKey
+    const tryWord = getPronunciation('try').rhymeKey
     const happy = getPronunciation('happy').rhymeKey
     const fly = getPronunciation('fly').rhymeKey
     const cry = getPronunciation('cry').rhymeKey
     const city = getPronunciation('city').rhymeKey
     const pretty = getPronunciation('pretty').rhymeKey
 
+    expect(my).toBe(dry)
+    expect(dry).toBe(tryWord)
+    expect(tryWord).toBe(fly)
+    expect(dry).toBe(cry)
     expect(my).not.toBe(happy)
     expect(dry).not.toBe(happy)
     expect(new Set([my, dry, happy]).size).toBeGreaterThan(1)
 
-    expect(dry).toBe(cry)
     expect(fly).not.toBe(happy)
     expect(city).not.toBe(my)
     expect(pretty).not.toBe(my)
