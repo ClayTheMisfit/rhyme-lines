@@ -58,24 +58,22 @@ export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId, mode, h
                 ['--rhyme-color' as string]: color,
               }}
             />
-            {rect.underline || hideColors ? (
-              <span
-                className="rl-rhyme-underline"
-                title={showDebugPronunciation ? rect.debugTitle?.() : undefined}
-                data-rhyme-family={rect.familyId}
-                data-rhyme-active={isActive || undefined}
-                data-rhyme-muted={isMuted || undefined}
-                data-rhyme-hide-colors={hideColors || undefined}
-                data-rhyme-debug={showDebugPronunciation || undefined}
-                style={{
-                  pointerEvents: showDebugPronunciation ? 'auto' : 'none',
-                  left: rect.rect.left,
-                  top: rect.rect.top + rect.rect.height - 2,
-                  width: rect.rect.width,
-                  ['--rhyme-color' as string]: color,
-                }}
-              />
-            ) : null}
+            <span
+              className="rl-rhyme-underline"
+              title={showDebugPronunciation ? rect.debugTitle?.() : undefined}
+              data-rhyme-family={rect.familyId}
+              data-rhyme-active={isActive || undefined}
+              data-rhyme-muted={isMuted || undefined}
+              data-rhyme-hide-colors={hideColors || undefined}
+              data-rhyme-debug={showDebugPronunciation || undefined}
+              style={{
+                pointerEvents: showDebugPronunciation ? 'auto' : 'none',
+                left: rect.rect.left,
+                top: rect.rect.top + rect.rect.height - 2,
+                width: rect.rect.width,
+                ['--rhyme-color' as string]: color,
+              }}
+            />
           </div>
         )
       })}
