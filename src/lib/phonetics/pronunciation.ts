@@ -129,7 +129,13 @@ const estimateSyllables = (word: string) => {
 }
 
 const extractSpellingEnding = (word: string): string => {
-  const match = word.match(/[aeiouy]+[^aeiouy]*$/i)
+  if (/[^aeiou]y$/i.test(word)) {
+    const withContext = word.match(/[aeiou][^aeiou]*y$/i)
+    if (withContext?.[0]) return withContext[0]
+    return word.slice(-2) || word
+  }
+
+  const match = word.match(/[aeiou]+[^aeiou]*$/i)
   if (match?.[0]) return match[0]
   return word.slice(-3) || word
 }

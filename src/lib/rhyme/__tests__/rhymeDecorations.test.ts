@@ -101,6 +101,15 @@ describe('buildRhymeDecorations', () => {
     expect(new Set(tokens.map((token) => token.familyId)).size).toBe(1)
   })
 
+  it('does not flatten unrelated terminal-y words into one family', () => {
+    const lines = [{ id: 'line-0', text: 'my dry happy' }]
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: true })
+    const tokens = result.tokensByLine.get('line-0') ?? []
+
+    expect(tokens).toHaveLength(3)
+    expect(new Set(tokens.map((token) => token.familyKey)).size).toBeGreaterThan(1)
+  })
+
   it('groups punctuation/casing variants for common fallback families', () => {
     const lines = [{ id: 'line-0', text: 'Glow, SNOW! show?' }]
     const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: false })

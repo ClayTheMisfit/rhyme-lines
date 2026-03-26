@@ -46,6 +46,25 @@ describe('getPronunciation', () => {
     expect(getPronunciation('best').rhymeKey).toBe(getPronunciation('rest').rhymeKey)
   })
 
+  it('prevents broad terminal-y fallback collapse for heuristic words', () => {
+    const my = getPronunciation('my').rhymeKey
+    const dry = getPronunciation('dry').rhymeKey
+    const happy = getPronunciation('happy').rhymeKey
+    const fly = getPronunciation('fly').rhymeKey
+    const cry = getPronunciation('cry').rhymeKey
+    const city = getPronunciation('city').rhymeKey
+    const pretty = getPronunciation('pretty').rhymeKey
+
+    expect(my).not.toBe(happy)
+    expect(dry).not.toBe(happy)
+    expect(new Set([my, dry, happy]).size).toBeGreaterThan(1)
+
+    expect(dry).toBe(cry)
+    expect(fly).not.toBe(happy)
+    expect(city).not.toBe(my)
+    expect(pretty).not.toBe(my)
+  })
+
   it('never returns 0 syllables for alphabetic tokens', () => {
     expect(getPronunciation('blorple').syllables).toBeGreaterThanOrEqual(1)
   })
