@@ -5,14 +5,14 @@ import type { RhymeHighlightMode } from '@/lib/persist/schema'
 import { getPronunciation, normalizeWord as normalizePronunciationWord } from '@/lib/phonetics/pronunciation'
 
 export const RHYME_FAMILY_COLORS = [
-  'rgba(214, 181, 104, 0.94)', // warm ochre
-  'rgba(122, 158, 204, 0.94)', // muted azure
-  'rgba(186, 132, 150, 0.94)', // dusty rose
-  'rgba(206, 151, 96, 0.94)',  // muted amber
-  'rgba(132, 150, 184, 0.94)', // slate blue
-  'rgba(103, 162, 154, 0.94)', // muted teal
-  'rgba(162, 141, 201, 0.94)', // soft violet
-  'rgba(176, 127, 102, 0.94)', // muted clay
+  'rgba(208, 178, 112, 0.93)', // warm ochre
+  'rgba(124, 160, 196, 0.93)', // muted azure
+  'rgba(182, 138, 156, 0.93)', // dusty rose
+  'rgba(201, 154, 104, 0.93)', // muted amber
+  'rgba(136, 152, 182, 0.93)', // slate blue
+  'rgba(108, 162, 152, 0.93)', // muted teal
+  'rgba(160, 143, 194, 0.93)', // soft violet
+  'rgba(178, 136, 112, 0.93)', // muted clay
 ]
 
 export const DEFAULT_UNDERLINE_TARGETS = ['time', 'rhyme', 'line', 'flow']
