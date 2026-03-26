@@ -84,6 +84,8 @@ describe('buildRhymeDecorations', () => {
   })
 
   it.each([
+    'test best rest',
+    'mat cat rat',
     'glow snow show',
     'stone alone phone',
     'light night sight',
@@ -107,6 +109,25 @@ describe('buildRhymeDecorations', () => {
     expect(tokens).toHaveLength(3)
     expect(tokens.every((token) => token.familyId !== undefined)).toBe(true)
     expect(new Set(tokens.map((token) => token.familyId)).size).toBe(1)
+  })
+
+  it('keeps expected family grouping across mixed-layout regression block', () => {
+    const lines = [
+      { id: 'line-0', text: 'mat cat rat' },
+      { id: 'line-1', text: 'glow snow show' },
+      { id: 'line-2', text: 'stone alone phone' },
+      { id: 'line-3', text: 'light night sight' },
+      { id: 'line-4', text: 'keep deep sleep' },
+      { id: 'line-5', text: 'test best rest' },
+    ]
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: false })
+
+    for (const line of lines) {
+      const tokens = result.tokensByLine.get(line.id) ?? []
+      expect(tokens).toHaveLength(3)
+      expect(tokens.every((token) => token.familyId !== undefined)).toBe(true)
+      expect(new Set(tokens.map((token) => token.familyId)).size).toBe(1)
+    }
   })
 
 

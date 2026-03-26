@@ -41,6 +41,9 @@ describe('getPronunciation', () => {
 
     expect(getPronunciation('stone').rhymeKey).toBe(getPronunciation('alone').rhymeKey)
     expect(getPronunciation('alone').rhymeKey).toBe(getPronunciation('phone').rhymeKey)
+
+    expect(getPronunciation('test').rhymeKey).toBe(getPronunciation('best').rhymeKey)
+    expect(getPronunciation('best').rhymeKey).toBe(getPronunciation('rest').rhymeKey)
   })
 
   it('never returns 0 syllables for alphabetic tokens', () => {
