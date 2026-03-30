@@ -125,9 +125,26 @@ const applyRhymeHighlightSnapshot = (snapshot: typeof RHYME_HIGHLIGHT_DEFAULTS) 
 }
 
 // Repro (pre-fix): open Settings from the gear icon, then try toggles/sliders; clicks do not register.
-export function SettingsSheet() {
-  const [isOpen, setIsOpen] = useState(false)
+type SettingsSheetProps = {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  hideTrigger?: boolean
+}
+
+export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: SettingsSheetProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
   const { requestRecompute } = useRhymeRecomputeScheduler()
+  const isControlled = typeof open === 'boolean'
+  const isOpen = isControlled ? open : internalOpen
+  const setIsOpen = useCallback(
+    (nextOpen: boolean) => {
+      if (!isControlled) {
+        setInternalOpen(nextOpen)
+      }
+      onOpenChange?.(nextOpen)
+    },
+    [isControlled, onOpenChange]
+  )
 
   const headingId = useId()
   const descriptionId = useId()
@@ -459,19 +476,21 @@ export function SettingsSheet() {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-white/[0.025] bg-white/[0.005] text-[10px] font-medium tracking-[0.08em] text-white/34 transition hover:text-white/62 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
-          aria-label="Open settings"
-          aria-haspopup="dialog"
-          aria-expanded={isOpen}
-          aria-controls={isOpen ? panelId : undefined}
-          data-testid="settings-trigger"
-        >
-          •
-        </button>
-      </DialogTrigger>
+      {!hideTrigger ? (
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-white/[0.025] bg-white/[0.005] text-[10px] font-medium tracking-[0.08em] text-white/34 transition hover:text-white/62 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+            aria-label="Open settings"
+            aria-haspopup="dialog"
+            aria-expanded={isOpen}
+            aria-controls={isOpen ? panelId : undefined}
+            data-testid="settings-trigger"
+          >
+            •
+          </button>
+        </DialogTrigger>
+      ) : null}
       {isOpen ? dialogContent : null}
     </Dialog>
   )

@@ -29,6 +29,7 @@ export default function TopBarActions() {
   const mode = useRhymePanel((state) => state.mode)
   const panelVisible = mode !== 'hidden'
   const [menuOpen, setMenuOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   useClickOutside(menuRef, () => setMenuOpen(false))
 
@@ -97,13 +98,21 @@ export default function TopBarActions() {
               <span>Rhyme highlights</span>
               <span className="text-white/45">{showRhymeDecorations ? 'On' : 'Off'}</span>
             </button>
-            <div className="mt-1 border-t border-white/[0.06] px-1 pt-1">
-              <SettingsSheet />
-            </div>
+            <button
+              type="button"
+              className="mt-1 flex w-full items-center justify-between rounded border-t border-white/[0.06] px-2.5 py-2 text-left text-xs text-white/78 hover:bg-white/[0.05]"
+              onClick={() => {
+                setMenuOpen(false)
+                setSettingsOpen(true)
+              }}
+            >
+              <span>Editor settings</span>
+              <span className="text-white/45">↗</span>
+            </button>
           </div>
         ) : null}
       </div>
+      <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} hideTrigger />
     </div>
   )
 }
-
