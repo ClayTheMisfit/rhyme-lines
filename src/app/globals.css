@@ -164,16 +164,15 @@ body.bg-white {
   --rl-line-pad-y: 2px;
   --rl-pad-top: calc(3.45rem + var(--editor-safe-offset));
   --rl-pad-bottom: 2.5rem;
-  --rl-pad-inline: clamp(1.5rem, 4vw, 4rem);
-  --rl-meta-width: clamp(130px, 12vw, 170px);
-  --rl-gutter-width: clamp(2.5rem, 4vw, 3rem);
+  --rl-pad-inline: clamp(1rem, 3vw, 2.5rem);
+  --rl-gutter-width: clamp(2.2rem, 3vw, 2.8rem);
 }
 
 .rl-editor-grid {
   display: grid;
-  grid-template-columns: var(--rl-meta-width) var(--rl-gutter-width) minmax(560px, 820px);
+  grid-template-columns: var(--rl-gutter-width) minmax(760px, 920px);
   justify-content: center;
-  column-gap: clamp(0.8rem, 2vw, 1.5rem);
+  column-gap: clamp(0.5rem, 1.6vw, 1rem);
   padding-inline: var(--rl-pad-inline);
   align-items: flex-start;
 }
@@ -372,20 +371,6 @@ body.bg-white .rl-editor .line {
 
 .gutterMirror-dark {
   color: rgba(255, 255, 255, 0.11);
-}
-
-.editor-meta-col {
-  margin: 0;
-  padding-block: var(--rl-pad-top) var(--rl-pad-bottom);
-  color: rgba(255, 255, 255, 0.15);
-  font-size: 9px;
-  line-height: 1.75;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.editor-meta-col p + p {
-  margin-top: 0.35rem;
 }
 
 /* Custom scrollbar styles */

@@ -13,6 +13,7 @@ import { shallow } from 'zustand/shallow'
 import { useHydrated } from '@/hooks/useHydrated'
 import { useAutosave } from '@/hooks/useAutosave'
 import { useAutosaveStore } from '@/store/autosaveStore'
+import StatusBar from '@/components/StatusBar'
 
 /**
  * Render the editor shell that coordinates the lyric Editor and RhymePanel, manages hydration, focus, keyboard shortcuts, click-outside behavior, and autosave status.
@@ -27,6 +28,7 @@ export default function EditorShell() {
   const editorRef = useRef<EditorHandle | null>(null)
   const hydrated = useHydrated()
   const [appStateReady, setAppStateReady] = useState(false)
+  const [cursor, setCursor] = useState<{ line: number; column: number } | null>(null)
   const ready = hydrated && appStateReady
   const { mode, setMode } = useRhymePanel((state) => ({
     mode: state.mode,
@@ -197,24 +199,17 @@ export default function EditorShell() {
       {!ready ? (
         <div className="flex h-full w-full flex-1 min-h-0" aria-hidden />
       ) : (
-        <div className="flex h-full w-full flex-1 min-h-0">
+        <div className="flex h-full w-full min-h-0 flex-1 flex-col">
           <Editor
             ref={editorRef}
             hydrated={ready}
             text={activeTab?.snapshot.text ?? ''}
-            metadata={
-              activeTab
-                ? {
-                    documentTitle: activeTab.title || 'Untitled',
-                    draftId: activeTab.id.slice(0, 8).toUpperCase(),
-                    stage: activeTab.isDirty ? 'Drafting' : 'Saved',
-                  }
-                : undefined
-            }
+            onCursorChange={setCursor}
             onTextChange={handleTextChange}
             onDirtyChange={handleDirtyChange}
           />
           <RhymePanel ref={floatingPanelRef} editorRef={editorRef} />
+          <StatusBar text={activeTab?.snapshot.text ?? ''} cursor={cursor} />
         </div>
       )}
       <span className="sr-only" aria-live="polite">
