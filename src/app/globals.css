@@ -164,16 +164,16 @@ body.bg-white {
   --rl-line-pad-y: 2px;
   --rl-pad-top: calc(3.45rem + var(--editor-safe-offset));
   --rl-pad-bottom: 2.5rem;
-  --rl-pad-inline: clamp(1rem, 3vw, 2.5rem);
+  --rl-pad-inline: clamp(0.75rem, 2.2vw, 1.6rem);
   --rl-gutter-width: clamp(2.2rem, 3vw, 2.8rem);
 }
 
 .rl-editor-grid {
   display: grid;
   grid-template-columns: var(--rl-gutter-width) minmax(760px, 920px);
-  justify-content: center;
+  justify-content: start;
   column-gap: clamp(0.5rem, 1.6vw, 1rem);
-  padding-inline: var(--rl-pad-inline);
+  padding-inline: var(--rl-pad-inline) clamp(1rem, 3vw, 2.4rem);
   align-items: flex-start;
 }
 
