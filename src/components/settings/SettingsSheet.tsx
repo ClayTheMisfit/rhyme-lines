@@ -1,20 +1,16 @@
 'use client'
 
-import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { shallow } from 'zustand/shallow'
 
-import {
-  applySettingsSnapshot,
-  getCurrentSettingsSnapshot,
-  useSettingsStore,
-} from '@/store/settingsStore'
+import { useSettingsStore } from '@/store/settingsStore'
 import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTrigger } from '@/components/ui/dialog'
 import { useSettingsClickDebug } from '@/lib/dev/useSettingsClickDebug'
 import { ToggleRow } from '@/components/settings/ToggleRow'
 import { useRhymeRecomputeScheduler } from '@/hooks/useRhymeRecomputeScheduler'
 import { RHYME_HIGHLIGHT_ORDER } from '@/lib/persist/schema'
 import { useRhymeHighlightSettingsStore } from '@/store/rhymeHighlightSettingsStore'
-import { RHYME_HIGHLIGHT_DEFAULTS, type RhymeHighlightSettings } from '@/lib/settings/rhymeHighlightSettings'
+import { RHYME_HIGHLIGHT_DEFAULTS, saveRhymeHighlightSettings } from '@/lib/settings/rhymeHighlightSettings'
 
 const BADGE_SIZE_LABEL: Record<'xs' | 'sm' | 'md', string> = {
   xs: 'Compact',
@@ -120,30 +116,35 @@ const RhymeHighlightsSection = memo(function RhymeHighlightsSection() {
   )
 })
 
-
-const getCurrentRhymeHighlightSnapshot = (): RhymeHighlightSettings => {
-  const state = useRhymeHighlightSettingsStore.getState()
-  return {
-    showInternalRhymes: state.showInternalRhymes,
-    highlightStopwords: state.highlightStopwords,
-    highlightMode: state.highlightMode,
-    hideColorfulWords: state.hideColorfulWords,
-  }
-}
-
-const applyRhymeHighlightSnapshot = (snapshot: RhymeHighlightSettings) => {
+const applyRhymeHighlightSnapshot = (snapshot: typeof RHYME_HIGHLIGHT_DEFAULTS) => {
   useRhymeHighlightSettingsStore.setState((state) => ({
     ...state,
     ...snapshot,
   }))
+  saveRhymeHighlightSettings(snapshot)
 }
 
 // Repro (pre-fix): open Settings from the gear icon, then try toggles/sliders; clicks do not register.
-export function SettingsSheet() {
-  const [isOpen, setIsOpen] = useState(false)
-  const snapshotRef = useRef(getCurrentSettingsSnapshot())
-  const rhymeSnapshotRef = useRef(getCurrentRhymeHighlightSnapshot())
+type SettingsSheetProps = {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  hideTrigger?: boolean
+}
+
+export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: SettingsSheetProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
   const { requestRecompute } = useRhymeRecomputeScheduler()
+  const isControlled = typeof open === 'boolean'
+  const isOpen = isControlled ? open : internalOpen
+  const setIsOpen = useCallback(
+    (nextOpen: boolean) => {
+      if (!isControlled) {
+        setInternalOpen(nextOpen)
+      }
+      onOpenChange?.(nextOpen)
+    },
+    [isControlled, onOpenChange]
+  )
 
   const headingId = useId()
   const descriptionId = useId()
@@ -189,43 +190,20 @@ export function SettingsSheet() {
     shallow
   )
 
-  const openSheet = useCallback(() => {
-    snapshotRef.current = getCurrentSettingsSnapshot()
-    rhymeSnapshotRef.current = getCurrentRhymeHighlightSnapshot()
-    setIsOpen(true)
-  }, [])
-
-  const closeSheet = useCallback(() => {
+  const handleCancel = useCallback(() => {
     setIsOpen(false)
   }, [])
 
-  const handleCancel = useCallback(() => {
-    if (snapshotRef.current) {
-      applySettingsSnapshot(snapshotRef.current)
-    }
-    if (rhymeSnapshotRef.current) {
-      applyRhymeHighlightSnapshot(rhymeSnapshotRef.current)
-      requestRecompute()
-    }
-    closeSheet()
-  }, [closeSheet, requestRecompute])
-
   const handleSave = useCallback(() => {
-    snapshotRef.current = getCurrentSettingsSnapshot()
-    rhymeSnapshotRef.current = getCurrentRhymeHighlightSnapshot()
     requestRecompute()
-    closeSheet()
-  }, [closeSheet, requestRecompute])
+    setIsOpen(false)
+  }, [requestRecompute])
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
-      if (nextOpen) {
-        openSheet()
-      } else {
-        handleCancel()
-      }
+      setIsOpen(nextOpen)
     },
-    [handleCancel, openSheet]
+    []
   )
 
   useEffect(() => {
@@ -498,19 +476,21 @@ export function SettingsSheet() {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-white/[0.025] bg-white/[0.005] text-[10px] font-medium tracking-[0.08em] text-white/34 transition hover:text-white/62 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
-          aria-label="Open settings"
-          aria-haspopup="dialog"
-          aria-expanded={isOpen}
-          aria-controls={isOpen ? panelId : undefined}
-          data-testid="settings-trigger"
-        >
-          •
-        </button>
-      </DialogTrigger>
+      {!hideTrigger ? (
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-white/[0.025] bg-white/[0.005] text-[10px] font-medium tracking-[0.08em] text-white/34 transition hover:text-white/62 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+            aria-label="Open settings"
+            aria-haspopup="dialog"
+            aria-expanded={isOpen}
+            aria-controls={isOpen ? panelId : undefined}
+            data-testid="settings-trigger"
+          >
+            •
+          </button>
+        </DialogTrigger>
+      ) : null}
       {isOpen ? dialogContent : null}
     </Dialog>
   )

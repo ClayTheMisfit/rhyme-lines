@@ -41,12 +41,8 @@ type EditorProps = {
   text?: string
   onTextChange?: (text: string) => void
   onDirtyChange?: (dirty: boolean) => void
+  onCursorChange?: (cursor: { line: number; column: number } | null) => void
   hydrated?: boolean
-  metadata?: {
-    documentTitle?: string
-    draftId?: string
-    stage?: string
-  }
 }
 
 export type EditorHandle = {
@@ -55,7 +51,7 @@ export type EditorHandle = {
 }
 
 const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { text = '', onTextChange = () => {}, onDirtyChange, hydrated = false, metadata },
+  { text = '', onTextChange = () => {}, onDirtyChange, onCursorChange, hydrated = false },
   ref
 ) {
   const editorRef = useRef<HTMLDivElement>(null)
@@ -91,16 +87,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     debugTextColLeft: 0,
     debugLineLeft: 0,
   })
-  const metadataEntries = useMemo(
-    () =>
-      [
-        metadata?.documentTitle ? `Document: ${metadata.documentTitle}` : null,
-        metadata?.stage ? `Stage: ${metadata.stage}` : null,
-        metadata?.draftId ? `Draft: ${metadata.draftId}` : null,
-      ].filter((value): value is string => Boolean(value)),
-    [metadata?.documentTitle, metadata?.draftId, metadata?.stage]
-  )
-
   const highlightDebounceRef = useRef<number | null>(null)
   const lastHighlightRef = useRef(lineHighlight)
   const debugLogRef = useRef(0)
@@ -719,6 +705,29 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return resolveActiveRhymeFamilyId(rhymeDecorations, { lineId, caretOffset })
   }, [rhymeDecorations])
 
+  const resolveCursorFromSelection = useCallback((): { line: number; column: number } | null => {
+    if (typeof window === 'undefined') return null
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return null
+    const range = selection.getRangeAt(0)
+    const focusNode = range.endContainer
+    const lineElement =
+      focusNode instanceof Element
+        ? focusNode.closest('.line')
+        : focusNode.parentElement?.closest('.line')
+    if (!lineElement || !editorRef.current) return null
+
+    const lines = Array.from(editorRef.current.querySelectorAll<HTMLElement>('.line'))
+      .filter((line) => line.dataset.placeholderLine !== 'true')
+    const lineIndex = lines.findIndex((line) => line === lineElement)
+    if (lineIndex === -1) return null
+
+    const caretRange = range.cloneRange()
+    caretRange.setStart(lineElement, 0)
+    const caretOffset = caretRange.toString().length
+    return { line: lineIndex + 1, column: caretOffset + 1 }
+  }, [])
+
   const handleSelectionChange = useCallback(() => {
     scheduleCurrentLineHighlight()
     if (analysisLinesRef.current.length) {
@@ -727,7 +736,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (showRhymeDecorations) {
       setActiveRhymeFamilyId(resolveActiveFamilyFromSelection())
     }
-  }, [resolveActiveFamilyFromSelection, scheduleAnalysis, scheduleCurrentLineHighlight, showRhymeDecorations])
+    onCursorChange?.(resolveCursorFromSelection())
+  }, [onCursorChange, resolveActiveFamilyFromSelection, resolveCursorFromSelection, scheduleAnalysis, scheduleCurrentLineHighlight, showRhymeDecorations])
 
   useEditorSelection({
     editorRef,
@@ -1019,17 +1029,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
         }}
       >
-        <div className="editor-root relative mx-auto w-full max-w-[1560px]">
+        <div className="editor-root relative mr-auto w-full max-w-[1240px]">
           <div className="rl-editor-grid">
-            {metadataEntries.length > 0 ? (
-              <aside className="editor-meta-col" aria-label="Document metadata">
-                {metadataEntries.map((entry) => (
-                  <p key={entry}>{entry}</p>
-                ))}
-              </aside>
-            ) : (
-              <div className="editor-meta-col" aria-hidden="true" />
-            )}
             <LineTotalsOverlay
               lineTotals={lineTotals}
               lines={lines}

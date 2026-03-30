@@ -128,6 +128,19 @@ const estimateSyllables = (word: string) => {
   return Math.max(1, vowelGroups?.length ?? 0)
 }
 
+const extractSpellingEnding = (word: string): string => {
+  if (/[^aeiou]y$/i.test(word)) {
+    if (!/[aeiou]/i.test(word.slice(0, -1))) return 'AY'
+    const withContext = word.match(/[aeiou][^aeiou]*y$/i)
+    if (withContext?.[0]) return withContext[0]
+    return word.slice(-2) || word
+  }
+
+  const match = word.match(/[aeiou]+[^aeiou]*$/i)
+  if (match?.[0]) return match[0]
+  return word.slice(-3) || word
+}
+
 const computeSpellingRhymeKey = (normalized: string) => {
   const lowered = normalized.toLowerCase()
   const silentENormalized = normalized.replace(/e$/, '')
@@ -148,8 +161,8 @@ const computeSpellingRhymeKey = (normalized: string) => {
     if (pattern.test(lowered) || pattern.test(core)) return family
   }
 
-  const tail = core.slice(-4)
-  return tail || core || normalized
+  const ending = extractSpellingEnding(core.toLowerCase())
+  return ending || core || normalized
 }
 
 /**
