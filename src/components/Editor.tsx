@@ -1018,7 +1018,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   )
 
   return (
-    <div className="flex h-full w-full bg-[#0c0c0d]">
+    <div className="flex h-full w-full">
       {/* Editor + overlay */}
       <div
         ref={containerRef}
