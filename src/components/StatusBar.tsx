@@ -10,7 +10,19 @@ type StatusBarProps = {
 }
 
 const countWords = (text: string) => (text.trim().match(/\S+/g) ?? []).length
-const countLines = (text: string) => (text.length ? text.split('\n').length : 1)
+const countLines = (text: string) => {
+  const normalized = text.replace(/\r\n?/g, '\n')
+  if (!normalized.trim()) return 0
+
+  const lines = normalized.split('\n')
+  let start = 0
+  let end = lines.length - 1
+
+  while (start <= end && lines[start].trim() === '') start += 1
+  while (end >= start && lines[end].trim() === '') end -= 1
+
+  return end >= start ? end - start + 1 : 0
+}
 
 export default function StatusBar({ text, cursor }: StatusBarProps) {
   const { status } = useAutosaveStore((state) => ({ status: state.status }), shallow)
@@ -32,4 +44,3 @@ export default function StatusBar({ text, cursor }: StatusBarProps) {
     </footer>
   )
 }
-
