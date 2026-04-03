@@ -51,8 +51,7 @@ export default function DocumentHeader() {
   }
 
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <span className="hidden text-[10px] uppercase tracking-[0.18em] text-white/36 sm:inline">Document</span>
+    <div className="flex min-w-0 items-center gap-1.5">
       {isEditing ? (
         <input
           ref={inputRef}
@@ -76,7 +75,7 @@ export default function DocumentHeader() {
         <>
           <button
             type="button"
-            className="max-w-[min(46vw,560px)] truncate text-left text-sm font-medium tracking-tight text-white/88 hover:text-white"
+            className="max-w-[min(46vw,560px)] truncate text-left text-sm font-medium tracking-tight text-white/92 hover:text-white"
             onDoubleClick={() => setIsEditing(true)}
             onClick={() => setIsEditing(true)}
             title="Rename document"
@@ -86,7 +85,7 @@ export default function DocumentHeader() {
           </button>
           <button
             type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-white/[0.06] bg-white/[0.03] text-[11px] text-white/60 hover:text-white/90"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-white/[0.06] bg-white/[0.03] text-[10px] text-white/60 transition-colors hover:text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
             onClick={() => setIsEditing(true)}
             title="Rename (Enter to save, Esc to cancel)"
             aria-label="Edit title"
@@ -98,4 +97,3 @@ export default function DocumentHeader() {
     </div>
   )
 }
-

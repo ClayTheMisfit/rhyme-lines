@@ -80,7 +80,7 @@ export default function TopBar() {
     <header
       ref={headerRef}
       data-testid="editor-header"
-      className="fixed left-0 right-0 top-0 flex min-h-12 items-center gap-3 border-b border-white/[0.06] bg-[#0d0d0f] px-4 py-2"
+      className="fixed left-0 right-0 top-0 flex min-h-12 items-center gap-2.5 border-b border-white/[0.06] bg-[#0d0d0f] px-4 py-2"
       style={{ zIndex: layers.topBar }}
     >
       <Link
