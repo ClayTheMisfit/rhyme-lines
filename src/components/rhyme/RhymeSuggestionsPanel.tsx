@@ -393,9 +393,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
     const panelContent = (
       <div className="flex h-full min-h-0 flex-col">
-        <div className="px-3 pt-2.5">
-          <div className="space-y-2.5 rounded-[var(--rl-radius-lg)] border border-[color:var(--rl-border)] bg-slate-50/75 p-3 text-[12px] text-slate-600 shadow-sm dark:bg-slate-800/55 dark:text-slate-300">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+        <div className="px-2.5 pt-2.5">
+          <div className="space-y-2.5 rounded-md border border-slate-200/70 bg-slate-100/65 p-2.5 text-[12px] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/70">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-white/45">
               Rhymes
             </div>
 
@@ -410,7 +410,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Type a word…"
-                className="w-full rounded-md border border-slate-200/70 bg-white/80 px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white motion-reduce:transition-none dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus-visible:ring-offset-slate-900"
+                className="w-full rounded-sm border border-slate-200/80 bg-white px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 motion-reduce:transition-none dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/90 dark:placeholder:text-white/35 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113]"
               />
             </div>
 
@@ -441,10 +441,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                       const hasAny = Object.values(next).some(Boolean)
                       setRhymeFilters(hasAny ? next : { perfect: true, near: true })
                     }}
-                    className={`rounded-full border px-3 py-1 text-[11px] font-medium transition duration-100 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] dark:focus-visible:ring-offset-slate-900 ${
+                    className={`rounded-full border px-3 py-1 text-[11px] font-medium transition duration-100 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 active:scale-[0.98] dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
                       isActive
                         ? activeClasses
-                        : 'border-slate-200/70 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:text-slate-100'
+                        : 'border-slate-200/80 bg-white text-slate-500 hover:text-slate-700 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
                     }`}
                     aria-pressed={isActive}
                   >
@@ -458,7 +458,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               <button
                 type="button"
                 onClick={() => setAdvancedOpen((prev) => !prev)}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-slate-400 dark:hover:text-slate-200 dark:focus-visible:ring-offset-slate-900"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:text-white/55 dark:hover:text-white/82 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113]"
                 aria-expanded={advancedOpen}
                 aria-controls="rhyme-advanced"
               >
@@ -473,11 +473,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
 
             {advancedOpen && (
-              <div id="rhyme-advanced" className="space-y-3 rounded-md border border-slate-200/60 bg-white/70 p-2 text-[11px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/50 dark:text-slate-400">
+              <div id="rhyme-advanced" className="space-y-3 rounded-sm border border-slate-200/70 bg-white/75 p-2 text-[11px] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/55">
                 <label className="flex cursor-pointer items-start gap-2">
                   <input
                     type="checkbox"
-                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-400"
+                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 dark:border-white/[0.2] dark:bg-[#0d0d0f] dark:text-white/85 dark:focus-visible:ring-white/25"
                     checked={multiSyllablePerfect}
                     onChange={(event) => setMultiSyllablePerfect(event.target.checked)}
                   />
@@ -491,7 +491,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 <label className="flex cursor-pointer items-start gap-2">
                   <input
                     type="checkbox"
-                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-400"
+                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 dark:border-white/[0.2] dark:bg-[#0d0d0f] dark:text-white/85 dark:focus-visible:ring-white/25"
                     checked={commonWordsOnly}
                     onChange={(event) => setCommonWordsOnly(event.target.checked)}
                   />
@@ -508,10 +508,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     <button
                       type="button"
                       onClick={() => setActiveTab('caret')}
-                      className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                      className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
                         activeTab === 'caret'
-                          ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-slate-200 dark:bg-slate-200 dark:text-slate-900'
-                          : 'border-slate-200/70 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:text-slate-100'
+                          ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-white/[0.2] dark:bg-white/[0.14] dark:text-white'
+                          : 'border-slate-200/80 bg-white text-slate-500 hover:text-slate-700 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
                       }`}
                     >
                       Caret ({caretSuggestions.length})
@@ -519,10 +519,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     <button
                       type="button"
                       onClick={() => setActiveTab('lineLast')}
-                      className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                      className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
                         activeTab === 'lineLast'
-                          ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-slate-200 dark:bg-slate-200 dark:text-slate-900'
-                          : 'border-slate-200/70 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:text-slate-100'
+                          ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-white/[0.2] dark:bg-white/[0.14] dark:text-white'
+                          : 'border-slate-200/80 bg-white text-slate-500 hover:text-slate-700 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
                       }`}
                     >
                       Line End ({lineSuggestions.length})
@@ -534,7 +534,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           </div>
         </div>
 
-        <div className="mt-3 flex-1 min-h-0 overflow-y-auto px-2 pb-3 pt-0 thin-scrollbar">
+        <div className="mt-2.5 min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-0 thin-scrollbar">
           {!isInitialLoading && (
             <div className="px-3 pb-2 text-[12px] text-slate-500 dark:text-slate-400">
               {activeTokenLabel}: {activeToken ?? '—'}
@@ -608,7 +608,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               {Array.from({ length: 5 }).map((_, index) => (
                 <div
                   key={`skeleton-${index}`}
-                  className="flex items-center justify-between rounded-lg border border-slate-200/60 bg-white/60 px-3 py-2 text-[13px] shadow-sm animate-pulse motion-reduce:animate-none dark:border-slate-700/60 dark:bg-slate-900/40"
+                  className="flex animate-pulse items-center justify-between rounded-md border border-slate-200/70 bg-white/70 px-3 py-2 text-[13px] motion-reduce:animate-none dark:border-white/[0.08] dark:bg-white/[0.03]"
                 >
                   <div className="h-4 w-32 rounded bg-slate-200/80 dark:bg-slate-700/60" />
                   <div className="h-4 w-12 rounded bg-slate-200/80 dark:bg-slate-700/60" />
@@ -661,13 +661,13 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                   aria-selected={index === selectedIndex}
                   data-index={index}
                   id={`rhyme-suggestion-${index}`}
-                  className={`relative w-full rounded-lg border border-transparent px-3 py-2 text-left text-[13px] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                  className={`relative w-full rounded-md border border-transparent px-3 py-2 text-left text-[13px] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#101012] ${
                     index === selectedIndex
-                      ? 'border-sky-500/40 bg-sky-500/10 shadow-sm dark:border-sky-400/40 dark:bg-sky-400/10'
-                      : 'hover:bg-slate-100/70 active:bg-slate-200/60 dark:hover:bg-white/5 dark:active:bg-white/10'
-                  } ${index === selectedIndex ? "before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-sky-500 before:content-['']" : ''}`}
+                      ? 'border-slate-300/80 bg-slate-200/55 shadow-sm dark:border-white/[0.18] dark:bg-white/[0.1]'
+                      : 'hover:bg-slate-100/80 active:bg-slate-200/70 dark:hover:bg-white/[0.05] dark:active:bg-white/[0.08]'
+                  } ${index === selectedIndex ? "before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-slate-500/80 before:content-[''] dark:before:bg-white/55" : ''}`}
                 >
-                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                  <span className="font-medium text-slate-900 dark:text-white/88">
                     {suggestion}
                   </span>
                 </button>

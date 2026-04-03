@@ -31,7 +31,7 @@ type Props = {
 }
 
 const headerButtonClass =
-  "inline-flex h-8 w-8 items-center justify-center rounded-md text-sm leading-none text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white motion-reduce:transition-none dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-slate-100 dark:focus-visible:ring-offset-slate-900"
+  "inline-flex h-8 w-8 items-center justify-center rounded-sm border border-transparent text-sm leading-none text-slate-500 transition-colors hover:border-slate-300/60 hover:bg-slate-100/70 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white motion-reduce:transition-none dark:text-white/55 dark:hover:border-white/[0.14] dark:hover:bg-white/[0.05] dark:hover:text-white/90 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#101012]"
 
 export function DockablePanel({
   title,
@@ -51,9 +51,9 @@ export function DockablePanel({
   panelProps,
 }: Props) {
   const header = (
-    <div className="flex h-11 items-center justify-between border-b border-slate-200/60 bg-white/70 px-2 backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/70">
+    <div className="flex h-11 items-center justify-between border-b border-slate-200/70 bg-slate-100/70 px-2.5 backdrop-blur-sm dark:border-white/[0.08] dark:bg-[#0f0f11]/90">
       <div
-        className="rhyme-panel-drag-handle px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500/90 dark:text-slate-300/80 cursor-move select-none"
+        className="rhyme-panel-drag-handle cursor-move select-none px-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500/90 dark:text-white/42"
         aria-label="Move rhyme panel"
       >
         {title}
@@ -79,7 +79,7 @@ export function DockablePanel({
   )
 
   const basePanelClasses =
-    "border border-slate-200/60 rounded-xl shadow-xl bg-white text-slate-900 flex flex-col dark:border-slate-700/60 dark:bg-slate-900 dark:text-slate-100" +
+    "flex flex-col rounded-lg border border-slate-200/70 bg-white/95 text-slate-900 shadow-lg shadow-slate-900/5 dark:border-white/[0.08] dark:bg-[#101012] dark:text-white" +
     (className ? ` ${className}` : "")
   const panelClasses = panelProps?.className
     ? `${basePanelClasses} ${panelProps.className}`
