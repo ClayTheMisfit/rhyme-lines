@@ -16,6 +16,7 @@ import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
 import { useOverlayMeasurement, useLineVirtualization, useEditorInput, useEditorClipboard, useEditorSelection, useDecorationDiff } from '@/editor'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
 import { buildRhymeDecorations, DEFAULT_UNDERLINE_TARGETS, resolveActiveRhymeFamilyId } from '@/lib/rhyme/rhymeDecorations'
+import { resolveInternalRhymesEnabled } from '@/lib/rhyme/highlightOptions'
 import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
 import { RhymeDecorationOverlay } from '@/components/editor/RhymeDecorationOverlay'
 
@@ -176,10 +177,10 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const rhymeDecorations = useMemo(
     () =>
       buildRhymeDecorations(lineInputs, DEFAULT_UNDERLINE_TARGETS, {
-        showInternalRhymes,
+        showInternalRhymes: resolveInternalRhymesEnabled(showInternalRhymes, highlightMode),
         highlightStopwords,
       }),
-    [highlightStopwords, lineInputs, rhymeRecomputeSignal, showInternalRhymes]
+    [highlightMode, highlightStopwords, lineInputs, rhymeRecomputeSignal, showInternalRhymes]
   )
 
   const decorationPatch = useDecorationDiff(rhymeDecorations.tokensByLine)
