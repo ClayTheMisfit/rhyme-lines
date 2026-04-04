@@ -86,6 +86,7 @@ describe('buildRhymeDecorations', () => {
   it.each([
     'test best rest',
     'mat cat rat',
+    'time fine rhyme',
     'glow snow show',
     'stone alone phone',
     'light night sight',
@@ -122,6 +123,16 @@ describe('buildRhymeDecorations', () => {
 
   it('groups punctuation/casing variants for common fallback families', () => {
     const lines = [{ id: 'line-0', text: 'Glow, SNOW! show?' }]
+    const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: false })
+    const tokens = result.tokensByLine.get('line-0') ?? []
+
+    expect(tokens).toHaveLength(3)
+    expect(tokens.every((token) => token.familyId !== undefined)).toBe(true)
+    expect(new Set(tokens.map((token) => token.familyId)).size).toBe(1)
+  })
+
+  it('groups time/fine/rhyme with punctuation and casing variants', () => {
+    const lines = [{ id: 'line-0', text: 'Time fine, rhyme!' }]
     const result = buildRhymeDecorations(lines, [], { showInternalRhymes: true, highlightStopwords: false })
     const tokens = result.tokensByLine.get('line-0') ?? []
 

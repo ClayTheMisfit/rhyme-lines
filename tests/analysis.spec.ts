@@ -78,6 +78,22 @@ describe('analysis pipeline', () => {
     ])
   })
 
+  it('groups compact numeric expressions used as spoken compounds', () => {
+    expect(tokenizeLine('24/7 on my mind')).toEqual([
+      { start: 0, end: 4, text: '24/7', kind: 'compactNumeric' },
+      { start: 5, end: 7, text: 'on', kind: 'word' },
+      { start: 8, end: 10, text: 'my', kind: 'word' },
+      { start: 11, end: 15, text: 'mind', kind: 'word' },
+    ])
+    expect(tokenizeLine('v24/7 stays split')).toEqual([
+      { start: 0, end: 1, text: 'v', kind: 'word' },
+      { start: 1, end: 3, text: '24', kind: 'word' },
+      { start: 4, end: 5, text: '7', kind: 'word' },
+      { start: 6, end: 11, text: 'stays', kind: 'word' },
+      { start: 12, end: 17, text: 'split', kind: 'word' },
+    ])
+  })
+
   it('treats digit runs as word-like tokens', () => {
     const tokens = tokenizeLine('one 1 2')
     expect(tokens).toEqual([

@@ -9,7 +9,6 @@ import { shallow } from 'zustand/shallow'
 import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
 import { SyllableOverlay } from '@/components/editor/SyllableOverlay'
 import { useBadgeSettings } from '@/store/settings'
-import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
 import { useAnalysisWorker } from '@/hooks/useAnalysisWorker'
 import type { LineInput } from '@/lib/analysis/compute'
 import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
@@ -70,8 +69,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const skipHydrateRef = useRef<string | null>(null)
 
   const [lineInputs, setLineInputs] = useState<LineInput[]>([])
-  const [lineTotals, setLineTotals] = useState<number[]>([])
-  const [lines, setLines] = useState<string[]>([])
   const [showOverlays, setShowOverlays] = useState(true)
   const [activeLineId, setActiveLineId] = useState<string | null>(null)
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
@@ -595,6 +592,21 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return { lines, elements }
   }, [])
 
+  const applyLineTotalsToDom = useCallback(
+    (totals: Array<number | undefined>) => {
+      lineElementsRef.current.forEach((lineElement, index) => {
+        const lineText = analysisLinesRef.current[index]?.text ?? ''
+        if (!showLineTotals || lineText.trim().length === 0) {
+          delete lineElement.dataset.lineTotalDisplay
+          return
+        }
+        const total = totals[index] ?? 0
+        lineElement.dataset.lineTotalDisplay = total === 0 ? '·' : total.toString()
+      })
+    },
+    [showLineTotals]
+  )
+
   const schedulePostLayoutMeasurement = useCallback(() => {
     if (typeof window === 'undefined') return
     window.requestAnimationFrame(() => {
@@ -617,7 +629,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     scheduleCurrentLineHighlight()
     analysisLinesRef.current = collectedLines
     setLineInputs(collectedLines)
-    setLines(collectedLines.map((line) => line.text))
+    applyLineTotalsToDom([])
     setIsEditorEmpty(collectedLines.every((line) => line.text.trim().length === 0))
     const analysisMode = source === 'paste' || source === 'drop' ? 'caret' : 'typing'
     scheduleAnalysis(collectedLines, analysisMode)
@@ -632,6 +644,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       onDirtyChange?.(true)
     }
   }, [
+    applyLineTotalsToDom,
     collectLineInputs,
     ensureLineStructure,
     logDebugEvent,
@@ -762,22 +775,29 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   })
 
   useEffect(() => {
-    if (!showLineTotals) {
-      setLineTotals([])
-      return
-    }
+    if (!showLineTotals) return
     if (analysisLinesRef.current.length) {
       scheduleAnalysis(analysisLinesRef.current, 'caret')
     }
   }, [scheduleAnalysis, showLineTotals])
 
   useEffect(() => {
-    if (!showLineTotals) return
+    if (!showLineTotals) {
+      applyLineTotalsToDom([])
+      return
+    }
     if (!analysis || analysis.docId !== ANALYSIS_DOC_ID) return
     if (!analysisLinesRef.current.length) return
-    const totals = analysisLinesRef.current.map((line) => analysis.lineTotals[line.id] ?? 0)
-    setLineTotals(totals)
-  }, [analysis, showLineTotals])
+    const totals = analysisLinesRef.current.map((line) => analysis.lineTotals[line.id])
+    const hasMissingNonEmptyTotal = totals.some(
+      (total, index) => total === undefined && analysisLinesRef.current[index]?.text.trim().length
+    )
+    if (hasMissingNonEmptyTotal) {
+      scheduleAnalysis(analysisLinesRef.current, 'caret')
+      return
+    }
+    applyLineTotalsToDom(totals)
+  }, [analysis, applyLineTotalsToDom, scheduleAnalysis, showLineTotals])
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production' && metrics) {
@@ -821,7 +841,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const { lines: collectedLines } = collectLineInputs()
     analysisLinesRef.current = collectedLines
     setLineInputs(collectedLines)
-    setLines(collectedLines.map((line) => line.text))
+    applyLineTotalsToDom([])
     setIsEditorEmpty(collectedLines.every((line) => line.text.trim().length === 0))
     setLineVersion((v) => v + 1)
     if (collectedLines.length) {
@@ -1032,12 +1052,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       >
         <div className="editor-root relative mr-auto w-full max-w-[1240px]">
           <div className="rl-editor-grid">
-            <LineTotalsOverlay
-              lineTotals={lineTotals}
-              lines={lines}
-              showLineTotals={showLineTotals}
-              theme={resolvedTheme}
-            />
+            <div aria-hidden className="gutterSpacer" />
 
             <div ref={textColRef} className="editor-surface relative min-h-[70vh] max-w-[820px]">
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
