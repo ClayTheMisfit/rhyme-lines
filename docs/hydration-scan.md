@@ -6,5 +6,4 @@
 - lib/editor/getActiveWord.ts:14 — `Date.now()` throttling inside caret helpers; safe because helpers run in client-only effects but worth monitoring for deterministic SSR output.
 - lib/editor/getActiveWord.ts:21 & components/Editor.tsx:94 — `window.getSelection()` usages; all are wrapped in client components/effects, but they must stay outside server-rendered modules.
 - src/store/settings.ts:14-40 — `window.localStorage` reads during store initialization guarded with `typeof window` checks; safe but they must remain client-only.
-- components/editor/overlays/LineTotalsOverlay.tsx:26 — Reads `window.devicePixelRatio` with an SSR guard; current fallback keeps hydration stable.
 - lib/rhyme/cache.ts:21 — `Date.now()` used to expire cached rhyme responses; deterministic per request but note that server rendering should avoid sharing cache across users.
