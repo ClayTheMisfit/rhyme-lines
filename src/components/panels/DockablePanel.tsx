@@ -79,7 +79,7 @@ export function DockablePanel({
   )
 
   const basePanelClasses =
-    "flex flex-col rounded-lg border border-slate-200/70 bg-white/95 text-slate-900 shadow-lg shadow-slate-900/5 dark:border-white/[0.08] dark:bg-[#101012] dark:text-white" +
+    "flex flex-col rounded-lg border border-slate-300/70 bg-slate-50/95 text-slate-900 shadow-lg shadow-slate-900/8 dark:border-white/[0.08] dark:bg-[#101012] dark:text-white" +
     (className ? ` ${className}` : "")
   const panelClasses = panelProps?.className
     ? `${basePanelClasses} ${panelProps.className}`

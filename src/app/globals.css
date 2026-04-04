@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --color-border: 214.3 31.8% 91.4%;
-  --color-input: 214.3 31.8% 91.4%;
-  --color-ring: 215 20.2% 65.1%;
-  --color-background: 0 0% 100%;
-  --color-foreground: 222.2 84% 4.9%;
+  --color-border: 214 18% 82%;
+  --color-input: 214 18% 82%;
+  --color-ring: 214 23% 58%;
+  --color-background: 215 28% 95.5%;
+  --color-foreground: 222 32% 15%;
   --color-primary: 222.2 47.4% 11.2%;
   --color-primary-foreground: 210 40% 98%;
-  --color-secondary: 210 40% 96.1%;
-  --color-secondary-foreground: 222.2 47.4% 11.2%;
-  --color-muted: 210 40% 96.1%;
-  --color-muted-foreground: 215.4 16.3% 46.9%;
-  --color-accent: 210 40% 96.1%;
+  --color-secondary: 214 24% 91%;
+  --color-secondary-foreground: 222 32% 18%;
+  --color-muted: 214 26% 92%;
+  --color-muted-foreground: 215 18% 40%;
+  --color-accent: 214 22% 90%;
   --color-accent-foreground: 222.2 47.4% 11.2%;
   --color-destructive: 0 84.2% 60.2%;
   --color-destructive-foreground: 210 40% 98%;
-  --color-card: 0 0% 100%;
-  --color-card-foreground: 222.2 84% 4.9%;
+  --color-card: 215 32% 97.5%;
+  --color-card-foreground: 222 32% 15%;
   --radius: 0.75rem;
 }
 
@@ -67,12 +67,12 @@
   --rl-muted: rgba(255, 255, 255, 0.62);
   --rl-border: rgba(255, 255, 255, 0.13);
   --rl-accent: rgba(56, 189, 248, 0.85);
-  --rl-shell-bg: #f3f4f6;
-  --rl-shell-chrome: #f8fafc;
-  --rl-shell-elevated: #ffffff;
-  --rl-shell-border: rgba(15, 23, 42, 0.12);
+  --rl-shell-bg: #edf1f6;
+  --rl-shell-chrome: #e6ebf2;
+  --rl-shell-elevated: #f7f9fc;
+  --rl-shell-border: rgba(51, 65, 85, 0.22);
   --rl-shell-text: rgba(15, 23, 42, 0.9);
-  --rl-shell-muted: rgba(15, 23, 42, 0.58);
+  --rl-shell-muted: rgba(30, 41, 59, 0.68);
 }
 
 /* Editor-specific variables */
@@ -164,13 +164,13 @@ body.bg-black {
 }
 
 body.bg-white {
-  background-color: #ffffff;  /* Clean white for light theme */
-  --rl-shell-bg: #f3f4f6;
-  --rl-shell-chrome: #f8fafc;
-  --rl-shell-elevated: #ffffff;
-  --rl-shell-border: rgba(15, 23, 42, 0.12);
+  background-color: #edf1f6;
+  --rl-shell-bg: #edf1f6;
+  --rl-shell-chrome: #e6ebf2;
+  --rl-shell-elevated: #f7f9fc;
+  --rl-shell-border: rgba(51, 65, 85, 0.22);
   --rl-shell-text: rgba(15, 23, 42, 0.9);
-  --rl-shell-muted: rgba(15, 23, 42, 0.58);
+  --rl-shell-muted: rgba(30, 41, 59, 0.68);
 }
 
 /* Editor line break preservation */
@@ -315,8 +315,8 @@ body.bg-white .rl-current-line-highlight {
 
 /* Light theme editor styling */
 body.bg-white .editor-surface {
-  background-color: #ffffff;  /* Clean white background */
-  color: #1a1a1a;            /* Dark text for light theme */
+  background-color: #f8fafd;
+  color: #1f2937;
   transition: background-color 150ms ease;
 }
 
