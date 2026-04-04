@@ -183,6 +183,8 @@ body.bg-white {
   --rl-font-size: var(--editor-font-size, 23px);
   --rl-line-height: max(var(--editor-line-height, 2.02), 1.72);
   --rl-line-pad-y: 2px;
+  --rl-line-pad-y-effective: calc(var(--rl-line-pad-y) + 1px);
+  --rl-line-row-height: calc(var(--rl-font-size) * var(--rl-line-height) + var(--rl-line-pad-y-effective) * 2);
   --rl-pad-top: calc(3.45rem + var(--editor-safe-offset));
   --rl-pad-bottom: 2.5rem;
   --rl-pad-inline: clamp(0.75rem, 2.2vw, 1.6rem);
@@ -350,7 +352,7 @@ body.bg-white .rl-editor {
 body.bg-black .rl-editor .line,
 body.bg-white .rl-editor .line {
   display: block;
-  min-height: calc(var(--rl-font-size) * var(--rl-line-height) + var(--rl-line-pad-y) * 2);
+  min-height: var(--rl-line-row-height);
 }
 
 /* Ensure line divs don't break the editor flow */
@@ -358,7 +360,7 @@ body.bg-white .rl-editor .line {
   position: relative;
   z-index: 1;
   border-radius: 2px;
-  padding: calc(var(--rl-line-pad-y) + 1px) 0.125rem;
+  padding: var(--rl-line-pad-y-effective) 0.125rem;
   margin: 0;
   transition: background-color 0.2s ease, color 0.2s ease;
   line-height: var(--rl-line-height);
@@ -369,7 +371,7 @@ body.bg-white .rl-editor .line {
   content: '';
   display: inline-block;
   width: 0;
-  height: calc(var(--rl-font-size) * var(--rl-line-height) + var(--rl-line-pad-y) * 2);
+  height: var(--rl-line-row-height);
 }
 
 .gutterMirror {
@@ -379,7 +381,7 @@ body.bg-white .rl-editor .line {
   white-space: pre;
   font-family: var(--rl-font-ui);
   font-size: clamp(9px, 0.7vw, 10px);
-  line-height: calc(var(--rl-font-size) * var(--rl-line-height) + var(--rl-line-pad-y) * 2);
+  line-height: var(--rl-line-row-height);
   text-align: right;
   pointer-events: none;
   user-select: none;
