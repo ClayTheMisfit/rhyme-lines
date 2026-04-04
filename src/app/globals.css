@@ -189,15 +189,20 @@ body.bg-white {
   --rl-pad-bottom: 2.5rem;
   --rl-pad-inline: clamp(0.75rem, 2.2vw, 1.6rem);
   --rl-gutter-width: clamp(2.2rem, 3vw, 2.8rem);
+  --rl-gutter-gap: clamp(0.5rem, 1.6vw, 1rem);
 }
 
 .rl-editor-grid {
   display: grid;
   grid-template-columns: var(--rl-gutter-width) minmax(760px, 920px);
   justify-content: start;
-  column-gap: clamp(0.5rem, 1.6vw, 1rem);
+  column-gap: var(--rl-gutter-gap);
   padding-inline: var(--rl-pad-inline) clamp(1rem, 3vw, 2.4rem);
   align-items: flex-start;
+}
+
+.gutterSpacer {
+  width: var(--rl-gutter-width);
 }
 
 .rl-editor {
@@ -366,6 +371,24 @@ body.bg-white .rl-editor .line {
   line-height: var(--rl-line-height);
 }
 
+.rl-editor .line[data-line-total-display]::before {
+  content: attr(data-line-total-display);
+  position: absolute;
+  right: calc(100% + var(--rl-gutter-gap));
+  top: 0;
+  width: var(--rl-gutter-width);
+  height: var(--rl-line-row-height);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: none;
+  user-select: none;
+  font-family: var(--rl-font-ui);
+  font-size: clamp(9px, 0.7vw, 10px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
 /* Make sure empty lines still have height */
 .rl-editor .line:empty::after {
   content: '';
@@ -374,34 +397,11 @@ body.bg-white .rl-editor .line {
   height: var(--rl-line-row-height);
 }
 
-.gutterMirror {
-  margin: 0;
-  padding-inline: 0.1rem 0.4rem;
-  padding-block: var(--rl-pad-top) var(--rl-pad-bottom);
-  display: flex;
-  flex-direction: column;
-  font-family: var(--rl-font-ui);
-  font-size: clamp(9px, 0.7vw, 10px);
-  text-align: right;
-  pointer-events: none;
-  user-select: none;
-  letter-spacing: 0.02em;
+body.bg-white .rl-editor .line[data-line-total-display]::before {
+  color: #4b5563;
 }
 
-.gutterMirrorRow {
-  min-height: var(--rl-line-row-height);
-  height: var(--rl-line-row-height);
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  line-height: 1;
-}
-
-.gutterMirror-light {
-  color: #4b5563; /* gray-600 */
-}
-
-.gutterMirror-dark {
+body.bg-black .rl-editor .line[data-line-total-display]::before {
   color: rgba(255, 255, 255, 0.11);
 }
 

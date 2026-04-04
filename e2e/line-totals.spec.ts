@@ -11,13 +11,17 @@ test.describe('Line totals gutter', () => {
     await editor.press('Enter')
     await editor.type('spin test')
 
-    const gutter = page.locator('[data-line-totals-gutter]')
     const editorLines = page.locator('.rl-editor .line')
-    const readGutter = async () => (await gutter.innerText()).split('\n').map((line) => line.trim())
+    const readTotals = async () =>
+      page.evaluate(() =>
+        Array.from(document.querySelectorAll<HTMLElement>('.rl-editor .line')).map(
+          (line) => line.dataset.lineTotalDisplay ?? ''
+        )
+      )
 
     await expect(editorLines).toHaveCount(3)
 
-    await expect.poll(readGutter).toEqual(['2', '0', '2'])
+    await expect.poll(readTotals).toEqual(['2', '', '2'])
   })
 
   test('persists per-line totals after inserting new lines', async ({ page }) => {
@@ -27,18 +31,22 @@ test.describe('Line totals gutter', () => {
     await editor.click()
     await editor.type('spin spin')
 
-    const gutter = page.locator('[data-line-totals-gutter]')
-    const readGutter = async () => (await gutter.innerText()).split('\n').map((line) => line.trim())
+    const readTotals = async () =>
+      page.evaluate(() =>
+        Array.from(document.querySelectorAll<HTMLElement>('.rl-editor .line')).map(
+          (line) => line.dataset.lineTotalDisplay ?? ''
+        )
+      )
 
-    await expect.poll(readGutter).toEqual(['2'])
+    await expect.poll(readTotals).toEqual(['2'])
 
     await editor.press('Enter')
 
-    await expect.poll(readGutter).toEqual(['2', '0'])
+    await expect.poll(readTotals).toEqual(['2', ''])
 
     await editor.type('cat')
 
-    await expect.poll(readGutter).toEqual(['2', '1'])
+    await expect.poll(readTotals).toEqual(['2', '1'])
   })
 
   test('keeps gutter rows vertically aligned with editor line boxes', async ({ page }) => {
@@ -70,17 +78,21 @@ stone crash deep mat
     )
 
     const alignment = await page.evaluate(() => {
-      const rowNodes = Array.from(document.querySelectorAll<HTMLElement>('[data-line-totals-row]'))
       const lineNodes = Array.from(document.querySelectorAll<HTMLElement>('.rl-editor .line'))
-      if (rowNodes.length === 0 || lineNodes.length === 0 || rowNodes.length !== lineNodes.length) return null
+      if (lineNodes.length === 0) return null
 
-      const centers = lineNodes.map((line, index) => {
+      const lineTotals = lineNodes.map((line) => line.dataset.lineTotalDisplay ?? '')
+      const lineNodesWithTotals = lineNodes.filter((_, index) => lineTotals[index].trim().length > 0)
+      if (!lineNodesWithTotals.length) return null
+
+      const centers = lineNodesWithTotals.map((line) => {
         const lineRect = line.getBoundingClientRect()
-        const rowRect = rowNodes[index].getBoundingClientRect()
+        const pseudoTopRaw = window.getComputedStyle(line, '::before').top
+        const pseudoTop = Number.parseFloat(pseudoTopRaw)
+        const rowHeight = Number.parseFloat(window.getComputedStyle(line, '::before').height)
         const lineCenter = lineRect.top + lineRect.height / 2
-        const gutterCenter = rowRect.top + rowRect.height / 2
+        const gutterCenter = lineRect.top + pseudoTop + rowHeight / 2
         return {
-          index,
           lineCenter,
           gutterCenter,
           delta: Math.abs(lineCenter - gutterCenter),
