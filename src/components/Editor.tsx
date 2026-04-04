@@ -775,9 +775,16 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (!showLineTotals) return
     if (!analysis || analysis.docId !== ANALYSIS_DOC_ID) return
     if (!analysisLinesRef.current.length) return
-    const totals = analysisLinesRef.current.map((line) => analysis.lineTotals[line.id] ?? 0)
-    setLineTotals(totals)
-  }, [analysis, showLineTotals])
+    const totals = analysisLinesRef.current.map((line) => analysis.lineTotals[line.id])
+    const hasMissingNonEmptyTotal = totals.some(
+      (total, index) => total === undefined && analysisLinesRef.current[index]?.text.trim().length
+    )
+    if (hasMissingNonEmptyTotal) {
+      scheduleAnalysis(analysisLinesRef.current, 'caret')
+      return
+    }
+    setLineTotals(totals.map((total) => total ?? 0))
+  }, [analysis, scheduleAnalysis, showLineTotals])
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production' && metrics) {
