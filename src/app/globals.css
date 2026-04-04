@@ -67,6 +67,12 @@
   --rl-muted: rgba(255, 255, 255, 0.62);
   --rl-border: rgba(255, 255, 255, 0.13);
   --rl-accent: rgba(56, 189, 248, 0.85);
+  --rl-shell-bg: #f3f4f6;
+  --rl-shell-chrome: #f8fafc;
+  --rl-shell-elevated: #ffffff;
+  --rl-shell-border: rgba(15, 23, 42, 0.12);
+  --rl-shell-text: rgba(15, 23, 42, 0.9);
+  --rl-shell-muted: rgba(15, 23, 42, 0.58);
 }
 
 /* Editor-specific variables */
@@ -149,10 +155,22 @@ body {
 /* Page background to match editor */
 body.bg-black {
   background-color: #1e1e1e;  /* Same as editor background */
+  --rl-shell-bg: #090909;
+  --rl-shell-chrome: #0d0d0f;
+  --rl-shell-elevated: #101012;
+  --rl-shell-border: rgba(255, 255, 255, 0.08);
+  --rl-shell-text: rgba(255, 255, 255, 0.9);
+  --rl-shell-muted: rgba(255, 255, 255, 0.58);
 }
 
 body.bg-white {
   background-color: #ffffff;  /* Clean white for light theme */
+  --rl-shell-bg: #f3f4f6;
+  --rl-shell-chrome: #f8fafc;
+  --rl-shell-elevated: #ffffff;
+  --rl-shell-border: rgba(15, 23, 42, 0.12);
+  --rl-shell-text: rgba(15, 23, 42, 0.9);
+  --rl-shell-muted: rgba(15, 23, 42, 0.58);
 }
 
 /* Editor line break preservation */

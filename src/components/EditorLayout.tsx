@@ -59,7 +59,7 @@ export default function EditorLayout() {
   }, [])
 
   return (
-    <div className="flex min-h-screen flex-col bg-black text-white">
+    <div className="flex min-h-screen flex-col bg-[color:var(--rl-shell-bg)] text-[color:var(--rl-shell-text)]">
       <TopBar />
       <div
         className="grid min-h-0 flex-1 transition-[grid-template-columns] duration-150"
@@ -70,7 +70,7 @@ export default function EditorLayout() {
       >
         <aside
           id="editor-documents-sidebar"
-          className="hidden overflow-hidden border-r border-white/[0.04] bg-[#101012] px-2 py-4 lg:flex lg:flex-col"
+          className="hidden overflow-hidden border-r border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)] px-2 py-4 lg:flex lg:flex-col"
         >
           <div className={`mb-4 flex items-center ${sidebarExpanded ? 'justify-between' : 'justify-center'}`}>
             <TooltipProvider>
@@ -83,7 +83,7 @@ export default function EditorLayout() {
                     aria-expanded={sidebarExpanded}
                     aria-controls="editor-documents-sidebar"
                     title={sidebarAriaLabel}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-white/[0.08] bg-white/[0.02] text-white/62 transition-colors hover:border-white/[0.16] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]"
                   >
                     <span className={`text-sm transition-transform duration-150 ${sidebarCollapsed ? 'rotate-180' : ''}`} aria-hidden>
                       ❮
@@ -97,7 +97,7 @@ export default function EditorLayout() {
               <button
                 type="button"
                 onClick={newTab}
-                className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-white/[0.08] text-white/68 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] text-[color:var(--rl-shell-muted)] hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]"
                 title="New document"
                 aria-label="New document"
               >
@@ -108,7 +108,7 @@ export default function EditorLayout() {
 
           {sidebarExpanded ? (
             <>
-              <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-white/35">Documents</p>
+              <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-[color:var(--rl-shell-muted)]">Documents</p>
               <nav className="space-y-1.5">
                 {sortedTabs.map((tab) => {
                   const active = tab.id === activeTabId
@@ -119,12 +119,12 @@ export default function EditorLayout() {
                       onClick={() => setActive(tab.id)}
                       className={`flex w-full items-center justify-between rounded-sm border px-2.5 py-2 text-left text-xs tracking-[0.03em] ${
                         active
-                          ? 'border-white/[0.16] bg-white/[0.06] text-white/90'
-                          : 'border-transparent text-white/42 hover:border-white/[0.08] hover:text-white/72'
+                          ? 'border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-text)_8%,transparent)] text-[color:var(--rl-shell-text)]'
+                          : 'border-transparent text-[color:var(--rl-shell-muted)] hover:border-[color:var(--rl-shell-border)] hover:text-[color:var(--rl-shell-text)]'
                       }`}
                     >
                       <span className="truncate">{tab.title || 'Untitled'}</span>
-                      {tab.isDirty ? <span className="text-[#f2d000]/85">•</span> : null}
+                      {tab.isDirty ? <span className="text-amber-500/85">•</span> : null}
                     </button>
                   )
                 })}
@@ -136,7 +136,7 @@ export default function EditorLayout() {
                 type="button"
                 onClick={() => setSidebarCollapsed(false)}
                 aria-label="Open documents"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-white/[0.06] bg-white/[0.03] text-[10px] uppercase tracking-[0.14em] text-white/45 transition-colors hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] text-[10px] uppercase tracking-[0.14em] text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]"
               >
                 Docs
               </button>

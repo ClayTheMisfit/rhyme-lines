@@ -31,12 +31,13 @@ describe('EditorLayout sidebar toggle', () => {
   })
 
   test('renders expanded sidebar by default with collapse toggle', () => {
-    render(<EditorLayout />)
+    const { container } = render(<EditorLayout />)
 
     const toggle = screen.getByRole('button', { name: 'Collapse sidebar' })
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('Documents')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Verse A' })).toBeInTheDocument()
+    expect(container.firstChild).toHaveClass('bg-[color:var(--rl-shell-bg)]')
   })
 
   test('collapses and expands via toggle click', async () => {

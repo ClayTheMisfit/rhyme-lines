@@ -31,9 +31,9 @@ export default function StatusBar({ text, cursor }: StatusBarProps) {
     status === 'saving' ? 'Saving…' : status === 'dirty' ? 'Unsaved changes' : status === 'error' ? 'Save error' : 'Saved'
 
   return (
-    <footer className="flex h-8 items-center justify-between border-t border-white/[0.04] bg-[#0e0e10] px-4 text-[11px] text-white/36">
+    <footer className="flex h-8 items-center justify-between border-t border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)] px-4 text-[11px] text-[color:var(--rl-shell-muted)]">
       <div className="flex items-center gap-4">
-        <span className={status === 'error' ? 'text-rose-300/80' : status === 'saving' ? 'text-amber-200/85' : 'text-white/48'}>
+        <span className={status === 'error' ? 'text-rose-500/85' : status === 'saving' ? 'text-amber-500/85' : 'text-[color:var(--rl-shell-muted)]'}>
           {saveLabel}
         </span>
         <span>Words {countWords(text).toLocaleString()}</span>
