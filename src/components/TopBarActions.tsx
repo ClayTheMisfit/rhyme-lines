@@ -76,15 +76,12 @@ export default function TopBarActions() {
           onClick={() => setMenuOpen((open) => !open)}
           className={buttonClass}
           title="More actions"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
           aria-label="More actions"
         >
           ⋯
         </motion.button>
         {menuOpen ? (
           <div
-            role="menu"
             className="absolute right-0 top-9 z-40 min-w-[220px] rounded-md border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)] p-1.5 shadow-2xl shadow-black/20"
           >
             <button
