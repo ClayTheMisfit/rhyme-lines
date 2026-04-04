@@ -47,12 +47,11 @@ export default function DocumentHeader() {
   }, [title])
 
   if (!activeTab) {
-    return <div className="text-sm text-white/70">Untitled</div>
+    return <div className="text-sm text-[color:var(--rl-shell-muted)]">Untitled</div>
   }
 
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <span className="hidden text-[10px] uppercase tracking-[0.18em] text-white/36 sm:inline">Document</span>
+    <div className="flex min-w-0 items-center gap-1.5">
       {isEditing ? (
         <input
           ref={inputRef}
@@ -69,14 +68,14 @@ export default function DocumentHeader() {
               cancel()
             }
           }}
-          className="h-8 w-[min(44vw,520px)] min-w-[180px] rounded-sm border border-white/15 bg-white/5 px-2.5 text-sm font-medium tracking-tight text-white outline-none focus:border-white/35"
+          className="h-8 w-[min(44vw,520px)] min-w-[180px] rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] px-2.5 text-sm font-medium tracking-tight text-[color:var(--rl-shell-text)] outline-none focus:border-[color:var(--rl-shell-text)]/35"
           aria-label="Document title"
         />
       ) : (
         <>
           <button
             type="button"
-            className="max-w-[min(46vw,560px)] truncate text-left text-sm font-medium tracking-tight text-white/88 hover:text-white"
+            className="max-w-[min(46vw,560px)] truncate text-left text-sm font-medium tracking-tight text-[color:var(--rl-shell-text)] hover:opacity-100"
             onDoubleClick={() => setIsEditing(true)}
             onClick={() => setIsEditing(true)}
             title="Rename document"
@@ -86,7 +85,7 @@ export default function DocumentHeader() {
           </button>
           <button
             type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-white/[0.06] bg-white/[0.03] text-[11px] text-white/60 hover:text-white/90"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] text-[10px] text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]"
             onClick={() => setIsEditing(true)}
             title="Rename (Enter to save, Esc to cancel)"
             aria-label="Edit title"
@@ -98,4 +97,3 @@ export default function DocumentHeader() {
     </div>
   )
 }
-

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { useMounted } from '@/hooks/useMounted'
 import { useTheme } from 'next-themes'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
@@ -79,9 +80,17 @@ export default function TopBar() {
     <header
       ref={headerRef}
       data-testid="editor-header"
-      className="fixed left-0 right-0 top-0 flex min-h-12 items-center gap-3 border-b border-white/[0.06] bg-[#0d0d0f] px-4 py-2"
+      className="fixed left-0 right-0 top-0 flex min-h-12 items-center gap-2.5 border-b border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)] px-4 py-2 text-[color:var(--rl-shell-text)]"
       style={{ zIndex: layers.topBar }}
     >
+      <Link
+        href="/"
+        aria-label="Back to dashboard"
+        className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_72%,transparent)] px-2.5 text-xs text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]"
+      >
+        <span aria-hidden>←</span>
+        <span>Back</span>
+      </Link>
       <DocumentHeader />
       <TopBarActions />
     </header>

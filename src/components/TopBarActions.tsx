@@ -12,7 +12,7 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const buttonClass =
-  'inline-flex h-8 w-8 items-center justify-center rounded-sm border border-white/[0.05] bg-white/[0.02] text-[11px] text-white/60 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20'
+  'inline-flex h-8 w-8 items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] text-[11px] text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]'
 
 export default function TopBarActions() {
   const { theme, setThemePreference, showRhymeDecorations, setShowRhymeDecorations } = useSettingsStore(
@@ -85,29 +85,29 @@ export default function TopBarActions() {
         {menuOpen ? (
           <div
             role="menu"
-            className="absolute right-0 top-9 z-40 min-w-[220px] rounded-md border border-white/[0.08] bg-[#111113] p-1.5 shadow-2xl"
+            className="absolute right-0 top-9 z-40 min-w-[220px] rounded-md border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)] p-1.5 shadow-2xl shadow-black/20"
           >
             <button
               type="button"
-              className="flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-xs text-white/78 hover:bg-white/[0.05]"
+              className="flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-xs text-[color:var(--rl-shell-text)]/85 hover:bg-[color:color-mix(in_srgb,var(--rl-shell-text)_6%,transparent)]"
               onClick={() => {
                 setShowRhymeDecorations(!showRhymeDecorations)
                 setMenuOpen(false)
               }}
             >
               <span>Rhyme highlights</span>
-              <span className="text-white/45">{showRhymeDecorations ? 'On' : 'Off'}</span>
+              <span className="text-[color:var(--rl-shell-muted)]">{showRhymeDecorations ? 'On' : 'Off'}</span>
             </button>
             <button
               type="button"
-              className="mt-1 flex w-full items-center justify-between rounded border-t border-white/[0.06] px-2.5 py-2 text-left text-xs text-white/78 hover:bg-white/[0.05]"
+              className="mt-1 flex w-full items-center justify-between rounded border-t border-[color:var(--rl-shell-border)] px-2.5 py-2 text-left text-xs text-[color:var(--rl-shell-text)]/85 hover:bg-[color:color-mix(in_srgb,var(--rl-shell-text)_6%,transparent)]"
               onClick={() => {
                 setMenuOpen(false)
                 setSettingsOpen(true)
               }}
             >
               <span>Editor settings</span>
-              <span className="text-white/45">↗</span>
+              <span className="text-[color:var(--rl-shell-muted)]">↗</span>
             </button>
           </div>
         ) : null}
