@@ -13,21 +13,25 @@ export default function LineTotalsOverlay({
   showLineTotals,
   theme 
 }: Props) {
-  const gutterLines = lines.map((line, i) => {
+  const gutterRows = lines.map((line, i) => {
     const total = lineTotals[i] ?? 0
-    if (line.trim() === '') return ''
+    if (line.trim() === '') return '\u00A0'
     return total === 0 ? '·' : total.toString()
   })
 
   const themeClass = theme === 'dark' ? 'gutterMirror-dark' : 'gutterMirror-light'
 
   return (
-    <pre
+    <div
       aria-hidden
       data-line-totals-gutter
       className={`gutterMirror ${themeClass} ${showLineTotals ? '' : 'opacity-0'} pointer-events-none`}
     >
-      {(showLineTotals ? gutterLines : ['\u00A0']).join('\n')}
-    </pre>
+      {(showLineTotals ? gutterRows : ['\u00A0']).map((value, index) => (
+        <div key={index} data-line-totals-row className="gutterMirrorRow">
+          {value}
+        </div>
+      ))}
+    </div>
   )
 }

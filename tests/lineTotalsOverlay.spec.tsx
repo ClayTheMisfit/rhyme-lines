@@ -20,6 +20,8 @@ describe('LineTotalsOverlay', () => {
     )
 
     const gutter = document.querySelector('[data-line-totals-gutter]')
-    expect(gutter?.textContent).toBe('3\n4\n\n8')
+    const rows = Array.from(document.querySelectorAll('[data-line-totals-row]')).map((node) => node.textContent)
+    expect(gutter).toBeTruthy()
+    expect(rows).toEqual(['3', '4', '\u00A0', '8'])
   })
 })

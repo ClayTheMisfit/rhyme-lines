@@ -378,14 +378,23 @@ body.bg-white .rl-editor .line {
   margin: 0;
   padding-inline: 0.1rem 0.4rem;
   padding-block: var(--rl-pad-top) var(--rl-pad-bottom);
-  white-space: pre;
+  display: flex;
+  flex-direction: column;
   font-family: var(--rl-font-ui);
   font-size: clamp(9px, 0.7vw, 10px);
-  line-height: var(--rl-line-row-height);
   text-align: right;
   pointer-events: none;
   user-select: none;
   letter-spacing: 0.02em;
+}
+
+.gutterMirrorRow {
+  min-height: var(--rl-line-row-height);
+  height: var(--rl-line-row-height);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  line-height: 1;
 }
 
 .gutterMirror-light {

@@ -70,19 +70,15 @@ stone crash deep mat
     )
 
     const alignment = await page.evaluate(() => {
-      const gutter = document.querySelector<HTMLElement>('[data-line-totals-gutter]')
+      const rowNodes = Array.from(document.querySelectorAll<HTMLElement>('[data-line-totals-row]'))
       const lineNodes = Array.from(document.querySelectorAll<HTMLElement>('.rl-editor .line'))
-      if (!gutter || lineNodes.length === 0) return null
-
-      const gutterRect = gutter.getBoundingClientRect()
-      const gutterStyle = window.getComputedStyle(gutter)
-      const lineHeight = Number.parseFloat(gutterStyle.lineHeight)
-      const paddingTop = Number.parseFloat(gutterStyle.paddingTop)
+      if (rowNodes.length === 0 || lineNodes.length === 0 || rowNodes.length !== lineNodes.length) return null
 
       const centers = lineNodes.map((line, index) => {
-        const rect = line.getBoundingClientRect()
-        const lineCenter = rect.top + rect.height / 2
-        const gutterCenter = gutterRect.top + paddingTop + index * lineHeight + lineHeight / 2
+        const lineRect = line.getBoundingClientRect()
+        const rowRect = rowNodes[index].getBoundingClientRect()
+        const lineCenter = lineRect.top + lineRect.height / 2
+        const gutterCenter = rowRect.top + rowRect.height / 2
         return {
           index,
           lineCenter,
