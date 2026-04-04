@@ -27,7 +27,14 @@ type StorageDataMap = {
 
 const LEGACY_KEYS: Record<StorageKey, string[]> = {
   settings: ['rhyme-lines:settings'],
-  drafts: ['rhyme-lines.tabs.v1', 'rhyme-lines:doc:current:v2', 'rhyme-lines:doc:current'],
+  drafts: [
+    'rhyme-lines.tabs.v1',
+    'rhyme-lines:doc:current:v2',
+    'rhyme-lines:doc:current',
+    'draft',
+    'editor-content',
+    'autosave',
+  ],
   panel: ['rhyme-panel-store', 'rhyme-lines:ui:rhyme-panel'],
 }
 

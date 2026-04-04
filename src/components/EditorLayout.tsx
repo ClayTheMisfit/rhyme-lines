@@ -1,17 +1,20 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useTabsStore } from '@/store/tabsStore'
 import { shallow } from 'zustand/shallow'
 import TopBar from '@/components/TopBar'
 import EditorShell from '@/components/EditorShell'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { getLastOpenProjectId, setLastOpenProjectId } from '@/lib/projects/storage'
 
 const SIDEBAR_COLLAPSED_KEY = 'rhyme-lines:editor-sidebar-collapsed'
 const SIDEBAR_EXPANDED_WIDTH = 232
 const SIDEBAR_COLLAPSED_WIDTH = 52
 
 export default function EditorLayout() {
+  const searchParams = useSearchParams()
   const { tabs, activeTabId, newTab, setActive } = useTabsStore(
     (state) => ({
       tabs: state.tabs,
@@ -57,6 +60,22 @@ export default function EditorLayout() {
     window.addEventListener('keydown', handleSidebarShortcut)
     return () => window.removeEventListener('keydown', handleSidebarShortcut)
   }, [])
+
+  useEffect(() => {
+    const projectFromUrl = searchParams.get('project')
+    const projectId = projectFromUrl || getLastOpenProjectId()
+    if (!projectId) return
+    if (!tabs.some((tab) => tab.id === projectId)) return
+    if (activeTabId !== projectId) {
+      setActive(projectId)
+    }
+  }, [activeTabId, searchParams, setActive, tabs])
+
+  useEffect(() => {
+    if (activeTabId) {
+      setLastOpenProjectId(activeTabId)
+    }
+  }, [activeTabId])
 
   return (
     <div className="flex min-h-screen flex-col bg-[color:var(--rl-shell-bg)] text-[color:var(--rl-shell-text)]">
