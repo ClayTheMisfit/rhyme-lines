@@ -19,8 +19,12 @@ describe('getPronunciation', () => {
     const fine = getPronunciation('fine').rhymeKey
     const line = getPronunciation('line').rhymeKey
     const resign = getPronunciation('resign').rhymeKey
+    const time = getPronunciation('time').rhymeKey
+    const rhyme = getPronunciation('rhyme').rhymeKey
     expect(fine).toBe(line)
     expect(line).toBe(resign)
+    expect(time).toBe(fine)
+    expect(rhyme).toBe(fine)
 
     const moon = getPronunciation('moon').rhymeKey
     const soon = getPronunciation('soon').rhymeKey
@@ -124,6 +128,15 @@ describe('getPronunciation', () => {
     expect(getPronunciation('HEIGHT.').rhymeKey).toBe(base)
     expect(getPronunciation('night!').rhymeKey).toBe(base)
     expect(getPronunciation('Sight?').rhymeKey).toBe(base)
+  })
+
+  it('keeps time/fine/rhyme family stable across punctuation and casing', () => {
+    const base = getPronunciation('time').rhymeKey
+    expect(getPronunciation('fine').rhymeKey).toBe(base)
+    expect(getPronunciation('rhyme').rhymeKey).toBe(base)
+    expect(getPronunciation('Time').rhymeKey).toBe(base)
+    expect(getPronunciation('fine,').rhymeKey).toBe(base)
+    expect(getPronunciation('rhyme!').rhymeKey).toBe(base)
   })
 
   it('normalizes curly possessives for syllables and rhyme keys', () => {

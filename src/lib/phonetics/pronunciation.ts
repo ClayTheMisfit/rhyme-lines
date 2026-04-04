@@ -116,10 +116,12 @@ export function computeRhymeKey(phones: string[]): string {
 
   if (target === -1) return ''
 
-  return phones
+  const rawKey = phones
     .slice(target)
     .map((phone) => stripStress(phone))
     .join('-')
+
+  return normalizeRhymeFamilyKey(rawKey)
 }
 
 const estimateSyllables = (word: string) => {
@@ -158,11 +160,16 @@ const computeSpellingRhymeKey = (normalized: string) => {
   ]
 
   for (const [pattern, family] of familyRules) {
-    if (pattern.test(lowered) || pattern.test(core)) return family
+    if (pattern.test(lowered) || pattern.test(core)) return normalizeRhymeFamilyKey(family)
   }
 
   const ending = extractSpellingEnding(core.toLowerCase())
-  return ending || core || normalized
+  return normalizeRhymeFamilyKey(ending || core || normalized)
+}
+
+function normalizeRhymeFamilyKey(rhymeKey: string): string {
+  if (/^AY-(M|N)$/.test(rhymeKey)) return 'AY-NASAL'
+  return rhymeKey
 }
 
 /**
