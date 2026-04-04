@@ -394,7 +394,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const panelContent = (
       <div className="flex h-full min-h-0 flex-col">
         <div className="px-2.5 pt-2.5">
-          <div className="space-y-2.5 rounded-md border border-slate-200/70 bg-slate-100/65 p-2.5 text-[12px] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/70">
+          <div className="space-y-2.5 rounded-md border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)] p-2.5 text-[12px] text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/70">
             <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-white/45">
               Rhymes
             </div>
@@ -410,7 +410,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Type a word…"
-                className="w-full rounded-sm border border-slate-300/75 bg-slate-50 px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 motion-reduce:transition-none dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/90 dark:placeholder:text-white/35 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113]"
+                className="w-full rounded-sm border border-[color:var(--rl-shell-border)] bg-[#f3f5f7] px-3 py-2 text-[13px] text-slate-900 placeholder:text-[#7b8794] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--rl-shell-elevated)] motion-reduce:transition-none dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/90 dark:placeholder:text-white/35 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113]"
               />
             </div>
 
@@ -444,7 +444,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     className={`rounded-full border px-3 py-1 text-[11px] font-medium transition duration-100 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 active:scale-[0.98] dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
                       isActive
                         ? activeClasses
-                        : 'border-slate-300/75 bg-slate-50 text-slate-600 hover:text-slate-800 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
+                        : 'border-[color:var(--rl-shell-border)] bg-[#eef2f5] text-slate-700 hover:text-slate-900 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
                     }`}
                     aria-pressed={isActive}
                   >
@@ -473,7 +473,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
 
             {advancedOpen && (
-              <div id="rhyme-advanced" className="space-y-3 rounded-sm border border-slate-300/75 bg-slate-50/85 p-2 text-[11px] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/55">
+              <div id="rhyme-advanced" className="space-y-3 rounded-sm border border-[color:var(--rl-shell-border)] bg-[#eef2f5] p-2 text-[11px] text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/55">
                 <label className="flex cursor-pointer items-start gap-2">
                   <input
                     type="checkbox"
@@ -511,7 +511,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                       className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
                         activeTab === 'caret'
                           ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-white/[0.2] dark:bg-white/[0.14] dark:text-white'
-                          : 'border-slate-300/75 bg-slate-50 text-slate-600 hover:text-slate-800 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
+                          : 'border-[color:var(--rl-shell-border)] bg-[#eef2f5] text-slate-700 hover:text-slate-900 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
                       }`}
                     >
                       Caret ({caretSuggestions.length})
@@ -522,7 +522,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                       className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
                         activeTab === 'lineLast'
                           ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-white/[0.2] dark:bg-white/[0.14] dark:text-white'
-                          : 'border-slate-300/75 bg-slate-50 text-slate-600 hover:text-slate-800 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
+                          : 'border-[color:var(--rl-shell-border)] bg-[#eef2f5] text-slate-700 hover:text-slate-900 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
                       }`}
                     >
                       Line End ({lineSuggestions.length})
@@ -608,7 +608,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               {Array.from({ length: 5 }).map((_, index) => (
                 <div
                   key={`skeleton-${index}`}
-                  className="flex animate-pulse items-center justify-between rounded-md border border-slate-300/75 bg-slate-50/85 px-3 py-2 text-[13px] motion-reduce:animate-none dark:border-white/[0.08] dark:bg-white/[0.03]"
+                  className="flex animate-pulse items-center justify-between rounded-md border border-[color:var(--rl-shell-border)] bg-[#eef2f5] px-3 py-2 text-[13px] motion-reduce:animate-none dark:border-white/[0.08] dark:bg-white/[0.03]"
                 >
                   <div className="h-4 w-32 rounded bg-slate-200/80 dark:bg-slate-700/60" />
                   <div className="h-4 w-12 rounded bg-slate-200/80 dark:bg-slate-700/60" />

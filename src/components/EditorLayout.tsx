@@ -70,7 +70,7 @@ export default function EditorLayout() {
       >
         <aside
           id="editor-documents-sidebar"
-          className="hidden overflow-hidden border-r border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)] px-2 py-4 lg:flex lg:flex-col"
+          className="hidden overflow-hidden border-r border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)] px-2 py-4 lg:flex lg:flex-col"
         >
           <div className={`mb-4 flex items-center ${sidebarExpanded ? 'justify-between' : 'justify-center'}`}>
             <TooltipProvider>
@@ -143,7 +143,7 @@ export default function EditorLayout() {
             </div>
           )}
         </aside>
-        <main className="min-w-0">
+        <main className="min-w-0 bg-[color:var(--rl-editor-lane)]">
           <EditorShell />
         </main>
       </div>
