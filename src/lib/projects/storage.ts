@@ -9,6 +9,8 @@ export interface ProjectDocument {
   content: string
   createdAt: string
   updatedAt: string
+  archived: boolean
+  archivedAt?: string | null
 }
 
 export interface ProjectSummary {
@@ -17,6 +19,8 @@ export interface ProjectSummary {
   preview: string
   createdAt: string
   updatedAt: string
+  archived: boolean
+  archivedAt?: string | null
   wordCount: number
   lineCount: number
 }
@@ -62,6 +66,8 @@ const parseDraft = (draft: DraftSchema): ProjectDocument => ({
   content: draft.lines.map((line) => line.text).join('\n'),
   createdAt: toIso(draft.createdAt),
   updatedAt: toIso(draft.updatedAt),
+  archived: draft.archived === true,
+  archivedAt: typeof draft.archivedAt === 'string' ? draft.archivedAt : null,
 })
 
 const toSummary = (project: ProjectDocument): ProjectSummary => ({
@@ -70,6 +76,8 @@ const toSummary = (project: ProjectDocument): ProjectSummary => ({
   preview: previewFromContent(project.content),
   createdAt: project.createdAt,
   updatedAt: project.updatedAt,
+  archived: project.archived === true,
+  archivedAt: typeof project.archivedAt === 'string' ? project.archivedAt : null,
   wordCount: countWords(project.content),
   lineCount: countLines(project.content),
 })
@@ -86,6 +94,8 @@ const toDraft = (project: ProjectDocument, previous?: DraftSchema): DraftSchema 
     title: project.title.trim() || 'Untitled',
     createdAt: fromIso(project.createdAt),
     updatedAt: fromIso(project.updatedAt),
+    archived: project.archived === true,
+    archivedAt: typeof project.archivedAt === 'string' ? project.archivedAt : null,
     lines: lines.length ? lines : [{ id: `${project.id}-line-0`, text: '' }],
     selection: previous?.selection,
   }
@@ -98,10 +108,28 @@ const writeCollection = (collection: DraftCollection) => writeVersioned('drafts'
 const sortByUpdated = (projects: ProjectSummary[]) =>
   [...projects].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
 
+const normalizeProject = (project: ProjectSummary): ProjectSummary => ({
+  ...project,
+  archived: project.archived === true,
+  archivedAt: typeof project.archivedAt === 'string' ? project.archivedAt : null,
+})
+
+const sortArchived = (projects: ProjectSummary[]) =>
+  [...projects].sort((a, b) => {
+    const archivedAtA = a.archivedAt ? Date.parse(a.archivedAt) : Number.NaN
+    const archivedAtB = b.archivedAt ? Date.parse(b.archivedAt) : Number.NaN
+    const hasArchivedAtA = Number.isFinite(archivedAtA)
+    const hasArchivedAtB = Number.isFinite(archivedAtB)
+    if (hasArchivedAtA && hasArchivedAtB) return archivedAtB - archivedAtA
+    if (hasArchivedAtA) return -1
+    if (hasArchivedAtB) return 1
+    return Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
+  })
+
 export const listProjectSummaries = (): ProjectSummary[] => {
   const collection = readCollection()
   const drafts = filterMeaningfulDrafts(collection.drafts)
-  return sortByUpdated(drafts.map((draft) => toSummary(parseDraft(draft))))
+  return sortByUpdated(drafts.map((draft) => normalizeProject(toSummary(parseDraft(draft)))))
 }
 
 export const createProject = (title = 'Untitled'): ProjectDocument => {
@@ -114,6 +142,8 @@ export const createProject = (title = 'Untitled'): ProjectDocument => {
     content: '',
     createdAt: now,
     updatedAt: now,
+    archived: false,
+    archivedAt: null,
   }
 
   const collection = readCollection()
@@ -147,6 +177,39 @@ export const getLastOpenProjectId = (): string | null => {
 }
 
 export const summariesFromCollection = (collection: DraftCollection): ProjectSummary[] =>
-  sortByUpdated(filterMeaningfulDrafts(collection.drafts).map((draft) => toSummary(parseDraft(draft))))
+  sortByUpdated(filterMeaningfulDrafts(collection.drafts).map((draft) => normalizeProject(toSummary(parseDraft(draft)))))
+
+export const archiveProject = (id: string): void => {
+  const collection = readCollection()
+  const archivedAt = new Date().toISOString()
+  const drafts = collection.drafts.map((draft) => {
+    if (draft.docId !== id) return draft
+    return {
+      ...draft,
+      archived: true,
+      archivedAt,
+    }
+  })
+  writeCollection({ drafts, activeId: collection.activeId })
+}
+
+export const restoreProject = (id: string): void => {
+  const collection = readCollection()
+  const drafts = collection.drafts.map((draft) => {
+    if (draft.docId !== id) return draft
+    return {
+      ...draft,
+      archived: false,
+      archivedAt: null,
+    }
+  })
+  writeCollection({ drafts, activeId: collection.activeId })
+}
+
+export const listActiveProjectSummaries = (): ProjectSummary[] =>
+  sortByUpdated(listProjectSummaries().filter((project) => project.archived !== true))
+
+export const listArchivedProjectSummaries = (): ProjectSummary[] =>
+  sortArchived(listProjectSummaries().filter((project) => project.archived === true))
 
 export { LAST_OPEN_PROJECT_ID_KEY }

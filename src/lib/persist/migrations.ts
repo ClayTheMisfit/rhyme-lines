@@ -131,6 +131,9 @@ const normalizeDraft = (value: unknown, fallbackId: string): DraftSchema => {
   const createdAt = toNumber(value.createdAt, Date.now())
   const updatedAt = toNumber(value.updatedAt, createdAt)
   const title = toStringValue(value.title) ?? 'Untitled'
+  const archived = toBoolean(value.archived, false)
+  const archivedAtRaw = toStringValue(value.archivedAt)
+  const archivedAt = archived ? archivedAtRaw ?? null : null
   const linesSource = Array.isArray(value.lines) ? value.lines : []
   const lines = linesSource.map((line, index) => normalizeLine(line, `${docId}-line-${index}`, ''))
 
@@ -145,6 +148,8 @@ const normalizeDraft = (value: unknown, fallbackId: string): DraftSchema => {
     title,
     createdAt,
     updatedAt,
+    archived,
+    archivedAt,
     lines: lines.length ? lines : [{ id: `${docId}-line-0`, text: '' }],
     selection,
   }
@@ -244,6 +249,8 @@ const buildDraftFromText = (text: string): DraftCollection => {
     title: 'Untitled',
     createdAt: Date.now(),
     updatedAt: Date.now(),
+    archived: false,
+    archivedAt: null,
     lines: lines.length ? lines : [{ id: `${docId}-line-0`, text: '' }],
   }
   return { drafts: [draft], activeId: docId }
@@ -274,6 +281,8 @@ const migrateLegacyTabs = (value: unknown): DraftCollection => {
       title,
       createdAt,
       updatedAt,
+      archived: false,
+      archivedAt: null,
       lines: lines.length ? lines : [{ id: `${docId}-line-0`, text: '' }],
     }
   })

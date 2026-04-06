@@ -53,6 +53,8 @@ export interface DraftSchema {
   title?: string
   createdAt: number
   updatedAt: number
+  archived?: boolean
+  archivedAt?: string | null
   lines: DraftLine[]
   selection?: DraftSelection
 }
@@ -131,6 +133,8 @@ export function createEmptyDraft(docId: string, title = 'Untitled'): DraftSchema
     title,
     createdAt: now,
     updatedAt: now,
+    archived: false,
+    archivedAt: null,
     lines: [{ id: `${docId}-line-0`, text: '' }],
   }
 }

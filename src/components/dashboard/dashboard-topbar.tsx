@@ -1,20 +1,30 @@
-const navItems = ['Projects', 'Library', 'Archive']
+type DashboardView = 'projects' | 'archived'
 
-export function DashboardTopbar() {
+type DashboardTopbarProps = {
+  view: DashboardView
+  onViewChange: (view: DashboardView) => void
+}
+
+export function DashboardTopbar({ view, onViewChange }: DashboardTopbarProps) {
   return (
     <header className="flex h-14 items-center justify-between border-b border-white/[0.03] px-5 sm:px-7 lg:px-8">
       <div className="text-[13px] font-medium tracking-[0.24em] text-white/82">RHYME LINES</div>
 
       <nav className="hidden items-center gap-6 md:flex">
-        {navItems.map((item) => (
+        {[
+          { label: 'Projects', value: 'projects' as const },
+          { label: 'Archived', value: 'archived' as const },
+        ].map((item) => (
           <button
-            key={item}
+            key={item.label}
             type="button"
+            onClick={() => onViewChange(item.value)}
+            aria-pressed={view === item.value}
             className={`text-xs tracking-[0.16em] ${
-              item === 'Projects' ? 'text-[#f2d000]' : 'text-white/40 hover:text-white/68'
+              view === item.value ? 'text-[#f2d000]' : 'text-white/40 hover:text-white/68'
             }`}
           >
-            {item}
+            {item.label}
           </button>
         ))}
       </nav>
