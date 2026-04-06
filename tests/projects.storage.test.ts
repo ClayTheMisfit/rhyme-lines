@@ -34,8 +34,19 @@ describe('project storage', () => {
   })
 
   it('creates projects and sorts summaries by updatedAt descending', () => {
+    // Use fake timers to ensure deterministic timestamps
+    jest.useFakeTimers()
+    const baseTime = new Date('2024-01-01T00:00:00.000Z').getTime()
+    jest.setSystemTime(baseTime)
+
     const first = createProject('First')
+
+    // Advance time by 1ms to ensure distinct timestamps
+    jest.advanceTimersByTime(1)
+
     const second = createProject('Second')
+
+    jest.useRealTimers()
 
     const projects = listProjectSummaries()
     expect(projects.map((project) => project.id)).toEqual([second.id, first.id])
