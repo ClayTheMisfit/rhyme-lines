@@ -6,12 +6,17 @@ import { shallow } from 'zustand/shallow'
 import TopBar from '@/components/TopBar'
 import EditorShell from '@/components/EditorShell'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { getLastOpenProjectId, setLastOpenProjectId } from '@/lib/projects/storage'
 
 const SIDEBAR_COLLAPSED_KEY = 'rhyme-lines:editor-sidebar-collapsed'
 const SIDEBAR_EXPANDED_WIDTH = 232
 const SIDEBAR_COLLAPSED_WIDTH = 52
 
-export default function EditorLayout() {
+type EditorLayoutProps = {
+  projectId?: string | null
+}
+
+export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
   const { tabs, activeTabId, newTab, setActive } = useTabsStore(
     (state) => ({
       tabs: state.tabs,
@@ -57,6 +62,21 @@ export default function EditorLayout() {
     window.addEventListener('keydown', handleSidebarShortcut)
     return () => window.removeEventListener('keydown', handleSidebarShortcut)
   }, [])
+
+  useEffect(() => {
+    const targetProjectId = projectId || getLastOpenProjectId()
+    if (!targetProjectId) return
+    if (!tabs.some((tab) => tab.id === targetProjectId)) return
+    if (activeTabId !== targetProjectId) {
+      setActive(targetProjectId)
+    }
+  }, [activeTabId, projectId, setActive, tabs])
+
+  useEffect(() => {
+    if (activeTabId) {
+      setLastOpenProjectId(activeTabId)
+    }
+  }, [activeTabId])
 
   return (
     <div className="flex min-h-screen flex-col bg-[color:var(--rl-shell-bg)] text-[color:var(--rl-shell-text)]">
