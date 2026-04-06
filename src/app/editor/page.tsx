@@ -1,5 +1,5 @@
-import EditorLayout from '@/components/EditorLayout'
+import { EditorRouteRedirect } from '@/components/editor/EditorRouteRedirect'
 
-export default function EditorPage() {
-  return <EditorLayout />
+export default function EditorLandingPage() {
+  return <EditorRouteRedirect />
 }
