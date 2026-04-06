@@ -14,7 +14,7 @@ const formatUpdatedAt = (iso: string) => {
 export function ManuscriptRow({ project, onDelete }: ManuscriptRowProps) {
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border border-white/[0.032] bg-[#18181a] px-4 py-4.5 sm:px-5 sm:py-5">
-      <Link href={`/editor?project=${project.id}`} className="min-w-0">
+      <Link href={`/editor/${project.id}`} className="min-w-0">
         <p className="truncate text-[15px] text-white/88">{project.title}</p>
         <p className="mt-1.5 truncate text-xs tracking-[0.02em] text-white/36">
           {project.preview || 'Empty draft'}

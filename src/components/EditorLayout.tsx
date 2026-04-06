@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { useTabsStore } from '@/store/tabsStore'
 import { shallow } from 'zustand/shallow'
 import TopBar from '@/components/TopBar'
@@ -13,8 +12,11 @@ const SIDEBAR_COLLAPSED_KEY = 'rhyme-lines:editor-sidebar-collapsed'
 const SIDEBAR_EXPANDED_WIDTH = 232
 const SIDEBAR_COLLAPSED_WIDTH = 52
 
-export default function EditorLayout() {
-  const searchParams = useSearchParams()
+type EditorLayoutProps = {
+  projectId?: string | null
+}
+
+export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
   const { tabs, activeTabId, newTab, setActive } = useTabsStore(
     (state) => ({
       tabs: state.tabs,
@@ -62,14 +64,13 @@ export default function EditorLayout() {
   }, [])
 
   useEffect(() => {
-    const projectFromUrl = searchParams.get('project')
-    const projectId = projectFromUrl || getLastOpenProjectId()
-    if (!projectId) return
-    if (!tabs.some((tab) => tab.id === projectId)) return
-    if (activeTabId !== projectId) {
-      setActive(projectId)
+    const targetProjectId = projectId || getLastOpenProjectId()
+    if (!targetProjectId) return
+    if (!tabs.some((tab) => tab.id === targetProjectId)) return
+    if (activeTabId !== targetProjectId) {
+      setActive(targetProjectId)
     }
-  }, [activeTabId, searchParams, setActive, tabs])
+  }, [activeTabId, projectId, setActive, tabs])
 
   useEffect(() => {
     if (activeTabId) {

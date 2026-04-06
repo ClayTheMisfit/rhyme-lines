@@ -33,7 +33,7 @@ export function DashboardShell() {
   const handleCreateProject = useCallback(() => {
     const project = createProject('Untitled')
     setLastOpenProjectId(project.id)
-    router.push(`/editor?project=${project.id}`)
+    router.push(`/editor/${project.id}`)
   }, [router])
 
   const handleDeleteProject = useCallback(
