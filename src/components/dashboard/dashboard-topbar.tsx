@@ -21,7 +21,10 @@ export function DashboardTopbar({
     <header className="flex h-14 items-center justify-between border-b border-white/[0.03] px-5 sm:px-7 lg:px-8">
       <div className="text-[13px] font-medium tracking-[0.24em] text-white/82">RHYME LINES</div>
 
-      <nav className="hidden items-center gap-6 md:flex">
+      <nav
+        className="flex items-center gap-2 overflow-x-auto px-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        aria-label="Dashboard views"
+      >
         {[
           { label: 'Projects', value: 'projects' as const },
           { label: 'Archived', value: 'archived' as const },
@@ -32,8 +35,10 @@ export function DashboardTopbar({
             type="button"
             onClick={() => onViewChange(item.value)}
             aria-pressed={view === item.value}
-            className={`text-xs tracking-[0.16em] ${
-              view === item.value ? 'text-[#f2d000]' : 'text-white/40 hover:text-white/68'
+            className={`whitespace-nowrap rounded border px-2.5 py-1 text-[11px] tracking-[0.12em] ${
+              view === item.value
+                ? 'border-[#f2d000]/55 bg-[#f2d000]/10 text-[#f2d000]'
+                : 'border-white/[0.08] text-white/40 hover:text-white/68'
             }`}
           >
             <span>{item.label}</span>

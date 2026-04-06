@@ -77,17 +77,23 @@ const filterMeaningfulDrafts = (drafts: DraftSchema[]) => {
   return drafts
 }
 
-const parseDraft = (draft: DraftSchema): ProjectDocument => ({
-  id: draft.docId,
-  title: draft.title?.trim() || 'Untitled',
-  content: draft.lines.map((line) => line.text).join('\n'),
-  createdAt: toIso(draft.createdAt),
-  updatedAt: toIso(draft.updatedAt),
-  archived: draft.archived === true,
-  archivedAt: typeof draft.archivedAt === 'string' ? draft.archivedAt : null,
-  deletedAt: typeof draft.deletedAt === 'string' ? draft.deletedAt : null,
-  folderId: typeof draft.folderId === 'string' ? draft.folderId : null,
-})
+const parseDraft = (draft: DraftSchema): ProjectDocument => {
+  const hasArchivedFlag = typeof draft.archived === 'boolean'
+  const archivedAt = typeof draft.archivedAt === 'string' ? draft.archivedAt : null
+  const archived = hasArchivedFlag ? draft.archived : Boolean(archivedAt)
+
+  return {
+    id: draft.docId,
+    title: draft.title?.trim() || 'Untitled',
+    content: draft.lines.map((line) => line.text).join('\n'),
+    createdAt: toIso(draft.createdAt),
+    updatedAt: toIso(draft.updatedAt),
+    archived,
+    archivedAt: archived ? archivedAt : null,
+    deletedAt: typeof draft.deletedAt === 'string' ? draft.deletedAt : null,
+    folderId: typeof draft.folderId === 'string' ? draft.folderId : null,
+  }
+}
 
 const toSummary = (project: ProjectDocument, folders: ProjectFolder[]): ProjectSummary => {
   const analysis = analyzeProjectContent(project.content)

@@ -20,6 +20,7 @@ import {
   restoreProjectFromTrash,
   setLastOpenProjectId,
 } from '@/lib/projects/storage'
+import { buildDraftCollection } from '@/store/tabsStore'
 
 describe('project storage', () => {
   beforeEach(() => {
@@ -192,5 +193,56 @@ describe('project storage', () => {
     expect(all[0]?.folderId).toBeNull()
     expect(listActiveProjectSummaries()).toHaveLength(1)
     expect(listArchivedProjectSummaries()).toEqual([])
+  })
+
+  it('keeps archived project archived when draft save path builds from tabs with previous inferred from storage', () => {
+    const project = createProject('Archived draft')
+    archiveProject(project.id)
+    const archivedBefore = listArchivedProjectSummaries()[0]
+    expect(archivedBefore?.id).toBe(project.id)
+
+    const draftCollection = buildDraftCollection(
+      {
+        activeTabId: project.id,
+        tabs: [
+          {
+            id: project.id,
+            title: 'Archived draft',
+            snapshot: { text: 'Edited from editor path' },
+            isDirty: true,
+            createdAt: Date.parse(archivedBefore?.createdAt ?? new Date().toISOString()),
+            updatedAt: Date.now(),
+          },
+        ],
+      },
+      null
+    )
+
+    const savedDraft = draftCollection.drafts.find((draft) => draft.docId === project.id)
+    expect(savedDraft?.archived).toBe(true)
+    expect(savedDraft?.archivedAt).toBe(archivedBefore?.archivedAt ?? null)
+  })
+
+  it('treats missing archived flag with archivedAt as archived', () => {
+    const payload = {
+      version: CURRENT_SCHEMA_VERSION,
+      data: {
+        drafts: [
+          {
+            docId: 'implicit-archived',
+            title: 'Implicit archived',
+            createdAt: 1,
+            updatedAt: 2,
+            archivedAt: '2025-01-01T00:00:00.000Z',
+            lines: [{ id: 'legacy-line-0', text: 'line' }],
+          },
+        ],
+        activeId: 'implicit-archived',
+      },
+    }
+    localStorage.setItem('rhyme-lines:persist:drafts', JSON.stringify(payload))
+
+    expect(listArchivedProjectSummaries().map((project) => project.id)).toEqual(['implicit-archived'])
+    expect(listActiveProjectSummaries()).toEqual([])
   })
 })

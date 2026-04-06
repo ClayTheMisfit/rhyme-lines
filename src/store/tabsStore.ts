@@ -10,7 +10,7 @@ import {
   type DraftLine,
   type DraftSchema,
 } from '@/lib/persist/schema'
-import { writeVersioned } from '@/lib/persist/storage'
+import { readWithMigrations, writeVersioned } from '@/lib/persist/storage'
 
 export type TabId = string
 
@@ -86,8 +86,9 @@ const buildDraftFromTab = (tab: Tab, previousDraft?: DraftSchema): DraftSchema =
 }
 
 export const buildDraftCollection = (state: Pick<TabsState, 'tabs' | 'activeTabId'>, previous: DraftCollection | null): DraftCollection => {
+  const persisted = previous ?? readWithMigrations('drafts').data
   const previousMap = new Map<string, DraftSchema>()
-  previous?.drafts.forEach((draft) => {
+  persisted?.drafts.forEach((draft) => {
     previousMap.set(draft.docId, draft)
   })
 
@@ -97,7 +98,7 @@ export const buildDraftCollection = (state: Pick<TabsState, 'tabs' | 'activeTabI
   return {
     drafts,
     activeId,
-    folders: previous?.folders ?? [],
+    folders: persisted?.folders ?? [],
   }
 }
 
@@ -256,4 +257,8 @@ export const getActiveTab = (): Tab => {
 
 export function hydrateTabsFromPersisted(drafts: DraftCollection) {
   useTabsStore.getState().actions.hydrate(drafts)
+}
+
+export function getLastPersistedDraftCollection(): DraftCollection | null {
+  return lastPersistedDrafts
 }

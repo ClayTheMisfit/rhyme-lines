@@ -132,8 +132,9 @@ const normalizeDraft = (value: unknown, fallbackId: string): DraftSchema => {
   const createdAt = toNumber(value.createdAt, Date.now())
   const updatedAt = toNumber(value.updatedAt, createdAt)
   const title = toStringValue(value.title) ?? 'Untitled'
-  const archived = toBoolean(value.archived, false)
   const archivedAtRaw = toStringValue(value.archivedAt)
+  const archivedFlag = typeof value.archived === 'boolean' ? value.archived : null
+  const archived = archivedFlag ?? Boolean(archivedAtRaw)
   const archivedAt = archived ? archivedAtRaw ?? null : null
   const deletedAt = toStringValue(value.deletedAt) ?? null
   const folderId = toStringValue(value.folderId) ?? null
