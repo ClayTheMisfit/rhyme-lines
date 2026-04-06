@@ -76,6 +76,10 @@ const buildDraftFromTab = (tab: Tab, previousDraft?: DraftSchema): DraftSchema =
     title: tab.title,
     createdAt: tab.createdAt,
     updatedAt: Date.now(),
+    archived: previousDraft?.archived ?? false,
+    archivedAt: previousDraft?.archivedAt ?? null,
+    deletedAt: previousDraft?.deletedAt ?? null,
+    folderId: previousDraft?.folderId ?? null,
     lines: draftLines.length ? draftLines : [{ id: `${tab.id}-line-0`, text: '' }],
     selection: previousDraft?.selection,
   }
@@ -93,6 +97,7 @@ export const buildDraftCollection = (state: Pick<TabsState, 'tabs' | 'activeTabI
   return {
     drafts,
     activeId,
+    folders: previous?.folders ?? [],
   }
 }
 
