@@ -17,19 +17,21 @@ export function DashboardTopbar({
   search,
   onSearchChange,
 }: DashboardTopbarProps) {
+  const views = [
+    { label: 'Projects', value: 'projects' as const },
+    { label: 'Archived', value: 'archived' as const },
+    { label: 'Trash', value: 'trash' as const },
+  ]
+
   return (
     <header className="flex h-14 items-center justify-between border-b border-white/[0.03] px-5 sm:px-7 lg:px-8">
       <div className="text-[13px] font-medium tracking-[0.24em] text-white/82">RHYME LINES</div>
 
       <nav
-        className="flex items-center gap-2 overflow-x-auto px-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="hidden items-center gap-2 overflow-x-auto px-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex [&::-webkit-scrollbar]:hidden"
         aria-label="Dashboard views"
       >
-        {[
-          { label: 'Projects', value: 'projects' as const },
-          { label: 'Archived', value: 'archived' as const },
-          { label: 'Trash', value: 'trash' as const },
-        ].map((item) => (
+        {views.map((item) => (
           <button
             key={item.label}
             type="button"
@@ -55,6 +57,27 @@ export function DashboardTopbar({
           </button>
         ))}
       </nav>
+
+      <div className="sm:hidden">
+        <label className="sr-only" htmlFor="dashboard-view-select">
+          Dashboard view
+        </label>
+        <select
+          id="dashboard-view-select"
+          value={view}
+          onChange={(event) => onViewChange(event.target.value as DashboardView)}
+          className="h-8 max-w-[9rem] rounded border border-white/[0.1] bg-[#0f1014] px-2 text-[11px] tracking-[0.08em] text-white/75 focus:outline-none"
+          aria-label="Dashboard view"
+        >
+          {views.map((item) => (
+            <option key={item.value} value={item.value}>
+              {item.label}
+              {item.value === 'archived' ? ` (${archivedCount})` : ''}
+              {item.value === 'trash' ? ` (${trashCount})` : ''}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
         <input
