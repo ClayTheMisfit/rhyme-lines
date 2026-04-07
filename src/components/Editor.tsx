@@ -1050,7 +1050,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
         }}
       >
-        <div className="editor-root relative mr-auto w-full max-w-[1240px]">
+        <div className="editor-root relative mr-auto w-full max-w-[1480px]">
           <div className="rl-editor-grid">
             <div aria-hidden className="gutterSpacer" />
 

@@ -209,7 +209,7 @@ body.bg-white {
 
 .rl-editor-grid {
   display: grid;
-  grid-template-columns: var(--rl-gutter-width) minmax(760px, 920px);
+  grid-template-columns: var(--rl-gutter-width) minmax(760px, 1120px);
   justify-content: start;
   column-gap: var(--rl-gutter-gap);
   padding-inline: var(--rl-pad-inline) clamp(1rem, 3vw, 2.4rem);
