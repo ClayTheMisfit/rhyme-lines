@@ -77,10 +77,17 @@ const filterMeaningfulDrafts = (drafts: DraftSchema[]) => {
   return drafts
 }
 
-const parseDraft = (draft: DraftSchema): ProjectDocument => {
-  const hasArchivedFlag = typeof draft.archived === 'boolean'
-  const archivedAt = typeof draft.archivedAt === 'string' ? draft.archivedAt : null
-  const archived = hasArchivedFlag ? draft.archived : Boolean(archivedAt)
+const parseDraft = (
+  draft: DraftSchema,
+  existing?: Pick<ProjectDocument, 'archived' | 'archivedAt'>
+): ProjectDocument => {
+  const draftArchived = typeof draft.archived === 'boolean' ? draft.archived : undefined
+  const existingArchived = typeof existing?.archived === 'boolean' ? existing.archived : undefined
+  const archived: boolean = draftArchived ?? existingArchived ?? false
+
+  const draftArchivedAt = typeof draft.archivedAt === 'string' ? draft.archivedAt : null
+  const existingArchivedAt = typeof existing?.archivedAt === 'string' ? existing.archivedAt : null
+  const archivedAt = archived ? draftArchivedAt ?? existingArchivedAt : null
 
   return {
     id: draft.docId,
@@ -89,7 +96,7 @@ const parseDraft = (draft: DraftSchema): ProjectDocument => {
     createdAt: toIso(draft.createdAt),
     updatedAt: toIso(draft.updatedAt),
     archived,
-    archivedAt: archived ? archivedAt : null,
+    archivedAt,
     deletedAt: typeof draft.deletedAt === 'string' ? draft.deletedAt : null,
     folderId: typeof draft.folderId === 'string' ? draft.folderId : null,
   }
