@@ -79,10 +79,10 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
   }, [activeTabId])
 
   return (
-    <div className="flex min-h-screen flex-col bg-[color:var(--rl-shell-bg)] text-[color:var(--rl-shell-text)]">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[color:var(--rl-shell-bg)] text-[color:var(--rl-shell-text)]">
       <TopBar />
       <div
-        className="grid min-h-0 flex-1 transition-[grid-template-columns] duration-150"
+        className="grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-150"
         style={{
           paddingTop: 'var(--header-height, 48px)',
           gridTemplateColumns: `${sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH}px minmax(0,1fr)`,
@@ -163,7 +163,7 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
             </div>
           )}
         </aside>
-        <main className="min-w-0 bg-[color:var(--rl-editor-lane)]">
+        <main className="flex min-h-0 min-w-0 bg-[color:var(--rl-editor-lane)]">
           <EditorShell />
         </main>
       </div>
