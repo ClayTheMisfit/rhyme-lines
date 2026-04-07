@@ -1054,7 +1054,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           <div className="rl-editor-grid">
             <div aria-hidden className="gutterSpacer" />
 
-            <div ref={textColRef} className="editor-surface relative min-h-[70vh] max-w-[820px]">
+            <div ref={textColRef} className="editor-surface relative min-h-[70vh] w-full max-w-none">
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
                 className="pointer-events-none absolute inset-0 z-10"
