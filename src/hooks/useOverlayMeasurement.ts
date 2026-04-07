@@ -155,7 +155,7 @@ export function useOverlayMeasurement({
         const lineHeightPx = Number.isFinite(lineHeightPxRaw) && lineHeightPxRaw > 0
           ? lineHeightPxRaw
           : fontSizePx * lineHeight
-        const badgeOffsetEm = Math.min(Math.max(0.95 * (lineHeightPx / fontSizePx), 0.85), 1.25)
+        const badgeOffsetEm = Math.min(Math.max(1 * (lineHeightPx / fontSizePx), 0.9), 1.25)
         lineElement.style.setProperty('--badge-offset', `${badgeOffsetEm}em`)
 
         const syllableTokens = analysis.wordSyllables[lineId] ?? []

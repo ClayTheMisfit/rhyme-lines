@@ -91,7 +91,7 @@
     @apply pointer-events-none select-none rounded-full bg-white/[0.03] text-white/35 ring-1 ring-white/[0.06];
     --badge-base-size: clamp(0.9rem, 1.6vw, 1.05rem);
     --badge-scale: 1;
-    --badge-offset: 0.95em;
+    --badge-offset: 1em;
     inline-size: calc(var(--badge-base-size) * var(--badge-scale));
     block-size: calc(var(--badge-base-size) * var(--badge-scale));
     line-height: calc(var(--badge-base-size) * var(--badge-scale));
@@ -130,7 +130,7 @@
   }
 
   .leading-tight .syllable-badge {
-    --badge-offset: 0.9em;
+    --badge-offset: 0.95em;
   }
 
   [data-line-id] {
