@@ -53,13 +53,25 @@ export interface DraftSchema {
   title?: string
   createdAt: number
   updatedAt: number
+  archived?: boolean
+  archivedAt?: string | null
+  deletedAt?: string | null
+  folderId?: string | null
   lines: DraftLine[]
   selection?: DraftSelection
+}
+
+export interface FolderSchema {
+  id: string
+  name: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface DraftCollection {
   drafts: DraftSchema[]
   activeId: string
+  folders?: FolderSchema[]
 }
 
 export interface PanelPosition {
@@ -131,6 +143,10 @@ export function createEmptyDraft(docId: string, title = 'Untitled'): DraftSchema
     title,
     createdAt: now,
     updatedAt: now,
+    archived: false,
+    archivedAt: null,
+    deletedAt: null,
+    folderId: null,
     lines: [{ id: `${docId}-line-0`, text: '' }],
   }
 }
@@ -140,5 +156,6 @@ export function createDefaultDraftCollection(): DraftCollection {
   return {
     drafts: [draft],
     activeId: draft.docId,
+    folders: [],
   }
 }

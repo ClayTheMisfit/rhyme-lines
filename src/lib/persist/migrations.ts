@@ -6,6 +6,7 @@ import {
   DraftCollection,
   DraftLine,
   DraftSchema,
+  FolderSchema,
   PanelSchema,
   SettingsSchema,
   createDefaultDraftCollection,
@@ -131,6 +132,12 @@ const normalizeDraft = (value: unknown, fallbackId: string): DraftSchema => {
   const createdAt = toNumber(value.createdAt, Date.now())
   const updatedAt = toNumber(value.updatedAt, createdAt)
   const title = toStringValue(value.title) ?? 'Untitled'
+  const archivedAtRaw = toStringValue(value.archivedAt)
+  const archivedFlag = typeof value.archived === 'boolean' ? value.archived : null
+  const archived = archivedFlag ?? Boolean(archivedAtRaw)
+  const archivedAt = archived ? archivedAtRaw ?? null : null
+  const deletedAt = toStringValue(value.deletedAt) ?? null
+  const folderId = toStringValue(value.folderId) ?? null
   const linesSource = Array.isArray(value.lines) ? value.lines : []
   const lines = linesSource.map((line, index) => normalizeLine(line, `${docId}-line-${index}`, ''))
 
@@ -145,8 +152,26 @@ const normalizeDraft = (value: unknown, fallbackId: string): DraftSchema => {
     title,
     createdAt,
     updatedAt,
+    archived,
+    archivedAt,
+    deletedAt,
+    folderId,
     lines: lines.length ? lines : [{ id: `${docId}-line-0`, text: '' }],
     selection,
+  }
+}
+
+const normalizeFolder = (value: unknown, index: number): FolderSchema | null => {
+  if (!isRecord(value)) return null
+  const id = toStringValue(value.id) ?? `folder-${index}`
+  const name = (toStringValue(value.name) ?? '').trim()
+  if (!name) return null
+  const now = new Date().toISOString()
+  return {
+    id,
+    name,
+    createdAt: toStringValue(value.createdAt) ?? now,
+    updatedAt: toStringValue(value.updatedAt) ?? now,
   }
 }
 
@@ -162,7 +187,11 @@ const normalizeDraftCollection = (value: unknown): DraftCollection => {
       : createDefaultDraftCollection().drafts
 
   const activeId = toStringValue(value.activeId) ?? drafts[0]?.docId ?? createDefaultDraftCollection().activeId
-  return { drafts, activeId }
+  const foldersSource = Array.isArray(value.folders) ? value.folders : []
+  const folders = foldersSource
+    .map((folder, index) => normalizeFolder(folder, index))
+    .filter((folder): folder is FolderSchema => folder !== null)
+  return { drafts, activeId, folders }
 }
 
 const normalizePanel = (value: unknown): PanelSchema => {
@@ -244,9 +273,13 @@ const buildDraftFromText = (text: string): DraftCollection => {
     title: 'Untitled',
     createdAt: Date.now(),
     updatedAt: Date.now(),
+    archived: false,
+    archivedAt: null,
+    deletedAt: null,
+    folderId: null,
     lines: lines.length ? lines : [{ id: `${docId}-line-0`, text: '' }],
   }
-  return { drafts: [draft], activeId: docId }
+  return { drafts: [draft], activeId: docId, folders: [] }
 }
 
 const migrateLegacyTabs = (value: unknown): DraftCollection => {
@@ -274,12 +307,16 @@ const migrateLegacyTabs = (value: unknown): DraftCollection => {
       title,
       createdAt,
       updatedAt,
+      archived: false,
+      archivedAt: null,
+      deletedAt: null,
+      folderId: null,
       lines: lines.length ? lines : [{ id: `${docId}-line-0`, text: '' }],
     }
   })
 
   const activeId = drafts.find((draft) => draft.docId === activeTabId)?.docId ?? drafts[0]?.docId ?? activeTabId ?? ''
-  return drafts.length ? { drafts, activeId } : createDefaultDraftCollection()
+  return drafts.length ? { drafts, activeId, folders: [] } : createDefaultDraftCollection()
 }
 
 export function migrateDrafts(candidates: StoredValueCandidate[]): VersionedResult<DraftCollection> {

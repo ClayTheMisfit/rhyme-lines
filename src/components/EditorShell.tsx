@@ -195,11 +195,11 @@ export default function EditorShell() {
   )
 
   return (
-    <div ref={shellRef} className="relative flex h-full w-full flex-col">
+    <div ref={shellRef} className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
       {!ready ? (
         <div className="flex h-full w-full flex-1 min-h-0" aria-hidden />
       ) : (
-        <div className="flex h-full w-full min-h-0 flex-1 flex-col">
+        <div className="flex h-full w-full min-h-0 flex-1 flex-col overflow-hidden">
           <Editor
             ref={editorRef}
             hydrated={ready}

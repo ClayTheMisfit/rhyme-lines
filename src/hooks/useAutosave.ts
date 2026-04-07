@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 import { useAutosaveStore } from '@/store/autosaveStore'
-import { buildDraftCollection, useTabsStore } from '@/store/tabsStore'
+import { buildDraftCollection, getLastPersistedDraftCollection, useTabsStore } from '@/store/tabsStore'
 import { tryWriteVersioned } from '@/lib/persist/storage'
 
 const DEFAULT_DEBOUNCE_MS = 600
@@ -38,7 +38,7 @@ export function useAutosave({ debounceMs = DEFAULT_DEBOUNCE_MS, onSaved }: UseAu
     const revAtStart = startSaving()
     try {
       const tabsState = useTabsStore.getState()
-      const payload = buildDraftCollection(tabsState, null)
+      const payload = buildDraftCollection(tabsState, getLastPersistedDraftCollection())
       const result = tryWriteVersioned('drafts', payload)
 
       if (!result.ok) {

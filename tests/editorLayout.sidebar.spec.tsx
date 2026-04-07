@@ -38,6 +38,8 @@ describe('EditorLayout sidebar toggle', () => {
     expect(screen.getByText('Documents')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Verse A' })).toBeInTheDocument()
     expect(container.firstChild).toHaveClass('bg-[color:var(--rl-shell-bg)]')
+    expect(container.firstChild).toHaveClass('h-dvh')
+    expect(container.firstChild).toHaveClass('overflow-hidden')
   })
 
   test('collapses and expands via toggle click', async () => {
