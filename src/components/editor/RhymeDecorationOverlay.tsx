@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { RhymeDecorationRect } from '@/hooks/useRhymeDecorationOverlay'
 import type { RhymeHighlightMode } from '@/lib/persist/schema'
-import { RHYME_FAMILY_COLORS, shouldRenderRhymeToken } from '@/lib/rhyme/rhymeDecorations'
+import { shouldRenderRhymeToken } from '@/lib/rhyme/rhymeDecorations'
+import { buildRhymeFamilyStyleMap } from '@/lib/rhyme/familyStyles'
 
 export type RhymeDecorationOverlayProps = {
   rects: RhymeDecorationRect[]
@@ -14,8 +15,14 @@ export type RhymeDecorationOverlayProps = {
 }
 
 export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId, mode, hideColors }: RhymeDecorationOverlayProps) {
-  const palette = useMemo(() => RHYME_FAMILY_COLORS, [])
   const [showDebugPronunciation, setShowDebugPronunciation] = useState(false)
+
+  const familyStyles = useMemo(() => {
+    const visibleFamilyIds = rects
+      .filter((rect) => rect.familyId !== undefined)
+      .map((rect) => rect.familyId as number)
+    return buildRhymeFamilyStyleMap(visibleFamilyIds)
+  }, [rects])
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'production' || typeof window === 'undefined') {
@@ -38,7 +45,9 @@ export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId, mode, h
         }
         const isActive = activeFamilyId !== null && rect.familyId === activeFamilyId
         const isMuted = mode === 'focus' && activeFamilyId !== null && rect.familyId !== activeFamilyId
-        const color = palette[(rect.colorIndex ?? rect.familyId ?? 0) % palette.length]
+        const familyStyle = rect.familyId !== undefined ? familyStyles.get(rect.familyId) : undefined
+        const color = familyStyle?.color ?? 'rgba(242, 201, 76, 0.95)'
+        const underlineColor = hideColors ? 'rgba(242, 208, 0, 0.85)' : color
         return (
           <div key={rect.id}>
             <span
@@ -71,6 +80,10 @@ export function RhymeDecorationOverlay({ rects, enabled, activeFamilyId, mode, h
                 left: rect.rect.left,
                 top: rect.rect.top + rect.rect.height - 2,
                 width: rect.rect.width,
+                height: 0,
+                borderBottomColor: underlineColor,
+                borderBottomStyle: familyStyle?.lineStyle ?? 'solid',
+                borderBottomWidth: `${familyStyle?.thickness ?? 2}px`,
                 ['--rhyme-color' as string]: color,
               }}
             />
