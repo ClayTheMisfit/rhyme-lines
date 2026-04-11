@@ -726,8 +726,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (typeof window === 'undefined') return null
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0) return null
-    const range = selection.getRangeAt(0)
-    const focusNode = range.endContainer
+
+    const focusNode = selection.focusNode
+    const focusOffset = selection.focusOffset
+    if (!focusNode) return null
+
     const lineElement =
       focusNode instanceof Element
         ? focusNode.closest('.line')
@@ -739,8 +742,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const lineIndex = lines.findIndex((line) => line === lineElement)
     if (lineIndex === -1) return null
 
-    const caretRange = range.cloneRange()
+    const caretRange = document.createRange()
     caretRange.setStart(lineElement, 0)
+    caretRange.setEnd(focusNode, focusOffset)
     const caretOffset = caretRange.toString().length
     return { line: lineIndex + 1, column: caretOffset + 1 }
   }, [])
