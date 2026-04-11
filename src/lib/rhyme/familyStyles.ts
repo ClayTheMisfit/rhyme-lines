@@ -1,4 +1,4 @@
-export type RhymeUnderlineStyle = 'solid' | 'dashed' | 'dotted'
+export type RhymeUnderlineStyle = 'solid' | 'dashed' | 'double'
 
 export type RhymeFamilyStyle = {
   color: string
@@ -6,68 +6,76 @@ export type RhymeFamilyStyle = {
   thickness: number
 }
 
-export const RHYME_FAMILY_PALETTE: string[] = [
-  'rgba(242, 201, 76, 0.95)',
-  'rgba(94, 207, 255, 0.95)',
-  'rgba(255, 138, 128, 0.95)',
-  'rgba(132, 225, 138, 0.95)',
-  'rgba(199, 146, 234, 0.95)',
-  'rgba(255, 179, 102, 0.95)',
-  'rgba(111, 222, 205, 0.95)',
-  'rgba(255, 122, 162, 0.95)',
-  'rgba(151, 180, 255, 0.95)',
-  'rgba(196, 231, 114, 0.95)',
-  'rgba(255, 161, 94, 0.95)',
-  'rgba(122, 214, 255, 0.95)',
+// Curated categorical palette for dark-editor readability.
+export const RHYME_FAMILY_PALETTE = [
+  '#F59E0B', // amber
+  '#22C55E', // green
+  '#38BDF8', // sky
+  '#EF4444', // red
+  '#A78BFA', // violet
+  '#14B8A6', // teal
+  '#F97316', // orange
+  '#E879F9', // fuchsia
+  '#84CC16', // lime
+  '#60A5FA', // blue
+  '#FB7185', // rose
+  '#FACC15', // yellow
+] as const
+
+// Contrast-jump ordering to avoid neighboring hues landing together.
+const PALETTE_ORDER = [0, 4, 1, 7, 2, 9, 3, 10, 5, 11, 6, 8] as const
+
+const OVERFLOW_STYLES: Array<Pick<RhymeFamilyStyle, 'lineStyle' | 'thickness'>> = [
+  { lineStyle: 'solid', thickness: 2 },
+  { lineStyle: 'solid', thickness: 2.5 },
+  { lineStyle: 'dashed', thickness: 2 },
+  { lineStyle: 'double', thickness: 3 },
 ]
 
-const OVERFLOW_LINE_STYLES: RhymeUnderlineStyle[] = ['solid', 'dashed', 'dotted']
-const OVERFLOW_THICKNESS: number[] = [2, 2, 1.5]
-
 const hashFamilyId = (familyId: number) => {
-  const normalized = Number.isFinite(familyId) ? familyId : 0
-  const int = Math.trunc(Math.abs(normalized))
-  return (int * 2654435761) >>> 0
+  const normalized = Number.isFinite(familyId) ? Math.trunc(Math.abs(familyId)) : 0
+  return (normalized * 2654435761) >>> 0
 }
 
-const assignUniquePaletteIndexes = (familyIds: number[]) => {
+const assignPaletteSlots = (familyIds: number[]) => {
   const used = new Set<number>()
-  const paletteIndexes = new Map<number, number>()
+  const slots = new Map<number, number>()
+  const capacity = RHYME_FAMILY_PALETTE.length
 
   familyIds.forEach((familyId, index) => {
-    const preferred = hashFamilyId(familyId) % RHYME_FAMILY_PALETTE.length
+    const start = hashFamilyId(familyId) % capacity
 
-    if (index < RHYME_FAMILY_PALETTE.length) {
-      let slot = preferred
-      for (let attempts = 0; attempts < RHYME_FAMILY_PALETTE.length; attempts += 1) {
-        if (!used.has(slot)) {
-          used.add(slot)
-          paletteIndexes.set(familyId, slot)
+    if (index < capacity) {
+      for (let attempt = 0; attempt < capacity; attempt += 1) {
+        const candidate = PALETTE_ORDER[(start + attempt) % capacity]
+        if (!used.has(candidate)) {
+          used.add(candidate)
+          slots.set(familyId, candidate)
           return
         }
-        slot = (slot + 1) % RHYME_FAMILY_PALETTE.length
       }
     }
 
-    paletteIndexes.set(familyId, preferred)
+    slots.set(familyId, PALETTE_ORDER[start])
   })
 
-  return paletteIndexes
+  return slots
 }
 
 export function buildRhymeFamilyStyleMap(visibleFamilyIds: number[]): Map<number, RhymeFamilyStyle> {
   const normalized = Array.from(new Set(visibleFamilyIds.filter((id) => Number.isFinite(id)))).sort((a, b) => a - b)
-  const paletteIndexes = assignUniquePaletteIndexes(normalized)
+  const paletteSlots = assignPaletteSlots(normalized)
   const styles = new Map<number, RhymeFamilyStyle>()
 
   normalized.forEach((familyId, index) => {
-    const paletteIndex = paletteIndexes.get(familyId) ?? 0
     const overflowTier = Math.floor(index / RHYME_FAMILY_PALETTE.length)
-    const tierIndex = overflowTier % OVERFLOW_LINE_STYLES.length
+    const styleTier = OVERFLOW_STYLES[overflowTier % OVERFLOW_STYLES.length]
+    const slot = paletteSlots.get(familyId) ?? 0
+
     styles.set(familyId, {
-      color: RHYME_FAMILY_PALETTE[paletteIndex],
-      lineStyle: OVERFLOW_LINE_STYLES[tierIndex],
-      thickness: OVERFLOW_THICKNESS[tierIndex],
+      color: RHYME_FAMILY_PALETTE[slot],
+      lineStyle: styleTier.lineStyle,
+      thickness: styleTier.thickness,
     })
   })
 
