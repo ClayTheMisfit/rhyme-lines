@@ -25,4 +25,31 @@ describe('project analysis metrics', () => {
       averageSyllablesPerLine: 0,
     })
   })
+
+  it('counts only repeated visible rhyme families for the dense reference block', () => {
+    const lyrics = [
+      'tag bag flag rag gag wag',
+      'mat cat hat rat',
+      'time fine rhyme',
+      'glow snow show',
+      'stone alone phone',
+      'light night sight',
+      'keep deep sleep',
+      'crash ash stash',
+      'Glow, SNOW, show!',
+      'Phone, alone? STONE!',
+      'tag home sleep car',
+      'stone crash deep mat',
+      '1999 was wild',
+      '2001 felt strange',
+      '2026 looks bright',
+      "11 o'clock at night",
+      '12:05 in the morning',
+      '24/7 on my mind',
+    ].join('\n')
+
+    const metrics = analyzeProjectContent(lyrics)
+
+    expect(metrics.endRhymeFamilyCount).toBe(8)
+  })
 })

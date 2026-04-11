@@ -1,6 +1,7 @@
 import { tokenizeLine } from '@/lib/analysis/tokenize'
 import { countSyllables } from '@/lib/nlp/syllables'
 import { normalizeLexeme } from '@/lib/rhyme-db/normalizeLexeme'
+import { buildRhymeDecorations } from '@/lib/rhyme/rhymeDecorations'
 
 export interface ProjectAnalysisMetrics {
   rhymeDensity: number
@@ -38,6 +39,7 @@ export const analyzeProjectContent = (content: string): ProjectAnalysisMetrics =
   const endFamilies: string[] = []
   let internalRhymes = 0
   let totalSyllables = 0
+  const lineInputs = lines.map((text, index) => ({ id: `analysis-line-${index}`, text }))
 
   for (const line of lines) {
     const lexemes = tokenizeLine(line)
@@ -71,10 +73,15 @@ export const analyzeProjectContent = (content: string): ProjectAnalysisMetrics =
   const repeatedLineEndings = [...endFamilyCounts.values()].reduce((sum, count) => sum + (count > 1 ? count : 0), 0)
   const rhymeDensity = clamp(repeatedLineEndings / Math.max(1, endFamilies.length))
 
+  const visibleFamilySnapshot = buildRhymeDecorations(lineInputs, [], {
+    showInternalRhymes: true,
+    highlightStopwords: false,
+  })
+
   return {
     rhymeDensity,
     internalRhymes,
-    endRhymeFamilyCount: endFamilyCounts.size,
+    endRhymeFamilyCount: visibleFamilySnapshot.familyCount,
     averageSyllablesPerLine: totalSyllables / lines.length,
   }
 }
