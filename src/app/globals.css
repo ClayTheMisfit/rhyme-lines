@@ -74,6 +74,8 @@
   --rl-shell-border: #c2c9d2;
   --rl-shell-text: #1f2937;
   --rl-shell-muted: #7b8794;
+  --rl-line-total-color: rgba(15, 23, 42, 0.56);
+  --rl-line-total-color-active: rgba(15, 23, 42, 0.8);
 }
 
 /* Editor-specific variables */
@@ -89,7 +91,7 @@
     @apply pointer-events-none select-none rounded-full bg-white/[0.03] text-white/35 ring-1 ring-white/[0.06];
     --badge-base-size: clamp(0.9rem, 1.6vw, 1.05rem);
     --badge-scale: 1;
-    --badge-offset: 0.95em;
+    --badge-offset: 1em;
     inline-size: calc(var(--badge-base-size) * var(--badge-scale));
     block-size: calc(var(--badge-base-size) * var(--badge-scale));
     line-height: calc(var(--badge-base-size) * var(--badge-scale));
@@ -128,7 +130,7 @@
   }
 
   .leading-tight .syllable-badge {
-    --badge-offset: 0.9em;
+    --badge-offset: 0.95em;
   }
 
   [data-line-id] {
@@ -172,6 +174,8 @@ body.bg-black {
   --rl-shell-border: rgba(255, 255, 255, 0.08);
   --rl-shell-text: rgba(255, 255, 255, 0.9);
   --rl-shell-muted: rgba(255, 255, 255, 0.58);
+  --rl-line-total-color: rgba(255, 255, 255, 0.36);
+  --rl-line-total-color-active: rgba(255, 255, 255, 0.62);
 }
 
 body.bg-white {
@@ -183,6 +187,8 @@ body.bg-white {
   --rl-shell-border: #c2c9d2;
   --rl-shell-text: #1f2937;
   --rl-shell-muted: #7b8794;
+  --rl-line-total-color: rgba(30, 41, 59, 0.56);
+  --rl-line-total-color-active: rgba(15, 23, 42, 0.78);
 }
 
 /* Editor line break preservation */
@@ -197,13 +203,13 @@ body.bg-white {
   --rl-pad-top: calc(3.45rem + var(--editor-safe-offset));
   --rl-pad-bottom: 2.5rem;
   --rl-pad-inline: clamp(0.75rem, 2.2vw, 1.6rem);
-  --rl-gutter-width: clamp(2.2rem, 3vw, 2.8rem);
+  --rl-gutter-width: clamp(2.35rem, 3.2vw, 3rem);
   --rl-gutter-gap: clamp(0.5rem, 1.6vw, 1rem);
 }
 
 .rl-editor-grid {
   display: grid;
-  grid-template-columns: var(--rl-gutter-width) minmax(760px, 920px);
+  grid-template-columns: var(--rl-gutter-width) minmax(760px, 1120px);
   justify-content: start;
   column-gap: var(--rl-gutter-gap);
   padding-inline: var(--rl-pad-inline) clamp(1rem, 3vw, 2.4rem);
@@ -297,12 +303,12 @@ body.bg-white .rl-current-line-highlight {
 
 .rl-rhyme-underline[data-rhyme-family] {
   position: absolute;
-  height: 2px;
+  height: 0;
   border-radius: 999px;
   background: transparent;
   pointer-events: none;
   transform: translateZ(0);
-  box-shadow: inset 0 -1.5px 0 var(--rhyme-color, rgba(212, 176, 102, 0.85));
+  box-shadow: none;
 }
 
 .rl-rhyme-highlight[data-rhyme-family][data-rhyme-muted],
@@ -320,7 +326,7 @@ body.bg-white .rl-current-line-highlight {
 }
 
 .rl-rhyme-underline[data-rhyme-family][data-rhyme-hide-colors] {
-  box-shadow: inset 0 -1.5px 0 rgba(242, 208, 0, 0.85);
+  border-bottom-color: rgba(242, 208, 0, 0.85);
 }
 
 .rl-rhyme-highlight[data-rhyme-family][data-rhyme-active]:not([data-rhyme-debug]) {
@@ -393,9 +399,12 @@ body.bg-white .rl-editor .line {
   pointer-events: none;
   user-select: none;
   font-family: var(--rl-font-ui);
-  font-size: clamp(9px, 0.7vw, 10px);
+  font-size: clamp(10px, 0.78vw, 11px);
   line-height: 1;
   letter-spacing: 0.02em;
+  font-weight: 550;
+  color: var(--rl-line-total-color);
+  transition: color 140ms ease, font-weight 140ms ease;
 }
 
 /* Make sure empty lines still have height */
@@ -406,12 +415,9 @@ body.bg-white .rl-editor .line {
   height: var(--rl-line-row-height);
 }
 
-body.bg-white .rl-editor .line[data-line-total-display]::before {
-  color: #4b5563;
-}
-
-body.bg-black .rl-editor .line[data-line-total-display]::before {
-  color: rgba(255, 255, 255, 0.11);
+.rl-editor .line[data-line-total-display][data-active-line="true"]::before {
+  color: var(--rl-line-total-color-active);
+  font-weight: 640;
 }
 
 /* Custom scrollbar styles */

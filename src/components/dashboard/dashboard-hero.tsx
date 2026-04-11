@@ -17,7 +17,7 @@ export function DashboardHero({ projectCount, onCreateProject }: DashboardHeroPr
       <button
         type="button"
         onClick={onCreateProject}
-        className="mt-3 inline-flex h-10 items-center self-end border border-[#f2d000] bg-[#f2d000] px-5 text-xs font-medium tracking-[0.1em] text-black sm:mt-6"
+        className="mt-3 inline-flex h-10 items-center self-end border border-[#f2d000] bg-[#f2d000] px-5 text-xs font-medium tracking-[0.1em] text-black cursor-pointer transition-[background-color,box-shadow,transform] duration-150 ease-out hover:bg-[#f6da1a] hover:shadow-[0_0_0_1px_rgba(242,208,0,0.38),0_8px_18px_rgba(242,208,0,0.18)] active:translate-y-px active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111214] motion-reduce:transform-none motion-reduce:transition-none"
       >
         NEW PROJECT
       </button>

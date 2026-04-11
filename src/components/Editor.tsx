@@ -18,12 +18,14 @@ import { buildRhymeDecorations, DEFAULT_UNDERLINE_TARGETS, resolveActiveRhymeFam
 import { resolveInternalRhymesEnabled } from '@/lib/rhyme/highlightOptions'
 import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
 import { RhymeDecorationOverlay } from '@/components/editor/RhymeDecorationOverlay'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 const PLACEHOLDER_TEXT = 'Start writing…'
 const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
+const RHYME_DECORATION_DEBOUNCE_MS = 180
 const ACTIVE_LINE_TUNING = {
   radius: 2,
   yInset: 1,
@@ -157,6 +159,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   })
 
   const [rhymeRecomputeSignal, setRhymeRecomputeSignal] = useState(0)
+  const debouncedLineInputsForRhymes = useDebouncedValue(lineInputs, RHYME_DECORATION_DEBOUNCE_MS)
 
 
   useEffect(() => {
@@ -173,11 +176,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const rhymeDecorations = useMemo(
     () =>
-      buildRhymeDecorations(lineInputs, DEFAULT_UNDERLINE_TARGETS, {
+      buildRhymeDecorations(debouncedLineInputsForRhymes, DEFAULT_UNDERLINE_TARGETS, {
         showInternalRhymes: resolveInternalRhymesEnabled(showInternalRhymes, highlightMode),
         highlightStopwords,
       }),
-    [highlightMode, highlightStopwords, lineInputs, rhymeRecomputeSignal, showInternalRhymes]
+    [debouncedLineInputsForRhymes, highlightMode, highlightStopwords, rhymeRecomputeSignal, showInternalRhymes]
   )
 
   const decorationPatch = useDecorationDiff(rhymeDecorations.tokensByLine)
@@ -1050,11 +1053,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
         }}
       >
-        <div className="editor-root relative mr-auto w-full max-w-[1240px]">
+        <div className="editor-root relative mr-auto w-full max-w-[1480px]">
           <div className="rl-editor-grid">
             <div aria-hidden className="gutterSpacer" />
 
-            <div ref={textColRef} className="editor-surface relative min-h-[70vh] max-w-[820px]">
+            <div ref={textColRef} className="editor-surface relative min-h-[70vh] w-full max-w-none">
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
                 className="pointer-events-none absolute inset-0 z-10"
