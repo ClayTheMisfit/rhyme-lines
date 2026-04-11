@@ -54,7 +54,7 @@
 
 
 :root {
-  --rl-font-editor: "IBM Plex Mono", "SF Mono", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --rl-font-editor: "IBM Plex Mono", "SF Mono", "Cascadia Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
   --rl-font-ui: Inter, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   --rl-space-1: 0.25rem;
   --rl-space-2: 0.5rem;
