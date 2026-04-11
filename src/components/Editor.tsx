@@ -18,12 +18,14 @@ import { buildRhymeDecorations, DEFAULT_UNDERLINE_TARGETS, resolveActiveRhymeFam
 import { resolveInternalRhymesEnabled } from '@/lib/rhyme/highlightOptions'
 import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
 import { RhymeDecorationOverlay } from '@/components/editor/RhymeDecorationOverlay'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 const PLACEHOLDER_TEXT = 'Start writing…'
 const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
+const RHYME_DECORATION_DEBOUNCE_MS = 180
 const ACTIVE_LINE_TUNING = {
   radius: 2,
   yInset: 1,
@@ -157,6 +159,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   })
 
   const [rhymeRecomputeSignal, setRhymeRecomputeSignal] = useState(0)
+  const debouncedLineInputsForRhymes = useDebouncedValue(lineInputs, RHYME_DECORATION_DEBOUNCE_MS)
 
 
   useEffect(() => {
@@ -173,11 +176,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const rhymeDecorations = useMemo(
     () =>
-      buildRhymeDecorations(lineInputs, DEFAULT_UNDERLINE_TARGETS, {
+      buildRhymeDecorations(debouncedLineInputsForRhymes, DEFAULT_UNDERLINE_TARGETS, {
         showInternalRhymes: resolveInternalRhymesEnabled(showInternalRhymes, highlightMode),
         highlightStopwords,
       }),
-    [highlightMode, highlightStopwords, lineInputs, rhymeRecomputeSignal, showInternalRhymes]
+    [debouncedLineInputsForRhymes, highlightMode, highlightStopwords, rhymeRecomputeSignal, showInternalRhymes]
   )
 
   const decorationPatch = useDecorationDiff(rhymeDecorations.tokensByLine)
