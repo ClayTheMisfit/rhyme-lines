@@ -48,6 +48,11 @@ export default function EditorShell() {
     [activeTabId, tabs]
   )
 
+
+  useEffect(() => {
+    setCursor(null)
+  }, [activeTabId])
+
   const { saveStatus, saveError } = useAutosaveStore((state) => ({
     saveStatus: state.status,
     saveError: state.lastError,

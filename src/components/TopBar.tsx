@@ -74,6 +74,10 @@ export default function TopBar() {
     if (resolvedTheme !== resolved) {
       setResolvedTheme(resolved)
     }
+
+    return () => {
+      applyBodyTheme('dark')
+    }
   }, [mounted, resolvedTheme, setResolvedTheme, theme])
 
   return (
