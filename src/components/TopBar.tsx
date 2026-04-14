@@ -13,6 +13,14 @@ import { useRhymePanel } from '@/lib/state/rhymePanel'
 
 const PANEL_SPACING_REM = '1.25rem'
 
+
+function resetBodyThemeToDashboardDefault() {
+  const body = document.body
+  if (!body) return
+  body.classList.remove('bg-white', 'text-black')
+  body.classList.add('bg-black', 'text-white')
+}
+
 function applyBodyTheme(theme: 'light' | 'dark') {
   const body = document.body
   if (!body) return
@@ -76,7 +84,7 @@ export default function TopBar() {
     }
 
     return () => {
-      applyBodyTheme('dark')
+      resetBodyThemeToDashboardDefault()
     }
   }, [mounted, resolvedTheme, setResolvedTheme, theme])
 
