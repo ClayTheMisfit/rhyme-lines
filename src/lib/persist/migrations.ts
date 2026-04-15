@@ -11,6 +11,7 @@ import {
   SettingsSchema,
   createDefaultDraftCollection,
   createEmptyDraft,
+  isRhymeHighlightMode,
 } from './schema'
 import { migrateOldContent } from '../editor/serialization'
 
@@ -94,12 +95,7 @@ const normalizeSettings = (value: unknown): SettingsSchema => {
   const highContrast = toBoolean(payload.highContrast, DEFAULT_SETTINGS.highContrast ?? false)
   const rhymeHighlightModeValue = toStringValue(payload.rhymeHighlightMode)
   const rhymeHighlightMode: SettingsSchema['rhymeHighlightMode'] =
-    rhymeHighlightModeValue === 'off' ||
-    rhymeHighlightModeValue === 'end' ||
-    rhymeHighlightModeValue === 'focus' ||
-    rhymeHighlightModeValue === 'all'
-      ? rhymeHighlightModeValue
-      : DEFAULT_SETTINGS.rhymeHighlightMode
+    isRhymeHighlightMode(rhymeHighlightModeValue) ? rhymeHighlightModeValue : DEFAULT_SETTINGS.rhymeHighlightMode
   const lastUpdatedAt = toNumber(payload.lastUpdatedAt, Date.now())
 
   return {
