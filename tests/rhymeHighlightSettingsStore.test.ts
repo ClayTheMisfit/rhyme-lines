@@ -19,7 +19,7 @@ describe('rhyme highlight settings store', () => {
 
     expect(state.showInternalRhymes).toBe(true)
     expect(state.highlightStopwords).toBe(false)
-    expect(state.highlightMode).toBe('focus')
+    expect(state.highlightMode).toBe('all')
     expect(state.hideColorfulWords).toBe(false)
   })
 
@@ -68,7 +68,7 @@ describe('rhyme highlight settings store', () => {
     useRhymeHighlightSettingsStore.getState().hydrate()
     const state = useRhymeHighlightSettingsStore.getState()
 
-    expect(state.highlightMode).toBe('focus')
+    expect(state.highlightMode).toBe('all')
     expect(state.showInternalRhymes).toBe(false)
     expect(state.highlightStopwords).toBe(false)
     expect(state.hideColorfulWords).toBe(false)
@@ -110,7 +110,7 @@ describe('rhyme highlight settings store', () => {
     const state = useRhymeHighlightSettingsStore.getState()
 
     expect(state.hideColorfulWords).toBe(true)
-    expect(state.highlightMode).toBe('focus')
+    expect(state.highlightMode).toBe('all')
     expect(state.showInternalRhymes).toBe(true)
     expect(state.highlightStopwords).toBe(false)
   })

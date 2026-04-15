@@ -1,4 +1,4 @@
-import type { RhymeHighlightMode } from '@/lib/persist/schema'
+import { DEFAULT_HIGHLIGHT_MODE, type RhymeHighlightMode } from '@/lib/persist/schema'
 
 export type RhymeHighlightSettings = {
   showInternalRhymes: boolean
@@ -10,7 +10,7 @@ export type RhymeHighlightSettings = {
 export const RHYME_HIGHLIGHT_DEFAULTS: RhymeHighlightSettings = {
   showInternalRhymes: true,
   highlightStopwords: false,
-  highlightMode: 'focus',
+  highlightMode: DEFAULT_HIGHLIGHT_MODE,
   hideColorfulWords: false,
 }
 

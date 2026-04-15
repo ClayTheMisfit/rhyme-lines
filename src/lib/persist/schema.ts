@@ -13,6 +13,7 @@ export type DebounceMode = 'cursor-50' | 'typing-250'
 export type BadgeSize = 'xs' | 'sm' | 'md'
 export type RhymeFilters = { perfect: boolean; near: boolean }
 export type RhymeHighlightMode = 'off' | 'end' | 'focus' | 'all'
+export const DEFAULT_HIGHLIGHT_MODE: RhymeHighlightMode = 'all'
 export const RHYME_HIGHLIGHT_ORDER = ['off', 'end', 'focus', 'all'] as const satisfies readonly RhymeHighlightMode[]
 
 export interface SettingsSchema {
@@ -116,7 +117,7 @@ export const DEFAULT_SETTINGS: SettingsSchema = {
   highlightStopwords: false,
   rhymeAutoRefresh: true,
   debounceMode: 'typing-250',
-  rhymeHighlightMode: 'end',
+  rhymeHighlightMode: DEFAULT_HIGHLIGHT_MODE,
   hideRhymeColors: false,
   rhymeDebugOverlay: false,
 }

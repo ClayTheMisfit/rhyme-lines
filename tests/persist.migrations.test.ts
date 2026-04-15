@@ -23,7 +23,28 @@ describe('persistence migrations', () => {
     expect(data.fontSize).toBe(20)
     expect(data.rhymeFilters.perfect).toBe(false)
     expect(data.rhymeFilters.near).toBe(true)
+    expect(data.rhymeHighlightMode).toBe(DEFAULT_SETTINGS.rhymeHighlightMode)
     expect(data.lastUpdatedAt).toBeGreaterThan(0)
+  })
+
+  it('preserves a valid persisted rhymeHighlightMode', () => {
+    const legacySettings = {
+      theme: 'light',
+      rhymeHighlightMode: 'focus',
+    }
+
+    const { data } = migrateSettings([{ key: 'legacy', value: JSON.stringify(legacySettings) }])
+    expect(data.rhymeHighlightMode).toBe('focus')
+  })
+
+  it('falls back to default when persisted rhymeHighlightMode is invalid', () => {
+    const legacySettings = {
+      theme: 'light',
+      rhymeHighlightMode: 'invalid-mode',
+    }
+
+    const { data } = migrateSettings([{ key: 'legacy', value: JSON.stringify(legacySettings) }])
+    expect(data.rhymeHighlightMode).toBe(DEFAULT_SETTINGS.rhymeHighlightMode)
   })
 
   it('returns defaults when persisted payload is corrupted', () => {
