@@ -31,7 +31,7 @@ export function ManuscriptList({
   if (!rows.length) {
     const trimmedSearch = search.trim()
     return (
-      <section className="border border-white/[0.032] bg-[#18181a] px-5 py-8 text-center">
+      <section className="border border-white/[0.032] bg-[#151518] px-5 py-8 text-center">
         <h3 className="text-sm tracking-[0.13em] text-white/74">
           {trimmedSearch
             ? 'No results'
@@ -58,7 +58,7 @@ export function ManuscriptList({
     <section>
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm tracking-[0.13em] text-white/74">
-          {view === 'archived' ? 'Archived Manuscripts' : view === 'trash' ? 'Trash' : 'Saved Manuscripts'}
+          {view === 'archived' ? 'Archived Projects' : view === 'trash' ? 'Trash' : 'Recent Drafts'}
         </h3>
       </div>
       <ul className="space-y-2.5">

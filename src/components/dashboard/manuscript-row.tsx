@@ -21,7 +21,7 @@ const formatUpdatedAt = (iso: string) => {
 }
 
 const actionClassName =
-  'ml-2 rounded border border-white/[0.08] px-2 py-1 text-[10px] tracking-[0.1em] text-white/56 hover:text-white/86'
+  'ml-2 rounded border border-white/[0.08] px-2 py-1 text-[10px] tracking-[0.1em] text-white/56 transition-colors hover:text-white/86 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111214]'
 
 export function ManuscriptRow({
   project,
@@ -49,7 +49,7 @@ export function ManuscriptRow({
   }
 
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border border-white/[0.032] bg-[#18181a] px-4 py-4.5 sm:px-5 sm:py-5">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border border-white/[0.03] bg-[#151518] px-4 py-4.5 sm:px-5 sm:py-5">
       <div className="min-w-0">
         {isRenaming ? (
           <input
@@ -87,7 +87,7 @@ export function ManuscriptRow({
             className={actionClassName}
             aria-label={`Open ${project.title}`}
           >
-            Open
+            Continue
           </Link>
         ) : null}
         {view !== 'trash' ? (
