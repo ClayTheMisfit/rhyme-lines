@@ -57,7 +57,8 @@ export function DashboardShell() {
     setLatestProject(lastOpenProject ?? activeRows[0] ?? null)
     setFolders(allFolders)
     setCounts(getProjectCounts())
-    setProjects(filterProjectSummaries(baseRows, search, folderFilter, allFolders))
+    const effectiveFolderFilter = view === 'projects' ? folderFilter : null
+    setProjects(filterProjectSummaries(baseRows, search, effectiveFolderFilter, allFolders))
   }, [folderFilter, search, view])
 
   useEffect(() => {

@@ -2,7 +2,7 @@ import userEvent from '@testing-library/user-event'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { DashboardShell } from '@/components/dashboard/dashboard-shell'
 import * as storage from '@/lib/projects/storage'
-import type { ProjectSummary } from '@/lib/projects/storage'
+import type { ProjectFolder, ProjectSummary } from '@/lib/projects/storage'
 
 const pushMock = jest.fn()
 
@@ -49,16 +49,21 @@ jest.mock('@/lib/projects/storage', () => ({
 
 const storageMocks = jest.mocked(storage)
 
-const buildProject = (id: string, title: string, updatedAt: string): ProjectSummary => ({
+const buildProject = (
+  id: string,
+  title: string,
+  updatedAt: string,
+  options?: { archived?: boolean; deletedAt?: string | null; folderId?: string | null }
+): ProjectSummary => ({
   id,
   title,
   preview: `${title} preview`,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt,
-  archived: false,
-  archivedAt: null,
-  deletedAt: null,
-  folderId: null,
+  archived: options?.archived ?? false,
+  archivedAt: options?.archived ? updatedAt : null,
+  deletedAt: options?.deletedAt ?? null,
+  folderId: options?.folderId ?? null,
   folderName: null,
   wordCount: 12,
   lineCount: 4,
@@ -69,16 +74,38 @@ const buildProject = (id: string, title: string, updatedAt: string): ProjectSumm
 })
 
 describe('DashboardShell', () => {
-  const newest = buildProject('project-new', 'Newest Draft', '2026-04-21T00:00:00.000Z')
+  const folderA: ProjectFolder = {
+    id: 'folder-a',
+    name: 'Hooks',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  }
+  const folderB: ProjectFolder = {
+    id: 'folder-b',
+    name: 'Verses',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  }
+
+  const newest = buildProject('project-new', 'Newest Draft', '2026-04-21T00:00:00.000Z', {
+    folderId: folderA.id,
+  })
   const older = buildProject('project-old', 'Older Draft', '2026-04-20T00:00:00.000Z')
-  const archived = { ...buildProject('project-archived', 'Archived Draft', '2026-04-18T00:00:00.000Z'), archived: true }
+  const archived = buildProject('project-archived', 'Archived Draft', '2026-04-18T00:00:00.000Z', {
+    archived: true,
+    folderId: folderB.id,
+  })
+  const trashed = buildProject('project-trash', 'Trashed Draft', '2026-04-17T00:00:00.000Z', {
+    deletedAt: '2026-04-21T00:00:00.000Z',
+    folderId: folderB.id,
+  })
 
   beforeEach(() => {
     jest.clearAllMocks()
     storageMocks.listActiveProjectSummaries.mockReturnValue([newest, older])
     storageMocks.listArchivedProjectSummaries.mockReturnValue([archived])
-    storageMocks.listTrashProjectSummaries.mockReturnValue([])
-    storageMocks.listFolders.mockReturnValue([])
+    storageMocks.listTrashProjectSummaries.mockReturnValue([trashed])
+    storageMocks.listFolders.mockReturnValue([folderA, folderB])
     storageMocks.getProjectCounts.mockReturnValue({ archived: 1, trash: 0 })
     storageMocks.filterProjectSummaries.mockImplementation((projects) => projects)
     storageMocks.getLastOpenProjectId.mockReturnValue('project-old')
@@ -134,5 +161,48 @@ describe('DashboardShell', () => {
     await user.click(screen.getByRole('button', { name: /Projects/i }))
     await waitFor(() => expect(screen.getByText('Recent Drafts')).toBeInTheDocument())
     expect(screen.getByText('Newest Draft')).toBeInTheDocument()
+  })
+
+  it('does not apply hidden folder filtering in archived/trash views', async () => {
+    const user = userEvent.setup()
+    storageMocks.filterProjectSummaries.mockImplementation((projects, search, folderId) => {
+      const normalizedSearch = search.trim().toLowerCase()
+      return projects.filter((project) => {
+        const matchesFolder =
+          folderId === null ? true : folderId === '__none__' ? !project.folderId : project.folderId === folderId
+        if (!matchesFolder) return false
+        if (!normalizedSearch) return true
+        return project.title.toLowerCase().includes(normalizedSearch)
+      })
+    })
+
+    render(<DashboardShell />)
+
+    await user.click(screen.getByRole('button', { name: 'ORGANIZE PROJECTS' }))
+    await user.selectOptions(screen.getByLabelText('Folder'), folderA.id)
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Open Newest Draft' })).toBeInTheDocument())
+    expect(screen.queryByRole('link', { name: 'Open Older Draft' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Archived/i }))
+    await waitFor(() => expect(screen.getByText('Archived Projects')).toBeInTheDocument())
+    expect(screen.getByText('Archived Draft')).toBeInTheDocument()
+    expect(storageMocks.filterProjectSummaries).toHaveBeenLastCalledWith(expect.any(Array), '', null, [folderA, folderB])
+
+    await user.click(screen.getByRole('button', { name: /Trash/i }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Trash' })).toBeInTheDocument())
+    expect(screen.getByText('Trashed Draft')).toBeInTheDocument()
+    expect(storageMocks.filterProjectSummaries).toHaveBeenLastCalledWith(expect.any(Array), '', null, [folderA, folderB])
+
+    await user.click(screen.getByRole('button', { name: /Projects/i }))
+    await waitFor(() => expect(screen.getByText('Recent Drafts')).toBeInTheDocument())
+    expect(screen.getByRole('link', { name: 'Open Newest Draft' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open Older Draft' })).not.toBeInTheDocument()
+    expect(storageMocks.filterProjectSummaries).toHaveBeenLastCalledWith(
+      expect.any(Array),
+      '',
+      folderA.id,
+      [folderA, folderB]
+    )
   })
 })
