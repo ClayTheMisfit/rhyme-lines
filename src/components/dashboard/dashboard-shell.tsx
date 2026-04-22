@@ -152,7 +152,7 @@ export function DashboardShell() {
   )
 
   return (
-    <div className="dashboard-page min-h-screen bg-[#090909] text-white">
+    <div className="dashboard-page min-h-screen bg-[#0d0f12] text-[#f2f3f6]">
       <DashboardTopbar
         view={view}
         onViewChange={setView}
@@ -161,10 +161,10 @@ export function DashboardShell() {
         search={search}
         onSearchChange={setSearch}
       />
-      <div className="grid min-h-[calc(100vh-56px)] grid-cols-1 lg:grid-cols-[272px_minmax(0,1fr)]">
+      <div className="grid min-h-[calc(100vh-56px)] grid-cols-1 lg:grid-cols-[248px_minmax(0,1fr)]">
         <DashboardSidebar />
 
-        <main className="flex min-w-0 flex-col border-l border-white/[0.028] px-6 py-10 sm:px-10 sm:py-12 lg:px-12">
+        <main className="flex min-w-0 flex-col border-l border-white/[0.035] bg-[#111418] px-6 py-9 sm:px-10 sm:py-11 lg:px-12">
           <DashboardHero
             projectCount={activeProjectCount}
             onCreateProject={handleCreateProject}
@@ -173,26 +173,26 @@ export function DashboardShell() {
           />
 
           {view === 'projects' ? (
-            <section className="mt-6 border-b border-white/[0.05] pb-5">
+            <section className="mt-7 border-b border-white/[0.045] pb-6">
               <button
                 type="button"
                 onClick={() => setShowOrganizeControls((current) => !current)}
                 aria-expanded={showOrganizeControls}
-                className="inline-flex h-8 items-center rounded border border-white/[0.09] px-3 text-[11px] tracking-[0.1em] text-white/58 transition-colors hover:text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111214]"
+                className="inline-flex h-8 items-center rounded-md border border-white/[0.08] bg-[#171b20] px-3.5 text-[11px] tracking-[0.08em] text-white/64 transition-colors hover:border-white/[0.14] hover:text-white/82 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418]"
               >
                 {showOrganizeControls ? 'HIDE ORGANIZE TOOLS' : 'ORGANIZE PROJECTS'}
               </button>
 
               {showOrganizeControls ? (
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <label className="text-xs tracking-[0.12em] text-white/40" htmlFor="dashboard-folder-filter">
+                <div className="mt-4 flex flex-wrap items-center gap-3.5">
+                  <label className="text-xs tracking-[0.08em] text-white/52" htmlFor="dashboard-folder-filter">
                     Folder
                   </label>
                   <select
                     id="dashboard-folder-filter"
                     value={folderFilter ?? ''}
                     onChange={(event) => setFolderFilter(event.target.value || null)}
-                    className="h-9 min-w-[170px] border border-white/[0.08] bg-[#161618] px-3 text-xs text-white/70 focus:outline-none"
+                    className="h-9 min-w-[170px] rounded-md border border-white/[0.08] bg-[#1a1f25] px-3 text-xs text-white/78 focus:outline-none"
                   >
                     <option value="">All folders</option>
                     <option value="__none__">No folder</option>
@@ -210,12 +210,12 @@ export function DashboardShell() {
                       if (event.key === 'Enter') handleCreateFolder()
                     }}
                     placeholder="New folder"
-                    className="h-9 min-w-[170px] border border-white/[0.08] bg-[#161618] px-3 text-xs text-white/70 placeholder:text-white/30 focus:outline-none"
+                    className="h-9 min-w-[170px] rounded-md border border-white/[0.08] bg-[#1a1f25] px-3 text-xs text-white/78 placeholder:text-white/40 focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={handleCreateFolder}
-                    className="h-9 border border-white/[0.12] px-3 text-[11px] tracking-[0.1em] text-white/74 hover:bg-white/[0.05]"
+                    className="h-9 rounded-md border border-white/[0.12] bg-[#161b21] px-3 text-[11px] tracking-[0.06em] text-white/76 transition-colors hover:bg-[#1b2129]"
                   >
                     CREATE FOLDER
                   </button>
@@ -224,7 +224,7 @@ export function DashboardShell() {
             </section>
           ) : null}
 
-          <section className="mt-10 min-w-0">
+          <section className="mt-11 min-w-0">
             <ManuscriptList
               rows={projects}
               view={view}

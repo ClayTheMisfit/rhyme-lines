@@ -24,8 +24,8 @@ export function DashboardTopbar({
   ]
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-white/[0.03] px-5 sm:px-7 lg:px-8">
-      <div className="text-[12px] font-medium tracking-[0.2em] text-white/70">RHYME LINES</div>
+    <header className="flex h-14 items-center justify-between border-b border-white/[0.045] bg-[#0f1318] px-5 sm:px-7 lg:px-8">
+      <div className="text-[11px] font-medium tracking-[0.14em] text-white/62">RHYME LINES</div>
 
       <nav
         className="hidden items-center gap-2 overflow-x-auto px-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex [&::-webkit-scrollbar]:hidden"
@@ -37,20 +37,20 @@ export function DashboardTopbar({
             type="button"
             onClick={() => onViewChange(item.value)}
             aria-pressed={view === item.value}
-            className={`whitespace-nowrap rounded border px-2.5 py-1 text-[11px] tracking-[0.1em] transition-colors ${
+            className={`whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] tracking-[0.06em] transition-colors ${
               view === item.value
-                ? 'border-[#f2d000]/55 bg-[#f2d000]/10 text-[#f2d000]'
-                : 'border-white/[0.05] text-white/38 hover:text-white/62'
+                ? 'bg-[#d6b85d]/20 text-[#f0d587]'
+                : 'text-white/45 hover:bg-white/[0.03] hover:text-white/75'
             }`}
           >
             <span>{item.label}</span>
             {item.value === 'archived' ? (
-              <span className="ml-2 rounded border border-white/[0.12] px-1.5 py-0.5 text-[10px] tracking-normal text-white/70">
+              <span className="ml-2 rounded-sm bg-white/[0.08] px-1.5 py-0.5 text-[10px] tracking-normal text-white/66">
                 {archivedCount}
               </span>
             ) : null}
             {item.value === 'trash' ? (
-              <span className="ml-2 rounded border border-white/[0.12] px-1.5 py-0.5 text-[10px] tracking-normal text-white/70">
+              <span className="ml-2 rounded-sm bg-white/[0.08] px-1.5 py-0.5 text-[10px] tracking-normal text-white/66">
                 {trashCount}
               </span>
             ) : null}
@@ -66,7 +66,7 @@ export function DashboardTopbar({
           id="dashboard-view-select"
           value={view}
           onChange={(event) => onViewChange(event.target.value as DashboardView)}
-          className="h-8 max-w-[9rem] rounded border border-white/[0.1] bg-[#0f1014] px-2 text-[11px] tracking-[0.08em] text-white/75 focus:outline-none"
+          className="h-8 max-w-[9rem] rounded-md border border-white/[0.1] bg-[#171c23] px-2 text-[11px] tracking-[0.06em] text-white/80 focus:outline-none"
           aria-label="Dashboard view"
         >
           {views.map((item) => (
@@ -85,10 +85,10 @@ export function DashboardTopbar({
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Search projects"
-          className="hidden h-8 w-52 rounded-[6px] border border-white/[0.06] bg-white/[0.015] px-3 text-xs text-white/70 placeholder:text-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#101114] sm:flex"
+          className="hidden h-8 w-52 rounded-md border border-white/[0.08] bg-[#1a1f26] px-3 text-xs text-white/80 placeholder:text-white/42 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#10141a] sm:flex"
           aria-label="Search projects"
         />
-        <span className="hidden text-[10px] tracking-[0.08em] text-white/35 md:inline">Local-only workspace</span>
+        <span className="hidden text-[10px] tracking-[0.05em] text-white/42 md:inline">Local-only workspace</span>
       </div>
     </header>
   )

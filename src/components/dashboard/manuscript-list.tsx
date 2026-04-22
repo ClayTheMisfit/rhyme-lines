@@ -33,8 +33,8 @@ export function ManuscriptList({
   if (!rows.length) {
     const trimmedSearch = search.trim()
     return (
-      <section className="border border-white/[0.032] bg-[#151518] px-5 py-8 text-center">
-        <h3 className="text-sm tracking-[0.13em] text-white/74">
+      <section className="rounded-lg bg-[#171c23] px-5 py-9 text-center">
+        <h3 className="text-sm tracking-[0.08em] text-white/82">
           {trimmedSearch
             ? 'No results'
             : view === 'archived'
@@ -43,7 +43,7 @@ export function ManuscriptList({
                 ? 'Trash is empty'
                 : 'No projects yet'}
         </h3>
-        <p className="mt-2 text-xs text-white/38">
+        <p className="mt-2 text-xs text-white/54">
           {trimmedSearch
             ? `No projects matched “${trimmedSearch}”.`
             : view === 'archived'
@@ -59,11 +59,11 @@ export function ManuscriptList({
   return (
     <section>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm tracking-[0.13em] text-white/74">
+        <h3 className="text-sm font-medium tracking-[0.07em] text-white/82">
           {view === 'archived' ? 'Archived Projects' : view === 'trash' ? 'Trash' : 'Recent Drafts'}
         </h3>
       </div>
-      <ul className="space-y-2.5">
+      <ul className="space-y-2">
         {rows.map((row) => (
           <ManuscriptRow
             key={row.id}

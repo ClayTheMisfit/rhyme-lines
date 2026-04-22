@@ -22,7 +22,7 @@ const formatUpdatedAt = (iso: string) => {
 }
 
 const actionClassName =
-  'ml-2 rounded border border-white/[0.08] px-2 py-1 text-[10px] tracking-[0.1em] text-white/56 transition-colors hover:text-white/86 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111214]'
+  'ml-2 rounded-md px-2.5 py-1.5 text-[10px] tracking-[0.06em] text-white/62 transition-colors hover:bg-white/[0.06] hover:text-white/88 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418]'
 
 export function ManuscriptRow({
   project,
@@ -51,7 +51,7 @@ export function ManuscriptRow({
   }
 
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border border-white/[0.03] bg-[#151518] px-4 py-4.5 sm:px-5 sm:py-5">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg bg-[#171c23] px-4 py-4.5 sm:px-5 sm:py-5">
       <div className="min-w-0">
         {isRenaming ? (
           <input
@@ -66,23 +66,23 @@ export function ManuscriptRow({
                 setIsRenaming(false)
               }
             }}
-            className="w-full border border-white/[0.12] bg-[#0f0f10] px-2 py-1 text-[15px] text-white/88 focus:outline-none"
+            className="w-full rounded-md border border-white/[0.12] bg-[#0f141b] px-2.5 py-1.5 text-[15px] text-white/90 focus:outline-none"
           />
         ) : (
-          <p className="truncate text-[15px] text-white/88">{project.title}</p>
+          <p className="truncate text-[15px] font-medium text-white/90">{project.title}</p>
         )}
-        <p className="mt-1.5 truncate text-xs tracking-[0.02em] text-white/36">
+        <p className="mt-1.5 truncate text-xs leading-relaxed tracking-[0.01em] text-white/56">
           {project.preview || 'Empty draft'}
         </p>
-        <p className="mt-1 text-[11px] tracking-[0.02em] text-white/28">
+        <p className="mt-1.5 text-[11px] tracking-[0.01em] text-white/46">
           {project.wordCount} words · {project.lineCount} lines · Updated {formatUpdatedAt(project.updatedAt)}
         </p>
-        <p className="mt-1 text-[10px] tracking-[0.03em] text-white/26">
+        <p className="mt-1 text-[10px] tracking-[0.02em] text-white/42">
           Density {project.rhymeDensity.toFixed(2)} · Internal {project.internalRhymes} · Families{' '}
           {project.endRhymeFamilyCount} · Avg syllables {project.averageSyllablesPerLine.toFixed(1)}
         </p>
       </div>
-      <div className="ml-2 flex items-center">
+      <div className="ml-2 flex items-center rounded-md bg-[#11161d] p-1">
         {view !== 'trash' ? (
           <Link
             href={`/editor/${project.id}`}
@@ -106,7 +106,7 @@ export function ManuscriptRow({
             <select
               value={project.folderId ?? ''}
               onChange={(event) => onAssignFolder?.(project.id, event.target.value || null)}
-              className="ml-2 h-7 border border-white/[0.08] bg-[#101012] px-2 text-[10px] tracking-[0.08em] text-white/56"
+              className="ml-2 h-7 rounded-md border border-white/[0.08] bg-[#121820] px-2 text-[10px] tracking-[0.05em] text-white/62"
               aria-label={`Move ${project.title} to folder`}
             >
               <option value="">No folder</option>
@@ -162,7 +162,7 @@ export function ManuscriptRow({
           <button
             type="button"
             onClick={() => onDelete(project.id)}
-            className="ml-2 mr-1 text-white/28 hover:text-white/56"
+            className="ml-2 mr-1 rounded-md px-1.5 py-1 text-white/34 transition-colors hover:bg-white/[0.06] hover:text-white/60"
             aria-label={`Delete ${project.title}`}
           >
             ✕

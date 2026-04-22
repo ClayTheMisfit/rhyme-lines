@@ -115,7 +115,7 @@ describe('DashboardShell', () => {
   it('prefers last-open project in resume block and keeps organize controls collapsed by default', async () => {
     render(<DashboardShell />)
 
-    expect(await screen.findByText('RESUME LAST PROJECT')).toBeInTheDocument()
+    expect(await screen.findByText('Resume last project')).toBeInTheDocument()
     const resumeButton = screen.getByRole('button', { name: 'RESUME WRITING' })
     expect(resumeButton.closest('div')).toHaveTextContent('Older Draft')
 
