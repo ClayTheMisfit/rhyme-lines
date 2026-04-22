@@ -41,7 +41,7 @@ export function DashboardHero({
         <button
           type="button"
           onClick={onCreateProject}
-          className="inline-flex h-11 items-center self-end rounded-md border border-[#d6b85d] bg-[#d6b85d] px-6 text-xs font-semibold tracking-[0.07em] text-[#1b1608] transition-[background-color,transform] duration-150 ease-out hover:bg-[#e0c774] active:translate-y-px active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] motion-reduce:transform-none motion-reduce:transition-none"
+          className="inline-flex h-11 cursor-pointer items-center self-end rounded-md border border-[#d6b85d] bg-[#d6b85d] px-6 text-xs font-semibold tracking-[0.07em] text-[#1b1608] transition-[background-color,transform] duration-150 ease-out hover:bg-[#e0c774] active:translate-y-px active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] motion-reduce:transform-none motion-reduce:transition-none disabled:cursor-not-allowed"
         >
           NEW PROJECT
         </button>
@@ -58,7 +58,7 @@ export function DashboardHero({
             <button
               type="button"
               onClick={() => onResumeProject(latestProject.id)}
-              className="inline-flex h-9 items-center rounded-md border border-white/[0.14] bg-[#1e252e] px-4 text-xs tracking-[0.06em] text-white/86 transition-colors hover:bg-[#232b35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418]"
+              className="inline-flex h-9 cursor-pointer items-center rounded-md border border-white/[0.14] bg-[#1e252e] px-4 text-xs tracking-[0.06em] text-white/86 transition-colors hover:bg-[#232b35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] disabled:cursor-not-allowed"
             >
               RESUME WRITING
             </button>

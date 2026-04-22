@@ -37,7 +37,7 @@ export function DashboardTopbar({
             type="button"
             onClick={() => onViewChange(item.value)}
             aria-pressed={view === item.value}
-            className={`whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] tracking-[0.06em] transition-colors ${
+            className={`whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] tracking-[0.06em] transition-colors cursor-pointer disabled:cursor-not-allowed ${
               view === item.value
                 ? 'bg-[#d6b85d]/20 text-[#f0d587]'
                 : 'text-white/45 hover:bg-white/[0.03] hover:text-white/75'
@@ -66,7 +66,7 @@ export function DashboardTopbar({
           id="dashboard-view-select"
           value={view}
           onChange={(event) => onViewChange(event.target.value as DashboardView)}
-          className="h-8 max-w-[9rem] rounded-md border border-white/[0.1] bg-[#171c23] px-2 text-[11px] tracking-[0.06em] text-white/80 focus:outline-none"
+          className="h-8 max-w-[9rem] cursor-pointer rounded-md border border-white/[0.1] bg-[#171c23] px-2 text-[11px] tracking-[0.06em] text-white/80 focus:outline-none"
           aria-label="Dashboard view"
         >
           {views.map((item) => (
@@ -85,7 +85,7 @@ export function DashboardTopbar({
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Search projects"
-          className="hidden h-8 w-52 rounded-md border border-white/[0.08] bg-[#1a1f26] px-3 text-xs text-white/80 placeholder:text-white/42 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#10141a] sm:flex"
+          className="hidden h-8 w-52 cursor-text rounded-md border border-white/[0.08] bg-[#1a1f26] px-3 text-xs text-white/80 placeholder:text-white/42 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#10141a] sm:flex"
           aria-label="Search projects"
         />
         <span className="hidden text-[10px] tracking-[0.05em] text-white/42 md:inline">Local-only workspace</span>

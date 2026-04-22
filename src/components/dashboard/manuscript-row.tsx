@@ -22,7 +22,7 @@ const formatUpdatedAt = (iso: string) => {
 }
 
 const actionClassName =
-  'ml-2 rounded-md px-2.5 py-1.5 text-[10px] tracking-[0.06em] text-white/62 transition-colors hover:bg-white/[0.06] hover:text-white/88 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418]'
+  'ml-2 cursor-pointer rounded-md px-2.5 py-1.5 text-[10px] tracking-[0.06em] text-white/62 transition-colors hover:bg-white/[0.06] hover:text-white/88 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] disabled:cursor-not-allowed'
 
 export function ManuscriptRow({
   project,
@@ -106,7 +106,7 @@ export function ManuscriptRow({
             <select
               value={project.folderId ?? ''}
               onChange={(event) => onAssignFolder?.(project.id, event.target.value || null)}
-              className="ml-2 h-7 rounded-md border border-white/[0.08] bg-[#121820] px-2 text-[10px] tracking-[0.05em] text-white/62"
+              className="ml-2 h-7 cursor-pointer rounded-md border border-white/[0.08] bg-[#121820] px-2 text-[10px] tracking-[0.05em] text-white/62"
               aria-label={`Move ${project.title} to folder`}
             >
               <option value="">No folder</option>
@@ -162,7 +162,7 @@ export function ManuscriptRow({
           <button
             type="button"
             onClick={() => onDelete(project.id)}
-            className="ml-2 mr-1 rounded-md px-1.5 py-1 text-white/34 transition-colors hover:bg-white/[0.06] hover:text-white/60"
+            className="ml-2 mr-1 cursor-pointer rounded-md px-1.5 py-1 text-white/34 transition-colors hover:bg-white/[0.06] hover:text-white/60"
             aria-label={`Delete ${project.title}`}
           >
             ✕
