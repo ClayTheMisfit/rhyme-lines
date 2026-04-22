@@ -13,6 +13,7 @@ type ManuscriptListProps = {
   onRestoreFromTrash?: (id: string) => void
   onDeletePermanently?: (id: string) => void
   onDelete?: (id: string) => void
+  onOpen?: (id: string) => void
 }
 
 export function ManuscriptList({
@@ -27,6 +28,7 @@ export function ManuscriptList({
   onRestoreFromTrash,
   onDeletePermanently,
   onDelete,
+  onOpen,
 }: ManuscriptListProps) {
   if (!rows.length) {
     const trimmedSearch = search.trim()
@@ -75,6 +77,7 @@ export function ManuscriptList({
             onRestoreFromTrash={onRestoreFromTrash}
             onDeletePermanently={onDeletePermanently}
             onDelete={onDelete}
+            onOpen={onOpen}
           />
         ))}
       </ul>

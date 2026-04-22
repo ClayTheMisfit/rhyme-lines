@@ -81,6 +81,10 @@ export function DashboardShell() {
     [router]
   )
 
+  const handleMarkProjectAsLastOpen = useCallback((id: string) => {
+    setLastOpenProjectId(id)
+  }, [])
+
   const handleDeleteProject = useCallback(
     (id: string) => {
       moveProjectToTrash(id)
@@ -232,6 +236,7 @@ export function DashboardShell() {
               onAssignFolder={handleAssignFolder}
               onDeletePermanently={handleDeletePermanently}
               onDelete={handleDeleteProject}
+              onOpen={handleMarkProjectAsLastOpen}
             />
           </section>
 

@@ -13,6 +13,7 @@ type ManuscriptRowProps = {
   onRestoreFromTrash?: (id: string) => void
   onDeletePermanently?: (id: string) => void
   onDelete?: (id: string) => void
+  onOpen?: (id: string) => void
 }
 
 const formatUpdatedAt = (iso: string) => {
@@ -34,6 +35,7 @@ export function ManuscriptRow({
   onRestoreFromTrash,
   onDeletePermanently,
   onDelete,
+  onOpen,
 }: ManuscriptRowProps) {
   const [isRenaming, setIsRenaming] = useState(false)
   const [draftTitle, setDraftTitle] = useState(project.title)
@@ -84,6 +86,7 @@ export function ManuscriptRow({
         {view !== 'trash' ? (
           <Link
             href={`/editor/${project.id}`}
+            onClick={() => onOpen?.(project.id)}
             className={actionClassName}
             aria-label={`Open ${project.title}`}
           >
