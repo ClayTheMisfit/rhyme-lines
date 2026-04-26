@@ -49,7 +49,7 @@ export function DashboardHero({
 
       {latestProject ? (
         <div className="mt-7 rounded-lg bg-[#171c23] px-4 py-4.5 sm:px-5 sm:py-5.5">
-          <p className="text-[11px] tracking-[0.1em] text-white/52">Resume last project</p>
+          <p className="text-[11px] tracking-[0.1em] text-white/52">Continue writing</p>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="truncate text-base font-medium text-white/92">{latestProject.title}</p>
@@ -60,7 +60,7 @@ export function DashboardHero({
               onClick={() => onResumeProject(latestProject.id)}
               className="inline-flex h-9 cursor-pointer items-center rounded-md border border-white/[0.14] bg-[#1e252e] px-4 text-xs tracking-[0.06em] text-white/86 transition-colors hover:bg-[#232b35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] disabled:cursor-not-allowed"
             >
-              RESUME WRITING
+              CONTINUE WRITING
             </button>
           </div>
         </div>

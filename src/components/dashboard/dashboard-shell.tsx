@@ -230,6 +230,7 @@ export function DashboardShell() {
               view={view}
               search={search}
               folders={folders}
+              featuredProjectId={view === 'projects' ? latestProject?.id ?? null : null}
               onArchive={handleArchiveProject}
               onRestore={handleRestoreProject}
               onRestoreFromTrash={handleRestoreFromTrash}

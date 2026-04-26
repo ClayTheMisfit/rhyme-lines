@@ -115,8 +115,8 @@ describe('DashboardShell', () => {
   it('prefers last-open project in resume block and keeps organize controls collapsed by default', async () => {
     render(<DashboardShell />)
 
-    expect(await screen.findByText('Resume last project')).toBeInTheDocument()
-    const resumeButton = screen.getByRole('button', { name: 'RESUME WRITING' })
+    expect(await screen.findByText('Continue writing')).toBeInTheDocument()
+    const resumeButton = screen.getByRole('button', { name: 'CONTINUE WRITING' })
     expect(resumeButton.closest('div')).toHaveTextContent('Older Draft')
 
     const organizeButton = screen.getByRole('button', { name: 'ORGANIZE PROJECTS' })
@@ -127,7 +127,7 @@ describe('DashboardShell', () => {
   it('updates last-open metadata for resume block and project-row open paths', async () => {
     render(<DashboardShell />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'RESUME WRITING' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'CONTINUE WRITING' }))
     expect(storageMocks.setLastOpenProjectId).toHaveBeenCalledWith('project-old')
     expect(pushMock).toHaveBeenCalledWith('/editor/project-old')
 
@@ -139,7 +139,7 @@ describe('DashboardShell', () => {
     render(<DashboardShell />)
 
     const newProject = await screen.findByRole('button', { name: 'NEW PROJECT' })
-    const resumeWriting = screen.getByRole('button', { name: 'RESUME WRITING' })
+    const resumeWriting = screen.getByRole('button', { name: 'CONTINUE WRITING' })
 
     newProject.focus()
     expect(newProject).toHaveFocus()
@@ -179,7 +179,8 @@ describe('DashboardShell', () => {
     render(<DashboardShell />)
 
     await user.click(screen.getByRole('button', { name: 'ORGANIZE PROJECTS' }))
-    await user.selectOptions(screen.getByLabelText('Folder'), folderA.id)
+    const workspaceFolderFilter = document.getElementById('dashboard-folder-filter') as HTMLSelectElement
+    await user.selectOptions(workspaceFolderFilter, folderA.id)
 
     await waitFor(() => expect(screen.getByRole('link', { name: 'Open Newest Draft' })).toBeInTheDocument())
     expect(screen.queryByRole('link', { name: 'Open Older Draft' })).not.toBeInTheDocument()

@@ -6,6 +6,7 @@ type ManuscriptListProps = {
   view: 'projects' | 'archived' | 'trash'
   search: string
   folders: ProjectFolder[]
+  featuredProjectId?: string | null
   onRename?: (id: string, title: string) => void
   onAssignFolder?: (id: string, folderId: string | null) => void
   onArchive?: (id: string) => void
@@ -21,6 +22,7 @@ export function ManuscriptList({
   view,
   search,
   folders,
+  featuredProjectId,
   onRename,
   onAssignFolder,
   onArchive,
@@ -70,6 +72,7 @@ export function ManuscriptList({
             project={row}
             view={view}
             folders={folders}
+            isFeatured={featuredProjectId === row.id}
             onRename={onRename}
             onAssignFolder={onAssignFolder}
             onArchive={onArchive}

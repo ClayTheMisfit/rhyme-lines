@@ -6,6 +6,7 @@ type ManuscriptRowProps = {
   project: ProjectSummary
   view: 'projects' | 'archived' | 'trash'
   folders: ProjectFolder[]
+  isFeatured?: boolean
   onRename?: (id: string, title: string) => void
   onAssignFolder?: (id: string, folderId: string | null) => void
   onArchive?: (id: string) => void
@@ -28,6 +29,7 @@ export function ManuscriptRow({
   project,
   view,
   folders,
+  isFeatured = false,
   onRename,
   onAssignFolder,
   onArchive,
@@ -51,8 +53,17 @@ export function ManuscriptRow({
   }
 
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg bg-[#171c23] px-4 py-4.5 sm:px-5 sm:py-5">
+    <li
+      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-4 py-4.5 transition-colors sm:px-5 sm:py-5 ${
+        isFeatured
+          ? 'bg-[#1b222b] ring-1 ring-white/[0.08]'
+          : 'bg-[#171c23] hover:bg-[#1a2129]'
+      }`}
+    >
       <div className="min-w-0">
+        {isFeatured && view === 'projects' ? (
+          <p className="mb-1 text-[10px] tracking-[0.08em] text-[#e0c774]">Most recent draft</p>
+        ) : null}
         {isRenaming ? (
           <input
             autoFocus
@@ -74,12 +85,9 @@ export function ManuscriptRow({
         <p className="mt-1.5 truncate text-xs leading-relaxed tracking-[0.01em] text-white/56">
           {project.preview || 'Empty draft'}
         </p>
-        <p className="mt-1.5 text-[11px] tracking-[0.01em] text-white/46">
+        <p className="mt-1.5 text-[11px] tracking-[0.01em] text-white/50">
           {project.wordCount} words · {project.lineCount} lines · Updated {formatUpdatedAt(project.updatedAt)}
-        </p>
-        <p className="mt-1 text-[10px] tracking-[0.02em] text-white/42">
-          Density {project.rhymeDensity.toFixed(2)} · Internal {project.internalRhymes} · Families{' '}
-          {project.endRhymeFamilyCount} · Avg syllables {project.averageSyllablesPerLine.toFixed(1)}
+          {project.folderName ? ` · ${project.folderName}` : ''}
         </p>
       </div>
       <div className="ml-2 flex items-center rounded-md bg-[#11161d] p-1">
@@ -90,84 +98,103 @@ export function ManuscriptRow({
             className={actionClassName}
             aria-label={`Open ${project.title}`}
           >
-            Continue
+            {isFeatured && view === 'projects' ? 'Resume' : 'Open'}
           </Link>
         ) : null}
-        {view !== 'trash' ? (
-          <>
-            <button
-              type="button"
-              onClick={() => setIsRenaming(true)}
-              className={actionClassName}
-              aria-label={`Rename ${project.title}`}
-            >
-              Rename
-            </button>
-            <select
-              value={project.folderId ?? ''}
-              onChange={(event) => onAssignFolder?.(project.id, event.target.value || null)}
-              className="ml-2 h-7 cursor-pointer rounded-md border border-white/[0.08] bg-[#121820] px-2 text-[10px] tracking-[0.05em] text-white/62"
-              aria-label={`Move ${project.title} to folder`}
-            >
-              <option value="">No folder</option>
-              {folders.map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  {folder.name}
-                </option>
-              ))}
-            </select>
-          </>
-        ) : null}
-        {view === 'projects' && onArchive ? (
-          <button
-            type="button"
-            onClick={() => onArchive(project.id)}
-            className={actionClassName}
-            aria-label={`Archive ${project.title}`}
+        <details className="relative ml-2">
+          <summary
+            className="list-none cursor-pointer rounded-md px-2 py-1 text-sm text-white/44 transition-colors hover:bg-white/[0.06] hover:text-white/72 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418]"
+            aria-label={`More actions for ${project.title}`}
           >
-            Archive
-          </button>
-        ) : null}
-        {view === 'archived' && onRestore ? (
-          <button
-            type="button"
-            onClick={() => onRestore(project.id)}
-            className={actionClassName}
-            aria-label={`Restore ${project.title}`}
-          >
-            Restore
-          </button>
-        ) : null}
-        {view === 'trash' && onRestoreFromTrash ? (
-          <button
-            type="button"
-            onClick={() => onRestoreFromTrash(project.id)}
-            className={actionClassName}
-            aria-label={`Restore ${project.title}`}
-          >
-            Restore
-          </button>
-        ) : null}
-        {view === 'trash' && onDeletePermanently ? (
-          <button
-            type="button"
-            onClick={() => onDeletePermanently(project.id)}
-            className={actionClassName}
-            aria-label={`Delete ${project.title} permanently`}
-          >
-            Delete forever
-          </button>
-        ) : null}
-        {view !== 'trash' && onDelete ? (
-          <button
-            type="button"
-            onClick={() => onDelete(project.id)}
-            className="ml-2 mr-1 cursor-pointer rounded-md px-1.5 py-1 text-white/34 transition-colors hover:bg-white/[0.06] hover:text-white/60"
-            aria-label={`Delete ${project.title}`}
-          >
-            ✕
-          </button>
-        ) : null}
+            ⋯
+          </summary>
+          <div className="absolute right-0 z-10 mt-1 w-44 rounded-md border border-white/[0.09] bg-[#141a22] p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+            {view !== 'trash' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsRenaming(true)}
+                  className="w-full cursor-pointer rounded px-2.5 py-1.5 text-left text-xs text-white/78 transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65"
+                  aria-label={`Rename ${project.title}`}
+                >
+                  Rename
+                </button>
+                <label className="mt-1 block px-2.5 text-[10px] tracking-[0.04em] text-white/46" htmlFor={`folder-${project.id}`}>
+                  Folder
+                </label>
+                <select
+                  id={`folder-${project.id}`}
+                  value={project.folderId ?? ''}
+                  onChange={(event) => onAssignFolder?.(project.id, event.target.value || null)}
+                  className="mt-1 h-7 w-full cursor-pointer rounded border border-white/[0.08] bg-[#121820] px-2 text-[10px] tracking-[0.04em] text-white/62"
+                  aria-label={`Move ${project.title} to folder`}
+                >
+                  <option value="">No folder</option>
+                  {folders.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : null}
+
+            {view === 'projects' && onArchive ? (
+              <button
+                type="button"
+                onClick={() => onArchive(project.id)}
+                className="mt-1 w-full cursor-pointer rounded px-2.5 py-1.5 text-left text-xs text-white/78 transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65"
+                aria-label={`Archive ${project.title}`}
+              >
+                Archive
+              </button>
+            ) : null}
+
+            {view === 'archived' && onRestore ? (
+              <button
+                type="button"
+                onClick={() => onRestore(project.id)}
+                className="mt-1 w-full cursor-pointer rounded px-2.5 py-1.5 text-left text-xs text-white/78 transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65"
+                aria-label={`Restore ${project.title}`}
+              >
+                Restore
+              </button>
+            ) : null}
+
+            {view === 'trash' && onRestoreFromTrash ? (
+              <button
+                type="button"
+                onClick={() => onRestoreFromTrash(project.id)}
+                className="w-full cursor-pointer rounded px-2.5 py-1.5 text-left text-xs text-white/78 transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65"
+                aria-label={`Restore ${project.title}`}
+              >
+                Restore
+              </button>
+            ) : null}
+
+            {view === 'trash' && onDeletePermanently ? (
+              <button
+                type="button"
+                onClick={() => onDeletePermanently(project.id)}
+                className="mt-1 w-full cursor-pointer rounded px-2.5 py-1.5 text-left text-xs text-white/78 transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65"
+                aria-label={`Delete ${project.title} permanently`}
+              >
+                Delete forever
+              </button>
+            ) : null}
+
+            {view !== 'trash' && onDelete ? (
+              <button
+                type="button"
+                onClick={() => onDelete(project.id)}
+                className="mt-1 w-full cursor-pointer rounded px-2.5 py-1.5 text-left text-xs text-white/68 transition-colors hover:bg-[#40282b] hover:text-white/84 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65"
+                aria-label={`Delete ${project.title}`}
+              >
+                Move to trash
+              </button>
+            ) : null}
+          </div>
+        </details>
       </div>
     </li>
   )
