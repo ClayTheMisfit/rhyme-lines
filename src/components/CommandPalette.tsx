@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { useReducedMotion } from 'framer-motion'
 import { Dialog, DialogContent, DialogOverlay, DialogPortal } from '@/components/ui/dialog'
 
 export type CommandPaletteItem = {
@@ -42,6 +43,8 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
   const [query, setQuery] = React.useState('')
   const [selectedIndex, setSelectedIndex] = React.useState(0)
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const listboxId = React.useId()
+  const reduceMotion = useReducedMotion()
 
   React.useEffect(() => {
     if (!open) return
@@ -85,6 +88,11 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
         <DialogContent
           className="left-1/2 top-[12vh] w-[min(680px,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)] p-3"
           onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              onOpenChange(false)
+              return
+            }
             if (event.key === 'ArrowDown') {
               event.preventDefault()
               setSelectedIndex((index) => (visibleCommands.length ? (index + 1) % visibleCommands.length : 0))
@@ -116,10 +124,14 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Type a command or draft name…"
-            className="h-10 w-full rounded-md border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)] px-3 text-sm text-[color:var(--rl-shell-text)] outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/45"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={listboxId}
+            aria-activedescendant={visibleCommands[selectedIndex] ? `command-option-${visibleCommands[selectedIndex].id}` : undefined}
+            className="h-10 w-full rounded-md border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)] px-3 text-sm text-[color:var(--rl-shell-text)] outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--rl-shell-elevated)]"
           />
 
-          <div role="listbox" aria-label="Commands" className="mt-2 max-h-[52vh] space-y-1 overflow-y-auto thin-scrollbar">
+          <div id={listboxId} role="listbox" aria-label="Commands" className="mt-2 max-h-[52vh] space-y-1 overflow-y-auto thin-scrollbar">
             {visibleCommands.length === 0 ? (
               <p className="px-2 py-6 text-center text-sm text-[color:var(--rl-shell-muted)]">No matching commands.</p>
             ) : (
@@ -131,12 +143,13 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
                     type="button"
                     role="option"
                     aria-selected={active}
+                    id={`command-option-${command.id}`}
                     onMouseEnter={() => setSelectedIndex(index)}
                     onClick={() => {
                       command.run()
                       onOpenChange(false)
                     }}
-                    className={`flex w-full cursor-pointer items-start justify-between rounded-md border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/45 ${
+                    className={`flex w-full cursor-pointer items-start justify-between rounded-md border px-3 py-2 text-left ${reduceMotion ? '' : 'transition-colors'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--rl-shell-elevated)] ${
                       active
                         ? 'border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-text)_8%,transparent)]'
                         : 'border-transparent hover:bg-[color:color-mix(in_srgb,var(--rl-shell-text)_5%,transparent)]'

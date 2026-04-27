@@ -25,4 +25,19 @@ describe('CommandPalette', () => {
     expect(openSettings).toHaveBeenCalledTimes(1)
     expect(toggleTheme).not.toHaveBeenCalled()
   })
+
+  it('closes on Escape', () => {
+    const onOpenChange = jest.fn()
+    render(
+      <CommandPalette
+        open
+        onOpenChange={onOpenChange}
+        commands={[{ id: 'settings', title: 'Open Settings', run: () => {} }]}
+      />
+    )
+
+    const input = screen.getByLabelText('Search commands')
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
 })

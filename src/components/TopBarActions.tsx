@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
@@ -49,8 +49,11 @@ export default function TopBarActions() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [announcement, setAnnouncement] = useState('')
+  const paletteTriggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   useClickOutside(menuRef, () => setMenuOpen(false))
+  const reduceMotion = useReducedMotion()
 
   const themeGlyph = useMemo(() => (theme === 'dark' ? '☾' : '☀'), [theme])
   const activeTab = useMemo(() => tabs.find((tab) => tab.id === activeTabId) ?? tabs[0], [activeTabId, tabs])
@@ -59,6 +62,7 @@ export default function TopBarActions() {
     const next = theme === 'dark' ? 'light' : 'dark'
     setThemePreference(next)
     setResolvedTheme(next)
+    setAnnouncement(`Theme switched to ${next} mode`)
   }, [setResolvedTheme, setThemePreference, theme])
 
   const exportDraft = useCallback(() => {
@@ -76,12 +80,19 @@ export default function TopBarActions() {
     anchor.download = `${safeTitle || 'untitled'}.txt`
     anchor.click()
     URL.revokeObjectURL(url)
+    setAnnouncement(`Exported ${target.title || 'Untitled'} as text file`)
   }, [activeTab])
 
   const shortcutDispatcher = useCallback(
     (action: ShortcutAction) => {
       if (action === 'palette') {
-        setPaletteOpen((open) => !open)
+        setPaletteOpen((open) => {
+          const next = !open
+          if (!next) {
+            window.requestAnimationFrame(() => paletteTriggerRef.current?.focus())
+          }
+          return next
+        })
         return
       }
       if (action === 'theme') {
@@ -90,13 +101,14 @@ export default function TopBarActions() {
       }
       if (action === 'rhymes') {
         togglePanel()
+        setAnnouncement(panelVisible ? 'Rhyme panel hidden' : 'Rhyme panel shown')
         return
       }
       if (action === 'export') {
         exportDraft()
       }
     },
-    [exportDraft, togglePanel, toggleTheme]
+    [exportDraft, panelVisible, togglePanel, toggleTheme]
   )
 
   useEffect(() => {
@@ -215,10 +227,12 @@ export default function TopBarActions() {
         <Tooltip>
           <TooltipTrigger asChild>
             <motion.button
-              whileTap={{ scale: 0.97 }}
+              ref={paletteTriggerRef}
+              whileTap={reduceMotion ? undefined : { scale: 0.97 }}
               className={buttonClass}
               onClick={() => setPaletteOpen(true)}
               aria-label="Open command palette"
+              aria-keyshortcuts="Meta+K Control+K"
             >
               ⌘
             </motion.button>
@@ -228,7 +242,13 @@ export default function TopBarActions() {
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <motion.button whileTap={{ scale: 0.97 }} className={buttonClass} onClick={toggleTheme} aria-label="Toggle theme">
+            <motion.button
+              whileTap={reduceMotion ? undefined : { scale: 0.97 }}
+              className={buttonClass}
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+              aria-keyshortcuts="Meta+J Control+J"
+            >
               {themeGlyph}
             </motion.button>
           </TooltipTrigger>
@@ -238,7 +258,7 @@ export default function TopBarActions() {
         <Tooltip>
           <TooltipTrigger asChild>
             <motion.button
-              whileTap={{ scale: 0.97 }}
+              whileTap={reduceMotion ? undefined : { scale: 0.97 }}
               onClick={togglePanel}
               className={`${buttonClass} ${panelVisible ? 'text-[#f2d000]/90' : ''}`}
               title={panelVisible ? 'Hide rhyme panel (Alt+R)' : 'Show rhyme panel (Alt+R)'}
@@ -254,7 +274,7 @@ export default function TopBarActions() {
 
       <div className="relative" ref={menuRef}>
         <motion.button
-          whileTap={{ scale: 0.97 }}
+          whileTap={reduceMotion ? undefined : { scale: 0.97 }}
           onClick={() => setMenuOpen((open) => !open)}
           className={buttonClass}
           title="More actions"
@@ -292,7 +312,19 @@ export default function TopBarActions() {
         ) : null}
       </div>
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} hideTrigger />
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} commands={commandItems} />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={(next) => {
+          setPaletteOpen(next)
+          if (!next) {
+            window.requestAnimationFrame(() => paletteTriggerRef.current?.focus())
+          }
+        }}
+        commands={commandItems}
+      />
+      <span className="sr-only" aria-live="polite">
+        {announcement}
+      </span>
     </div>
   )
 }

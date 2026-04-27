@@ -1147,6 +1147,10 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 contentEditable
                 suppressContentEditableWarning
                 spellCheck={false}
+                role="textbox"
+                aria-multiline="true"
+                aria-label="Lyric editor"
+                aria-describedby="lyric-editor-instructions"
                 data-layer="editable"
                 onBeforeInput={inputHandlers.onBeforeInput}
                 onInput={inputHandlers.onInput}
@@ -1166,6 +1170,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 data-empty={isEditorEmpty ? 'true' : 'false'}
                 className="rl-editor relative z-20 min-h-[70vh] w-full outline-none pointer-events-auto"
               />
+              <p id="lyric-editor-instructions" className="sr-only">
+                Write lyrics here. Press Command or Control plus K to open commands, Alt plus R to toggle rhyme panel.
+              </p>
             </div>
           </div>
         </div>
