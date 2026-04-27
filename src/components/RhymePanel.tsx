@@ -18,6 +18,8 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
     text: '',
     caretIndex: 0,
     currentLineText: '',
+    activeLineRect: null as { top: number; left: number; width: number; height: number } | null,
+    editorLaneRect: null as { top: number; left: number; width: number; height: number } | null,
   })
 
   const focusEditor = () => {
@@ -50,6 +52,7 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
     const selection = window.getSelection()
     let caretIndex = 0
     let currentLineText = ''
+    let activeLineRect: { top: number; left: number; width: number; height: number } | null = null
 
     if (selection && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0)
@@ -74,6 +77,13 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
 
         if (lineElement && lineElement.dataset.placeholderLine !== 'true') {
           currentLineText = (lineElement.innerText ?? lineElement.textContent ?? '').replace(/\r\n?/g, '\n')
+          const rect = lineElement.getBoundingClientRect()
+          activeLineRect = {
+            top: rect.top,
+            left: rect.left,
+            width: rect.width,
+            height: rect.height,
+          }
         }
       }
     }
@@ -85,10 +95,25 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
       if (lineElements.length > 0) {
         const fallbackLine = lineElements[lineElements.length - 1]
         currentLineText = (fallbackLine.innerText ?? fallbackLine.textContent ?? '').replace(/\r\n?/g, '\n')
+        const rect = fallbackLine.getBoundingClientRect()
+        activeLineRect = {
+          top: rect.top,
+          left: rect.left,
+          width: rect.width,
+          height: rect.height,
+        }
       }
     }
 
-    return { text, caretIndex, currentLineText }
+    const editorLane = editorElement.closest<HTMLElement>('.editor-surface')
+    const editorLaneRect = editorLane
+      ? (() => {
+          const rect = editorLane.getBoundingClientRect()
+          return { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
+        })()
+      : null
+
+    return { text, caretIndex, currentLineText, activeLineRect, editorLaneRect }
   }, [])
 
   useEffect(() => {
@@ -131,6 +156,8 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
       text={editorSnapshot.text}
       caretIndex={editorSnapshot.caretIndex}
       currentLineText={editorSnapshot.currentLineText}
+      activeLineRect={editorSnapshot.activeLineRect}
+      editorLaneRect={editorSnapshot.editorLaneRect}
       editorRef={editorRef}
       ref={ref}
     />
