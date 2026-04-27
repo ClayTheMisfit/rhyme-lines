@@ -1,20 +1,27 @@
 'use client'
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useEditorDensityStore } from '@/store/editorDensityStore'
+import { useTabsStore } from '@/store/tabsStore'
 import { shallow } from 'zustand/shallow'
 import SettingsSheet from '@/components/settings/SettingsSheet'
 import { useClickOutside } from '@/hooks/useClickOutside'
+import { CommandPalette, type CommandPaletteItem } from '@/components/CommandPalette'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const buttonClass =
-  'inline-flex h-8 w-8 items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] text-[11px] text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]'
+  'inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] text-[11px] text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]'
+
+type ShortcutAction = 'palette' | 'theme' | 'rhymes' | 'export' | 'rhymeHighlightMode'
 
 export default function TopBarActions() {
+  const router = useRouter()
   const { theme, setThemePreference, showRhymeDecorations, setShowRhymeDecorations } = useSettingsStore(
     (state) => ({
       theme: state.theme,
@@ -27,13 +34,26 @@ export default function TopBarActions() {
   const { setTheme: setResolvedTheme } = useTheme()
   const { togglePanel } = useRhymePanelStore((state) => ({ togglePanel: state.togglePanel }), shallow)
   const mode = useRhymePanel((state) => state.mode)
+  const tabs = useTabsStore((state) => state.tabs)
+  const activeTabId = useTabsStore((state) => state.activeTabId)
+  const { newTab, setActive } = useTabsStore(
+    (state) => ({ newTab: state.actions.newTab, setActive: state.actions.setActive }),
+    shallow
+  )
+  const { densityMode, setDensityMode } = useEditorDensityStore(
+    (state) => ({ densityMode: state.mode, setDensityMode: state.setMode }),
+    shallow
+  )
+
   const panelVisible = mode !== 'hidden'
   const [menuOpen, setMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   useClickOutside(menuRef, () => setMenuOpen(false))
 
   const themeGlyph = useMemo(() => (theme === 'dark' ? '☾' : '☀'), [theme])
+  const activeTab = useMemo(() => tabs.find((tab) => tab.id === activeTabId) ?? tabs[0], [activeTabId, tabs])
 
   const toggleTheme = useCallback(() => {
     const next = theme === 'dark' ? 'light' : 'dark'
@@ -41,16 +61,178 @@ export default function TopBarActions() {
     setResolvedTheme(next)
   }, [setResolvedTheme, setThemePreference, theme])
 
+  const exportDraft = useCallback(() => {
+    const target = activeTab
+    if (!target) return
+    const safeTitle = (target.title || 'untitled')
+      .trim()
+      .replace(/[^\w\- ]+/g, '')
+      .replace(/\s+/g, '-')
+      .toLowerCase()
+    const blob = new Blob([target.snapshot.text], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${safeTitle || 'untitled'}.txt`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }, [activeTab])
+
+  const shortcutDispatcher = useCallback(
+    (action: ShortcutAction) => {
+      if (action === 'palette') {
+        setPaletteOpen((open) => !open)
+        return
+      }
+      if (action === 'theme') {
+        toggleTheme()
+        return
+      }
+      if (action === 'rhymes') {
+        togglePanel()
+        return
+      }
+      if (action === 'export') {
+        exportDraft()
+      }
+    },
+    [exportDraft, togglePanel, toggleTheme]
+  )
+
+  useEffect(() => {
+    const handleKeydown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase()
+      const hasPrimaryModifier = event.metaKey || event.ctrlKey
+      if (!hasPrimaryModifier) return
+
+      if (key === 'k') {
+        event.preventDefault()
+        shortcutDispatcher('palette')
+      } else if (key === 'j') {
+        event.preventDefault()
+        shortcutDispatcher('theme')
+      } else if (key === 's') {
+        event.preventDefault()
+        shortcutDispatcher('export')
+      } else if (key === 'n') {
+        event.preventDefault()
+        newTab()
+      } else if (key === 'b') {
+        event.preventDefault()
+        router.push('/')
+      }
+    }
+
+    const handleEditorShortcut = (event: Event) => {
+      const customEvent = event as CustomEvent<ShortcutAction>
+      if (customEvent.detail === 'rhymeHighlightMode') return
+      shortcutDispatcher(customEvent.detail)
+    }
+
+    window.addEventListener('keydown', handleKeydown)
+    window.addEventListener('rhyme:editor-shortcut', handleEditorShortcut as EventListener)
+    return () => {
+      window.removeEventListener('keydown', handleKeydown)
+      window.removeEventListener('rhyme:editor-shortcut', handleEditorShortcut as EventListener)
+    }
+  }, [newTab, router, shortcutDispatcher])
+
+  const commandItems = useMemo<CommandPaletteItem[]>(() => {
+    const base: CommandPaletteItem[] = [
+      {
+        id: 'new-draft',
+        title: 'New Draft',
+        description: 'Create and switch to a new draft',
+        shortcutHint: '⌘/Ctrl N',
+        keywords: ['new', 'create', 'project'],
+        run: () => newTab(),
+      },
+      {
+        id: 'go-workspace',
+        title: 'Go to Workspace',
+        description: 'Return to writing launchpad',
+        shortcutHint: '⌘/Ctrl B',
+        keywords: ['workspace', 'dashboard', 'home'],
+        run: () => router.push('/'),
+      },
+      {
+        id: 'switch-theme',
+        title: 'Switch Theme',
+        description: 'Toggle dark/light theme',
+        shortcutHint: '⌘/Ctrl J',
+        keywords: ['theme', 'appearance', 'dark', 'light'],
+        run: toggleTheme,
+      },
+      {
+        id: 'export',
+        title: 'Export Draft',
+        description: 'Download current draft as .txt',
+        shortcutHint: '⌘/Ctrl S',
+        keywords: ['export', 'download', 'save'],
+        run: exportDraft,
+      },
+      {
+        id: 'settings',
+        title: 'Open Settings',
+        description: 'Open editor preferences',
+        keywords: ['settings', 'preferences'],
+        run: () => setSettingsOpen(true),
+      },
+      {
+        id: 'toggle-rhymes',
+        title: panelVisible ? 'Hide Rhyme Panel' : 'Show Rhyme Panel',
+        description: 'Toggle rhyme assistance panel',
+        shortcutHint: 'Alt R',
+        keywords: ['rhyme', 'panel', 'assist'],
+        run: togglePanel,
+      },
+      {
+        id: densityMode === 'draft' ? 'analysis-mode' : 'draft-mode',
+        title: densityMode === 'draft' ? 'Switch to Analysis Mode' : 'Switch to Draft Mode',
+        description: 'Toggle editor display density',
+        keywords: ['density', 'display', 'draft', 'analysis'],
+        run: () => setDensityMode(densityMode === 'draft' ? 'analysis' : 'draft'),
+      },
+    ]
+
+    const draftCommands: CommandPaletteItem[] = tabs
+      .slice()
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map((tab) => ({
+        id: `open-${tab.id}`,
+        title: `Open Draft: ${tab.title || 'Untitled'}`,
+        description: 'Quick switch to this draft',
+        keywords: ['open', 'switch', 'draft', tab.title || 'untitled'],
+        run: () => setActive(tab.id),
+      }))
+
+    return [...base, ...draftCommands]
+  }, [densityMode, exportDraft, newTab, panelVisible, router, setActive, setDensityMode, tabs, togglePanel, toggleTheme])
+
   return (
     <div className="ml-auto flex items-center gap-1.5">
       <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              className={buttonClass}
+              onClick={() => setPaletteOpen(true)}
+              aria-label="Open command palette"
+            >
+              ⌘
+            </motion.button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Command palette · ⌘/Ctrl + K</TooltipContent>
+        </Tooltip>
+
         <Tooltip>
           <TooltipTrigger asChild>
             <motion.button whileTap={{ scale: 0.97 }} className={buttonClass} onClick={toggleTheme} aria-label="Toggle theme">
               {themeGlyph}
             </motion.button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Theme</TooltipContent>
+          <TooltipContent side="bottom">Theme · ⌘/Ctrl + J</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -86,7 +268,7 @@ export default function TopBarActions() {
           >
             <button
               type="button"
-              className="flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-xs text-[color:var(--rl-shell-text)]/85 hover:bg-[color:color-mix(in_srgb,var(--rl-shell-text)_6%,transparent)]"
+              className="flex w-full cursor-pointer items-center justify-between rounded px-2.5 py-2 text-left text-xs text-[color:var(--rl-shell-text)]/85 hover:bg-[color:color-mix(in_srgb,var(--rl-shell-text)_6%,transparent)]"
               onClick={() => {
                 setShowRhymeDecorations(!showRhymeDecorations)
                 setMenuOpen(false)
@@ -97,7 +279,7 @@ export default function TopBarActions() {
             </button>
             <button
               type="button"
-              className="mt-1 flex w-full items-center justify-between rounded border-t border-[color:var(--rl-shell-border)] px-2.5 py-2 text-left text-xs text-[color:var(--rl-shell-text)]/85 hover:bg-[color:color-mix(in_srgb,var(--rl-shell-text)_6%,transparent)]"
+              className="mt-1 flex w-full cursor-pointer items-center justify-between rounded border-t border-[color:var(--rl-shell-border)] px-2.5 py-2 text-left text-xs text-[color:var(--rl-shell-text)]/85 hover:bg-[color:color-mix(in_srgb,var(--rl-shell-text)_6%,transparent)]"
               onClick={() => {
                 setMenuOpen(false)
                 setSettingsOpen(true)
@@ -110,6 +292,7 @@ export default function TopBarActions() {
         ) : null}
       </div>
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} hideTrigger />
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} commands={commandItems} />
     </div>
   )
 }

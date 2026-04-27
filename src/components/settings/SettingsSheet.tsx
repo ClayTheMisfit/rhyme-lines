@@ -20,6 +20,10 @@ const BADGE_SIZE_LABEL: Record<'xs' | 'sm' | 'md', string> = {
 
 const KEYBOARD_SHORTCUTS: { combo: string; description: string }[] = [
   { combo: '⌘/Ctrl + K', description: 'Open the command palette' },
+  { combo: '⌘/Ctrl + N', description: 'Create a new draft' },
+  { combo: '⌘/Ctrl + B', description: 'Go to workspace' },
+  { combo: '⌘/Ctrl + J', description: 'Toggle theme' },
+  { combo: '⌘/Ctrl + S', description: 'Export current draft' },
   { combo: 'Alt + R', description: 'Open the rhyme panel' },
   { combo: 'Alt + H', description: 'Cycle rhyme highlight mode (Off → End → Focus → All)' },
   { combo: 'Esc', description: 'Close panels or dialogs' },
