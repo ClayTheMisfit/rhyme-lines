@@ -36,7 +36,7 @@ describe('RhymeSuggestionsPanel', () => {
     )
 
     expect(
-      screen.getByText('No perfect rhymes found. Try Near.')
+      screen.getByText('No strong matches yet. Try Near / Slant.')
     ).toBeInTheDocument()
   })
 
@@ -64,7 +64,7 @@ describe('RhymeSuggestionsPanel', () => {
 
     expect(screen.queryByText('Show spelling variants')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Perfect' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Near' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'time' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Near / Slant' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /time/i })).toBeInTheDocument()
   })
 })
