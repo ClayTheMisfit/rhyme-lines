@@ -22,6 +22,7 @@ const MAX_WIDTH = 640
 const QUICK_ASSIST_LIMIT = 6
 const PANEL_RESULTS_LIMIT = 220
 type QualityKey = keyof RhymeFilters
+type PanelAnchorRect = { top: number; left: number; width: number; height: number }
 
 const QUALITY_CHIPS: ReadonlyArray<{ label: string; value: QualityKey }> = [
   { label: 'Perfect', value: 'perfect' },
@@ -34,6 +35,8 @@ type Props = {
   text: string
   caretIndex: number
   currentLineText: string
+  activeLineRect?: PanelAnchorRect | null
+  editorLaneRect?: PanelAnchorRect | null
   editorRef?: React.RefObject<EditorHandle | null>
 }
 
