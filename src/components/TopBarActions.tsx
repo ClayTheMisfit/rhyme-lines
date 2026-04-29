@@ -113,6 +113,7 @@ export default function TopBarActions() {
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return
       const key = event.key.toLowerCase()
       const hasPrimaryModifier = event.metaKey || event.ctrlKey
       if (!hasPrimaryModifier) return

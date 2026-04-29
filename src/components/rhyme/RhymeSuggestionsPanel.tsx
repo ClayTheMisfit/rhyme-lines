@@ -116,6 +116,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
     const normalizedQueryToken = useMemo(() => normalizeToken(debouncedQuery), [debouncedQuery])
     const isQueryActive = Boolean(normalizedQueryToken)
+    const shouldFetchSuggestions = mode !== 'hidden' || !isQueryActive
 
     const {
       status,
@@ -136,7 +137,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       multiSyllable: multiSyllablePerfect,
       commonWordsOnly,
       debug: debugEnabled,
-      enabled: mode !== 'hidden',
+      enabled: shouldFetchSuggestions,
     })
 
     const caretSuggestions = results.caret ?? []
