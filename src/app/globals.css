@@ -420,6 +420,16 @@ body.bg-white .rl-editor .line {
   font-weight: 640;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .rl-current-line-highlight,
+  .syllable-badge,
+  [data-line-id],
+  .rl-editor .line,
+  .rl-editor .line[data-line-total-display]::before {
+    transition: none !important;
+  }
+}
+
 /* Custom scrollbar styles */
 .scrollbar-thin {
   scrollbar-width: thin;

@@ -6,6 +6,7 @@ type ManuscriptListProps = {
   view: 'projects' | 'archived' | 'trash'
   search: string
   folders: ProjectFolder[]
+  featuredProjectId?: string | null
   onRename?: (id: string, title: string) => void
   onAssignFolder?: (id: string, folderId: string | null) => void
   onArchive?: (id: string) => void
@@ -13,6 +14,7 @@ type ManuscriptListProps = {
   onRestoreFromTrash?: (id: string) => void
   onDeletePermanently?: (id: string) => void
   onDelete?: (id: string) => void
+  onOpen?: (id: string) => void
 }
 
 export function ManuscriptList({
@@ -20,6 +22,7 @@ export function ManuscriptList({
   view,
   search,
   folders,
+  featuredProjectId,
   onRename,
   onAssignFolder,
   onArchive,
@@ -27,12 +30,13 @@ export function ManuscriptList({
   onRestoreFromTrash,
   onDeletePermanently,
   onDelete,
+  onOpen,
 }: ManuscriptListProps) {
   if (!rows.length) {
     const trimmedSearch = search.trim()
     return (
-      <section className="border border-white/[0.032] bg-[#18181a] px-5 py-8 text-center">
-        <h3 className="text-sm tracking-[0.13em] text-white/74">
+      <section className="rounded-lg bg-[#171c23] px-5 py-9 text-center">
+        <h3 className="text-sm tracking-[0.08em] text-white/82">
           {trimmedSearch
             ? 'No results'
             : view === 'archived'
@@ -41,7 +45,7 @@ export function ManuscriptList({
                 ? 'Trash is empty'
                 : 'No projects yet'}
         </h3>
-        <p className="mt-2 text-xs text-white/38">
+        <p className="mt-2 text-xs text-white/54">
           {trimmedSearch
             ? `No projects matched “${trimmedSearch}”.`
             : view === 'archived'
@@ -57,17 +61,18 @@ export function ManuscriptList({
   return (
     <section>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm tracking-[0.13em] text-white/74">
-          {view === 'archived' ? 'Archived Manuscripts' : view === 'trash' ? 'Trash' : 'Saved Manuscripts'}
+        <h3 className="text-sm font-medium tracking-[0.07em] text-white/82">
+          {view === 'archived' ? 'Archived Projects' : view === 'trash' ? 'Trash' : 'Recent Drafts'}
         </h3>
       </div>
-      <ul className="space-y-2.5">
+      <ul className="space-y-2">
         {rows.map((row) => (
           <ManuscriptRow
             key={row.id}
             project={row}
             view={view}
             folders={folders}
+            isFeatured={featuredProjectId === row.id}
             onRename={onRename}
             onAssignFolder={onAssignFolder}
             onArchive={onArchive}
@@ -75,6 +80,7 @@ export function ManuscriptList({
             onRestoreFromTrash={onRestoreFromTrash}
             onDeletePermanently={onDeletePermanently}
             onDelete={onDelete}
+            onOpen={onOpen}
           />
         ))}
       </ul>
