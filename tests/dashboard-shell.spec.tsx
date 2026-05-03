@@ -10,8 +10,14 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: pushMock }),
 }))
 
+interface LinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+  href?: string | { pathname?: string; query?: Record<string, string> }
+  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void
+  children?: React.ReactNode
+}
+
 jest.mock('next/link', () => {
-  return function MockLink({ href, onClick, children, ...rest }: any) {
+  return function MockLink({ href, onClick, children, ...rest }: LinkProps) {
     return (
       <a
         {...rest}

@@ -79,7 +79,7 @@ export default function TopBarActions() {
     anchor.href = url
     anchor.download = `${safeTitle || 'untitled'}.txt`
     anchor.click()
-    URL.revokeObjectURL(url)
+    setTimeout(() => URL.revokeObjectURL(url), 0)
     setAnnouncement(`Exported ${target.title || 'Untitled'} as text file`)
   }, [activeTab])
 

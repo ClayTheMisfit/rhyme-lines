@@ -10,8 +10,9 @@ export function DashboardSidebar() {
 
       <nav className="mt-8 space-y-1.5" aria-label="Workspace navigation">
         {links.map((item) => (
-          <div
+          <button
             key={item}
+            type="button"
             className={`flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-xs tracking-[0.04em] ${
               item === 'Workspace'
                 ? 'bg-[#1a2129] text-white/84'
@@ -22,7 +23,7 @@ export function DashboardSidebar() {
               {item === 'Workspace' ? <span className="h-4 w-px bg-[#d6b85d]" aria-hidden /> : null}
               {item}
             </span>
-          </div>
+          </button>
         ))}
       </nav>
     </aside>

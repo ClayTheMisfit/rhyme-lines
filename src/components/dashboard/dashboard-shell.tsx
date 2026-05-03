@@ -176,7 +176,15 @@ export function DashboardShell() {
             <section className="mt-7 border-b border-white/[0.045] pb-6">
               <button
                 type="button"
-                onClick={() => setShowOrganizeControls((current) => !current)}
+                onClick={() => {
+                  setShowOrganizeControls((current) => {
+                    const next = !current
+                    if (!next) {
+                      setFolderFilter(null)
+                    }
+                    return next
+                  })
+                }}
                 aria-expanded={showOrganizeControls}
                 className="inline-flex h-8 cursor-pointer items-center rounded-md border border-white/[0.08] bg-[#171b20] px-3.5 text-[11px] tracking-[0.08em] text-white/64 transition-colors hover:border-white/[0.14] hover:text-white/82 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] disabled:cursor-not-allowed"
               >
