@@ -19,6 +19,7 @@ type CommandPaletteProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   commands: CommandPaletteItem[]
+  onCommandRun?: (command: CommandPaletteItem) => void
 }
 
 const scoreCommand = (command: CommandPaletteItem, query: string) => {
@@ -39,7 +40,7 @@ const scoreCommand = (command: CommandPaletteItem, query: string) => {
   return score
 }
 
-export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteProps) {
+export function CommandPalette({ open, onOpenChange, commands, onCommandRun }: CommandPaletteProps) {
   const [query, setQuery] = React.useState('')
   const [selectedIndex, setSelectedIndex] = React.useState(0)
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -78,8 +79,9 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
     const selected = visibleCommands[selectedIndex]
     if (!selected) return
     selected.run()
+    onCommandRun?.(selected)
     onOpenChange(false)
-  }, [onOpenChange, selectedIndex, visibleCommands])
+  }, [onCommandRun, onOpenChange, selectedIndex, visibleCommands])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -147,6 +149,7 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
                     onMouseEnter={() => setSelectedIndex(index)}
                     onClick={() => {
                       command.run()
+                      onCommandRun?.(command)
                       onOpenChange(false)
                     }}
                     className={`flex w-full cursor-pointer items-start justify-between rounded-md border px-3 py-2 text-left ${reduceMotion ? '' : 'transition-colors'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--rl-shell-elevated)] ${

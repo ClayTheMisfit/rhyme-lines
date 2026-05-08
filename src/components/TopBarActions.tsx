@@ -14,6 +14,7 @@ import SettingsSheet from '@/components/settings/SettingsSheet'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { CommandPalette, type CommandPaletteItem } from '@/components/CommandPalette'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { trackEvent } from '@/lib/analytics/events'
 
 const buttonClass =
   'inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] text-[11px] text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]'
@@ -46,6 +47,10 @@ export default function TopBarActions() {
   )
 
   const panelVisible = mode !== 'hidden'
+  const toggleRhymePanel = useCallback(() => {
+    trackEvent('rhyme_panel_toggled', { visible: !panelVisible })
+    togglePanel()
+  }, [panelVisible, togglePanel])
   const [menuOpen, setMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -62,12 +67,14 @@ export default function TopBarActions() {
     const next = theme === 'dark' ? 'light' : 'dark'
     setThemePreference(next)
     setResolvedTheme(next)
+    trackEvent('theme_switched', { theme: next })
     setAnnouncement(`Theme switched to ${next} mode`)
   }, [setResolvedTheme, setThemePreference, theme])
 
   const exportDraft = useCallback(() => {
     const target = activeTab
     if (!target) return
+    trackEvent('export_started')
     const safeTitle = (target.title || 'untitled')
       .trim()
       .replace(/[^\w\- ]+/g, '')
@@ -80,6 +87,7 @@ export default function TopBarActions() {
     anchor.download = `${safeTitle || 'untitled'}.txt`
     anchor.click()
     setTimeout(() => URL.revokeObjectURL(url), 0)
+    trackEvent('export_completed')
     setAnnouncement(`Exported ${target.title || 'Untitled'} as text file`)
   }, [activeTab])
 
@@ -88,6 +96,7 @@ export default function TopBarActions() {
       if (action === 'palette') {
         setPaletteOpen((open) => {
           const next = !open
+          if (next) trackEvent('command_palette_opened')
           if (!next) {
             window.requestAnimationFrame(() => paletteTriggerRef.current?.focus())
           }
@@ -100,7 +109,7 @@ export default function TopBarActions() {
         return
       }
       if (action === 'rhymes') {
-        togglePanel()
+        toggleRhymePanel()
         setAnnouncement(panelVisible ? 'Rhyme panel hidden' : 'Rhyme panel shown')
         return
       }
@@ -108,7 +117,7 @@ export default function TopBarActions() {
         exportDraft()
       }
     },
-    [exportDraft, panelVisible, togglePanel, toggleTheme]
+    [exportDraft, panelVisible, toggleRhymePanel, toggleTheme]
   )
 
   useEffect(() => {
@@ -158,7 +167,10 @@ export default function TopBarActions() {
         description: 'Create and switch to a new draft',
         shortcutHint: '⌘/Ctrl N',
         keywords: ['new', 'create', 'project'],
-        run: () => newTab(),
+        run: () => {
+          trackEvent('draft_created', { source: 'command_palette' })
+          newTab()
+        },
       },
       {
         id: 'go-workspace',
@@ -166,7 +178,10 @@ export default function TopBarActions() {
         description: 'Return to writing launchpad',
         shortcutHint: '⌘/Ctrl B',
         keywords: ['workspace', 'dashboard', 'home'],
-        run: () => router.push('/'),
+        run: () => {
+          trackEvent('draft_opened', { source: 'command_palette_workspace' })
+          router.push('/')
+        },
       },
       {
         id: 'switch-theme',
@@ -197,7 +212,7 @@ export default function TopBarActions() {
         description: 'Toggle rhyme assistance panel',
         shortcutHint: 'Alt R',
         keywords: ['rhyme', 'panel', 'assist'],
-        run: togglePanel,
+        run: toggleRhymePanel,
       },
       {
         id: densityMode === 'draft' ? 'analysis-mode' : 'draft-mode',
@@ -216,11 +231,14 @@ export default function TopBarActions() {
         title: `Open Draft: ${tab.title || 'Untitled'}`,
         description: 'Quick switch to this draft',
         keywords: ['open', 'switch', 'draft', tab.title || 'untitled'],
-        run: () => setActive(tab.id),
+        run: () => {
+          trackEvent('draft_opened', { source: 'command_palette_tab' })
+          setActive(tab.id)
+        },
       }))
 
     return [...base, ...draftCommands]
-  }, [densityMode, exportDraft, newTab, panelVisible, router, setActive, setDensityMode, tabs, togglePanel, toggleTheme])
+  }, [densityMode, exportDraft, newTab, panelVisible, router, setActive, setDensityMode, tabs, toggleRhymePanel, toggleTheme])
 
   return (
     <div className="ml-auto flex items-center gap-1.5">
@@ -260,7 +278,7 @@ export default function TopBarActions() {
           <TooltipTrigger asChild>
             <motion.button
               whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-              onClick={togglePanel}
+              onClick={toggleRhymePanel}
               className={`${buttonClass} ${panelVisible ? 'text-[#f2d000]/90' : ''}`}
               title={panelVisible ? 'Hide rhyme panel (Alt+R)' : 'Show rhyme panel (Alt+R)'}
               aria-label={panelVisible ? 'Hide rhyme panel' : 'Show rhyme panel'}
@@ -321,6 +339,7 @@ export default function TopBarActions() {
             window.requestAnimationFrame(() => paletteTriggerRef.current?.focus())
           }
         }}
+        onCommandRun={(command) => trackEvent('command_executed', { commandId: command.id })}
         commands={commandItems}
       />
       <span className="sr-only" aria-live="polite">
