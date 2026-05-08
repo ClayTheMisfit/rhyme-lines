@@ -16,6 +16,7 @@ import { shallow } from 'zustand/shallow'
 import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 import { buildVisibleSuggestions } from '@/components/rhyme/buildVisibleSuggestions'
 import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
+import { trackEvent } from '@/lib/analytics/events'
 
 const MIN_WIDTH = 280
 const MAX_WIDTH = 640
@@ -263,6 +264,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           acc[chip.value] = true
           return acc
         }, { perfect: true, near: true })
+        trackEvent('rhyme_filter_changed', { quality: 'reset_all' })
         setRhymeFilters(resetFilters)
       }
     }, [activeModes.length, setRhymeFilters])
@@ -496,6 +498,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     onClick={() => {
                       const next = { ...rhymeFilters, [chip.value]: !rhymeFilters[chip.value] }
                       const hasAny = Object.values(next).some(Boolean)
+                      trackEvent('rhyme_filter_changed', { quality: chip.value, enabled: !rhymeFilters[chip.value] })
                       setRhymeFilters(hasAny ? next : { perfect: true, near: true })
                     }}
                     className={`rounded-full border px-3 py-1 text-[11px] font-medium transition duration-100 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 active:scale-[0.98] dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
@@ -536,7 +539,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     type="checkbox"
                     className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 dark:border-white/[0.2] dark:bg-[#0d0d0f] dark:text-white/85 dark:focus-visible:ring-white/25"
                     checked={multiSyllablePerfect}
-                    onChange={(event) => setMultiSyllablePerfect(event.target.checked)}
+                    onChange={(event) => {
+                      trackEvent('rhyme_filter_changed', { quality: 'multi_syllable_perfect', enabled: event.target.checked })
+                      setMultiSyllablePerfect(event.target.checked)
+                    }}
                   />
                   <span className="space-y-1">
                     <span className="block text-slate-600 dark:text-slate-300">Multi-syllable perfect rhymes</span>
@@ -550,7 +556,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     type="checkbox"
                     className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 dark:border-white/[0.2] dark:bg-[#0d0d0f] dark:text-white/85 dark:focus-visible:ring-white/25"
                     checked={commonWordsOnly}
-                    onChange={(event) => setCommonWordsOnly(event.target.checked)}
+                    onChange={(event) => {
+                      trackEvent('rhyme_filter_changed', { quality: 'common_words_only', enabled: event.target.checked })
+                      setCommonWordsOnly(event.target.checked)
+                    }}
                   />
                   <span className="space-y-1">
                     <span className="block text-slate-600 dark:text-slate-300">Common words only</span>

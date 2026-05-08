@@ -40,4 +40,21 @@ describe('CommandPalette', () => {
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
+
+  it('notifies when command is executed', () => {
+    const onCommandRun = jest.fn()
+    const run = jest.fn()
+    render(
+      <CommandPalette
+        open
+        onOpenChange={() => {}}
+        onCommandRun={onCommandRun}
+        commands={[{ id: 'export', title: 'Export Draft', run }]}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('option', { name: /export draft/i }))
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(onCommandRun).toHaveBeenCalledWith(expect.objectContaining({ id: 'export' }))
+  })
 })

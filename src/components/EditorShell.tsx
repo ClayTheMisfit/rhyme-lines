@@ -14,6 +14,7 @@ import { useHydrated } from '@/hooks/useHydrated'
 import { useAutosave } from '@/hooks/useAutosave'
 import { useAutosaveStore } from '@/store/autosaveStore'
 import StatusBar from '@/components/StatusBar'
+import { trackEvent } from '@/lib/analytics/events'
 
 /**
  * Render the editor shell that coordinates the lyric Editor and RhymePanel, manages hydration, focus, keyboard shortcuts, click-outside behavior, and autosave status.
@@ -30,6 +31,7 @@ export default function EditorShell() {
   const [appStateReady, setAppStateReady] = useState(false)
   const [cursor, setCursor] = useState<{ line: number; column: number } | null>(null)
   const ready = hydrated && appStateReady
+  const lastTextActivityAtRef = useRef(0)
   const { mode, setMode } = useRhymePanel((state) => ({
     mode: state.mode,
     setMode: state.setMode,
@@ -52,6 +54,16 @@ export default function EditorShell() {
   useEffect(() => {
     setCursor(null)
   }, [activeTabId])
+
+  useEffect(() => {
+    if (!ready) return
+    trackEvent('app_loaded')
+  }, [ready])
+
+  useEffect(() => {
+    if (!ready || !activeTabId) return
+    trackEvent('draft_opened', { source: 'editor_shell' })
+  }, [activeTabId, ready])
 
   const { saveStatus, saveError } = useAutosaveStore((state) => ({
     saveStatus: state.status,
@@ -186,6 +198,11 @@ export default function EditorShell() {
       if (text === activeTab.snapshot.text) return
       actions.updateSnapshot(activeTab.id, { text })
       actions.markDirty(activeTab.id, true)
+      const now = Date.now()
+      if (now - lastTextActivityAtRef.current > 15000) {
+        lastTextActivityAtRef.current = now
+        trackEvent('text_activity')
+      }
       markTextChanged()
     },
     [actions, activeTab, markTextChanged]
