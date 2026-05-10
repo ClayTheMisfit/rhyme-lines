@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { shallow } from 'zustand/shallow'
 
 import { useSettingsStore } from '@/store/settingsStore'
-import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useSettingsClickDebug } from '@/lib/dev/useSettingsClickDebug'
 import { ToggleRow } from '@/components/settings/ToggleRow'
 import { useRhymeRecomputeScheduler } from '@/hooks/useRhymeRecomputeScheduler'
@@ -150,8 +150,6 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
     [isControlled, onOpenChange]
   )
 
-  const headingId = useId()
-  const descriptionId = useId()
   const panelId = useId()
 
   const {
@@ -242,8 +240,6 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
         <DialogContent
           role="dialog"
           aria-modal="true"
-          aria-labelledby={headingId}
-          aria-describedby={descriptionId}
           id={panelId}
           data-testid="settings-panel"
           className="left-1/2 top-1/2 flex h-[92vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col gap-6 rounded-t-3xl border border-white/10 bg-zinc-950/95 p-6 text-white shadow-2xl outline-none md:inset-y-0 md:right-0 md:left-auto md:h-full md:max-w-[460px] md:translate-x-0 md:translate-y-0 md:rounded-none md:border-l md:border-white/20 md:p-8"
@@ -251,10 +247,14 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
           <header className="space-y-2">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
-                <h2 id={headingId} className="text-lg font-semibold tracking-tight">Editor settings</h2>
-                <p id={descriptionId} className="text-sm text-white/60">
-                  Tune the writing surface, rhyme helper, and accessibility defaults.
-                </p>
+                <DialogTitle asChild>
+                  <h2 className="text-lg font-semibold tracking-tight">Editor settings</h2>
+                </DialogTitle>
+                <DialogDescription asChild>
+                  <p className="text-sm text-white/60">
+                    Tune the writing surface, rhyme helper, and accessibility defaults.
+                  </p>
+                </DialogDescription>
               </div>
               <button
                 type="button"
@@ -457,11 +457,9 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
       badgeSize,
       badgeSizeLabel,
       debounceMode,
-      descriptionId,
       fontSize,
       handleCancel,
       handleSave,
-      headingId,
       lineHeight,
       panelId,
       resetDefaults,
