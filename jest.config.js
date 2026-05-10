@@ -3,7 +3,7 @@ module.exports = {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'jsdom',
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testRegex: ['(tests|scripts|src)/.*\\.(spec|test)\\.[tj]sx?$'],
   moduleNameMapper: {
     '^@/workers/createAnalysisWorker$': '<rootDir>/src/workers/createAnalysisWorker.mock.ts',
