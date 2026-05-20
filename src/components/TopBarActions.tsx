@@ -124,10 +124,11 @@ export default function TopBarActions() {
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return
-      if (isEditableShortcutTarget(event.target)) return
       const key = event.key.toLowerCase()
       const hasPrimaryModifier = event.metaKey || event.ctrlKey
       if (!hasPrimaryModifier) return
+      const isEditableTarget = isEditableShortcutTarget(event.target)
+      if (isEditableTarget && (key === 'k' || key === 'j' || key === 's')) return
 
       if (key === 'k') {
         event.preventDefault()
