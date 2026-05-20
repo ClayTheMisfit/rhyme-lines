@@ -27,13 +27,22 @@ const countLines = (text: string) => {
 export default function StatusBar({ text, cursor }: StatusBarProps) {
   const { status } = useAutosaveStore((state) => ({ status: state.status }), shallow)
   const { highlightMode } = useRhymeHighlightSettingsStore((state) => ({ highlightMode: state.highlightMode }), shallow)
-  const saveLabel =
-    status === 'saving' ? 'Saving…' : status === 'dirty' ? 'Unsaved changes' : status === 'error' ? 'Save error' : 'Saved'
+  const saveLabel = status === 'saving' ? 'Saving…' : status === 'error' ? 'Save failed' : 'Saved'
+  const saveToneClass =
+    status === 'error'
+      ? 'text-rose-400/90'
+      : status === 'saving'
+        ? 'text-amber-300/90'
+        : 'text-[color:var(--rl-shell-muted)]'
 
   return (
     <footer className="flex h-8 items-center justify-between border-t border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)] px-4 text-[11px] text-[color:var(--rl-shell-muted)]">
       <div className="flex items-center gap-4">
-        <span className={status === 'error' ? 'text-rose-500/85' : status === 'saving' ? 'text-amber-500/85' : 'text-[color:var(--rl-shell-muted)]'}>
+        <span
+          aria-live="polite"
+          aria-atomic="true"
+          className={`inline-flex min-w-[8ch] transition-colors duration-150 motion-reduce:transition-none ${saveToneClass}`}
+        >
           {saveLabel}
         </span>
         <span>Words {countWords(text).toLocaleString()}</span>

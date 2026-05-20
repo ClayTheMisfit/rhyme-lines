@@ -35,7 +35,7 @@ export function ManuscriptList({
   if (!rows.length) {
     const trimmedSearch = search.trim()
     return (
-      <section className="rounded-lg bg-[#171c23] px-5 py-9 text-center">
+      <section className="rounded-lg border border-white/[0.06] bg-[#171c23] px-5 py-9 text-center">
         <h3 className="text-sm tracking-[0.08em] text-white/82">
           {trimmedSearch
             ? 'No results'
@@ -47,7 +47,7 @@ export function ManuscriptList({
         </h3>
         <p className="mt-2 text-xs text-white/54">
           {trimmedSearch
-            ? `No projects matched “${trimmedSearch}”.`
+            ? `No projects matched “${trimmedSearch}”. Try a shorter phrase or different keyword.`
             : view === 'archived'
               ? 'Archived projects will show up here.'
               : view === 'trash'
