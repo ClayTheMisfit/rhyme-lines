@@ -82,10 +82,10 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[color:var(--rl-shell-bg)] text-[color:var(--rl-shell-text)]">
       <TopBar />
       <div
-        className="grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-150"
+        className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden transition-[grid-template-columns] duration-150 lg:[grid-template-columns:var(--editor-layout-columns)]"
         style={{
           paddingTop: 'var(--header-height, 48px)',
-          gridTemplateColumns: `${sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH}px minmax(0,1fr)`,
+          ['--editor-layout-columns' as const]: `${sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH}px minmax(0,1fr)`,
         }}
       >
         <aside
