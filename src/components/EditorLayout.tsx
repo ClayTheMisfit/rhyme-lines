@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useTabsStore } from '@/store/tabsStore'
 import { shallow } from 'zustand/shallow'
 import TopBar from '@/components/TopBar'
@@ -78,15 +78,17 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
     }
   }, [activeTabId])
 
+  const layoutStyle: CSSProperties & { '--editor-layout-columns': string } = {
+    paddingTop: 'var(--header-height, 48px)',
+    '--editor-layout-columns': `${sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH}px minmax(0,1fr)`,
+  }
+
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[color:var(--rl-shell-bg)] text-[color:var(--rl-shell-text)]">
       <TopBar />
       <div
         className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden transition-[grid-template-columns] duration-150 lg:[grid-template-columns:var(--editor-layout-columns)]"
-        style={{
-          paddingTop: 'var(--header-height, 48px)',
-          ['--editor-layout-columns' as const]: `${sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH}px minmax(0,1fr)`,
-        }}
+        style={layoutStyle}
       >
         <aside
           id="editor-documents-sidebar"
