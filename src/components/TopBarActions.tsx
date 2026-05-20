@@ -15,6 +15,7 @@ import { useClickOutside } from '@/hooks/useClickOutside'
 import { CommandPalette, type CommandPaletteItem } from '@/components/CommandPalette'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { trackEvent } from '@/lib/analytics/events'
+import { isEditableShortcutTarget } from '@/lib/shortcuts/keyboard'
 
 const buttonClass =
   'inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] text-[11px] text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]'
@@ -126,6 +127,8 @@ export default function TopBarActions() {
       const key = event.key.toLowerCase()
       const hasPrimaryModifier = event.metaKey || event.ctrlKey
       if (!hasPrimaryModifier) return
+      const isEditableTarget = isEditableShortcutTarget(event.target)
+      if (isEditableTarget && (key === 'k' || key === 'j' || key === 's')) return
 
       if (key === 'k') {
         event.preventDefault()
