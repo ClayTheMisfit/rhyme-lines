@@ -7,14 +7,21 @@ describe('isEditableShortcutTarget', () => {
     expect(isEditableShortcutTarget(document.createElement('select'))).toBe(true)
   })
 
-  it('returns true for contenteditable elements and descendants', () => {
+  it('returns true for contenteditable elements', () => {
     const editable = document.createElement('div')
-    editable.setAttribute('contenteditable', 'true')
-    const child = document.createElement('span')
-    editable.appendChild(child)
+    editable.contentEditable = 'true'
 
     expect(isEditableShortcutTarget(editable)).toBe(true)
-    expect(isEditableShortcutTarget(child)).toBe(true)
+  })
+
+  it('returns false for contenteditable=false descendants', () => {
+    const editable = document.createElement('div')
+    editable.contentEditable = 'true'
+    const child = document.createElement('span')
+    child.contentEditable = 'false'
+    editable.appendChild(child)
+
+    expect(isEditableShortcutTarget(child)).toBe(false)
   })
 
   it('returns true for textbox roles', () => {

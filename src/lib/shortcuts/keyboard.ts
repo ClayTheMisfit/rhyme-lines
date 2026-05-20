@@ -11,9 +11,10 @@ export function isEditableShortcutTarget(target: EventTarget | null): boolean {
     return true
   }
 
-  if (target.closest('[contenteditable="true"]')) {
+  if (target.contentEditable === 'true') {
     return true
   }
+
 
   if (target.closest('[role="textbox"]')) {
     return true
