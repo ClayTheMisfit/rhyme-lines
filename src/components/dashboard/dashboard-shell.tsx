@@ -186,13 +186,14 @@ export function DashboardShell() {
                   })
                 }}
                 aria-expanded={showOrganizeControls}
-                className="inline-flex h-8 cursor-pointer items-center rounded-md border border-white/[0.08] bg-[#171b20] px-3.5 text-[11px] tracking-[0.08em] text-white/64 transition-colors hover:border-white/[0.14] hover:text-white/82 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] disabled:cursor-not-allowed"
+                className="inline-flex h-8 cursor-pointer items-center rounded-md border border-white/[0.08] bg-[#171b20] px-3.5 text-[11px] tracking-[0.08em] text-white/64 transition-[background-color,border-color,color,box-shadow] duration-150 hover:border-white/[0.14] hover:bg-[#1b2027] hover:text-white/86 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] motion-reduce:transition-none disabled:cursor-not-allowed"
               >
                 {showOrganizeControls ? 'HIDE ORGANIZE TOOLS' : 'ORGANIZE PROJECTS'}
               </button>
 
               {showOrganizeControls ? (
-                <div className="mt-4 flex flex-wrap items-center gap-3.5">
+                <div className="mt-4 overflow-hidden transition-[opacity,transform] duration-150 ease-out translate-y-0 opacity-100 motion-reduce:transition-none">
+                  <div className="flex flex-wrap items-center gap-3.5">
                   <label className="text-xs tracking-[0.08em] text-white/52" htmlFor="dashboard-folder-filter">
                     Folder
                   </label>
@@ -200,7 +201,7 @@ export function DashboardShell() {
                     id="dashboard-folder-filter"
                     value={folderFilter ?? ''}
                     onChange={(event) => setFolderFilter(event.target.value || null)}
-                    className="h-9 min-w-[170px] cursor-pointer rounded-md border border-white/[0.08] bg-[#1a1f25] px-3 text-xs text-white/78 focus:outline-none"
+                    className="h-9 min-w-[170px] cursor-pointer rounded-md border border-white/[0.08] bg-[#1a1f25] px-3 text-xs text-white/78 transition-[background-color,border-color,color,box-shadow] duration-150 hover:border-white/[0.16] hover:bg-[#202733] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] motion-reduce:transition-none"
                   >
                     <option value="">All folders</option>
                     <option value="__none__">No folder</option>
@@ -218,15 +219,16 @@ export function DashboardShell() {
                       if (event.key === 'Enter') handleCreateFolder()
                     }}
                     placeholder="New folder"
-                    className="h-9 min-w-[170px] cursor-text rounded-md border border-white/[0.08] bg-[#1a1f25] px-3 text-xs text-white/78 placeholder:text-white/40 focus:outline-none"
+                    className="h-9 min-w-[170px] cursor-text rounded-md border border-white/[0.08] bg-[#1a1f25] px-3 text-xs text-white/78 placeholder:text-white/40 transition-[background-color,border-color,box-shadow,color] duration-150 hover:border-white/[0.14] hover:bg-[#202733] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] motion-reduce:transition-none"
                   />
                   <button
                     type="button"
                     onClick={handleCreateFolder}
-                    className="h-9 cursor-pointer rounded-md border border-white/[0.12] bg-[#161b21] px-3 text-[11px] tracking-[0.06em] text-white/76 transition-colors hover:bg-[#1b2129] disabled:cursor-not-allowed"
+                    className="h-9 cursor-pointer rounded-md border border-white/[0.12] bg-[#161b21] px-3 text-[11px] tracking-[0.06em] text-white/76 transition-[background-color,border-color,color,box-shadow] duration-150 hover:border-white/[0.2] hover:bg-[#1f2630] hover:text-white/88 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] motion-reduce:transition-none disabled:cursor-not-allowed"
                   >
                     CREATE FOLDER
                   </button>
+                  </div>
                 </div>
               ) : null}
             </section>

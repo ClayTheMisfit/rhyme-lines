@@ -1,8 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import EditorLayout from '@/components/EditorLayout'
 
-jest.mock('@/components/TopBar', () => () => <div data-testid="topbar">TopBar</div>)
-jest.mock('@/components/EditorShell', () => () => <div data-testid="editor-shell">Editor</div>)
+jest.mock('@/components/TopBar', () => function MockTopBar() {
+  return <div data-testid="topbar">TopBar</div>
+})
+jest.mock('@/components/EditorShell', () => function MockEditorShell() {
+  return <div data-testid="editor-shell">Editor</div>
+})
 
 const setActive = jest.fn()
 const newTab = jest.fn()

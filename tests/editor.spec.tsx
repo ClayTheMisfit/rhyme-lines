@@ -13,8 +13,8 @@ describe('Editor line normalization', () => {
         addRange: () => {},
       } as unknown as Selection)
 
-    const originalGetClientRects = (Range.prototype as any).getClientRects
-    ;(Range.prototype as any).getClientRects = () => []
+    const originalGetClientRects = Range.prototype.getClientRects
+    Range.prototype.getClientRects = () => [] as unknown as DOMRectList
 
     const dispatchMock = jest
       .spyOn(window, 'dispatchEvent')
@@ -43,7 +43,7 @@ describe('Editor line normalization', () => {
       expect(lines[1]).toHaveClass('line')
     } finally {
       unmount()
-      ;(Range.prototype as any).getClientRects = originalGetClientRects
+      Range.prototype.getClientRects = originalGetClientRects
       dispatchMock.mockRestore()
       getSelectionMock.mockRestore()
       jest.runOnlyPendingTimers()

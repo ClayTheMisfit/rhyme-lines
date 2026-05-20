@@ -1,6 +1,14 @@
 import { render, screen } from '@testing-library/react'
 import TopBar from '@/components/TopBar'
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn(),
+  }),
+}))
+
 jest.mock('next-themes', () => ({
   useTheme: () => ({
     resolvedTheme: 'dark',

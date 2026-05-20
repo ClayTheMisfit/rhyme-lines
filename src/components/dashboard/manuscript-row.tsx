@@ -23,7 +23,7 @@ const formatUpdatedAt = (iso: string) => {
 }
 
 const actionClassName =
-  'ml-2 cursor-pointer rounded-md px-2.5 py-1.5 text-[10px] tracking-[0.06em] text-white/62 transition-colors hover:bg-white/[0.06] hover:text-white/88 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] disabled:cursor-not-allowed'
+  'ml-2 cursor-pointer rounded-md px-2.5 py-1.5 text-[10px] tracking-[0.06em] text-white/62 transition-[background-color,color,border-color] duration-150 hover:bg-white/[0.06] hover:text-white/88 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] disabled:cursor-not-allowed'
 
 export function ManuscriptRow({
   project,
@@ -54,10 +54,10 @@ export function ManuscriptRow({
 
   return (
     <li
-      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-4 py-4.5 transition-colors sm:px-5 sm:py-5 ${
+      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-4 py-4.5 transition-[background-color,border-color,box-shadow,transform] duration-150 motion-reduce:transition-none focus-within:ring-2 focus-within:ring-[#d6b85d]/50 focus-within:ring-offset-2 focus-within:ring-offset-[#111418] sm:px-5 sm:py-5 ${
         isFeatured
           ? 'bg-[#1b222b] ring-1 ring-white/[0.08]'
-          : 'bg-[#171c23] hover:bg-[#1a2129]'
+          : 'bg-[#171c23] ring-1 ring-transparent hover:bg-[#1a2129] hover:ring-white/[0.08] hover:shadow-[0_8px_20px_rgba(0,0,0,0.18)]'
       }`}
     >
       <div className="min-w-0">
@@ -77,7 +77,7 @@ export function ManuscriptRow({
                 setIsRenaming(false)
               }
             }}
-            className="w-full rounded-md border border-white/[0.12] bg-[#0f141b] px-2.5 py-1.5 text-[15px] text-white/90 focus:outline-none"
+            className="w-full rounded-md border border-white/[0.12] bg-[#0f141b] px-2.5 py-1.5 text-[15px] text-white/90 transition-[border-color,box-shadow,background-color] duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418]"
           />
         ) : (
           <p className="truncate text-[15px] font-medium text-white/90">{project.title}</p>
@@ -103,12 +103,12 @@ export function ManuscriptRow({
         ) : null}
         <details className="relative ml-2">
           <summary
-            className="list-none cursor-pointer rounded-md px-2 py-1 text-sm text-white/44 transition-colors hover:bg-white/[0.06] hover:text-white/72 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418]"
+            className="list-none cursor-pointer rounded-md px-2 py-1 text-sm text-white/44 transition-[background-color,color,border-color,box-shadow] duration-150 hover:bg-white/[0.06] hover:text-white/72 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111418] motion-reduce:transition-none"
             aria-label={`More actions for ${project.title}`}
           >
             ⋯
           </summary>
-          <div className="absolute right-0 z-10 mt-1 w-44 rounded-md border border-white/[0.09] bg-[#141a22] p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+          <div className="absolute right-0 z-10 mt-1 w-44 rounded-md border border-white/[0.09] bg-[#141a22] p-1.5 opacity-100 shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none">
             {view !== 'trash' ? (
               <>
                 <button
@@ -126,7 +126,7 @@ export function ManuscriptRow({
                   id={`folder-${project.id}`}
                   value={project.folderId ?? ''}
                   onChange={(event) => onAssignFolder?.(project.id, event.target.value || null)}
-                  className="mt-1 h-7 w-full cursor-pointer rounded border border-white/[0.08] bg-[#121820] px-2 text-[10px] tracking-[0.04em] text-white/62"
+                  className="mt-1 h-7 w-full cursor-pointer rounded border border-white/[0.08] bg-[#121820] px-2 text-[10px] tracking-[0.04em] text-white/62 transition-[background-color,border-color,color,box-shadow] duration-150 hover:border-white/[0.16] hover:bg-[#182130] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 motion-reduce:transition-none"
                   aria-label={`Move ${project.title} to folder`}
                 >
                   <option value="">No folder</option>

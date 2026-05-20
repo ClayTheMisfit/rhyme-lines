@@ -1,4 +1,4 @@
-require('@testing-library/jest-dom')
+import '@testing-library/jest-dom'
 
 if (typeof window !== 'undefined' && !window.requestAnimationFrame) {
   window.requestAnimationFrame = (callback) => window.setTimeout(() => callback(Date.now()), 0)
@@ -24,10 +24,8 @@ if (typeof window !== 'undefined') {
       unobserve() {}
       disconnect() {}
     }
-    // @ts-ignore
     window.ResizeObserver = ResizeObserver
-    // @ts-ignore
-    global.ResizeObserver = ResizeObserver
+    globalThis.ResizeObserver = ResizeObserver
   }
   if (!('IntersectionObserver' in window)) {
     class IntersectionObserver {
@@ -36,9 +34,7 @@ if (typeof window !== 'undefined') {
       unobserve() {}
       disconnect() {}
     }
-    // @ts-ignore
     window.IntersectionObserver = IntersectionObserver
-    // @ts-ignore
-    global.IntersectionObserver = IntersectionObserver
+    globalThis.IntersectionObserver = IntersectionObserver
   }
 }
