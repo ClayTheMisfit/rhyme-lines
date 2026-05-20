@@ -462,6 +462,7 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
       handleSave,
       lineHeight,
       panelId,
+      requestRecompute,
       resetDefaults,
       rhymeAutoRefresh,
       setBadgeSize,
