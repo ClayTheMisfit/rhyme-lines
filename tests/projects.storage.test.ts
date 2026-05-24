@@ -148,6 +148,62 @@ describe('project storage', () => {
     expect(getProjectCounts()).toEqual({ archived: 1, trash: 1 })
   })
 
+
+  it('counts lines in summaries correctly for empty, whitespace-only, and non-empty content', () => {
+    const payload = {
+      version: CURRENT_SCHEMA_VERSION,
+      data: {
+        drafts: [
+          {
+            docId: 'empty-content',
+            title: 'Empty',
+            createdAt: 1,
+            updatedAt: 10,
+            lines: [{ id: 'empty-line-0', text: '' }],
+          },
+          {
+            docId: 'whitespace-content',
+            title: 'Whitespace',
+            createdAt: 2,
+            updatedAt: 9,
+            lines: [{ id: 'whitespace-line-0', text: ' \n \t ' }],
+          },
+          {
+            docId: 'newline-content',
+            title: 'Newline',
+            createdAt: 3,
+            updatedAt: 8,
+            lines: [{ id: 'newline-line-0', text: '\n' }],
+          },
+          {
+            docId: 'single-line-content',
+            title: 'Single',
+            createdAt: 4,
+            updatedAt: 7,
+            lines: [{ id: 'single-line-0', text: 'hello' }],
+          },
+          {
+            docId: 'multi-line-content',
+            title: 'Multi',
+            createdAt: 5,
+            updatedAt: 6,
+            lines: [{ id: 'multi-line-0', text: 'hello\n\nworld' }],
+          },
+        ],
+        activeId: 'empty-content',
+      },
+    }
+    localStorage.setItem('rhyme-lines:persist:drafts', JSON.stringify(payload))
+
+    const summariesById = new Map(listProjectSummaries().map((project) => [project.id, project]))
+
+    expect(summariesById.get('empty-content')?.lineCount).toBe(0)
+    expect(summariesById.get('whitespace-content')?.lineCount).toBe(0)
+    expect(summariesById.get('newline-content')?.lineCount).toBe(0)
+    expect(summariesById.get('single-line-content')?.lineCount).toBe(1)
+    expect(summariesById.get('multi-line-content')?.lineCount).toBe(3)
+  })
+
   it('migrates text from legacy autosave key when no structured drafts exist', () => {
     localStorage.setItem('autosave', 'legacy line one\nlegacy line two')
 
