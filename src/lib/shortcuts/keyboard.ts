@@ -1,24 +1,22 @@
 export function isEditableShortcutTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-
-  const tagName = target.tagName.toLowerCase()
-
-  if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
-    return true
+  if (!(target instanceof Element)) return false
+  if (target instanceof HTMLElement) {
+    if (target.contentEditable === 'false') return false
+    if (target.isContentEditable || target.contentEditable === 'true') return true
   }
 
-  if (target.isContentEditable) {
-    return true
-  }
-
-  if (target.contentEditable === 'true') {
-    return true
-  }
-
-
-  if (target.closest('[role="textbox"]')) {
-    return true
-  }
-
-  return false
+  return Boolean(
+    target.closest(
+      [
+        'input',
+        'textarea',
+        'select',
+        '[contenteditable="true"]',
+        '[role="textbox"]',
+        '[role="searchbox"]',
+        '[role="combobox"]',
+        '[data-ignore-global-shortcuts]',
+      ].join(',')
+    )
+  )
 }
