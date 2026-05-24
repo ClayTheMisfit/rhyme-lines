@@ -98,10 +98,11 @@ describe('EditorLayout sidebar toggle', () => {
     })
   })
 
-  test('syncs route to active tab id when route is stale', async () => {
+  test('syncs active tab state to route project id without bouncing URL', async () => {
     render(<EditorLayout projectId="b" />)
     await waitFor(() => {
-      expect(replace).toHaveBeenCalledWith('/editor/a')
+      expect(setActive).toHaveBeenCalledWith('b')
     })
+    expect(replace).not.toHaveBeenCalledWith('/editor/a')
   })
 })

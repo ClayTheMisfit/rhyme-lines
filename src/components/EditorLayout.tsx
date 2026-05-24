@@ -94,6 +94,10 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
     const activeTabExists = tabs.some((tab) => tab.id === activeTabId)
     if (!activeTabExists) return
     setLastOpenProjectId(activeTabId)
+    const routeIsDrivingSelection = Boolean(projectId) && projectId !== activeTabId
+    if (routeIsDrivingSelection) {
+      return
+    }
     if (!routeProjectIdIsInvalid && projectId !== activeTabId) {
       router.replace(`/editor/${activeTabId}`)
     }
