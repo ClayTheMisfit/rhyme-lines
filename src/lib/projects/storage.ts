@@ -320,7 +320,12 @@ export const moveProjectToTrash = (id: string): void => {
       deletedAt,
     }
   })
-  writeCollection({ drafts, activeId: collection.activeId, folders: collection.folders ?? [] })
+  const nextActiveId =
+    collection.activeId === id ? drafts.find((draft) => draft.docId !== id && !draft.deletedAt)?.docId ?? '' : collection.activeId
+  writeCollection({ drafts, activeId: nextActiveId, folders: collection.folders ?? [] })
+  if (getLastOpenProjectId() === id) {
+    setLastOpenProjectId(nextActiveId || null)
+  }
 }
 
 export const restoreProjectFromTrash = (id: string): void => {
@@ -340,7 +345,7 @@ export const restoreProjectFromTrash = (id: string): void => {
 export const permanentlyDeleteProject = (id: string): void => {
   const collection = readCollection()
   const drafts = collection.drafts.filter((draft) => draft.docId !== id)
-  const activeId = drafts.find((draft) => draft.docId === collection.activeId)?.docId ?? drafts[0]?.docId ?? ''
+  const activeId = drafts.find((draft) => draft.docId === collection.activeId && !draft.deletedAt)?.docId ?? drafts.find((draft) => !draft.deletedAt)?.docId ?? ''
   writeCollection({ drafts, activeId, folders: collection.folders ?? [] })
   if (getLastOpenProjectId() === id) setLastOpenProjectId(activeId || null)
 }

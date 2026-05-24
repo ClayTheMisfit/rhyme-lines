@@ -128,7 +128,7 @@ export default function TopBarActions() {
       const hasPrimaryModifier = event.metaKey || event.ctrlKey
       if (!hasPrimaryModifier) return
       const isEditableTarget = isEditableShortcutTarget(event.target)
-      if (isEditableTarget && (key === 'k' || key === 'j' || key === 's')) return
+      if (isEditableTarget) return
 
       if (key === 'k') {
         event.preventDefault()

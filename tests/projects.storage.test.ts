@@ -111,6 +111,38 @@ describe('project storage', () => {
     expect(listProjectSummaries()).toEqual([])
   })
 
+  it('keeps active and last-open ids when trashing an inactive project', () => {
+    const first = createProject('First')
+    const second = createProject('Second')
+    setLastOpenProjectId(second.id)
+
+    moveProjectToTrash(first.id)
+
+    expect(listTrashProjectSummaries().map((project) => project.id)).toEqual([first.id])
+    expect(localStorage.getItem(LAST_OPEN_PROJECT_ID_KEY)).toBe(second.id)
+  })
+
+  it('repoints active and last-open ids when trashing the active project', () => {
+    const first = createProject('First')
+    const second = createProject('Second')
+    setLastOpenProjectId(second.id)
+
+    moveProjectToTrash(second.id)
+
+    expect(listActiveProjectSummaries().map((project) => project.id)).toEqual([first.id])
+    expect(localStorage.getItem(LAST_OPEN_PROJECT_ID_KEY)).toBe(first.id)
+  })
+
+  it('clears last-open id when trashing the only project', () => {
+    const project = createProject('Only')
+    setLastOpenProjectId(project.id)
+
+    moveProjectToTrash(project.id)
+
+    expect(listActiveProjectSummaries()).toEqual([])
+    expect(localStorage.getItem(LAST_OPEN_PROJECT_ID_KEY)).toBeNull()
+  })
+
   it('creates folders and assigns projects to folders', () => {
     const project = createProject('Folder project')
     const folder = createFolder(' Hooks ')

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import EditorLayout from '@/components/EditorLayout'
+import { setLastOpenProjectId } from '@/lib/projects/storage'
 
 jest.mock('@/components/TopBar', () => function MockTopBar() {
   return <div data-testid="topbar">TopBar</div>
@@ -10,6 +11,12 @@ jest.mock('@/components/EditorShell', () => function MockEditorShell() {
 
 const setActive = jest.fn()
 const newTab = jest.fn()
+const replace = jest.fn()
+const push = jest.fn()
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ replace, push, prefetch: jest.fn() }),
+}))
 
 const mockState = {
   tabs: [
@@ -32,6 +39,8 @@ describe('EditorLayout sidebar toggle', () => {
     localStorage.clear()
     setActive.mockReset()
     newTab.mockReset()
+    replace.mockReset()
+    push.mockReset()
   })
 
   test('renders expanded sidebar by default with collapse toggle', () => {
@@ -77,6 +86,22 @@ describe('EditorLayout sidebar toggle', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Expand sidebar' })).toHaveAttribute('aria-expanded', 'false')
+    })
+  })
+
+  test('redirects invalid project route and does not render editor shell while correcting', async () => {
+    setLastOpenProjectId('missing')
+    render(<EditorLayout projectId="missing" />)
+    expect(screen.queryByTestId('editor-shell')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalledWith('/editor/a')
+    })
+  })
+
+  test('syncs route to active tab id when route is stale', async () => {
+    render(<EditorLayout projectId="b" />)
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalledWith('/editor/a')
     })
   })
 })

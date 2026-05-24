@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useRouter } from 'next/navigation'
 import { useTabsStore } from '@/store/tabsStore'
 import { shallow } from 'zustand/shallow'
 import TopBar from '@/components/TopBar'
@@ -17,6 +18,7 @@ type EditorLayoutProps = {
 }
 
 export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
+  const router = useRouter()
   const { tabs, activeTabId, newTab, setActive } = useTabsStore(
     (state) => ({
       tabs: state.tabs,
@@ -28,6 +30,11 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
   )
 
   const sortedTabs = useMemo(() => [...tabs].sort((a, b) => b.updatedAt - a.updatedAt), [tabs])
+  const routeProject = useMemo(
+    () => (projectId ? tabs.find((tab) => tab.id === projectId) ?? null : null),
+    [projectId, tabs]
+  )
+  const routeProjectIdIsInvalid = Boolean(projectId) && !routeProject
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const sidebarExpanded = !sidebarCollapsed
   const sidebarAriaLabel = sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'
@@ -66,17 +73,31 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
   useEffect(() => {
     const targetProjectId = projectId || getLastOpenProjectId()
     if (!targetProjectId) return
-    if (!tabs.some((tab) => tab.id === targetProjectId)) return
+    const targetProject = tabs.find((tab) => tab.id === targetProjectId)
+    if (!targetProject) {
+      const fallback = tabs[0]
+      if (getLastOpenProjectId() === targetProjectId) {
+        setLastOpenProjectId(fallback?.id ?? null)
+      }
+      if (projectId) {
+        router.replace(fallback ? `/editor/${fallback.id}` : '/editor')
+      }
+      return
+    }
     if (activeTabId !== targetProjectId) {
       setActive(targetProjectId)
     }
-  }, [activeTabId, projectId, setActive, tabs])
+  }, [activeTabId, projectId, router, setActive, tabs])
 
   useEffect(() => {
-    if (activeTabId) {
-      setLastOpenProjectId(activeTabId)
+    if (!activeTabId) return
+    const activeTabExists = tabs.some((tab) => tab.id === activeTabId)
+    if (!activeTabExists) return
+    setLastOpenProjectId(activeTabId)
+    if (!routeProjectIdIsInvalid && projectId !== activeTabId) {
+      router.replace(`/editor/${activeTabId}`)
     }
-  }, [activeTabId])
+  }, [activeTabId, projectId, routeProjectIdIsInvalid, router, tabs])
 
   const layoutStyle: CSSProperties & { '--editor-layout-columns': string } = {
     paddingTop: 'var(--header-height, 48px)',
@@ -166,7 +187,7 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
           )}
         </aside>
         <main className="flex min-h-0 min-w-0 bg-[color:var(--rl-editor-lane)]">
-          <EditorShell />
+          {routeProjectIdIsInvalid ? null : <EditorShell />}
         </main>
       </div>
     </div>
