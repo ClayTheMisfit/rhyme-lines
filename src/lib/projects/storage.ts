@@ -51,7 +51,15 @@ const fromIso = (value: string, fallback = Date.now()) => {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
-const countLines = (content: string) => normalizeContent(content).split('\n').length
+const countLines = (content: string) => {
+  const normalized = normalizeContent(content)
+
+  if (normalized.trim().length === 0) {
+    return 0
+  }
+
+  return normalized.split('\n').length
+}
 
 const countWords = (content: string) => {
   const words = normalizeContent(content)
