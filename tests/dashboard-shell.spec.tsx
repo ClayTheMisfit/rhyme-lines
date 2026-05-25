@@ -169,6 +169,29 @@ describe('DashboardShell', () => {
     expect(screen.getByText('Newest Draft')).toBeInTheDocument()
   })
 
+  it('keeps the Drafts workspace button clickable with mouse and keyboard', async () => {
+    const user = userEvent.setup()
+    render(<DashboardShell />)
+
+    await user.click(screen.getByRole('button', { name: /Archived/i }))
+    await waitFor(() => expect(screen.getByText('Archived Projects')).toBeInTheDocument())
+
+    const draftsButton = screen.getByRole('button', { name: 'Drafts' })
+    expect(draftsButton).toBeEnabled()
+
+    await user.click(draftsButton)
+    await waitFor(() => expect(screen.getByText('Recent Drafts')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: /Trash/i }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Trash' })).toBeInTheDocument())
+
+    draftsButton.focus()
+    expect(draftsButton).toHaveFocus()
+
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(screen.getByText('Recent Drafts')).toBeInTheDocument())
+  })
+
   it('does not apply hidden folder filtering in archived/trash views', async () => {
     const user = userEvent.setup()
     storageMocks.filterProjectSummaries.mockImplementation((projects, search, folderId) => {
