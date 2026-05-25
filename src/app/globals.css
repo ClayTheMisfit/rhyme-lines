@@ -326,7 +326,7 @@ body.bg-white .rl-current-line-highlight {
 }
 
 .rl-rhyme-underline[data-rhyme-family][data-rhyme-hide-colors] {
-  border-bottom-color: rgba(242, 208, 0, 0.85);
+  border-bottom: 1px solid rgba(242, 208, 0, 0.85);
 }
 
 .rl-rhyme-highlight[data-rhyme-family][data-rhyme-active]:not([data-rhyme-debug]) {

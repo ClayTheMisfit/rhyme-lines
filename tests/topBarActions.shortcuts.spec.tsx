@@ -84,4 +84,3 @@ describe('TopBarActions shortcuts', () => {
     expect(push).not.toHaveBeenCalled()
   })
 })
-import type { ReactNode } from 'react'

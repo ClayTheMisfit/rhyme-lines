@@ -64,6 +64,23 @@ export default function TopBarActions() {
   const themeGlyph = useMemo(() => (theme === 'dark' ? '☾' : '☀'), [theme])
   const activeTab = useMemo(() => tabs.find((tab) => tab.id === activeTabId) ?? tabs[0], [activeTabId, tabs])
 
+
+  const focusSettingsPanel = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      const root = document.querySelector<HTMLElement>('[data-testid="settings-panel"]')
+      if (!root) return
+      const target = root.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+      ;(target ?? root).focus()
+    })
+  }, [])
+
+  const openSettings = useCallback(() => {
+    setSettingsOpen(true)
+    focusSettingsPanel()
+  }, [focusSettingsPanel])
+
   const toggleTheme = useCallback(() => {
     const next = theme === 'dark' ? 'light' : 'dark'
     setThemePreference(next)
@@ -207,7 +224,7 @@ export default function TopBarActions() {
         title: 'Open Settings',
         description: 'Open editor preferences',
         keywords: ['settings', 'preferences'],
-        run: () => setSettingsOpen(true),
+        run: openSettings,
       },
       {
         id: 'toggle-rhymes',
@@ -241,7 +258,7 @@ export default function TopBarActions() {
       }))
 
     return [...base, ...draftCommands]
-  }, [densityMode, exportDraft, newTab, panelVisible, router, setActive, setDensityMode, tabs, toggleRhymePanel, toggleTheme])
+  }, [densityMode, exportDraft, newTab, openSettings, panelVisible, router, setActive, setDensityMode, tabs, toggleRhymePanel, toggleTheme])
 
   return (
     <div className="ml-auto flex items-center gap-1.5">
@@ -310,7 +327,7 @@ export default function TopBarActions() {
           >
             <button
               type="button"
-              className="flex w-full cursor-pointer items-center justify-between rounded px-2.5 py-2 text-left text-xs text-[color:var(--rl-shell-text)]/85 hover:bg-[color:color-mix(in_srgb,var(--rl-shell-text)_6%,transparent)]"
+              className="flex w-full cursor-pointer items-center justify-between rounded px-2.5 py-2 text-left text-xs text-[color:var(--rl-shell-text)]/85 hover:bg-[color:color-mix(in_srgb,var(--rl-shell-text)_6%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-accent)]"
               onClick={() => {
                 setShowRhymeDecorations(!showRhymeDecorations)
                 setMenuOpen(false)
@@ -321,10 +338,10 @@ export default function TopBarActions() {
             </button>
             <button
               type="button"
-              className="mt-1 flex w-full cursor-pointer items-center justify-between rounded border-t border-[color:var(--rl-shell-border)] px-2.5 py-2 text-left text-xs text-[color:var(--rl-shell-text)]/85 hover:bg-[color:color-mix(in_srgb,var(--rl-shell-text)_6%,transparent)]"
+              className="mt-1 flex w-full cursor-pointer items-center justify-between rounded border-t border-[color:var(--rl-shell-border)] px-2.5 py-2 text-left text-xs text-[color:var(--rl-shell-text)]/85 hover:bg-[color:color-mix(in_srgb,var(--rl-shell-text)_6%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-accent)]"
               onClick={() => {
                 setMenuOpen(false)
-                setSettingsOpen(true)
+                openSettings()
               }}
             >
               <span>Editor settings</span>

@@ -48,7 +48,8 @@ export function ManuscriptRow({
 
   const saveRename = () => {
     if (!isRenaming) return
-    onRename?.(project.id, draftTitle)
+    const trimmed = draftTitle.trim()
+    if (trimmed) onRename?.(project.id, trimmed)
     setIsRenaming(false)
   }
 

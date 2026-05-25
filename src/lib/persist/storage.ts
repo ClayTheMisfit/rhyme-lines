@@ -99,6 +99,11 @@ const collectCandidates = (key: StorageKey): StoredValueCandidate[] => {
       candidates.push({ key: storageKey, value })
     }
   }
+  for (const migrationKey of MIGRATION_READ_ONLY_KEYS[key]) {
+    if (window.localStorage.getItem(migrationKey) !== null) {
+      window.localStorage.removeItem(migrationKey)
+    }
+  }
   return candidates
 }
 
@@ -140,7 +145,7 @@ export function clearPersistedState(): void {
   ;(Object.keys(STORAGE_KEYS) as StorageKey[]).forEach((key) => {
     allKeys.add(STORAGE_KEYS[key])
     LEGACY_KEYS[key].forEach((legacyKey) => allKeys.add(legacyKey))
-    // Exclude MIGRATION_READ_ONLY_KEYS - they are only for one-time migrations, never cleared
+    MIGRATION_READ_ONLY_KEYS[key].forEach((migrationKey) => allKeys.add(migrationKey))
   })
   for (const key of allKeys) {
     window.localStorage.removeItem(key)

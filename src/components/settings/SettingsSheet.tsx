@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useCallback, useEffect, useId, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { shallow } from 'zustand/shallow'
 
 import { useSettingsStore } from '@/store/settingsStore'
@@ -151,6 +151,16 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
   )
 
   const panelId = useId()
+  const originalSettingsRef = useRef<null | {
+    theme: typeof theme
+    fontSize: number
+    lineHeight: number
+    badgeSize: typeof badgeSize
+    showLineTotals: boolean
+    rhymeAutoRefresh: boolean
+    debounceMode: typeof debounceMode
+    rhymeHighlight: typeof RHYME_HIGHLIGHT_DEFAULTS
+  }>(null)
 
   const {
     theme,
@@ -192,14 +202,46 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
     shallow
   )
 
+  useEffect(() => {
+    if (!isOpen || originalSettingsRef.current) return
+    originalSettingsRef.current = {
+      theme,
+      fontSize,
+      lineHeight,
+      badgeSize,
+      showLineTotals,
+      rhymeAutoRefresh,
+      debounceMode,
+      rhymeHighlight: {
+        showInternalRhymes: useRhymeHighlightSettingsStore.getState().showInternalRhymes,
+        highlightStopwords: useRhymeHighlightSettingsStore.getState().highlightStopwords,
+        highlightMode: useRhymeHighlightSettingsStore.getState().highlightMode,
+        hideColorfulWords: useRhymeHighlightSettingsStore.getState().hideColorfulWords,
+      },
+    }
+  }, [badgeSize, debounceMode, fontSize, isOpen, lineHeight, rhymeAutoRefresh, showLineTotals, theme])
+
   const handleCancel = useCallback(() => {
+    const snapshot = originalSettingsRef.current
+    if (snapshot) {
+      setTheme(snapshot.theme)
+      setFontSize(snapshot.fontSize)
+      setLineHeight(snapshot.lineHeight)
+      setBadgeSize(snapshot.badgeSize)
+      setShowLineTotals(snapshot.showLineTotals)
+      setRhymeAutoRefresh(snapshot.rhymeAutoRefresh)
+      setDebounceMode(snapshot.debounceMode)
+      applyRhymeHighlightSnapshot(snapshot.rhymeHighlight)
+    }
+    originalSettingsRef.current = null
     setIsOpen(false)
-  }, [])
+  }, [setBadgeSize, setDebounceMode, setFontSize, setIsOpen, setLineHeight, setRhymeAutoRefresh, setShowLineTotals, setTheme])
 
   const handleSave = useCallback(() => {
+    originalSettingsRef.current = null
     requestRecompute()
     setIsOpen(false)
-  }, [requestRecompute])
+  }, [requestRecompute, setIsOpen])
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
