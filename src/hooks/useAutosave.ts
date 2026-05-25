@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 import { useAutosaveStore } from '@/store/autosaveStore'
-import { buildDraftCollection, useTabsStore } from '@/store/tabsStore'
+import { buildDraftCollection, getLastPersistedDraftCollection, useTabsStore } from '@/store/tabsStore'
 import { tryWriteVersioned } from '@/lib/persist/storage'
+import { trackEvent } from '@/lib/analytics/events'
 
 const DEFAULT_DEBOUNCE_MS = 600
 
@@ -38,19 +39,22 @@ export function useAutosave({ debounceMs = DEFAULT_DEBOUNCE_MS, onSaved }: UseAu
     const revAtStart = startSaving()
     try {
       const tabsState = useTabsStore.getState()
-      const payload = buildDraftCollection(tabsState, null)
+      const payload = buildDraftCollection(tabsState, getLastPersistedDraftCollection())
       const result = tryWriteVersioned('drafts', payload)
 
       if (!result.ok) {
+        trackEvent('autosave_failed', { reason: result.error })
         failSaving(result.error)
         return
       }
 
       const savedLatest = completeSaving(revAtStart)
       if (savedLatest) {
+        trackEvent('autosave_succeeded')
         onSaved?.()
       }
     } catch (error) {
+      trackEvent('autosave_failed', { reason: error instanceof Error ? error.message : 'Save failed' })
       failSaving(error instanceof Error ? error.message : 'Save failed')
     }
   }, [completeSaving, failSaving, onSaved, startSaving])

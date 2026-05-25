@@ -23,6 +23,7 @@ describe('settings store', () => {
     expect(state.badgeSize).toBe(SETTINGS_DEFAULTS.badgeSize)
     expect(state.showLineTotals).toBe(SETTINGS_DEFAULTS.showLineTotals)
     expect(state.rhymeAutoRefresh).toBe(SETTINGS_DEFAULTS.rhymeAutoRefresh)
+    expect(state.rhymeHighlightMode).toBe(SETTINGS_DEFAULTS.rhymeHighlightMode)
     expect(state.debounceMode).toBe(SETTINGS_DEFAULTS.debounceMode)
     expect(state.highContrast).toBe(SETTINGS_DEFAULTS.highContrast)
   })
@@ -51,6 +52,7 @@ describe('settings store', () => {
       setBadgeSize,
       setShowLineTotals,
       setRhymeAutoRefresh,
+      setRhymeHighlightMode,
       setDebounceMode,
       resetDefaults,
     } = useSettingsStore.getState()
@@ -61,6 +63,7 @@ describe('settings store', () => {
     setBadgeSize('md')
     setShowLineTotals(false)
     setRhymeAutoRefresh(false)
+    setRhymeHighlightMode('focus')
     setDebounceMode('cursor-50')
 
     const snapshot = getCurrentSettingsSnapshot()
@@ -70,6 +73,7 @@ describe('settings store', () => {
     const stateAfterReset = useSettingsStore.getState()
     expect(stateAfterReset.theme).toBe(SETTINGS_DEFAULTS.theme)
     expect(stateAfterReset.fontSize).toBe(SETTINGS_DEFAULTS.fontSize)
+    expect(stateAfterReset.rhymeHighlightMode).toBe(SETTINGS_DEFAULTS.rhymeHighlightMode)
 
     applySettingsSnapshot(snapshot)
 
@@ -80,6 +84,7 @@ describe('settings store', () => {
     expect(restored.badgeSize).toBe('md')
     expect(restored.showLineTotals).toBe(false)
     expect(restored.rhymeAutoRefresh).toBe(false)
+    expect(restored.rhymeHighlightMode).toBe('focus')
     expect(restored.debounceMode).toBe('cursor-50')
   })
 })

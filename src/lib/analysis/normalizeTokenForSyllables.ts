@@ -2,6 +2,7 @@ import { parseYearToken } from '@/lib/nlp/yearSyllables'
 import { numberToWords } from '@/utils/numberToWords'
 
 const NUMERIC_ONLY = /^\d+$/
+const COMPACT_NUMERIC = /^(\d{1,2})\/(\d{1,2})$/
 const MERIDIEM_NORMALIZED = /^(\d{1,2})\s*(a\.?\s*m\.?|p\.?\s*m\.?)$/i
 const CLOCK_TIME_NORMALIZED = /^(\d{1,2}):([0-5]\d)$/
 
@@ -33,6 +34,22 @@ export function normalizeTokenForSyllables(token: string): string {
       const hourWords = numberToWords(hour)
       const suffix = meridiemMatch[2].startsWith('a') ? 'a m' : 'p m'
       return `${hourWords} ${suffix}`
+    }
+  }
+
+  const compactNumericMatch = COMPACT_NUMERIC.exec(lowered)
+  if (compactNumericMatch) {
+    const left = Number.parseInt(compactNumericMatch[1], 10)
+    const right = Number.parseInt(compactNumericMatch[2], 10)
+    if (
+      Number.isFinite(left) &&
+      Number.isFinite(right) &&
+      left >= 0 &&
+      left <= 99 &&
+      right >= 0 &&
+      right <= 99
+    ) {
+      return `${numberToWords(left)} ${numberToWords(right)}`
     }
   }
 

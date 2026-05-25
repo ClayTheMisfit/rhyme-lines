@@ -13,7 +13,10 @@ export type DebounceMode = 'cursor-50' | 'typing-250'
 export type BadgeSize = 'xs' | 'sm' | 'md'
 export type RhymeFilters = { perfect: boolean; near: boolean }
 export type RhymeHighlightMode = 'off' | 'end' | 'focus' | 'all'
+export const DEFAULT_HIGHLIGHT_MODE: RhymeHighlightMode = 'focus'
 export const RHYME_HIGHLIGHT_ORDER = ['off', 'end', 'focus', 'all'] as const satisfies readonly RhymeHighlightMode[]
+export const isRhymeHighlightMode = (value: unknown): value is RhymeHighlightMode =>
+  typeof value === 'string' && RHYME_HIGHLIGHT_ORDER.includes(value as RhymeHighlightMode)
 
 export interface SettingsSchema {
   theme: ThemeSetting
@@ -53,13 +56,25 @@ export interface DraftSchema {
   title?: string
   createdAt: number
   updatedAt: number
+  archived?: boolean
+  archivedAt?: string | null
+  deletedAt?: string | null
+  folderId?: string | null
   lines: DraftLine[]
   selection?: DraftSelection
+}
+
+export interface FolderSchema {
+  id: string
+  name: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface DraftCollection {
   drafts: DraftSchema[]
   activeId: string
+  folders?: FolderSchema[]
 }
 
 export interface PanelPosition {
@@ -104,7 +119,7 @@ export const DEFAULT_SETTINGS: SettingsSchema = {
   highlightStopwords: false,
   rhymeAutoRefresh: true,
   debounceMode: 'typing-250',
-  rhymeHighlightMode: 'end',
+  rhymeHighlightMode: DEFAULT_HIGHLIGHT_MODE,
   hideRhymeColors: false,
   rhymeDebugOverlay: false,
 }
@@ -131,6 +146,10 @@ export function createEmptyDraft(docId: string, title = 'Untitled'): DraftSchema
     title,
     createdAt: now,
     updatedAt: now,
+    archived: false,
+    archivedAt: null,
+    deletedAt: null,
+    folderId: null,
     lines: [{ id: `${docId}-line-0`, text: '' }],
   }
 }
@@ -140,5 +159,6 @@ export function createDefaultDraftCollection(): DraftCollection {
   return {
     drafts: [draft],
     activeId: draft.docId,
+    folders: [],
   }
 }

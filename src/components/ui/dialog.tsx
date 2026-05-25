@@ -10,6 +10,8 @@ const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(
 const Dialog = DialogPrimitive.Root
 const DialogTrigger = DialogPrimitive.Trigger
 const DialogPortal = DialogPrimitive.Portal
+const DialogTitle = DialogPrimitive.Title
+const DialogDescription = DialogPrimitive.Description
 
 const DialogOverlay = forwardRef<
   ElementRef<typeof DialogPrimitive.Overlay>,
@@ -37,4 +39,4 @@ const DialogContent = forwardRef<
 ))
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
-export { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTrigger }
+export { Dialog, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogTitle, DialogTrigger }

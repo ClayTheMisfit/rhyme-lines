@@ -24,10 +24,10 @@ export function OverlayBadge({ value, active, position, lineId }: OverlayBadgePr
       ? String(value)
       : `${'•'.repeat(dotCount)}${value > 6 ? '⁺' : ''}`
 
-  const offset = Number.isFinite(position.lineOffset) && position.lineOffset > 0 ? position.lineOffset : 0.95
+  const offset = Number.isFinite(position.lineOffset) && position.lineOffset > 0 ? position.lineOffset : 1
   const style: CSSProperties & { ['--badge-offset']?: string; ['--badge-scale']?: string } = {
     left: `${position.left}px`,
-    top: `calc(${position.top}px - var(--badge-offset, 0.95em))`,
+    top: `calc(${position.top}px - var(--badge-offset, 1em))`,
     paddingInline: resolvedVariant === 'numbers' ? undefined : '2px',
     ['--badge-offset']: `${offset}em`,
     ['--badge-scale']: String(badgeScale),

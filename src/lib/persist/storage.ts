@@ -27,8 +27,19 @@ type StorageDataMap = {
 
 const LEGACY_KEYS: Record<StorageKey, string[]> = {
   settings: ['rhyme-lines:settings'],
-  drafts: ['rhyme-lines.tabs.v1', 'rhyme-lines:doc:current:v2', 'rhyme-lines:doc:current'],
+  drafts: [
+    'rhyme-lines.tabs.v1',
+    'rhyme-lines:doc:current:v2',
+    'rhyme-lines:doc:current',
+  ],
   panel: ['rhyme-panel-store', 'rhyme-lines:ui:rhyme-panel'],
+}
+
+// Legacy keys used only for one-time migrations, never cleared by clearPersistedState
+const MIGRATION_READ_ONLY_KEYS: Record<StorageKey, string[]> = {
+  settings: [],
+  drafts: ['draft', 'editor-content', 'autosave'],
+  panel: [],
 }
 
 const migrationMap = {
@@ -71,7 +82,7 @@ const isClientStorageAvailable = (): boolean => {
 
 const collectCandidates = (key: StorageKey): StoredValueCandidate[] => {
   if (!isClientStorageAvailable()) return []
-  const keys = [STORAGE_KEYS[key], ...LEGACY_KEYS[key]]
+  const keys = [STORAGE_KEYS[key], ...LEGACY_KEYS[key], ...MIGRATION_READ_ONLY_KEYS[key]]
   const candidates: StoredValueCandidate[] = []
   for (const storageKey of keys) {
     const value = window.localStorage.getItem(storageKey)
@@ -86,6 +97,11 @@ const collectCandidates = (key: StorageKey): StoredValueCandidate[] => {
         }
       }
       candidates.push({ key: storageKey, value })
+    }
+  }
+  for (const migrationKey of MIGRATION_READ_ONLY_KEYS[key]) {
+    if (window.localStorage.getItem(migrationKey) !== null) {
+      window.localStorage.removeItem(migrationKey)
     }
   }
   return candidates
@@ -129,6 +145,7 @@ export function clearPersistedState(): void {
   ;(Object.keys(STORAGE_KEYS) as StorageKey[]).forEach((key) => {
     allKeys.add(STORAGE_KEYS[key])
     LEGACY_KEYS[key].forEach((legacyKey) => allKeys.add(legacyKey))
+    MIGRATION_READ_ONLY_KEYS[key].forEach((migrationKey) => allKeys.add(migrationKey))
   })
   for (const key of allKeys) {
     window.localStorage.removeItem(key)

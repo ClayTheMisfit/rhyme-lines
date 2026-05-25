@@ -7,7 +7,6 @@ import { layers } from '@/lib/layers'
 import { useRhymePanel, type RhymePanelMode } from '@/lib/state/rhymePanel'
 import { DockablePanel } from '@/components/panels/DockablePanel'
 import { useRhymeSuggestions } from '@/lib/rhyme-db/useRhymeSuggestions'
-import type { Mode } from '@/lib/rhyme-db/queryRhymes'
 import type { RhymeFilters } from '@/lib/persist/schema'
 import type { EditorHandle } from '@/components/Editor'
 import { getLocalInitFailureReason } from '@/lib/rhymes/rhymeSource'
@@ -15,14 +14,19 @@ import { useMemo, useState } from 'react'
 import { shallow } from 'zustand/shallow'
 import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 import { buildVisibleSuggestions } from '@/components/rhyme/buildVisibleSuggestions'
+import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
+import { trackEvent } from '@/lib/analytics/events'
 
 const MIN_WIDTH = 280
 const MAX_WIDTH = 640
+const QUICK_ASSIST_LIMIT = 6
+const PANEL_RESULTS_LIMIT = 220
 type QualityKey = keyof RhymeFilters
+type PanelAnchorRect = { top: number; left: number; width: number; height: number }
 
 const QUALITY_CHIPS: ReadonlyArray<{ label: string; value: QualityKey }> = [
   { label: 'Perfect', value: 'perfect' },
-  { label: 'Near', value: 'near' },
+  { label: 'Near / Slant', value: 'near' },
 ]
 
 type Props = {
@@ -31,6 +35,8 @@ type Props = {
   text: string
   caretIndex: number
   currentLineText: string
+  activeLineRect?: PanelAnchorRect | null
+  editorLaneRect?: PanelAnchorRect | null
   editorRef?: React.RefObject<EditorHandle | null>
 }
 
@@ -86,7 +92,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       setRhymeFilters: state.setRhymeFilters,
     }), shallow)
 
-    const { x, y, width, height, setBounds, dock, undock } = useRhymePanel(
+    const { x, y, width, height, setBounds, dock, undock, setMode } = useRhymePanel(
       (state) => ({
         x: state.x,
         y: state.y,
@@ -95,6 +101,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         setBounds: state.setBounds,
         dock: state.dock,
         undock: state.undock,
+        setMode: state.setMode,
       })
     )
 
@@ -109,6 +116,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
     const normalizedQueryToken = useMemo(() => normalizeToken(debouncedQuery), [debouncedQuery])
     const isQueryActive = Boolean(normalizedQueryToken)
+    const shouldFetchSuggestions = mode !== 'hidden' || !isQueryActive
 
     const {
       status,
@@ -129,7 +137,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       multiSyllable: multiSyllablePerfect,
       commonWordsOnly,
       debug: debugEnabled,
-      enabled: mode !== 'hidden',
+      enabled: shouldFetchSuggestions,
     })
 
     const caretSuggestions = results.caret ?? []
@@ -140,7 +148,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         ? caretSuggestions
         : lineSuggestions
     const visibleSuggestions = useMemo(
-      () => buildVisibleSuggestions(activeSuggestions),
+      () => buildVisibleSuggestions(activeSuggestions, { limit: PANEL_RESULTS_LIMIT }),
+      [activeSuggestions]
+    )
+    const quickAssistSuggestions = useMemo(
+      () => buildVisibleSuggestions(activeSuggestions, { limit: QUICK_ASSIST_LIMIT }),
       [activeSuggestions]
     )
 
@@ -251,6 +263,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           acc[chip.value] = true
           return acc
         }, { perfect: true, near: true })
+        trackEvent('rhyme_filter_changed', { quality: 'reset_all' })
         setRhymeFilters(resetFilters)
       }
     }, [activeModes.length, setRhymeFilters])
@@ -378,12 +391,57 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       },
       [insertSuggestion, setSelectedIndex]
     )
+    const handleOpenPanelFromAssist = React.useCallback(() => {
+      setMode('docked')
+    }, [setMode])
 
     const activeOptionId = selectedIndex != null ? `rhyme-suggestion-${selectedIndex}` : undefined
 
     const isFloating = mode === 'detached'
 
-    if (mode === 'hidden') return null
+    if (mode === 'hidden') {
+      const showQuickAssist =
+        !isQueryActive &&
+        !isInitialLoading &&
+        quickAssistSuggestions.length > 0 &&
+        Boolean(activeToken)
+
+      if (!showQuickAssist) return null
+
+      return (
+        <div
+          data-testid="rhyme-quick-assist"
+          className="pointer-events-none fixed bottom-6 right-6 z-40 w-[min(460px,calc(100vw-2rem))]"
+        >
+          <div className="pointer-events-auto rounded-lg border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)]/95 p-3 shadow-lg shadow-black/12 backdrop-blur-[1px]">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-[11px] tracking-[0.08em] text-[color:var(--rl-shell-muted)]">
+                Rhymes for <span className="font-semibold text-[color:var(--rl-shell-text)]">“{activeToken}”</span>
+              </p>
+              <button
+                type="button"
+                onClick={handleOpenPanelFromAssist}
+                className="cursor-pointer rounded-sm px-2 py-1 text-[11px] font-medium text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/45"
+              >
+                See more
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {quickAssistSuggestions.map((suggestion, index) => (
+                <button
+                  key={`${suggestion}-${index}`}
+                  type="button"
+                  onClick={() => insertSuggestion(suggestion)}
+                  className="cursor-pointer rounded-full border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)] px-2.5 py-1 text-[12px] text-[color:var(--rl-shell-text)] transition-colors hover:border-[#f2d000]/35 hover:bg-[#f2d000]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/45"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )
+    }
 
     const dockedWidth = Math.min(Math.max(width, MIN_WIDTH), MAX_WIDTH)
 
@@ -393,9 +451,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
     const panelContent = (
       <div className="flex h-full min-h-0 flex-col">
-        <div className="px-3 pt-2.5">
-          <div className="space-y-2.5 rounded-[var(--rl-radius-lg)] border border-[color:var(--rl-border)] bg-slate-50/75 p-3 text-[12px] text-slate-600 shadow-sm dark:bg-slate-800/55 dark:text-slate-300">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+        <div className="px-2.5 pt-2.5">
+          <div className="space-y-2.5 rounded-md border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)] p-2.5 text-[12px] text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/70">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-white/45">
               Rhymes
             </div>
 
@@ -410,7 +468,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Type a word…"
-                className="w-full rounded-md border border-slate-200/70 bg-white/80 px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white motion-reduce:transition-none dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus-visible:ring-offset-slate-900"
+                className="w-full rounded-sm border border-[color:var(--rl-shell-border)] bg-[#f3f5f7] px-3 py-2 text-[13px] text-slate-900 placeholder:text-[#7b8794] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--rl-shell-elevated)] motion-reduce:transition-none dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/90 dark:placeholder:text-white/35 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113]"
               />
             </div>
 
@@ -439,12 +497,13 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     onClick={() => {
                       const next = { ...rhymeFilters, [chip.value]: !rhymeFilters[chip.value] }
                       const hasAny = Object.values(next).some(Boolean)
+                      trackEvent('rhyme_filter_changed', { quality: chip.value, enabled: !rhymeFilters[chip.value] })
                       setRhymeFilters(hasAny ? next : { perfect: true, near: true })
                     }}
-                    className={`rounded-full border px-3 py-1 text-[11px] font-medium transition duration-100 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] dark:focus-visible:ring-offset-slate-900 ${
+                    className={`rounded-full border px-3 py-1 text-[11px] font-medium transition duration-100 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 active:scale-[0.98] dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
                       isActive
                         ? activeClasses
-                        : 'border-slate-200/70 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:text-slate-100'
+                        : 'border-[color:var(--rl-shell-border)] bg-[#eef2f5] text-slate-700 hover:text-slate-900 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
                     }`}
                     aria-pressed={isActive}
                   >
@@ -458,7 +517,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               <button
                 type="button"
                 onClick={() => setAdvancedOpen((prev) => !prev)}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-slate-400 dark:hover:text-slate-200 dark:focus-visible:ring-offset-slate-900"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:text-white/55 dark:hover:text-white/82 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113]"
                 aria-expanded={advancedOpen}
                 aria-controls="rhyme-advanced"
               >
@@ -473,13 +532,16 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
 
             {advancedOpen && (
-              <div id="rhyme-advanced" className="space-y-3 rounded-md border border-slate-200/60 bg-white/70 p-2 text-[11px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/50 dark:text-slate-400">
+              <div id="rhyme-advanced" className="space-y-3 rounded-sm border border-[color:var(--rl-shell-border)] bg-[#eef2f5] p-2 text-[11px] text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/55">
                 <label className="flex cursor-pointer items-start gap-2">
                   <input
                     type="checkbox"
-                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-400"
+                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 dark:border-white/[0.2] dark:bg-[#0d0d0f] dark:text-white/85 dark:focus-visible:ring-white/25"
                     checked={multiSyllablePerfect}
-                    onChange={(event) => setMultiSyllablePerfect(event.target.checked)}
+                    onChange={(event) => {
+                      trackEvent('rhyme_filter_changed', { quality: 'multi_syllable_perfect', enabled: event.target.checked })
+                      setMultiSyllablePerfect(event.target.checked)
+                    }}
                   />
                   <span className="space-y-1">
                     <span className="block text-slate-600 dark:text-slate-300">Multi-syllable perfect rhymes</span>
@@ -491,9 +553,12 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 <label className="flex cursor-pointer items-start gap-2">
                   <input
                     type="checkbox"
-                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-400"
+                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 dark:border-white/[0.2] dark:bg-[#0d0d0f] dark:text-white/85 dark:focus-visible:ring-white/25"
                     checked={commonWordsOnly}
-                    onChange={(event) => setCommonWordsOnly(event.target.checked)}
+                    onChange={(event) => {
+                      trackEvent('rhyme_filter_changed', { quality: 'common_words_only', enabled: event.target.checked })
+                      setCommonWordsOnly(event.target.checked)
+                    }}
                   />
                   <span className="space-y-1">
                     <span className="block text-slate-600 dark:text-slate-300">Common words only</span>
@@ -508,10 +573,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     <button
                       type="button"
                       onClick={() => setActiveTab('caret')}
-                      className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                      className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
                         activeTab === 'caret'
-                          ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-slate-200 dark:bg-slate-200 dark:text-slate-900'
-                          : 'border-slate-200/70 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:text-slate-100'
+                          ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-white/[0.2] dark:bg-white/[0.14] dark:text-white'
+                          : 'border-[color:var(--rl-shell-border)] bg-[#eef2f5] text-slate-700 hover:text-slate-900 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
                       }`}
                     >
                       Caret ({caretSuggestions.length})
@@ -519,10 +584,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     <button
                       type="button"
                       onClick={() => setActiveTab('lineLast')}
-                      className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                      className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
                         activeTab === 'lineLast'
-                          ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-slate-200 dark:bg-slate-200 dark:text-slate-900'
-                          : 'border-slate-200/70 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:text-slate-100'
+                          ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-white/[0.2] dark:bg-white/[0.14] dark:text-white'
+                          : 'border-[color:var(--rl-shell-border)] bg-[#eef2f5] text-slate-700 hover:text-slate-900 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
                       }`}
                     >
                       Line End ({lineSuggestions.length})
@@ -534,15 +599,24 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           </div>
         </div>
 
-        <div className="mt-3 flex-1 min-h-0 overflow-y-auto px-2 pb-3 pt-0 thin-scrollbar">
+        <div className="mt-2.5 min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-0 thin-scrollbar">
           {!isInitialLoading && (
-            <div className="px-3 pb-2 text-[12px] text-slate-500 dark:text-slate-400">
-              {activeTokenLabel}: {activeToken ?? '—'}
-            </div>
-          )}
-          {!isInitialLoading && activeSuggestions.length > 0 && (
-            <div className="px-3 pb-2 text-[11px] text-slate-400 dark:text-slate-500">
-              {isFiltered ? `${filteredCount} results (total ${totalAvailable})` : `${totalAvailable} results`}
+            <div className="sticky top-0 z-10 mb-1 rounded-md border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)]/95 px-3 py-2 text-[12px] backdrop-blur-[1px]">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                  {activeTokenLabel}
+                </p>
+                {isFiltered ? (
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                    {filteredCount} of {totalAvailable}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">{totalAvailable} results</p>
+                )}
+              </div>
+              <p className="mt-1 text-[14px] font-semibold text-slate-900 dark:text-white/90">
+                {activeToken ?? '—'}
+              </p>
             </div>
           )}
 
@@ -608,7 +682,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               {Array.from({ length: 5 }).map((_, index) => (
                 <div
                   key={`skeleton-${index}`}
-                  className="flex items-center justify-between rounded-lg border border-slate-200/60 bg-white/60 px-3 py-2 text-[13px] shadow-sm animate-pulse motion-reduce:animate-none dark:border-slate-700/60 dark:bg-slate-900/40"
+                  className="flex animate-pulse items-center justify-between rounded-md border border-[color:var(--rl-shell-border)] bg-[#eef2f5] px-3 py-2 text-[13px] motion-reduce:animate-none dark:border-white/[0.08] dark:bg-white/[0.03]"
                 >
                   <div className="h-4 w-32 rounded bg-slate-200/80 dark:bg-slate-700/60" />
                   <div className="h-4 w-12 rounded bg-slate-200/80 dark:bg-slate-700/60" />
@@ -624,13 +698,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           )}
 
           {error && (
-            <div className="px-3 py-6 text-center text-[13px] text-rose-500">
-              {status === 'error' ? 'Error loading suggestions: ' : 'Warning: '} {error}
-              <div className="mt-2 text-[12px] text-rose-400">
-                Details: {error}
-              </div>
+            <div className="px-3 py-5 text-center text-[13px] text-slate-600 dark:text-slate-300">
+              <p>{status === 'error' ? 'Couldn’t refresh rhymes right now.' : 'Rhyme warning.'}</p>
+              <div className="mt-1 text-[12px] text-slate-500 dark:text-slate-400">{error}</div>
               {meta.source === 'local' && (
-                <div className="mt-2 text-[12px] text-rose-400">
+                <div className="mt-2 text-[12px] text-slate-500 dark:text-slate-400">
                   Verify public/rhyme-db/rhyme-db.v2.json exists (npm run build:rhyme-db).
                 </div>
               )}
@@ -640,8 +712,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           {!isInitialLoading && status !== 'idle' && visibleSuggestions.length === 0 && (
             <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
               {totalAvailable > 0
-                ? 'All perfect rhymes were filtered out. Turn off “Common words only” or try Near.'
-                : 'No perfect rhymes found. Try Near.'}
+                ? 'Filtered out by current controls. Try disabling “Common words only” or enabling Near / Slant.'
+                : 'No strong matches yet. Try Near / Slant.'}
             </div>
           )}
 
@@ -661,15 +733,34 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                   aria-selected={index === selectedIndex}
                   data-index={index}
                   id={`rhyme-suggestion-${index}`}
-                  className={`relative w-full rounded-lg border border-transparent px-3 py-2 text-left text-[13px] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                  className={`relative w-full rounded-md border border-transparent px-3 py-2 text-left text-[13px] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#101012] ${
                     index === selectedIndex
-                      ? 'border-sky-500/40 bg-sky-500/10 shadow-sm dark:border-sky-400/40 dark:bg-sky-400/10'
-                      : 'hover:bg-slate-100/70 active:bg-slate-200/60 dark:hover:bg-white/5 dark:active:bg-white/10'
-                  } ${index === selectedIndex ? "before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-sky-500 before:content-['']" : ''}`}
+                      ? 'border-slate-300/80 bg-slate-200/55 shadow-sm dark:border-white/[0.18] dark:bg-white/[0.1]'
+                      : 'hover:bg-slate-100/80 active:bg-slate-200/70 dark:hover:bg-white/[0.05] dark:active:bg-white/[0.08]'
+                  } ${index === selectedIndex ? "before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-slate-500/80 before:content-[''] dark:before:bg-white/55" : ''}`}
                 >
-                  <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {suggestion}
-                  </span>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="block truncate font-medium text-slate-900 dark:text-white/88">{suggestion}</span>
+                      <span className="block text-[10px] uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
+                        {rhymeFilters.perfect && !rhymeFilters.near
+                          ? 'Perfect'
+                          : rhymeFilters.near && !rhymeFilters.perfect
+                            ? 'Near / Slant'
+                            : 'Mixed'}
+                      </span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span className="rounded-full border border-[color:var(--rl-shell-border)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-300">
+                        {estimateSyllables(suggestion)} syl
+                      </span>
+                      {index < 3 ? (
+                        <span className="text-[10px] uppercase tracking-[0.08em] text-[#c4932a] dark:text-[#f2d000]/85">
+                          Top
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>
@@ -702,7 +793,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               <div className="mt-4 space-y-1 rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-[11px] text-amber-900/80 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100/80">
                 <div>
                   <span className="font-semibold">Target:</span>{' '}
-                  "{activePanelDebug.rawTarget}" → "{activePanelDebug.normalizedTarget}"
+                  &quot;{activePanelDebug.rawTarget}&quot; → &quot;{activePanelDebug.normalizedTarget}&quot;
                 </div>
                 <div>
                   <span className="font-semibold">Modes:</span> {activePanelDebug.activeModes.join(', ') || '—'}
@@ -720,7 +811,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 {activePanelDebug.cap?.applied && (
                   <div>
                     <span className="font-semibold">Cap:</span>{' '}
-                    applied=true limit={activePanelDebug.cap.limit ?? '—'} stage="{activePanelDebug.cap.stage ?? '—'}"
+                    applied=true limit={activePanelDebug.cap.limit ?? '—'} stage=&quot;{activePanelDebug.cap.stage ?? '—'}&quot;
                   </div>
                 )}
                 <div>

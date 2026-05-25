@@ -9,31 +9,33 @@ import { shallow } from 'zustand/shallow'
 import { useBadgeShortcuts } from '@/lib/shortcuts/badges'
 import { SyllableOverlay } from '@/components/editor/SyllableOverlay'
 import { useBadgeSettings } from '@/store/settings'
-import LineTotalsOverlay from '@/components/editor/overlays/LineTotalsOverlay'
 import { useAnalysisWorker } from '@/hooks/useAnalysisWorker'
 import type { LineInput } from '@/lib/analysis/compute'
 import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
 import { useOverlayMeasurement, useLineVirtualization, useEditorInput, useEditorClipboard, useEditorSelection, useDecorationDiff } from '@/editor'
 import { resolveTheme } from '@/lib/theme/resolveTheme'
 import { buildRhymeDecorations, DEFAULT_UNDERLINE_TARGETS, resolveActiveRhymeFamilyId } from '@/lib/rhyme/rhymeDecorations'
+import { resolveInternalRhymesEnabled } from '@/lib/rhyme/highlightOptions'
 import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
 import { RhymeDecorationOverlay } from '@/components/editor/RhymeDecorationOverlay'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 const PLACEHOLDER_TEXT = 'Start writing…'
 const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
+const RHYME_DECORATION_DEBOUNCE_MS = 180
 const ACTIVE_LINE_TUNING = {
-  radius: 12,
+  radius: 2,
   yInset: 1,
-  hInset: 3,
-  bgDark: 0.012,
-  borderDark: 0.028,
-  bgLight: 0.02,
-  borderLight: 0.04,
-  opacityBlurred: 0.45,
-  motionPosMs: 140,
+  hInset: 2,
+  bgDark: 0.003,
+  borderDark: 0.008,
+  bgLight: 0.008,
+  borderLight: 0.014,
+  opacityBlurred: 0.24,
+  motionPosMs: 90,
   motionOpacityMs: 90,
 }
 
@@ -41,6 +43,7 @@ type EditorProps = {
   text?: string
   onTextChange?: (text: string) => void
   onDirtyChange?: (dirty: boolean) => void
+  onCursorChange?: (cursor: { line: number; column: number } | null) => void
   hydrated?: boolean
 }
 
@@ -50,7 +53,7 @@ export type EditorHandle = {
 }
 
 const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { text = '', onTextChange = () => {}, onDirtyChange, hydrated = false },
+  { text = '', onTextChange = () => {}, onDirtyChange, onCursorChange, hydrated = false },
   ref
 ) {
   const editorRef = useRef<HTMLDivElement>(null)
@@ -68,8 +71,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const skipHydrateRef = useRef<string | null>(null)
 
   const [lineInputs, setLineInputs] = useState<LineInput[]>([])
-  const [lineTotals, setLineTotals] = useState<number[]>([])
-  const [lines, setLines] = useState<string[]>([])
   const [showOverlays, setShowOverlays] = useState(true)
   const [activeLineId, setActiveLineId] = useState<string | null>(null)
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
@@ -86,7 +87,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     debugTextColLeft: 0,
     debugLineLeft: 0,
   })
-
   const highlightDebounceRef = useRef<number | null>(null)
   const lastHighlightRef = useRef(lineHighlight)
   const debugLogRef = useRef(0)
@@ -159,6 +159,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   })
 
   const [rhymeRecomputeSignal, setRhymeRecomputeSignal] = useState(0)
+  const debouncedLineInputsForRhymes = useDebouncedValue(lineInputs, RHYME_DECORATION_DEBOUNCE_MS)
 
 
   useEffect(() => {
@@ -175,11 +176,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const rhymeDecorations = useMemo(
     () =>
-      buildRhymeDecorations(lineInputs, DEFAULT_UNDERLINE_TARGETS, {
-        showInternalRhymes,
+      buildRhymeDecorations(debouncedLineInputsForRhymes, DEFAULT_UNDERLINE_TARGETS, {
+        showInternalRhymes: resolveInternalRhymesEnabled(showInternalRhymes, highlightMode),
         highlightStopwords,
       }),
-    [highlightStopwords, lineInputs, rhymeRecomputeSignal, showInternalRhymes]
+    [debouncedLineInputsForRhymes, highlightMode, highlightStopwords, rhymeRecomputeSignal, showInternalRhymes]
   )
 
   const decorationPatch = useDecorationDiff(rhymeDecorations.tokensByLine)
@@ -594,6 +595,21 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return { lines, elements }
   }, [])
 
+  const applyLineTotalsToDom = useCallback(
+    (totals: Array<number | undefined>) => {
+      lineElementsRef.current.forEach((lineElement, index) => {
+        const lineText = analysisLinesRef.current[index]?.text ?? ''
+        if (!showLineTotals || lineText.trim().length === 0) {
+          delete lineElement.dataset.lineTotalDisplay
+          return
+        }
+        const total = totals[index] ?? 0
+        lineElement.dataset.lineTotalDisplay = total === 0 ? '·' : total.toString()
+      })
+    },
+    [showLineTotals]
+  )
+
   const schedulePostLayoutMeasurement = useCallback(() => {
     if (typeof window === 'undefined') return
     window.requestAnimationFrame(() => {
@@ -616,7 +632,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     scheduleCurrentLineHighlight()
     analysisLinesRef.current = collectedLines
     setLineInputs(collectedLines)
-    setLines(collectedLines.map((line) => line.text))
+    applyLineTotalsToDom([])
     setIsEditorEmpty(collectedLines.every((line) => line.text.trim().length === 0))
     const analysisMode = source === 'paste' || source === 'drop' ? 'caret' : 'typing'
     scheduleAnalysis(collectedLines, analysisMode)
@@ -631,6 +647,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       onDirtyChange?.(true)
     }
   }, [
+    applyLineTotalsToDom,
     collectLineInputs,
     ensureLineStructure,
     logDebugEvent,
@@ -705,6 +722,33 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return resolveActiveRhymeFamilyId(rhymeDecorations, { lineId, caretOffset })
   }, [rhymeDecorations])
 
+  const resolveCursorFromSelection = useCallback((): { line: number; column: number } | null => {
+    if (typeof window === 'undefined') return null
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return null
+
+    const focusNode = selection.focusNode
+    const focusOffset = selection.focusOffset
+    if (!focusNode) return null
+
+    const lineElement =
+      focusNode instanceof Element
+        ? focusNode.closest('.line')
+        : focusNode.parentElement?.closest('.line')
+    if (!lineElement || !editorRef.current) return null
+
+    const lines = Array.from(editorRef.current.querySelectorAll<HTMLElement>('.line'))
+      .filter((line) => line.dataset.placeholderLine !== 'true')
+    const lineIndex = lines.findIndex((line) => line === lineElement)
+    if (lineIndex === -1) return null
+
+    const caretRange = document.createRange()
+    caretRange.setStart(lineElement, 0)
+    caretRange.setEnd(focusNode, focusOffset)
+    const caretOffset = caretRange.toString().length
+    return { line: lineIndex + 1, column: caretOffset + 1 }
+  }, [])
+
   const handleSelectionChange = useCallback(() => {
     scheduleCurrentLineHighlight()
     if (analysisLinesRef.current.length) {
@@ -713,7 +757,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (showRhymeDecorations) {
       setActiveRhymeFamilyId(resolveActiveFamilyFromSelection())
     }
-  }, [resolveActiveFamilyFromSelection, scheduleAnalysis, scheduleCurrentLineHighlight, showRhymeDecorations])
+    onCursorChange?.(resolveCursorFromSelection())
+  }, [onCursorChange, resolveActiveFamilyFromSelection, resolveCursorFromSelection, scheduleAnalysis, scheduleCurrentLineHighlight, showRhymeDecorations])
 
   useEditorSelection({
     editorRef,
@@ -737,22 +782,29 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   })
 
   useEffect(() => {
-    if (!showLineTotals) {
-      setLineTotals([])
-      return
-    }
+    if (!showLineTotals) return
     if (analysisLinesRef.current.length) {
       scheduleAnalysis(analysisLinesRef.current, 'caret')
     }
   }, [scheduleAnalysis, showLineTotals])
 
   useEffect(() => {
-    if (!showLineTotals) return
+    if (!showLineTotals) {
+      applyLineTotalsToDom([])
+      return
+    }
     if (!analysis || analysis.docId !== ANALYSIS_DOC_ID) return
     if (!analysisLinesRef.current.length) return
-    const totals = analysisLinesRef.current.map((line) => analysis.lineTotals[line.id] ?? 0)
-    setLineTotals(totals)
-  }, [analysis, showLineTotals])
+    const totals = analysisLinesRef.current.map((line) => analysis.lineTotals[line.id])
+    const hasMissingNonEmptyTotal = totals.some(
+      (total, index) => total === undefined && analysisLinesRef.current[index]?.text.trim().length
+    )
+    if (hasMissingNonEmptyTotal) {
+      scheduleAnalysis(analysisLinesRef.current, 'caret')
+      return
+    }
+    applyLineTotalsToDom(totals)
+  }, [analysis, applyLineTotalsToDom, scheduleAnalysis, showLineTotals])
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production' && metrics) {
@@ -796,7 +848,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const { lines: collectedLines } = collectLineInputs()
     analysisLinesRef.current = collectedLines
     setLineInputs(collectedLines)
-    setLines(collectedLines.map((line) => line.text))
+    applyLineTotalsToDom([])
     setIsEditorEmpty(collectedLines.every((line) => line.text.trim().length === 0))
     setLineVersion((v) => v + 1)
     if (collectedLines.length) {
@@ -805,7 +857,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     requestAnimationFrame(() => {
       scheduleCurrentLineHighlight({ immediate: true })
     })
-  }, [collectLineInputs, scheduleAnalysis, text, scheduleCurrentLineHighlight, ensureLineStructure])
+  }, [collectLineInputs, scheduleAnalysis, text, scheduleCurrentLineHighlight, ensureLineStructure, applyLineTotalsToDom])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -994,7 +1046,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   )
 
   return (
-    <div className="flex w-full h-full">
+    <div className="flex h-full w-full">
       {/* Editor + overlay */}
       <div
         ref={containerRef}
@@ -1005,16 +1057,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
         }}
       >
-        <div className="editor-root relative">
+        <div className="editor-root relative mr-auto w-full max-w-[1480px]">
           <div className="rl-editor-grid">
-            <LineTotalsOverlay
-              lineTotals={lineTotals}
-              lines={lines}
-              showLineTotals={showLineTotals}
-              theme={resolvedTheme}
-            />
+            <div aria-hidden className="gutterSpacer" />
 
-            <div ref={textColRef} className="editor-surface relative min-h-[70vh]">
+            <div ref={textColRef} className="editor-surface relative min-h-[70vh] w-full max-w-none">
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
                 className="pointer-events-none absolute inset-0 z-10"
@@ -1100,6 +1147,10 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 contentEditable
                 suppressContentEditableWarning
                 spellCheck={false}
+                role="textbox"
+                aria-multiline="true"
+                aria-label="Lyric editor"
+                aria-describedby="lyric-editor-instructions"
                 data-layer="editable"
                 onBeforeInput={inputHandlers.onBeforeInput}
                 onInput={inputHandlers.onInput}
@@ -1117,8 +1168,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onPointerDown={ensureEditorFocus}
                 data-placeholder={PLACEHOLDER_TEXT}
                 data-empty={isEditorEmpty ? 'true' : 'false'}
-                className="rl-editor relative z-20 outline-none w-full min-h-[70vh] font-mono pointer-events-auto"
+                className="rl-editor relative z-20 min-h-[70vh] w-full outline-none pointer-events-auto"
               />
+              <p id="lyric-editor-instructions" className="sr-only">
+                Write lyrics here. Press Command or Control plus K to open commands, Alt plus R to toggle rhyme panel.
+              </p>
             </div>
           </div>
         </div>

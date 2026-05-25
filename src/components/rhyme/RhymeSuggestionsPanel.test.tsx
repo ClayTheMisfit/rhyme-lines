@@ -36,7 +36,7 @@ describe('RhymeSuggestionsPanel', () => {
     )
 
     expect(
-      screen.getByText('No perfect rhymes found. Try Near.')
+      screen.getByText('No strong matches yet. Try Near / Slant.')
     ).toBeInTheDocument()
   })
 
@@ -64,7 +64,36 @@ describe('RhymeSuggestionsPanel', () => {
 
     expect(screen.queryByText('Show spelling variants')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Perfect' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Near' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'time' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Near / Slant' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /time/i })).toBeInTheDocument()
+  })
+
+  it('keeps quick assist available in hidden mode and continues fetching suggestions', () => {
+    mockedUseRhymeSuggestions.mockReturnValue({
+      status: 'success',
+      error: undefined,
+      warning: undefined,
+      results: { caret: ['rhyme', 'time'], lineLast: [] },
+      debug: { caretToken: 'time', lineLastToken: undefined },
+      rhymeDebug: {},
+      meta: { source: 'local' },
+      phase: 'idle',
+    })
+
+    render(
+      <RhymeSuggestionsPanel
+        mode="hidden"
+        onClose={() => {}}
+        text="time"
+        caretIndex={4}
+        currentLineText="time"
+      />
+    )
+
+    expect(screen.getByTestId('rhyme-quick-assist')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'rhyme' })).toBeInTheDocument()
+    expect(mockedUseRhymeSuggestions).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true })
+    )
   })
 })

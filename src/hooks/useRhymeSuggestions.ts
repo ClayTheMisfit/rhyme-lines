@@ -7,6 +7,7 @@ import type { RhymeTarget } from '@/lib/rhyme/targetWord'
 import { selectTargetWord } from '@/lib/rhyme/targetWord'
 import { DebounceOwner } from '@/lib/rhyme/debouncePolicy'
 import { trackCacheHit, trackError, trackRequest } from '@/lib/rhyme/telemetry'
+import { trackEvent } from '@/lib/analytics/events'
 
 interface UseRhymeSuggestionsProps {
   searchQuery: string
@@ -129,6 +130,7 @@ export function useRhymeSuggestions({
       const controller = new AbortController()
       abortRef.current = controller
       const key = buildCacheKey(currentTarget.normalized, currentFilters)
+      trackEvent('rhyme_requested', { source: currentTarget.source, offline })
       const cached = getCachedRhymes(key)
       if (cached) {
         trackCacheHit()
@@ -170,12 +172,14 @@ export function useRhymeSuggestions({
         setStatus(result.suggestions.length ? 'success' : 'empty')
         setLastUpdatedAt(Date.now())
         trackRequest(Date.now() - startTime)
+        trackEvent('rhyme_results_shown', { count: result.suggestions.length, hadFailure })
       } catch (err) {
         if (controller.signal.aborted || currentRequestId !== requestId.current) return
         if ((err as DOMException)?.name === 'AbortError') return
         setError(err instanceof Error ? err.message : 'Unknown error')
         setStatus(offline ? 'offline' : 'error')
         trackError()
+        trackEvent('rhyme_error', { offline })
       }
     },
     [autoRefresh]

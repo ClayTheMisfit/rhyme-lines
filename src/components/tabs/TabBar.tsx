@@ -66,7 +66,7 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
     <div className="flex items-center gap-2">
       <div className="min-w-0 flex-1 overflow-hidden">
         <div
-          className="flex items-center gap-1 overflow-x-auto whitespace-nowrap pr-1"
+          className="flex items-center gap-0.5 overflow-x-auto whitespace-nowrap pr-1"
           role="tablist"
           aria-label="Lyric tabs"
         >
@@ -81,9 +81,9 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
                 role="tab"
                 aria-selected={isActive}
                 className={cx(
-                  'group relative flex min-h-9 items-center gap-2 rounded-md px-2.5 py-1 text-[13px] transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45',
-                  isActive ? 'bg-white/12 text-white' : 'text-white/70 hover:bg-white/6',
-                  tab.isDirty && !isActive && 'text-white/85'
+                  'group relative flex min-h-8 items-center gap-2 rounded-sm border-b border-transparent px-2 py-1 text-[12px] transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
+                  isActive ? 'border-[#f2d000]/75 text-white/90' : 'text-white/40 hover:text-white/65',
+                  tab.isDirty && !isActive && 'text-white/55'
                 )}
                 onClick={() => onSelect(tab.id)}
                 onDoubleClick={() => startEditing(tab.id, tab.title)}
@@ -91,7 +91,7 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
                 {isEditing ? (
                   <input
                     ref={inputRef}
-                    className="w-32 rounded bg-white/10 px-1 py-0.5 text-[13px] outline-none ring-1 ring-white/30"
+                    className="w-32 rounded-sm bg-white/[0.05] px-1 py-0.5 text-[12px] outline-none ring-1 ring-white/20"
                     value={draftTitle}
                     onChange={(event) => setDraftTitle(event.target.value)}
                     onBlur={commitRename}
@@ -123,7 +123,7 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
                 <span
                   role="button"
                   aria-label={`Close tab ${tab.title}`}
-                  className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs text-white/70 transition hover:bg-white/10"
+                  className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] text-white/35 transition hover:text-white/68"
                   onClick={(event) => {
                     event.stopPropagation()
                     onClose(tab.id)
@@ -139,7 +139,7 @@ export function TabBar({ tabs, activeTabId, saveStatus, onNew, onSelect, onClose
 
       <button
         type="button"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/10 text-base text-white transition duration-100 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-base text-white/34 transition duration-100 hover:text-white/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
         onClick={onNew}
         aria-label="Add tab"
       >

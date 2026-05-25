@@ -3,18 +3,14 @@
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { shallow } from 'zustand/shallow'
 
-import {
-  applySettingsSnapshot,
-  getCurrentSettingsSnapshot,
-  useSettingsStore,
-} from '@/store/settingsStore'
-import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTrigger } from '@/components/ui/dialog'
+import { useSettingsStore } from '@/store/settingsStore'
+import { Dialog, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useSettingsClickDebug } from '@/lib/dev/useSettingsClickDebug'
 import { ToggleRow } from '@/components/settings/ToggleRow'
 import { useRhymeRecomputeScheduler } from '@/hooks/useRhymeRecomputeScheduler'
 import { RHYME_HIGHLIGHT_ORDER } from '@/lib/persist/schema'
 import { useRhymeHighlightSettingsStore } from '@/store/rhymeHighlightSettingsStore'
-import { RHYME_HIGHLIGHT_DEFAULTS, type RhymeHighlightSettings } from '@/lib/settings/rhymeHighlightSettings'
+import { RHYME_HIGHLIGHT_DEFAULTS, saveRhymeHighlightSettings } from '@/lib/settings/rhymeHighlightSettings'
 
 const BADGE_SIZE_LABEL: Record<'xs' | 'sm' | 'md', string> = {
   xs: 'Compact',
@@ -24,6 +20,10 @@ const BADGE_SIZE_LABEL: Record<'xs' | 'sm' | 'md', string> = {
 
 const KEYBOARD_SHORTCUTS: { combo: string; description: string }[] = [
   { combo: '⌘/Ctrl + K', description: 'Open the command palette' },
+  { combo: '⌘/Ctrl + N', description: 'Create a new draft' },
+  { combo: '⌘/Ctrl + B', description: 'Go to workspace' },
+  { combo: '⌘/Ctrl + J', description: 'Toggle theme' },
+  { combo: '⌘/Ctrl + S', description: 'Export current draft' },
   { combo: 'Alt + R', description: 'Open the rhyme panel' },
   { combo: 'Alt + H', description: 'Cycle rhyme highlight mode (Off → End → Focus → All)' },
   { combo: 'Esc', description: 'Close panels or dialogs' },
@@ -120,34 +120,47 @@ const RhymeHighlightsSection = memo(function RhymeHighlightsSection() {
   )
 })
 
-
-const getCurrentRhymeHighlightSnapshot = (): RhymeHighlightSettings => {
-  const state = useRhymeHighlightSettingsStore.getState()
-  return {
-    showInternalRhymes: state.showInternalRhymes,
-    highlightStopwords: state.highlightStopwords,
-    highlightMode: state.highlightMode,
-    hideColorfulWords: state.hideColorfulWords,
-  }
-}
-
-const applyRhymeHighlightSnapshot = (snapshot: RhymeHighlightSettings) => {
+const applyRhymeHighlightSnapshot = (snapshot: typeof RHYME_HIGHLIGHT_DEFAULTS) => {
   useRhymeHighlightSettingsStore.setState((state) => ({
     ...state,
     ...snapshot,
   }))
+  saveRhymeHighlightSettings(snapshot)
 }
 
 // Repro (pre-fix): open Settings from the gear icon, then try toggles/sliders; clicks do not register.
-export function SettingsSheet() {
-  const [isOpen, setIsOpen] = useState(false)
-  const snapshotRef = useRef(getCurrentSettingsSnapshot())
-  const rhymeSnapshotRef = useRef(getCurrentRhymeHighlightSnapshot())
-  const { requestRecompute } = useRhymeRecomputeScheduler()
+type SettingsSheetProps = {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  hideTrigger?: boolean
+}
 
-  const headingId = useId()
-  const descriptionId = useId()
+export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: SettingsSheetProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const { requestRecompute } = useRhymeRecomputeScheduler()
+  const isControlled = typeof open === 'boolean'
+  const isOpen = isControlled ? open : internalOpen
+  const setIsOpen = useCallback(
+    (nextOpen: boolean) => {
+      if (!isControlled) {
+        setInternalOpen(nextOpen)
+      }
+      onOpenChange?.(nextOpen)
+    },
+    [isControlled, onOpenChange]
+  )
+
   const panelId = useId()
+  const originalSettingsRef = useRef<null | {
+    theme: typeof theme
+    fontSize: number
+    lineHeight: number
+    badgeSize: typeof badgeSize
+    showLineTotals: boolean
+    rhymeAutoRefresh: boolean
+    debounceMode: typeof debounceMode
+    rhymeHighlight: typeof RHYME_HIGHLIGHT_DEFAULTS
+  }>(null)
 
   const {
     theme,
@@ -189,43 +202,52 @@ export function SettingsSheet() {
     shallow
   )
 
-  const openSheet = useCallback(() => {
-    snapshotRef.current = getCurrentSettingsSnapshot()
-    rhymeSnapshotRef.current = getCurrentRhymeHighlightSnapshot()
-    setIsOpen(true)
-  }, [])
-
-  const closeSheet = useCallback(() => {
-    setIsOpen(false)
-  }, [])
+  useEffect(() => {
+    if (!isOpen || originalSettingsRef.current) return
+    originalSettingsRef.current = {
+      theme,
+      fontSize,
+      lineHeight,
+      badgeSize,
+      showLineTotals,
+      rhymeAutoRefresh,
+      debounceMode,
+      rhymeHighlight: {
+        showInternalRhymes: useRhymeHighlightSettingsStore.getState().showInternalRhymes,
+        highlightStopwords: useRhymeHighlightSettingsStore.getState().highlightStopwords,
+        highlightMode: useRhymeHighlightSettingsStore.getState().highlightMode,
+        hideColorfulWords: useRhymeHighlightSettingsStore.getState().hideColorfulWords,
+      },
+    }
+  }, [badgeSize, debounceMode, fontSize, isOpen, lineHeight, rhymeAutoRefresh, showLineTotals, theme])
 
   const handleCancel = useCallback(() => {
-    if (snapshotRef.current) {
-      applySettingsSnapshot(snapshotRef.current)
+    const snapshot = originalSettingsRef.current
+    if (snapshot) {
+      setTheme(snapshot.theme)
+      setFontSize(snapshot.fontSize)
+      setLineHeight(snapshot.lineHeight)
+      setBadgeSize(snapshot.badgeSize)
+      setShowLineTotals(snapshot.showLineTotals)
+      setRhymeAutoRefresh(snapshot.rhymeAutoRefresh)
+      setDebounceMode(snapshot.debounceMode)
+      applyRhymeHighlightSnapshot(snapshot.rhymeHighlight)
     }
-    if (rhymeSnapshotRef.current) {
-      applyRhymeHighlightSnapshot(rhymeSnapshotRef.current)
-      requestRecompute()
-    }
-    closeSheet()
-  }, [closeSheet, requestRecompute])
+    originalSettingsRef.current = null
+    setIsOpen(false)
+  }, [setBadgeSize, setDebounceMode, setFontSize, setIsOpen, setLineHeight, setRhymeAutoRefresh, setShowLineTotals, setTheme])
 
   const handleSave = useCallback(() => {
-    snapshotRef.current = getCurrentSettingsSnapshot()
-    rhymeSnapshotRef.current = getCurrentRhymeHighlightSnapshot()
+    originalSettingsRef.current = null
     requestRecompute()
-    closeSheet()
-  }, [closeSheet, requestRecompute])
+    setIsOpen(false)
+  }, [requestRecompute, setIsOpen])
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
-      if (nextOpen) {
-        openSheet()
-      } else {
-        handleCancel()
-      }
+      setIsOpen(nextOpen)
     },
-    [handleCancel, openSheet]
+    []
   )
 
   useEffect(() => {
@@ -260,8 +282,6 @@ export function SettingsSheet() {
         <DialogContent
           role="dialog"
           aria-modal="true"
-          aria-labelledby={headingId}
-          aria-describedby={descriptionId}
           id={panelId}
           data-testid="settings-panel"
           className="left-1/2 top-1/2 flex h-[92vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col gap-6 rounded-t-3xl border border-white/10 bg-zinc-950/95 p-6 text-white shadow-2xl outline-none md:inset-y-0 md:right-0 md:left-auto md:h-full md:max-w-[460px] md:translate-x-0 md:translate-y-0 md:rounded-none md:border-l md:border-white/20 md:p-8"
@@ -269,10 +289,14 @@ export function SettingsSheet() {
           <header className="space-y-2">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
-                <h2 id={headingId} className="text-lg font-semibold tracking-tight">Editor settings</h2>
-                <p id={descriptionId} className="text-sm text-white/60">
-                  Tune the writing surface, rhyme helper, and accessibility defaults.
-                </p>
+                <DialogTitle asChild>
+                  <h2 className="text-lg font-semibold tracking-tight">Editor settings</h2>
+                </DialogTitle>
+                <DialogDescription asChild>
+                  <p className="text-sm text-white/60">
+                    Tune the writing surface, rhyme helper, and accessibility defaults.
+                  </p>
+                </DialogDescription>
               </div>
               <button
                 type="button"
@@ -475,13 +499,12 @@ export function SettingsSheet() {
       badgeSize,
       badgeSizeLabel,
       debounceMode,
-      descriptionId,
       fontSize,
       handleCancel,
       handleSave,
-      headingId,
       lineHeight,
       panelId,
+      requestRecompute,
       resetDefaults,
       rhymeAutoRefresh,
       setBadgeSize,
@@ -498,19 +521,21 @@ export function SettingsSheet() {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-white/5 text-sm font-medium text-white/70 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-          aria-label="Open settings"
-          aria-haspopup="dialog"
-          aria-expanded={isOpen}
-          aria-controls={isOpen ? panelId : undefined}
-          data-testid="settings-trigger"
-        >
-          ⚙️
-        </button>
-      </DialogTrigger>
+      {!hideTrigger ? (
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-white/[0.025] bg-white/[0.005] text-[10px] font-medium tracking-[0.08em] text-white/34 transition hover:text-white/62 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+            aria-label="Open settings"
+            aria-haspopup="dialog"
+            aria-expanded={isOpen}
+            aria-controls={isOpen ? panelId : undefined}
+            data-testid="settings-trigger"
+          >
+            •
+          </button>
+        </DialogTrigger>
+      ) : null}
       {isOpen ? dialogContent : null}
     </Dialog>
   )

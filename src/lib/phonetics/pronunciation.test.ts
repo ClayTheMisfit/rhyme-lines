@@ -19,8 +19,12 @@ describe('getPronunciation', () => {
     const fine = getPronunciation('fine').rhymeKey
     const line = getPronunciation('line').rhymeKey
     const resign = getPronunciation('resign').rhymeKey
+    const time = getPronunciation('time').rhymeKey
+    const rhyme = getPronunciation('rhyme').rhymeKey
     expect(fine).toBe(line)
     expect(line).toBe(resign)
+    expect(time).toBe(fine)
+    expect(rhyme).toBe(fine)
 
     const moon = getPronunciation('moon').rhymeKey
     const soon = getPronunciation('soon').rhymeKey
@@ -41,6 +45,32 @@ describe('getPronunciation', () => {
 
     expect(getPronunciation('stone').rhymeKey).toBe(getPronunciation('alone').rhymeKey)
     expect(getPronunciation('alone').rhymeKey).toBe(getPronunciation('phone').rhymeKey)
+
+    expect(getPronunciation('test').rhymeKey).toBe(getPronunciation('best').rhymeKey)
+    expect(getPronunciation('best').rhymeKey).toBe(getPronunciation('rest').rhymeKey)
+  })
+
+  it('prevents broad terminal-y fallback collapse for heuristic words', () => {
+    const my = getPronunciation('my').rhymeKey
+    const dry = getPronunciation('dry').rhymeKey
+    const tryWord = getPronunciation('try').rhymeKey
+    const happy = getPronunciation('happy').rhymeKey
+    const fly = getPronunciation('fly').rhymeKey
+    const cry = getPronunciation('cry').rhymeKey
+    const city = getPronunciation('city').rhymeKey
+    const pretty = getPronunciation('pretty').rhymeKey
+
+    expect(my).toBe(dry)
+    expect(dry).toBe(tryWord)
+    expect(tryWord).toBe(fly)
+    expect(dry).toBe(cry)
+    expect(my).not.toBe(happy)
+    expect(dry).not.toBe(happy)
+    expect(new Set([my, dry, happy]).size).toBeGreaterThan(1)
+
+    expect(fly).not.toBe(happy)
+    expect(city).not.toBe(my)
+    expect(pretty).not.toBe(my)
   })
 
   it('never returns 0 syllables for alphabetic tokens', () => {
@@ -98,6 +128,15 @@ describe('getPronunciation', () => {
     expect(getPronunciation('HEIGHT.').rhymeKey).toBe(base)
     expect(getPronunciation('night!').rhymeKey).toBe(base)
     expect(getPronunciation('Sight?').rhymeKey).toBe(base)
+  })
+
+  it('keeps time/fine/rhyme family stable across punctuation and casing', () => {
+    const base = getPronunciation('time').rhymeKey
+    expect(getPronunciation('fine').rhymeKey).toBe(base)
+    expect(getPronunciation('rhyme').rhymeKey).toBe(base)
+    expect(getPronunciation('Time').rhymeKey).toBe(base)
+    expect(getPronunciation('fine,').rhymeKey).toBe(base)
+    expect(getPronunciation('rhyme!').rhymeKey).toBe(base)
   })
 
   it('normalizes curly possessives for syllables and rhyme keys', () => {

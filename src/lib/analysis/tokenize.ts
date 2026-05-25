@@ -2,13 +2,14 @@ export type TokenizedWord = {
   start: number
   end: number
   text: string
-  kind: 'word' | 'meridiem' | 'time'
+  kind: 'word' | 'meridiem' | 'time' | 'compactNumeric'
   analysisKey?: string
 }
 
 const WORD_REGEX = /[A-Za-z][A-Za-z'’‘]*|\d+/y
 const MERIDIEM_REGEX = /^(\d{1,2})(\s*)(a\.?\s*m\.?|p\.?\s*m\.?)/i
 const TIME_REGEX = /^(\d{1,2}):([0-5]\d)$/
+const COMPACT_NUMERIC_REGEX = /^(\d{1,2})\/(\d{1,2})$/
 
 export function isWordLikeToken(token: string | TokenizedWord): boolean {
   if (typeof token === 'string') {
@@ -17,6 +18,7 @@ export function isWordLikeToken(token: string | TokenizedWord): boolean {
 
   if (token.kind === 'meridiem') return true
   if (token.kind === 'time') return true
+  if (token.kind === 'compactNumeric') return true
 
   const candidate = token.analysisKey ?? token.text
   return /^[A-Za-z][A-Za-z'’‘]*$/.test(candidate) || /^\d+$/.test(candidate)
@@ -27,6 +29,13 @@ export function tokenizeLine(text: string): TokenizedWord[] {
   let index = 0
 
   while (index < text.length) {
+    const groupedCompactNumeric = matchStandaloneCompactNumericToken(text, index)
+    if (groupedCompactNumeric) {
+      words.push(groupedCompactNumeric)
+      index = groupedCompactNumeric.end
+      continue
+    }
+
     const groupedTime = matchStandaloneTimeToken(text, index)
     if (groupedTime) {
       words.push(groupedTime)
@@ -55,6 +64,28 @@ export function tokenizeLine(text: string): TokenizedWord[] {
   }
 
   return words
+}
+
+function matchStandaloneCompactNumericToken(text: string, index: number): TokenizedWord | null {
+  const char = text[index]
+  if (!char || char < '0' || char > '9') return null
+  if (index > 0 && /[A-Za-z0-9/]/.test(text[index - 1])) return null
+
+  let tokenEnd = index
+  while (tokenEnd < text.length && /[0-9/]/.test(text[tokenEnd])) {
+    tokenEnd += 1
+  }
+
+  const candidate = text.slice(index, tokenEnd)
+  if (!COMPACT_NUMERIC_REGEX.test(candidate)) return null
+  if (tokenEnd < text.length && /[A-Za-z0-9/]/.test(text[tokenEnd])) return null
+
+  return {
+    start: index,
+    end: tokenEnd,
+    text: candidate,
+    kind: 'compactNumeric',
+  }
 }
 
 function matchStandaloneTimeToken(text: string, index: number): TokenizedWord | null {
