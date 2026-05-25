@@ -48,6 +48,15 @@ describe('project storage', () => {
     expect(listProjectSummaries()).toEqual([])
   })
 
+
+  it('keeps user-created untitled blank projects visible in summaries', () => {
+    const project = createProject()
+
+    const summaries = listProjectSummaries()
+    expect(summaries).toHaveLength(1)
+    expect(summaries[0]?.id).toBe(project.id)
+  })
+
   it('creates projects and sorts summaries by updatedAt descending', () => {
     jest.useFakeTimers()
     const baseTime = new Date('2024-01-01T00:00:00.000Z').getTime()

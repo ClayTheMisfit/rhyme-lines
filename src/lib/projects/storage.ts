@@ -73,9 +73,12 @@ const previewFromContent = (content: string) => normalizeContent(content).replac
 
 const hasContent = (draft: DraftSchema) => draft.lines.some((line) => line.text.trim().length > 0)
 
+const isSeededPlaceholderDraft = (draft: DraftSchema) =>
+  draft.docId === 'placeholder' || draft.docId.startsWith('draft-')
+
 const isPlaceholderDraft = (draft: DraftSchema) => {
   const normalizedTitle = draft.title?.trim() || 'Untitled'
-  return normalizedTitle === 'Untitled' && !hasContent(draft)
+  return isSeededPlaceholderDraft(draft) && normalizedTitle === 'Untitled' && !hasContent(draft)
 }
 
 const filterMeaningfulDrafts = (drafts: DraftSchema[]) => {
