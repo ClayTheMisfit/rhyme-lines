@@ -56,13 +56,15 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
 
     if (selection && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0)
-      if (editorElement.contains(range.startContainer)) {
+      const focusNode = selection.focusNode ?? range.endContainer
+      const focusOffset = selection.focusOffset ?? range.endOffset
+      if (focusNode && editorElement.contains(focusNode)) {
         const preCaretRange = range.cloneRange()
         preCaretRange.selectNodeContents(editorElement)
-        preCaretRange.setEnd(range.endContainer, range.endOffset)
+        preCaretRange.setEnd(focusNode, focusOffset)
         caretIndex = preCaretRange.toString().length
 
-        let node: Node | null = range.startContainer
+        let node: Node | null = focusNode
         let lineElement: HTMLElement | null = null
         while (node && node !== editorElement) {
           if (node.nodeType === Node.ELEMENT_NODE) {

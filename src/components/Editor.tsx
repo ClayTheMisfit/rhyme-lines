@@ -857,7 +857,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     requestAnimationFrame(() => {
       scheduleCurrentLineHighlight({ immediate: true })
     })
-  }, [collectLineInputs, scheduleAnalysis, text, scheduleCurrentLineHighlight, ensureLineStructure])
+  }, [collectLineInputs, scheduleAnalysis, text, scheduleCurrentLineHighlight, ensureLineStructure, applyLineTotalsToDom])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

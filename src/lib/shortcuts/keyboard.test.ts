@@ -34,6 +34,34 @@ describe('isEditableShortcutTarget', () => {
     expect(isEditableShortcutTarget(child)).toBe(true)
   })
 
+
+  it('returns true for searchbox and combobox roles and descendants', () => {
+    const searchbox = document.createElement('div')
+    searchbox.setAttribute('role', 'searchbox')
+    const searchChild = document.createElement('span')
+    searchbox.appendChild(searchChild)
+
+    const combobox = document.createElement('div')
+    combobox.setAttribute('role', 'combobox')
+    const comboChild = document.createElement('span')
+    combobox.appendChild(comboChild)
+
+    expect(isEditableShortcutTarget(searchbox)).toBe(true)
+    expect(isEditableShortcutTarget(searchChild)).toBe(true)
+    expect(isEditableShortcutTarget(combobox)).toBe(true)
+    expect(isEditableShortcutTarget(comboChild)).toBe(true)
+  })
+
+  it('returns true for ignore-global-shortcuts marker', () => {
+    const ignored = document.createElement('div')
+    ignored.setAttribute('data-ignore-global-shortcuts', '')
+    const child = document.createElement('span')
+    ignored.appendChild(child)
+
+    expect(isEditableShortcutTarget(ignored)).toBe(true)
+    expect(isEditableShortcutTarget(child)).toBe(true)
+  })
+
   it('returns false for non-editable targets', () => {
     expect(isEditableShortcutTarget(document.createElement('button'))).toBe(false)
     expect(isEditableShortcutTarget(window)).toBe(false)

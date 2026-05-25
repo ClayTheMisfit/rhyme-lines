@@ -37,7 +37,7 @@ export default function DocumentHeader() {
 
   const commit = useCallback(() => {
     if (!activeTab) return
-    const finalTitle = draftTitle || 'Untitled'
+    const finalTitle = draftTitle.trim() || 'Untitled'
     if (finalTitle !== activeTab.title) {
       renameTab(activeTab.id, finalTitle)
     }
