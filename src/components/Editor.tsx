@@ -25,15 +25,15 @@ const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
 const ACTIVE_LINE_TUNING = {
-  radius: 12,
+  radius: 2,
   yInset: 1,
-  hInset: 3,
-  bgDark: 0.012,
-  borderDark: 0.028,
-  bgLight: 0.02,
-  borderLight: 0.04,
-  opacityBlurred: 0.45,
-  motionPosMs: 140,
+  hInset: 2,
+  bgDark: 0.003,
+  borderDark: 0.008,
+  bgLight: 0.008,
+  borderLight: 0.014,
+  opacityBlurred: 0.24,
+  motionPosMs: 90,
   motionOpacityMs: 90,
 }
 
@@ -42,6 +42,11 @@ type EditorProps = {
   onTextChange?: (text: string) => void
   onDirtyChange?: (dirty: boolean) => void
   hydrated?: boolean
+  metadata?: {
+    documentTitle?: string
+    draftId?: string
+    stage?: string
+  }
 }
 
 export type EditorHandle = {
@@ -50,7 +55,7 @@ export type EditorHandle = {
 }
 
 const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { text = '', onTextChange = () => {}, onDirtyChange, hydrated = false },
+  { text = '', onTextChange = () => {}, onDirtyChange, hydrated = false, metadata },
   ref
 ) {
   const editorRef = useRef<HTMLDivElement>(null)
@@ -86,6 +91,15 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     debugTextColLeft: 0,
     debugLineLeft: 0,
   })
+  const metadataEntries = useMemo(
+    () =>
+      [
+        metadata?.documentTitle ? `Document: ${metadata.documentTitle}` : null,
+        metadata?.stage ? `Stage: ${metadata.stage}` : null,
+        metadata?.draftId ? `Draft: ${metadata.draftId}` : null,
+      ].filter((value): value is string => Boolean(value)),
+    [metadata?.documentTitle, metadata?.draftId, metadata?.stage]
+  )
 
   const highlightDebounceRef = useRef<number | null>(null)
   const lastHighlightRef = useRef(lineHighlight)
@@ -690,17 +704,28 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (typeof window === 'undefined') return null
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0) return null
-    const range = selection.getRangeAt(0)
-    const focusNode = range.endContainer
+
+    const focusNode = selection.focusNode
+    const focusOffset = selection.focusOffset
+    if (!focusNode || focusOffset < 0) return null
+
     const lineElement =
       focusNode instanceof Element
         ? focusNode.closest('.line')
         : focusNode.parentElement?.closest('.line')
     if (!lineElement) return null
+
     const lineId = lineElement.getAttribute('data-line-id')
     if (!lineId) return null
-    const caretRange = range.cloneRange()
+
+    const caretRange = document.createRange()
     caretRange.setStart(lineElement, 0)
+    try {
+      caretRange.setEnd(focusNode, focusOffset)
+    } catch {
+      return null
+    }
+
     const caretOffset = caretRange.toString().length
     return resolveActiveRhymeFamilyId(rhymeDecorations, { lineId, caretOffset })
   }, [rhymeDecorations])
@@ -994,7 +1019,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   )
 
   return (
-    <div className="flex w-full h-full">
+    <div className="flex h-full w-full bg-[#0c0c0d]">
       {/* Editor + overlay */}
       <div
         ref={containerRef}
@@ -1005,8 +1030,17 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
         }}
       >
-        <div className="editor-root relative">
+        <div className="editor-root relative mx-auto w-full max-w-[1560px]">
           <div className="rl-editor-grid">
+            {metadataEntries.length > 0 ? (
+              <aside className="editor-meta-col" aria-label="Document metadata">
+                {metadataEntries.map((entry) => (
+                  <p key={entry}>{entry}</p>
+                ))}
+              </aside>
+            ) : (
+              <div className="editor-meta-col" aria-hidden="true" />
+            )}
             <LineTotalsOverlay
               lineTotals={lineTotals}
               lines={lines}
@@ -1014,7 +1048,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               theme={resolvedTheme}
             />
 
-            <div ref={textColRef} className="editor-surface relative min-h-[70vh]">
+            <div ref={textColRef} className="editor-surface relative min-h-[70vh] max-w-[820px]">
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
                 className="pointer-events-none absolute inset-0 z-10"
@@ -1117,7 +1151,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onPointerDown={ensureEditorFocus}
                 data-placeholder={PLACEHOLDER_TEXT}
                 data-empty={isEditorEmpty ? 'true' : 'false'}
-                className="rl-editor relative z-20 outline-none w-full min-h-[70vh] font-mono pointer-events-auto"
+                className="rl-editor relative z-20 min-h-[70vh] w-full outline-none pointer-events-auto"
               />
             </div>
           </div>

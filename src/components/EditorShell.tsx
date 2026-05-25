@@ -202,6 +202,15 @@ export default function EditorShell() {
             ref={editorRef}
             hydrated={ready}
             text={activeTab?.snapshot.text ?? ''}
+            metadata={
+              activeTab
+                ? {
+                    documentTitle: activeTab.title || 'Untitled',
+                    draftId: activeTab.id.slice(0, 8).toUpperCase(),
+                    stage: activeTab.isDirty ? 'Drafting' : 'Saved',
+                  }
+                : undefined
+            }
             onTextChange={handleTextChange}
             onDirtyChange={handleDirtyChange}
           />

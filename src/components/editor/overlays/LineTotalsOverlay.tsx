@@ -15,7 +15,8 @@ export default function LineTotalsOverlay({
 }: Props) {
   const gutterLines = lines.map((line, i) => {
     const total = lineTotals[i] ?? 0
-    return line.trim() === '' ? '0' : total.toString()
+    if (line.trim() === '') return ''
+    return total === 0 ? '·' : total.toString()
   })
 
   const themeClass = theme === 'dark' ? 'gutterMirror-dark' : 'gutterMirror-light'
