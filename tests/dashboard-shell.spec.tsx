@@ -169,27 +169,18 @@ describe('DashboardShell', () => {
     expect(screen.getByText('Newest Draft')).toBeInTheDocument()
   })
 
-  it('keeps the Drafts workspace button clickable with mouse and keyboard', async () => {
-    const user = userEvent.setup()
+  it('does not render a dashboard Draft action control', async () => {
     render(<DashboardShell />)
 
-    await user.click(screen.getByRole('button', { name: /Archived/i }))
-    await waitFor(() => expect(screen.getByText('Archived Projects')).toBeInTheDocument())
-
-    const draftsButton = screen.getByRole('button', { name: 'Drafts' })
-    expect(draftsButton).toBeEnabled()
-
-    await user.click(draftsButton)
-    await waitFor(() => expect(screen.getByText('Recent Drafts')).toBeInTheDocument())
-
-    await user.click(screen.getByRole('button', { name: /Trash/i }))
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Trash' })).toBeInTheDocument())
-
-    draftsButton.focus()
-    expect(draftsButton).toHaveFocus()
-
-    await user.keyboard('{Enter}')
-    await waitFor(() => expect(screen.getByText('Recent Drafts')).toBeInTheDocument())
+    await screen.findByText('Recent Drafts')
+    expect(screen.queryByRole('button', { name: /^Draft$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /New Draft/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Create Draft/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Start Draft/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^Draft$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /New Draft/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Create Draft/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Start Draft/i })).not.toBeInTheDocument()
   })
 
   it('does not apply hidden folder filtering in archived/trash views', async () => {

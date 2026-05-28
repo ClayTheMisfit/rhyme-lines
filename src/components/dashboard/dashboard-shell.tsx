@@ -162,7 +162,7 @@ export function DashboardShell() {
         onSearchChange={setSearch}
       />
       <div className="grid min-h-[calc(100vh-56px)] grid-cols-1 lg:grid-cols-[248px_minmax(0,1fr)]">
-        <DashboardSidebar onSelectDrafts={() => setView('projects')} />
+        <DashboardSidebar />
 
         <main className="flex min-w-0 flex-col border-l border-white/[0.035] bg-[#111418] px-6 py-9 sm:px-10 sm:py-11 lg:px-12">
           <DashboardHero

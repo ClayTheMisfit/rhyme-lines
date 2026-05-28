@@ -1,8 +1,4 @@
-type DashboardSidebarProps = {
-  onSelectDrafts: () => void
-}
-
-export function DashboardSidebar({ onSelectDrafts }: DashboardSidebarProps) {
+export function DashboardSidebar() {
   return (
     <aside className="flex min-h-full flex-col bg-[#0f1318] px-5 py-7">
       <div className="px-1">
@@ -17,13 +13,6 @@ export function DashboardSidebar({ onSelectDrafts }: DashboardSidebarProps) {
             Workspace
           </span>
         </div>
-        <button
-          type="button"
-          onClick={onSelectDrafts}
-          className="flex w-full items-center justify-between rounded-md border border-transparent px-3 py-2.5 text-left text-xs tracking-[0.04em] text-white/42 transition-[background-color,color,border-color,box-shadow] duration-150 hover:border-white/[0.12] hover:bg-white/[0.04] hover:text-white/72 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1318] motion-reduce:transition-none"
-        >
-          Drafts
-        </button>
       </nav>
     </aside>
   )
