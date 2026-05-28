@@ -173,11 +173,11 @@ describe('DashboardShell', () => {
     render(<DashboardShell />)
 
     await screen.findByText('Recent Drafts')
-    expect(screen.queryByRole('button', { name: /^Draft$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Drafts?$/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /New Draft/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Create Draft/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Start Draft/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /^Draft$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^Drafts?$/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /New Draft/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Create Draft/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Start Draft/i })).not.toBeInTheDocument()
