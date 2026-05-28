@@ -169,6 +169,20 @@ describe('DashboardShell', () => {
     expect(screen.getByText('Newest Draft')).toBeInTheDocument()
   })
 
+  it('does not render a dashboard Draft action control', async () => {
+    render(<DashboardShell />)
+
+    await screen.findByText('Recent Drafts')
+    expect(screen.queryByRole('button', { name: /^Drafts?$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /New Draft/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Create Draft/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Start Draft/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^Drafts?$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /New Draft/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Create Draft/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Start Draft/i })).not.toBeInTheDocument()
+  })
+
   it('does not apply hidden folder filtering in archived/trash views', async () => {
     const user = userEvent.setup()
     storageMocks.filterProjectSummaries.mockImplementation((projects, search, folderId) => {
