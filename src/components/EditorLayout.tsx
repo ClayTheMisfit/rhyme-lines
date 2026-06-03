@@ -109,7 +109,7 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
   }
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[color:var(--rl-shell-bg)] text-[color:var(--rl-shell-text)]">
+    <div className="rl-editor-layout flex h-dvh min-h-0 flex-col overflow-hidden bg-[color:var(--rl-shell-bg)] text-[color:var(--rl-shell-text)]">
       <TopBar />
       <div
         className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden transition-[grid-template-columns] duration-150 lg:[grid-template-columns:var(--editor-layout-columns)]"
@@ -117,7 +117,8 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
       >
         <aside
           id="editor-documents-sidebar"
-          className="hidden overflow-hidden border-r border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)] px-2 py-4 lg:flex lg:flex-col"
+          data-editor-sidebar
+          className="hidden overflow-hidden border-r border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)] px-2 py-4 backdrop-blur-xl lg:flex lg:flex-col"
         >
           <div className={`mb-4 flex items-center ${sidebarExpanded ? 'justify-between' : 'justify-center'}`}>
             <TooltipProvider>

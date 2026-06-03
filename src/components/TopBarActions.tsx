@@ -18,7 +18,7 @@ import { trackEvent } from '@/lib/analytics/events'
 import { isEditableShortcutTarget } from '@/lib/shortcuts/keyboard'
 
 const buttonClass =
-  'inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] text-[11px] text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]'
+  'inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_62%,transparent)] text-[11px] text-[color:var(--rl-shell-muted)] transition duration-150 ease-out hover:border-[color:var(--rl-accent-border)] hover:bg-[color:var(--rl-accent-soft)] hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-accent-border)]'
 
 type ShortcutAction = 'palette' | 'theme' | 'rhymes' | 'export' | 'rhymeHighlightMode'
 

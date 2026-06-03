@@ -17,7 +17,7 @@ export function OverlayBadge({ value, active, position, lineId }: OverlayBadgePr
     badgeVariant: state.badgeVariant,
   }))
 
-  const resolvedVariant = badgeVariant === 'mixed' ? (active ? 'numbers' : 'dots') : badgeVariant
+  const resolvedVariant = badgeVariant === 'mixed' ? 'numbers' : badgeVariant
   const dotCount = Math.min(value, 6)
   const content =
     resolvedVariant === 'numbers'
@@ -42,6 +42,7 @@ export function OverlayBadge({ value, active, position, lineId }: OverlayBadgePr
         resolvedVariant === 'dots' && 'syllable-badge--dots'
       )}
       data-line-id={lineId}
+      data-active={active ? 'true' : undefined}
       style={style}
     >
       {content}

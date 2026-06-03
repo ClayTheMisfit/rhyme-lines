@@ -71,14 +71,14 @@ export default function DocumentHeader() {
               cancel()
             }
           }}
-          className="h-8 w-[min(44vw,520px)] min-w-[180px] rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] px-2.5 text-sm font-medium tracking-tight text-[color:var(--rl-shell-text)] outline-none focus:border-[color:var(--rl-shell-text)]/35"
+          className="h-8 w-[min(44vw,520px)] min-w-[180px] rounded-lg border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_72%,transparent)] px-2.5 text-sm font-medium tracking-tight text-[color:var(--rl-shell-text)] outline-none focus:border-[color:var(--rl-accent-border)] focus:ring-2 focus:ring-[color:var(--rl-accent-soft)]"
           aria-label="Document title"
         />
       ) : (
         <>
           <button
             type="button"
-            className="max-w-[min(46vw,560px)] truncate text-left text-sm font-medium tracking-tight text-[color:var(--rl-shell-text)] hover:opacity-100"
+            className="max-w-[min(46vw,560px)] truncate rounded-md px-1 text-left text-sm font-medium tracking-tight text-[color:var(--rl-shell-text)] hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-accent-border)]"
             onDoubleClick={() => setIsEditing(true)}
             onClick={() => setIsEditing(true)}
             title="Rename document"
@@ -88,7 +88,7 @@ export default function DocumentHeader() {
           </button>
           <button
             type="button"
-            className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] text-[10px] text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_62%,transparent)] text-[10px] text-[color:var(--rl-shell-muted)] transition duration-150 ease-out hover:border-[color:var(--rl-accent-border)] hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-accent-border)]"
             onClick={() => setIsEditing(true)}
             title="Rename (Enter to save, Esc to cancel)"
             aria-label="Edit title"

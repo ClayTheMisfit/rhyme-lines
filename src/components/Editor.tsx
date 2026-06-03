@@ -27,16 +27,15 @@ const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
 const RHYME_DECORATION_DEBOUNCE_MS = 180
 const ACTIVE_LINE_TUNING = {
-  radius: 2,
-  yInset: 1,
-  hInset: 2,
-  bgDark: 0.003,
-  borderDark: 0.008,
-  bgLight: 0.008,
-  borderLight: 0.014,
-  opacityBlurred: 0.24,
-  motionPosMs: 90,
-  motionOpacityMs: 90,
+  yInset: -1,
+  hInset: -2,
+  bgDark: 0.08,
+  borderDark: 0.18,
+  bgLight: 0.08,
+  borderLight: 0.18,
+  opacityBlurred: 0.34,
+  motionPosMs: 150,
+  motionOpacityMs: 140,
 }
 
 type EditorProps = {
@@ -84,6 +83,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     visible: false,
     foundLine: false,
     lineId: null as string | null,
+    left: 0,
+    width: 0,
     debugTextColLeft: 0,
     debugLineLeft: 0,
   })
@@ -261,14 +262,25 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const measureLineRect = useCallback((lineEl: HTMLElement, textColEl: HTMLElement) => {
     const contentEl =
       lineEl.querySelector<HTMLElement>('[data-line-content], .line-content') ?? lineEl
-    const contentRect = contentEl.getBoundingClientRect()
+    const fallbackRect = contentEl.getBoundingClientRect()
     const textColRect = textColEl.getBoundingClientRect()
-    if (!contentRect.height || !textColRect.height) return null
+    if (!fallbackRect.height || !textColRect.height) return null
+
+    const range = document.createRange()
+    range.selectNodeContents(contentEl)
+    const rangeRect = range.getBoundingClientRect()
+    range.detach()
+
+    const measuredRect = rangeRect.width > 0 && rangeRect.height > 0 ? rangeRect : fallbackRect
+    const lineWidth = measuredRect.width > 0 ? measuredRect.width : Math.min(fallbackRect.width, 32)
+
     return {
-      top: contentRect.top - textColRect.top,
-      height: contentRect.height,
+      top: measuredRect.top - textColRect.top,
+      left: Math.max(0, measuredRect.left - textColRect.left),
+      width: Math.max(lineWidth, 28),
+      height: measuredRect.height,
       debugTextColLeft: textColRect.left,
-      debugLineLeft: contentRect.left,
+      debugLineLeft: measuredRect.left,
     }
   }, [])
 
@@ -280,6 +292,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       Math.abs(prev.height - next.height) > 0.5 ||
       prev.foundLine !== next.foundLine ||
       prev.lineId !== next.lineId ||
+      Math.abs(prev.left - next.left) > 0.5 ||
+      Math.abs(prev.width - next.width) > 0.5 ||
       (DEBUG_ACTIVE_LINE &&
         (Math.abs(prev.debugLineLeft - next.debugLineLeft) > 0.5 ||
           Math.abs(prev.debugTextColLeft - next.debugTextColLeft) > 0.5))
@@ -308,6 +322,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           visible: true,
           foundLine: false,
           lineId: null,
+          left: 0,
+          width: 48,
           debugTextColLeft: 0,
           debugLineLeft: 0,
         })
@@ -338,6 +354,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           visible: false,
           foundLine: false,
           lineId: null,
+          left: 0,
+          width: 48,
           debugTextColLeft: 0,
           debugLineLeft: 0,
         })
@@ -377,6 +395,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           visible: false,
           foundLine: true,
           lineId: resolvedLineId,
+          left: 0,
+          width: 0,
           debugTextColLeft: 0,
           debugLineLeft: 0,
         })
@@ -410,6 +430,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         visible: true,
         foundLine: true,
         lineId: resolvedLineId,
+        left: lineRect.left,
+        width: lineRect.width,
         debugTextColLeft: lineRect.debugTextColLeft,
         debugLineLeft: lineRect.debugLineLeft,
       })
@@ -454,14 +476,18 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const isDarkTheme = resolvedTheme === 'dark'
 
   const adjustedHeight = Math.max(lineHighlight.height - ACTIVE_LINE_TUNING.hInset, 18)
+  const horizontalPadding = 10
   const highlightStyle = {
     top: `${lineHighlight.top + ACTIVE_LINE_TUNING.yInset}px`,
+    left: `${Math.max(lineHighlight.left - horizontalPadding, -8)}px`,
+    width: `${Math.max(lineHighlight.width + horizontalPadding * 2, 48)}px`,
+    right: 'auto',
     height: `${adjustedHeight}px`,
     opacity: lineHighlight.visible ? (isEditorFocused ? 1 : ACTIVE_LINE_TUNING.opacityBlurred) : 0,
-    '--rl-active-line-bg': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
+    '--rl-active-line-bg': `rgba(${isDarkTheme ? '124, 140, 255' : '110, 123, 255'}, ${
       isDarkTheme ? ACTIVE_LINE_TUNING.bgDark : ACTIVE_LINE_TUNING.bgLight
     })`,
-    '--rl-active-line-border': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
+    '--rl-active-line-border': `rgba(${isDarkTheme ? '124, 140, 255' : '110, 123, 255'}, ${
       isDarkTheme ? ACTIVE_LINE_TUNING.borderDark : ACTIVE_LINE_TUNING.borderLight
     })`,
     '--rl-active-line-transition': `${ACTIVE_LINE_TUNING.motionPosMs}ms`,
@@ -1051,17 +1077,17 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       <div
         ref={containerRef}
         data-editor-scroll
-        className="relative flex-1 overflow-auto transition-all duration-300"
+        className="relative flex-1 overflow-auto bg-[color:var(--rl-shell-bg)] transition-all duration-300"
         style={{
           marginRight: 'var(--panel-right-offset, 0px)',
           maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
         }}
       >
-        <div className="editor-root relative mr-auto w-full max-w-[1480px]">
+        <div className="editor-root relative mx-auto w-full max-w-[1120px]">
           <div className="rl-editor-grid">
             <div aria-hidden className="gutterSpacer" />
 
-            <div ref={textColRef} className="editor-surface relative min-h-[70vh] w-full max-w-none">
+            <div ref={textColRef} className="editor-surface relative min-h-[70vh] w-full max-w-none overflow-visible">
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
                 className="pointer-events-none absolute inset-0 z-10"

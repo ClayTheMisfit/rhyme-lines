@@ -36,7 +36,7 @@ export default function StatusBar({ text, cursor }: StatusBarProps) {
         : 'text-[color:var(--rl-shell-muted)]'
 
   return (
-    <footer className="flex h-8 items-center justify-between border-t border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)] px-4 text-[11px] text-[color:var(--rl-shell-muted)]">
+    <footer className="flex h-8 items-center justify-between border-t border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)]/90 px-4 text-[11px] text-[color:var(--rl-shell-muted)] backdrop-blur-xl">
       <div className="flex items-center gap-4">
         <span
           aria-live="polite"

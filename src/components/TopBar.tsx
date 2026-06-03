@@ -92,13 +92,13 @@ export default function TopBar() {
     <header
       ref={headerRef}
       data-testid="editor-header"
-      className="fixed left-0 right-0 top-0 flex min-h-12 items-center gap-2.5 border-b border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)] px-4 py-2 text-[color:var(--rl-shell-text)]"
+      className="fixed left-0 right-0 top-0 flex min-h-12 items-center gap-3 border-b border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)]/95 px-4 py-2 text-[color:var(--rl-shell-text)] shadow-[0_1px_0_rgba(255,255,255,0.018)] backdrop-blur-xl"
       style={{ zIndex: layers.topBar }}
     >
       <Link
         href="/"
         aria-label="Back to dashboard"
-        className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_72%,transparent)] px-2.5 text-xs text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]"
+        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_62%,transparent)] px-3 text-xs text-[color:var(--rl-shell-muted)] transition duration-150 ease-out hover:border-[color:var(--rl-accent-border)] hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-accent-border)]"
       >
         <span aria-hidden>←</span>
         <span>Back</span>

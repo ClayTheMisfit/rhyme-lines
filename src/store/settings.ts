@@ -17,7 +17,7 @@ type BadgeSettingsState = {
 const clampScale = (value: number) => Math.min(1.4, Math.max(0.8, Number.isFinite(value) ? value : 0.9))
 
 const DEFAULT_BADGE_MODE: BadgeMode = 'activeLine'
-const DEFAULT_BADGE_VARIANT: BadgeVariant = 'mixed'
+const DEFAULT_BADGE_VARIANT: BadgeVariant = 'numbers'
 const DEFAULT_BADGE_SCALE = 0.9
 
 const readBadgeMode = (): BadgeMode => {

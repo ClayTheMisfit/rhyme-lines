@@ -105,8 +105,8 @@ export const DEFAULT_RHYME_FILTERS: RhymeFilters = {
 
 export const DEFAULT_SETTINGS: SettingsSchema = {
   theme: 'dark',
-  fontSize: 18,
-  lineHeight: 1.6,
+  fontSize: 20,
+  lineHeight: 1.8,
   highContrast: false,
   rhymeFilters: { ...DEFAULT_RHYME_FILTERS },
   showVariants: false,

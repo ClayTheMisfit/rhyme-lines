@@ -54,7 +54,7 @@
 
 
 :root {
-  --rl-font-editor: "IBM Plex Mono", "SF Mono", "Cascadia Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
+  --rl-font-editor: "IBM Plex Mono", "JetBrains Mono", "SFMono-Regular", "SF Mono", "Cascadia Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
   --rl-font-ui: Inter, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   --rl-space-1: 0.25rem;
   --rl-space-2: 0.5rem;
@@ -66,7 +66,9 @@
   --rl-radius-lg: 0.75rem;
   --rl-muted: rgba(255, 255, 255, 0.62);
   --rl-border: rgba(255, 255, 255, 0.13);
-  --rl-accent: rgba(56, 189, 248, 0.85);
+  --rl-accent: #7c8cff;
+  --rl-accent-soft: rgba(124, 140, 255, 0.12);
+  --rl-accent-border: rgba(124, 140, 255, 0.26);
   --rl-shell-bg: #d9dee5;
   --rl-shell-chrome: #e6ebf2;
   --rl-shell-elevated: #eef2f5;
@@ -86,47 +88,48 @@
 /* ----- Custom styles below ----- */
 
 @layer components {
-  /* Subtle, compact syllable badge */
+  /* Quiet, integrated syllable badge */
   .syllable-badge {
-    @apply pointer-events-none select-none rounded-full bg-white/[0.03] text-white/35 ring-1 ring-white/[0.06];
-    --badge-base-size: clamp(0.9rem, 1.6vw, 1.05rem);
-    --badge-scale: 1;
-    --badge-offset: 1em;
-    inline-size: calc(var(--badge-base-size) * var(--badge-scale));
-    block-size: calc(var(--badge-base-size) * var(--badge-scale));
-    line-height: calc(var(--badge-base-size) * var(--badge-scale));
+    @apply pointer-events-none select-none rounded-full bg-white/[0.04] text-white/45 ring-1 ring-white/[0.055];
+    min-inline-size: 1.05rem;
+    block-size: 0.9rem;
+    line-height: 0.9rem;
+    padding-inline: 0.25rem;
     text-align: center;
-    font-weight: 600;
-    font-size: calc(var(--badge-base-size) * 0.56 * var(--badge-scale));
+    font-weight: 500;
+    font-size: 10px;
+    letter-spacing: -0.02em;
     left: 50%;
     transform: translateX(-50%);
-    top: calc(-1 * var(--badge-offset));
-    opacity: 0.4;
-    transition: opacity 120ms ease;
+    top: -0.95em;
+    opacity: 0.28;
+    transition: opacity 140ms ease, color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
   }
 
   .syllable-badge--dots {
-    font-size: calc(var(--badge-base-size) * 0.48 * var(--badge-scale));
-    letter-spacing: -0.02em;
+    font-size: 10px;
+    letter-spacing: -0.08em;
     font-weight: 500;
   }
 
-  [data-active-line="true"] .syllable-badge {
-    @apply bg-[#f2d000]/8 ring-[#f2d000]/25 text-[#f2d000]/80;
-    opacity: 0.7;
+  [data-active-line="true"] .syllable-badge,
+  .syllable-badge[data-active="true"] {
+    @apply bg-white/[0.055] ring-[#7c8cff]/25 text-white/70;
+    opacity: 0.72;
   }
 
   [data-line-id]:hover .syllable-badge {
-    opacity: 0.55;
+    opacity: 0.5;
   }
 
   /* Light theme override for syllable badges */
   body.bg-white .syllable-badge {
-    @apply bg-gray-900/[0.04] text-gray-700/60 ring-gray-900/[0.08];
+    @apply bg-gray-900/[0.04] text-gray-700/50 ring-gray-900/[0.08];
   }
 
-  body.bg-white [data-active-line="true"] .syllable-badge {
-    @apply bg-[#f2d000]/12 ring-[#f2d000]/30 text-[#f2d000]/95;
+  body.bg-white [data-active-line="true"] .syllable-badge,
+  body.bg-white .syllable-badge[data-active="true"] {
+    @apply bg-[#6e7bff]/10 ring-[#6e7bff]/25 text-gray-800/72;
   }
 
   .leading-tight .syllable-badge {
@@ -166,14 +169,14 @@ body {
 
 /* Page background to match editor */
 body.bg-black {
-  background-color: #1e1e1e;  /* Same as editor background */
-  --rl-shell-bg: #090909;
-  --rl-shell-chrome: #0d0d0f;
-  --rl-shell-elevated: #101012;
-  --rl-editor-lane: #0f0f11;
-  --rl-shell-border: rgba(255, 255, 255, 0.08);
+  background-color: #050505;
+  --rl-shell-bg: #050505;
+  --rl-shell-chrome: rgba(8, 8, 10, 0.78);
+  --rl-shell-elevated: rgba(15, 15, 18, 0.82);
+  --rl-editor-lane: #0a0a0a;
+  --rl-shell-border: rgba(255, 255, 255, 0.055);
   --rl-shell-text: rgba(255, 255, 255, 0.9);
-  --rl-shell-muted: rgba(255, 255, 255, 0.58);
+  --rl-shell-muted: rgba(255, 255, 255, 0.54);
   --rl-line-total-color: rgba(255, 255, 255, 0.36);
   --rl-line-total-color-active: rgba(255, 255, 255, 0.62);
 }
@@ -195,24 +198,25 @@ body.bg-white {
 .editor-root {
   position: relative;
   --rl-font: var(--rl-font-editor);
-  --rl-font-size: var(--editor-font-size, 23px);
-  --rl-line-height: max(var(--editor-line-height, 2.02), 1.72);
+  --rl-font-size: var(--editor-font-size, 20px);
+  --rl-line-height: max(var(--editor-line-height, 1.8), 1.72);
   --rl-line-pad-y: 2px;
   --rl-line-pad-y-effective: calc(var(--rl-line-pad-y) + 1px);
   --rl-line-row-height: calc(var(--rl-font-size) * var(--rl-line-height) + var(--rl-line-pad-y-effective) * 2);
-  --rl-pad-top: calc(3.45rem + var(--editor-safe-offset));
-  --rl-pad-bottom: 2.5rem;
-  --rl-pad-inline: clamp(0.75rem, 2.2vw, 1.6rem);
-  --rl-gutter-width: clamp(2.35rem, 3.2vw, 3rem);
-  --rl-gutter-gap: clamp(0.5rem, 1.6vw, 1rem);
+  --rl-pad-top: calc(4rem + var(--editor-safe-offset));
+  --rl-pad-bottom: 3.5rem;
+  --rl-pad-inline: clamp(1rem, 4vw, 3rem);
+  --rl-gutter-width: clamp(2.1rem, 3vw, 2.75rem);
+  --rl-gutter-gap: clamp(0.5rem, 1.4vw, 0.9rem);
+  --rl-writing-width: clamp(0px, calc(100vw - var(--rl-pad-inline) * 2 - var(--rl-gutter-width) - var(--rl-gutter-gap)), 780px);
 }
 
 .rl-editor-grid {
   display: grid;
-  grid-template-columns: var(--rl-gutter-width) minmax(760px, 1120px);
-  justify-content: start;
+  grid-template-columns: var(--rl-gutter-width) minmax(0, var(--rl-writing-width));
+  justify-content: center;
   column-gap: var(--rl-gutter-gap);
-  padding-inline: var(--rl-pad-inline) clamp(1rem, 3vw, 2.4rem);
+  padding-inline: var(--rl-pad-inline);
   align-items: flex-start;
 }
 
@@ -226,6 +230,8 @@ body.bg-white {
   word-break: break-word;    /* Fallback for older browsers */
   font-size: var(--rl-font-size);
   font-family: var(--rl-font);
+  font-weight: 450;
+  letter-spacing: -0.01em;
   line-height: var(--rl-line-height);
   padding-block: var(--rl-pad-top) var(--rl-pad-bottom);
   position: relative;
@@ -236,8 +242,10 @@ body.bg-white {
 
 /* Dark theme editor styling */
 body.bg-black .editor-surface {
-  background-color: transparent;
-  color: #dddedd;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.012), transparent 18rem), #0a0a0a;
+  color: rgba(238, 239, 242, 0.9);
+  border-inline: 1px solid rgba(255, 255, 255, 0.035);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.012), 0 24px 80px rgba(0, 0, 0, 0.22);
   transition: background-color 150ms ease;
 }
 
@@ -267,13 +275,16 @@ body.bg-white .rl-editor[data-empty="true"]:not(:focus)::before {
 /* Current line highlight overlay (non-interactive) */
 .rl-current-line-highlight {
   position: absolute;
-  border-radius: 4px;
+  border-radius: 10px;
   pointer-events: none;
   z-index: 0;
-  left: 0;
-  right: 0;
-  background-color: var(--rl-active-line-bg, rgba(255, 255, 255, 0.003));
-  box-shadow: inset 0 0 0 1px var(--rl-active-line-border, rgba(255, 255, 255, 0.008));
+  left: -0.55rem;
+  right: -0.55rem;
+  background-color: var(--rl-active-line-bg, rgba(124, 140, 255, 0.08));
+  border: 1px solid var(--rl-active-line-border, rgba(124, 140, 255, 0.18));
+  box-shadow:
+    0 0 0 1px rgba(124, 140, 255, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.35);
   transition:
     top var(--rl-active-line-transition, 120ms) ease-out,
     height var(--rl-active-line-transition, 120ms) ease-out,
@@ -283,13 +294,13 @@ body.bg-white .rl-editor[data-empty="true"]:not(:focus)::before {
 }
 
 body.bg-black .rl-current-line-highlight {
-  --rl-active-line-bg: rgba(255, 255, 255, 0.003);
-  --rl-active-line-border: rgba(255, 255, 255, 0.008);
+  --rl-active-line-bg: rgba(124, 140, 255, 0.08);
+  --rl-active-line-border: rgba(124, 140, 255, 0.18);
 }
 
 body.bg-white .rl-current-line-highlight {
-  --rl-active-line-bg: rgba(0, 0, 0, 0.02);
-  --rl-active-line-border: rgba(0, 0, 0, 0.04);
+  --rl-active-line-bg: rgba(110, 123, 255, 0.08);
+  --rl-active-line-border: rgba(110, 123, 255, 0.18);
 }
 
 .rl-rhyme-highlight[data-rhyme-family] {
@@ -379,10 +390,10 @@ body.bg-white .rl-editor .line {
 .rl-editor .line {
   position: relative;
   z-index: 1;
-  border-radius: 2px;
+  border-radius: 10px;
   padding: var(--rl-line-pad-y-effective) 0.125rem;
   margin: 0;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 160ms ease, color 160ms ease, opacity 160ms ease;
   line-height: var(--rl-line-height);
 }
 
@@ -428,6 +439,53 @@ body.bg-white .rl-editor .line {
   .rl-editor .line[data-line-total-display]::before {
     transition: none !important;
   }
+}
+
+@media (max-width: 900px) {
+  .editor-root {
+    --rl-pad-inline: clamp(1rem, 5vw, 1.75rem);
+    --rl-writing-width: 1fr;
+  }
+
+  .rl-editor-grid {
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: var(--rl-pad-inline);
+  }
+
+  .gutterSpacer {
+    display: none;
+  }
+
+  body.bg-black .editor-surface,
+  body.bg-white .editor-surface {
+    border-inline: 0;
+    box-shadow: none;
+  }
+}
+
+.rl-editor-layout :is([data-testid="editor-header"], [data-editor-sidebar], [data-testid="rhyme-panel"]) {
+  transition: opacity 160ms ease-out, background-color 160ms ease-out, border-color 160ms ease-out;
+}
+
+.rl-editor-layout:has(#lyric-editor:focus) [data-testid="editor-header"] {
+  opacity: 0.68;
+}
+
+.rl-editor-layout:has(#lyric-editor:focus) [data-editor-sidebar] {
+  opacity: 0.56;
+}
+
+.rl-editor-layout:has(#lyric-editor:focus) [data-testid="rhyme-panel"] {
+  opacity: 0.76;
+}
+
+.rl-editor-layout:has(#lyric-editor:focus) [data-testid="editor-header"]:hover,
+.rl-editor-layout:has(#lyric-editor:focus) [data-testid="editor-header"]:focus-within,
+.rl-editor-layout:has(#lyric-editor:focus) [data-editor-sidebar]:hover,
+.rl-editor-layout:has(#lyric-editor:focus) [data-editor-sidebar]:focus-within,
+.rl-editor-layout:has(#lyric-editor:focus) [data-testid="rhyme-panel"]:hover,
+.rl-editor-layout:has(#lyric-editor:focus) [data-testid="rhyme-panel"]:focus-within {
+  opacity: 1;
 }
 
 /* Custom scrollbar styles */

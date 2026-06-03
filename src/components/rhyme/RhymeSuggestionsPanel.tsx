@@ -413,7 +413,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           data-testid="rhyme-quick-assist"
           className="pointer-events-none fixed bottom-6 right-6 z-40 w-[min(460px,calc(100vw-2rem))]"
         >
-          <div className="pointer-events-auto rounded-lg border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)]/95 p-3 shadow-lg shadow-black/12 backdrop-blur-[1px]">
+          <div className="pointer-events-auto rounded-2xl border border-white/[0.08] bg-[rgba(12,12,14,0.86)] p-3 shadow-2xl shadow-black/35 backdrop-blur-xl">
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-[11px] tracking-[0.08em] text-[color:var(--rl-shell-muted)]">
                 Rhymes for <span className="font-semibold text-[color:var(--rl-shell-text)]">“{activeToken}”</span>
@@ -421,7 +421,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               <button
                 type="button"
                 onClick={handleOpenPanelFromAssist}
-                className="cursor-pointer rounded-sm px-2 py-1 text-[11px] font-medium text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/45"
+                className="cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium text-[color:var(--rl-shell-muted)] transition duration-150 ease-out hover:bg-white/[0.04] hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cff]/45"
               >
                 See more
               </button>
@@ -432,7 +432,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                   key={`${suggestion}-${index}`}
                   type="button"
                   onClick={() => insertSuggestion(suggestion)}
-                  className="cursor-pointer rounded-full border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)] px-2.5 py-1 text-[12px] text-[color:var(--rl-shell-text)] transition-colors hover:border-[#f2d000]/35 hover:bg-[#f2d000]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/45"
+                  className="min-h-8 cursor-pointer rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-1 text-[12px] text-[color:var(--rl-shell-text)] transition duration-150 ease-out hover:border-[#7c8cff]/35 hover:bg-[#7c8cff]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cff]/45"
                 >
                   {suggestion}
                 </button>
@@ -452,7 +452,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const panelContent = (
       <div className="flex h-full min-h-0 flex-col">
         <div className="px-2.5 pt-2.5">
-          <div className="space-y-2.5 rounded-md border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)] p-2.5 text-[12px] text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/70">
+          <div className="space-y-3 rounded-2xl border border-white/[0.06] bg-white/[0.025] p-3 text-[12px] text-slate-700 shadow-inner shadow-white/[0.015] dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/70">
             <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-white/45">
               Rhymes
             </div>
@@ -468,7 +468,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Type a word…"
-                className="w-full rounded-sm border border-[color:var(--rl-shell-border)] bg-[#f3f5f7] px-3 py-2 text-[13px] text-slate-900 placeholder:text-[#7b8794] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--rl-shell-elevated)] motion-reduce:transition-none dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/90 dark:placeholder:text-white/35 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113]"
+                className="w-full rounded-xl border border-[color:var(--rl-shell-border)] bg-[#f3f5f7] px-3 py-2 text-[13px] text-slate-900 placeholder:text-[#7b8794] transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cff]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--rl-shell-elevated)] motion-reduce:transition-none dark:border-white/[0.1] dark:bg-black/35 dark:text-white/90 dark:placeholder:text-white/35 dark:focus-visible:ring-[#7c8cff]/35 dark:focus-visible:ring-offset-[#111113]"
               />
             </div>
 
@@ -486,10 +486,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 const isActive = rhymeFilters[chip.value]
                 const activeClasses =
                   chip.value === 'perfect'
-                    ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-200'
-                    : chip.value === 'near'
-                    ? 'border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-200'
-                    : 'border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-200'
+                    ? 'border-[#7c8cff]/35 bg-[#7c8cff]/12 text-slate-800 dark:text-white/84'
+                    : 'border-[#7c8cff]/35 bg-[#7c8cff]/12 text-slate-800 dark:text-white/84'
                 return (
                   <button
                     key={chip.value}
@@ -500,7 +498,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                       trackEvent('rhyme_filter_changed', { quality: chip.value, enabled: !rhymeFilters[chip.value] })
                       setRhymeFilters(hasAny ? next : { perfect: true, near: true })
                     }}
-                    className={`rounded-full border px-3 py-1 text-[11px] font-medium transition duration-100 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 active:scale-[0.98] dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
+                    className={`min-h-8 rounded-full border px-3 py-1 text-[11px] font-medium transition duration-150 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cff]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 active:scale-[0.98] dark:focus-visible:ring-[#7c8cff]/35 dark:focus-visible:ring-offset-[#111113] ${
                       isActive
                         ? activeClasses
                         : 'border-[color:var(--rl-shell-border)] bg-[#eef2f5] text-slate-700 hover:text-slate-900 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
@@ -517,7 +515,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               <button
                 type="button"
                 onClick={() => setAdvancedOpen((prev) => !prev)}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:text-white/55 dark:hover:text-white/82 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113]"
+                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium text-slate-500 transition duration-150 ease-out hover:bg-white/[0.04] hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cff]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:text-white/55 dark:hover:text-white/82 dark:focus-visible:ring-[#7c8cff]/35 dark:focus-visible:ring-offset-[#111113]"
                 aria-expanded={advancedOpen}
                 aria-controls="rhyme-advanced"
               >
@@ -532,11 +530,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
 
             {advancedOpen && (
-              <div id="rhyme-advanced" className="space-y-3 rounded-sm border border-[color:var(--rl-shell-border)] bg-[#eef2f5] p-2 text-[11px] text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/55">
+              <div id="rhyme-advanced" className="space-y-3 rounded-xl border border-[color:var(--rl-shell-border)] bg-[#eef2f5] p-2.5 text-[11px] text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/55">
                 <label className="flex cursor-pointer items-start gap-2">
                   <input
                     type="checkbox"
-                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 dark:border-white/[0.2] dark:bg-[#0d0d0f] dark:text-white/85 dark:focus-visible:ring-white/25"
+                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-[#7c8cff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cff]/40 dark:border-white/[0.2] dark:bg-[#0d0d0f] dark:text-[#7c8cff] dark:focus-visible:ring-[#7c8cff]/35"
                     checked={multiSyllablePerfect}
                     onChange={(event) => {
                       trackEvent('rhyme_filter_changed', { quality: 'multi_syllable_perfect', enabled: event.target.checked })
@@ -553,7 +551,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                 <label className="flex cursor-pointer items-start gap-2">
                   <input
                     type="checkbox"
-                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 dark:border-white/[0.2] dark:bg-[#0d0d0f] dark:text-white/85 dark:focus-visible:ring-white/25"
+                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-[#7c8cff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cff]/40 dark:border-white/[0.2] dark:bg-[#0d0d0f] dark:text-[#7c8cff] dark:focus-visible:ring-[#7c8cff]/35"
                     checked={commonWordsOnly}
                     onChange={(event) => {
                       trackEvent('rhyme_filter_changed', { quality: 'common_words_only', enabled: event.target.checked })
@@ -575,7 +573,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                       onClick={() => setActiveTab('caret')}
                       className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
                         activeTab === 'caret'
-                          ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-white/[0.2] dark:bg-white/[0.14] dark:text-white'
+                          ? 'border-[#7c8cff]/35 bg-[#7c8cff]/12 text-slate-900 shadow-sm dark:border-[#7c8cff]/35 dark:bg-[#7c8cff]/12 dark:text-white'
                           : 'border-[color:var(--rl-shell-border)] bg-[#eef2f5] text-slate-700 hover:text-slate-900 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
                       }`}
                     >
@@ -586,7 +584,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                       onClick={() => setActiveTab('lineLast')}
                       className={`rounded-full border px-3 py-1 font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
                         activeTab === 'lineLast'
-                          ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-white/[0.2] dark:bg-white/[0.14] dark:text-white'
+                          ? 'border-[#7c8cff]/35 bg-[#7c8cff]/12 text-slate-900 shadow-sm dark:border-[#7c8cff]/35 dark:bg-[#7c8cff]/12 dark:text-white'
                           : 'border-[color:var(--rl-shell-border)] bg-[#eef2f5] text-slate-700 hover:text-slate-900 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
                       }`}
                     >
@@ -601,7 +599,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
         <div className="mt-2.5 min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-0 thin-scrollbar">
           {!isInitialLoading && (
-            <div className="sticky top-0 z-10 mb-1 rounded-md border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)]/95 px-3 py-2 text-[12px] backdrop-blur-[1px]">
+            <div className="sticky top-0 z-10 mb-2 rounded-xl border border-white/[0.06] bg-[rgba(12,12,14,0.9)] px-3 py-2 text-[12px] shadow-sm shadow-black/20 backdrop-blur-xl">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                   {activeTokenLabel}
@@ -733,11 +731,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                   aria-selected={index === selectedIndex}
                   data-index={index}
                   id={`rhyme-suggestion-${index}`}
-                  className={`relative w-full rounded-md border border-transparent px-3 py-2 text-left text-[13px] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#101012] ${
+                  className={`relative w-full rounded-xl border border-transparent px-3 py-2.5 text-left text-[13px] transition duration-150 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c8cff]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 dark:focus-visible:ring-[#7c8cff]/35 dark:focus-visible:ring-offset-[#101012] ${
                     index === selectedIndex
-                      ? 'border-slate-300/80 bg-slate-200/55 shadow-sm dark:border-white/[0.18] dark:bg-white/[0.1]'
-                      : 'hover:bg-slate-100/80 active:bg-slate-200/70 dark:hover:bg-white/[0.05] dark:active:bg-white/[0.08]'
-                  } ${index === selectedIndex ? "before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-slate-500/80 before:content-[''] dark:before:bg-white/55" : ''}`}
+                      ? 'border-[#7c8cff]/35 bg-[#7c8cff]/10 shadow-sm shadow-black/20 dark:border-[#7c8cff]/35 dark:bg-[#7c8cff]/10'
+                      : 'hover:bg-slate-100/80 active:bg-slate-200/70 dark:hover:bg-white/[0.045] dark:active:bg-white/[0.07]'
+                  } ${index === selectedIndex ? "before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-[#7c8cff]/80 before:content-[''] dark:before:bg-[#7c8cff]/80" : ''}`}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -751,11 +749,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                       </span>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      <span className="rounded-full border border-[color:var(--rl-shell-border)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-300">
+                      <span className="rounded-full border border-white/[0.07] bg-white/[0.035] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-white/58">
                         {estimateSyllables(suggestion)} syl
                       </span>
                       {index < 3 ? (
-                        <span className="text-[10px] uppercase tracking-[0.08em] text-[#c4932a] dark:text-[#f2d000]/85">
+                        <span className="rounded-full bg-[#7c8cff]/10 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-[#6e7bff] dark:text-[#7c8cff]/85">
                           Top
                         </span>
                       ) : null}
@@ -870,7 +868,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     return (
       <div
         data-testid="rhyme-panel"
-        className="fixed bottom-6 right-6 flex flex-col"
+        className="fixed bottom-6 right-6 flex flex-col transition-opacity duration-150 ease-out"
         style={{
           zIndex: layers.rhymePanel,
           width: `${dockedWidth}px`,
