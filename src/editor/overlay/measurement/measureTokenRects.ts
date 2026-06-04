@@ -1,4 +1,5 @@
 import type { DOMRectLike, TokenRect } from '@/editor/types'
+import { normalizeEditorTextNode, shouldIgnoreEditorTextNode } from '@/lib/editor/plainText'
 
 type TokenRange = { id: string; lineId: string; start: number; end: number }
 
@@ -53,7 +54,11 @@ export function measureTokenRects(
       for (const token of tokenRanges) {
         const lineElement = editableRoot.querySelector<HTMLDivElement>(`[data-line-id="${token.lineId}"]`)
         if (!lineElement) continue
-        const walker = doc.createTreeWalker(lineElement, NodeFilter.SHOW_TEXT)
+        const walker = doc.createTreeWalker(lineElement, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            return shouldIgnoreEditorTextNode(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+          },
+        })
         let node: Node | null = walker.nextNode()
         let offset = 0
         let startNode: Node | null = null
@@ -61,7 +66,7 @@ export function measureTokenRects(
         let startOffset = 0
         let endOffset = 0
         while (node) {
-          const len = node.textContent?.length ?? 0
+          const len = normalizeEditorTextNode(node.textContent ?? '').length
           const nextOffset = offset + len
           if (!startNode && token.start >= offset && token.start <= nextOffset) {
             startNode = node

@@ -1,30 +1,25 @@
 import type { SelectionSnapshot } from '@/editor/types'
+import { getLineElementFromNode, getPlainTextOffsetWithinLine } from '@/lib/editor/plainText'
 
 function resolvePoint(root: HTMLElement, node: Node | null, offset: number) {
-  if (!node || !root.contains(node)) {
+  const lineElement = getLineElementFromNode(root, node)
+  if (!lineElement || !node) {
     return { lineId: null, offset: 0 }
   }
-  const lineElement =
-    node instanceof Element ? node.closest<HTMLDivElement>('.line') : node.parentElement?.closest<HTMLDivElement>('.line')
-  if (!lineElement) {
-    return { lineId: null, offset: 0 }
-  }
+
   const lineId = lineElement.dataset.lineId ?? null
   if (!lineId) {
     return { lineId: null, offset: 0 }
   }
 
-  const range = root.ownerDocument.createRange()
-  range.setStart(lineElement, 0)
-  try {
-    range.setEnd(node, offset)
-  } catch {
-    range.setEnd(lineElement, lineElement.childNodes.length)
+  const cleanOffset = getPlainTextOffsetWithinLine(lineElement, node, offset)
+  if (cleanOffset === null) {
+    return { lineId: null, offset: 0 }
   }
 
   return {
     lineId,
-    offset: Math.max(0, range.toString().length),
+    offset: Math.max(0, cleanOffset),
   }
 }
 
@@ -38,10 +33,7 @@ function detectDirection(selection: Selection): 'forward' | 'backward' {
 
   if (!anchor || !focus) return 'forward'
 
-  const doc =
-    anchor.nodeType === 9
-      ? (anchor as unknown as Document)
-      : anchor.ownerDocument
+  const doc = anchor.nodeType === 9 ? (anchor as unknown as Document) : anchor.ownerDocument
 
   if (!doc) return 'forward'
 

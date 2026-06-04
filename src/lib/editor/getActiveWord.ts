@@ -1,10 +1,11 @@
+import { getActiveTokenFromCaret, getEditorPlainText, tokenizePlainText } from '@/lib/editor/plainText'
+
 export interface ActiveWord {
   word: string
   startOffset: number
   endOffset: number
   isAtCaret: boolean
 }
-
 
 const THROTTLE_MS = 50
 
@@ -23,30 +24,25 @@ export function getActiveWord(editorElement: HTMLElement | null): ActiveWord | n
 
   try {
     const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0) {
+    if (!selection || selection.rangeCount === 0 || !selection.focusNode || !editorElement.contains(selection.focusNode)) {
       lastResult = getLastWord(editorElement)
       return lastResult
     }
 
-    const range = selection.getRangeAt(0)
-    
-    // Check if selection is within our editor
-    if (!editorElement.contains(range.commonAncestorContainer)) {
-      lastResult = getLastWord(editorElement)
+    const text = getEditorPlainText(editorElement)
+    const token = getActiveTokenFromCaret(selection, editorElement, text)
+    if (token) {
+      lastResult = {
+        word: token.word,
+        startOffset: token.start,
+        endOffset: token.end,
+        isAtCaret: true,
+      }
       return lastResult
     }
 
-    // Get word at caret position
-    const wordAtCaret = getWordAtCaret(range, editorElement)
-    if (wordAtCaret) {
-      lastResult = wordAtCaret
-      return lastResult
-    }
-
-    // Fallback to last word
     lastResult = getLastWord(editorElement)
     return lastResult
-
   } catch (error) {
     console.warn('Error getting active word:', error)
     lastResult = getLastWord(editorElement)
@@ -54,73 +50,22 @@ export function getActiveWord(editorElement: HTMLElement | null): ActiveWord | n
   }
 }
 
-function getWordAtCaret(range: Range, editorElement: HTMLElement): ActiveWord | null {
-  const text = editorElement.textContent || ''
-  const caretOffset = getCaretOffset(range, editorElement)
-  
-  if (caretOffset === -1) return null
-
-  // Find word boundaries around caret
-  const beforeCaret = text.slice(0, caretOffset)
-  const afterCaret = text.slice(caretOffset)
-  
-  // Look for word characters before caret
-  const beforeMatch = beforeCaret.match(/\b[\p{L}']+$/u)
-  const afterMatch = afterCaret.match(/^[\p{L}']+\b/u)
-  
-  if (!beforeMatch && !afterMatch) return null
-  
-  const startOffset = beforeMatch 
-    ? caretOffset - beforeMatch[0].length 
-    : caretOffset
-  const endOffset = afterMatch 
-    ? caretOffset + afterMatch[0].length 
-    : caretOffset
-  
-  const word = text.slice(startOffset, endOffset).trim()
-  
-
-  
-  return {
-    word,
-    startOffset,
-    endOffset,
-    isAtCaret: true,
-  }
-}
-
 function getLastWord(editorElement: HTMLElement): ActiveWord | null {
-  const text = editorElement.textContent || ''
+  const text = getEditorPlainText(editorElement)
   if (!text.trim()) return null
 
-  // Find the last word in the text
-  const words = text.match(/\b[\p{L}']+\b/gu)
-  if (!words || words.length === 0) return null
-
+  const words = tokenizePlainText(text)
   const lastMatch = words[words.length - 1]
   if (!lastMatch) return null
 
-  const lastIndex = text.lastIndexOf(lastMatch)
   return {
-    word: lastMatch,
-    startOffset: lastIndex,
-    endOffset: lastIndex + lastMatch.length,
+    word: lastMatch.word,
+    startOffset: lastMatch.start,
+    endOffset: lastMatch.end,
     isAtCaret: false,
   }
 }
 
-function getCaretOffset(range: Range, editorElement: HTMLElement): number {
-  try {
-    const preCaretRange = range.cloneRange()
-    preCaretRange.selectNodeContents(editorElement)
-    preCaretRange.setEnd(range.endContainer, range.endOffset)
-    return preCaretRange.toString().length
-  } catch {
-    return -1
-  }
-}
-
-// Throttled event listener setup
 export function setupCaretListener(
   editorElement: HTMLElement,
   callback: (activeWord: ActiveWord | null) => void
@@ -129,7 +74,7 @@ export function setupCaretListener(
 
   const throttledCallback = () => {
     if (timeoutId) return
-    
+
     timeoutId = window.setTimeout(() => {
       const activeWord = getActiveWord(editorElement)
       callback(activeWord)
@@ -138,7 +83,7 @@ export function setupCaretListener(
   }
 
   const events = ['keyup', 'click', 'selectionchange'] as const
-  
+
   events.forEach(event => {
     if (event === 'selectionchange') {
       document.addEventListener(event, throttledCallback)
@@ -151,7 +96,7 @@ export function setupCaretListener(
     if (timeoutId) {
       window.clearTimeout(timeoutId)
     }
-    
+
     events.forEach(event => {
       if (event === 'selectionchange') {
         document.removeEventListener(event, throttledCallback)
