@@ -11,13 +11,10 @@ import type { RhymeSource } from '@/lib/rhymes/rhymeSource'
 import { classifyCandidate, QUALITY_TIER_ORDER } from '@/lib/rhyme/wordQuality'
 import type { RhymeSuggestionDebug, RhymeSuggestionDebugState } from '@/lib/rhyme-db/rhymeDebug'
 import { isEnglishWord } from '@/lib/rhyme-db/isEnglishWord'
-import {
-  getPreferredRhymeSource,
-  markLocalInitFailed,
-} from '@/lib/rhymes/rhymeSource'
+import { getPreferredRhymeSource, markLocalInitFailed } from '@/lib/rhymes/rhymeSource'
 
 const ALL_MODES = ['perfect', 'near'] as const
-type NormalizedMode = typeof ALL_MODES[number]
+type NormalizedMode = (typeof ALL_MODES)[number]
 const isMode = (value: string): value is NormalizedMode => (ALL_MODES as readonly string[]).includes(value)
 
 type Status = 'idle' | 'loading' | 'success' | 'error'
@@ -110,6 +107,102 @@ export const useRhymeSuggestions = ({
     return ''
   }, [currentLineRange, currentLineText, text])
 
+  const activeTokens = useMemo(() => {
+    if (normalizedQueryToken) {
+      const rawToken = queryToken ?? normalizedQueryToken
+      return {
+        caretToken: normalizedQueryToken,
+        lineLastToken: normalizedQueryToken,
+        rawCaretToken: rawToken,
+        rawLineLastToken: rawToken,
+      }
+    }
+
+    const caretToken = getCaretWord(text, caretIndex)
+    const lineLastToken = getLineLastWord(lineText)
+    return {
+      caretToken,
+      lineLastToken,
+      rawCaretToken: caretToken,
+      rawLineLastToken: lineLastToken,
+    }
+  }, [caretIndex, lineText, normalizedQueryToken, queryToken, text])
+
+  const activeTargetKey = useMemo(
+    () =>
+      [
+        activeTokens.caretToken ?? '',
+        activeTokens.lineLastToken ?? '',
+        activeTokens.rawCaretToken ?? '',
+        activeTokens.rawLineLastToken ?? '',
+      ].join('|'),
+    [activeTokens],
+  )
+
+  const lastObservedTargetKeyRef = useRef<string | null>(null)
+  const inFlightRequestKeyRef = useRef<string | null>(null)
+  const completedRequestKeyRef = useRef<string | null>(null)
+
+  const buildRequestKey = useCallback(
+    (tokens: { caretToken?: string | null; lineLastToken?: string | null }) =>
+      [
+        tokens.caretToken ?? '',
+        tokens.lineLastToken ?? '',
+        modes
+          .map((mode) => mode.toLowerCase())
+          .sort()
+          .join(','),
+        max ?? 'all',
+        Boolean(multiSyllable),
+        Boolean(commonWordsOnly),
+        Boolean(debugEnabled),
+      ].join('|'),
+    [commonWordsOnly, debugEnabled, max, modes, multiSyllable],
+  )
+
+  useEffect(() => {
+    if (lastObservedTargetKeyRef.current === activeTargetKey) return
+
+    lastObservedTargetKeyRef.current = activeTargetKey
+    requestCounter.current += 1
+    onlineAbortRef.current?.abort()
+    inFlightRequestKeyRef.current = null
+    completedRequestKeyRef.current = null
+
+    if (typingTimer.current) {
+      window.clearTimeout(typingTimer.current)
+      typingTimer.current = null
+    }
+    if (caretTimer.current) {
+      window.clearTimeout(caretTimer.current)
+      caretTimer.current = null
+    }
+
+    const hasTarget = Boolean(activeTokens.caretToken || activeTokens.lineLastToken)
+    setDebug({
+      caretToken: activeTokens.caretToken ?? undefined,
+      lineLastToken: activeTokens.lineLastToken ?? undefined,
+      lastQueryMs: undefined,
+      caretDetails: undefined,
+      lineLastDetails: undefined,
+    })
+    setRhymeDebug({})
+    setError(undefined)
+    setWarning(undefined)
+
+    if (!enabled || !hasTarget) {
+      setResults({})
+      lastGoodRef.current = {}
+      setStatus('idle')
+      setPhase('idle')
+      return
+    }
+
+    setResults({})
+    setStatus('loading')
+    setPhase(Object.keys(lastGoodRef.current).length === 0 ? 'initial' : 'refreshing')
+  }, [activeTargetKey, activeTokens.caretToken, activeTokens.lineLastToken, enabled])
+
   const runQuery = useCallback(
     async (tokens: {
       caretToken?: string | null
@@ -139,8 +232,14 @@ export const useRhymeSuggestions = ({
         return
       }
 
+      const requestKey = buildRequestKey({ caretToken, lineLastToken })
+      if (requestKey === inFlightRequestKeyRef.current || requestKey === completedRequestKeyRef.current) {
+        return
+      }
+
       requestCounter.current += 1
       const requestId = requestCounter.current
+      inFlightRequestKeyRef.current = requestKey
       const maxResults = max ?? Number.MAX_SAFE_INTEGER
       const startTime = Date.now()
       setStatus('loading')
@@ -179,10 +278,17 @@ export const useRhymeSuggestions = ({
         return true
       }
 
-      const filterAndSort = (items: string[], rawTarget: string | null): { list: string[]; debug?: RhymeSuggestionDebug } => {
+      const filterAndSort = (
+        items: string[],
+        rawTarget: string | null,
+      ): { list: string[]; debug?: RhymeSuggestionDebug } => {
         const annotated = items.filter(isEnglishWord).map((word) => {
           const quality = classifyCandidate(word)
-          return { word, tier: quality.qualityTier, score: quality.commonScore }
+          return {
+            word,
+            tier: quality.qualityTier,
+            score: quality.commonScore,
+          }
         })
         const rejections: Record<string, number> = {}
         const stageCounts: Record<string, number> = {}
@@ -268,11 +374,11 @@ export const useRhymeSuggestions = ({
                   signal: controller.signal,
                   offline: isOffline,
                 },
-                onlineProviders
+                onlineProviders,
               ),
-              4500
+              4500,
             ),
-          }))
+          })),
         )
 
         if (controller.signal.aborted) {
@@ -286,12 +392,8 @@ export const useRhymeSuggestions = ({
         settled.forEach((entry) => {
           if (entry.status === 'fulfilled') {
             outcomes.set(entry.value.key, entry.value.result)
-            const entryAllFailed = entry.value.result.providerStates.every(
-              (state) => !state.ok && !state.skipped
-            )
-            const entryHadFailure = entry.value.result.providerStates.some(
-              (state) => !state.ok && !state.skipped
-            )
+            const entryAllFailed = entry.value.result.providerStates.every((state) => !state.ok && !state.skipped)
+            const entryHadFailure = entry.value.result.providerStates.some((state) => !state.ok && !state.skipped)
             allFailed = allFailed && entryAllFailed
             hadFailure = hadFailure || entryHadFailure
           } else {
@@ -328,7 +430,12 @@ export const useRhymeSuggestions = ({
           }
         }
 
-        return { results: onlineResults, allFailed, hadFailure, debug: onlineDebug }
+        return {
+          results: onlineResults,
+          allFailed,
+          hadFailure,
+          debug: onlineDebug,
+        }
       }
 
       const applyOnlineFallback = async (note?: string) => {
@@ -344,6 +451,7 @@ export const useRhymeSuggestions = ({
           setStatus('error')
           setError(offlineMessage)
           setPhase('error')
+          inFlightRequestKeyRef.current = null
           return
         }
 
@@ -353,6 +461,8 @@ export const useRhymeSuggestions = ({
 
         setResults(onlineResponse.results)
         lastGoodRef.current = onlineResponse.results
+        completedRequestKeyRef.current = requestKey
+        inFlightRequestKeyRef.current = null
         setStatus('success')
         setPhase('idle')
         setDebug((prev) => ({
@@ -378,6 +488,7 @@ export const useRhymeSuggestions = ({
       if (preferLocal) {
         try {
           await initRhymeClient()
+          if (requestId !== requestCounter.current) return
           const initWarning = getRhymeClient().getWarning()
           setWarning(initWarning ?? undefined)
         } catch (initError) {
@@ -406,14 +517,15 @@ export const useRhymeSuggestions = ({
                   commonWordsOnly,
                   debug: debugEnabled,
                 },
-              })
-            )
+              }),
+            ),
           )
+
+          if (requestId !== requestCounter.current) return
 
           const hasDbUnavailable = settled.some(
             (entry) =>
-              entry.status === 'rejected' &&
-              (entry.reason as Error & { code?: string }).code === 'DB_UNAVAILABLE'
+              entry.status === 'rejected' && (entry.reason as Error & { code?: string }).code === 'DB_UNAVAILABLE',
           )
           if (hasDbUnavailable) {
             const message = 'Rhyme DB unavailable'
@@ -471,7 +583,7 @@ export const useRhymeSuggestions = ({
                 perfect: Math.max(acc.perfect, item.candidatePools.perfect),
                 near: Math.max(acc.near, item.candidatePools.near),
               }),
-              { perfect: 0, near: 0 }
+              { perfect: 0, near: 0 },
             )
             return {
               normalizedToken: available[0].normalizedToken,
@@ -494,12 +606,14 @@ export const useRhymeSuggestions = ({
             caret: mergeDebug(resultsByMode.map((result) => result.debug?.caret)),
             lineLast: mergeDebug(resultsByMode.map((result) => result.debug?.lineLast)),
           }
+          if (requestId !== requestCounter.current) return
+
           if (debugEnabled) {
             const buildCombinedDebug = (
               rawTarget: string | null,
               merged: string[],
               deduped: number,
-              modeDebugs: Array<RhymeTokenDebug | undefined>
+              modeDebugs: Array<RhymeTokenDebug | undefined>,
             ): RhymeSuggestionDebug | undefined => {
               if (!rawTarget) return undefined
               const normalizedTarget = normalizeToken(rawTarget)
@@ -548,13 +662,13 @@ export const useRhymeSuggestions = ({
                 rawCaretToken ?? null,
                 caretMerge.merged,
                 caretMerge.deduped,
-                resultsByMode.map((result) => result.debug?.caret)
+                resultsByMode.map((result) => result.debug?.caret),
               ),
               lineLast: buildCombinedDebug(
                 rawLineLastToken ?? null,
                 lineLastMerge.merged,
                 lineLastMerge.deduped,
-                resultsByMode.map((result) => result.debug?.lineLast)
+                resultsByMode.map((result) => result.debug?.lineLast),
               ),
             })
           } else {
@@ -576,19 +690,26 @@ export const useRhymeSuggestions = ({
                   perfectKey: debugInfo?.perfectKey ?? null,
                   vowelKey: debugInfo?.vowelKey ?? null,
                   codaKey: debugInfo?.codaKey ?? null,
-                  candidatePools: debugInfo?.candidatePools ?? { perfect: 0, near: 0 },
+                  candidatePools: debugInfo?.candidatePools ?? {
+                    perfect: 0,
+                    near: 0,
+                  },
                   first30: words.slice(0, 30),
                 }
               })
-              console.debug('[rhyme-db] time debug', { target: label, modes: modeSnapshots })
+              console.debug('[rhyme-db] time debug', {
+                target: label,
+                modes: modeSnapshots,
+              })
             }
             logIfTime('caret', caretToken)
             logIfTime('lineLast', lineLastToken)
           }
 
-          if (requestId !== requestCounter.current) return
           setResults(mergedResults)
           lastGoodRef.current = mergedResults
+          completedRequestKeyRef.current = requestKey
+          inFlightRequestKeyRef.current = null
           setStatus('success')
           setPhase('idle')
           setMeta({ source: 'local' })
@@ -611,13 +732,14 @@ export const useRhymeSuggestions = ({
           setStatus('error')
           setError(message)
           setPhase('error')
+          inFlightRequestKeyRef.current = null
         }
         return
       }
 
       await applyOnlineFallback('Offline DB unavailable — using online providers.')
     },
-    [commonWordsOnly, debugEnabled, enabled, max, modes, multiSyllable, showVariants, wordUsage]
+    [buildRequestKey, commonWordsOnly, debugEnabled, enabled, max, modes, multiSyllable, showVariants, wordUsage],
   )
 
   useEffect(() => {
@@ -626,9 +748,7 @@ export const useRhymeSuggestions = ({
     }
 
     usageTimer.current = window.setTimeout(() => {
-      const tokens = text
-        .toLowerCase()
-        .match(/[a-z0-9']+/g)
+      const tokens = text.toLowerCase().match(/[a-z0-9']+/g)
       if (!tokens) {
         setWordUsage({})
         return
@@ -680,7 +800,12 @@ export const useRhymeSuggestions = ({
     const lineLastToken = getLineLastWord(lineText)
 
     typingTimer.current = window.setTimeout(() => {
-      runQuery({ caretToken, lineLastToken, rawCaretToken: caretToken, rawLineLastToken: lineLastToken })
+      runQuery({
+        caretToken,
+        lineLastToken,
+        rawCaretToken: caretToken,
+        rawLineLastToken: lineLastToken,
+      })
     }, 250)
 
     lastContentRef.current = { text, lineText }
@@ -707,7 +832,12 @@ export const useRhymeSuggestions = ({
     const lineLastToken = getLineLastWord(lineText)
 
     caretTimer.current = window.setTimeout(() => {
-      runQuery({ caretToken, lineLastToken, rawCaretToken: caretToken, rawLineLastToken: lineLastToken })
+      runQuery({
+        caretToken,
+        lineLastToken,
+        rawCaretToken: caretToken,
+        rawLineLastToken: lineLastToken,
+      })
     }, 50)
 
     return () => {
@@ -739,7 +869,7 @@ export const useRhymeSuggestions = ({
         window.clearTimeout(typingTimer.current)
       }
     }
-  }, [enabled, normalizedQueryToken, runQuery])
+  }, [enabled, normalizedQueryToken, queryToken, runQuery])
 
   return {
     status,
@@ -750,5 +880,6 @@ export const useRhymeSuggestions = ({
     rhymeDebug,
     meta,
     phase,
+    activeTokens,
   }
 }

@@ -68,6 +68,7 @@ describe('useRhymeSuggestions fallback', () => {
     mockedGetRhymeClient.mockReturnValue({
       getRhymes: async () => ({ results: { caret: ['time'], lineLast: ['rhyme'] }, debug: {} }),
       getWarning: () => null,
+      getStatus: () => null,
       init: () => Promise.resolve(),
       terminate: () => {},
     })
@@ -79,7 +80,7 @@ describe('useRhymeSuggestions fallback', () => {
         currentLineText: 'time',
         modes: ['perfect'],
         enabled: true,
-      })
+      }),
     )
 
     await act(async () => {
@@ -98,6 +99,7 @@ describe('useRhymeSuggestions fallback', () => {
     mockedGetRhymeClient.mockReturnValue({
       getRhymes,
       getWarning: () => null,
+      getStatus: () => null,
       init: () => Promise.resolve(),
       terminate: () => {},
     })
@@ -110,7 +112,7 @@ describe('useRhymeSuggestions fallback', () => {
         modes: ['perfect'],
         showVariants: true,
         enabled: true,
-      })
+      }),
     )
 
     await act(async () => {
@@ -128,6 +130,7 @@ describe('useRhymeSuggestions fallback', () => {
     mockedGetRhymeClient.mockReturnValue({
       getRhymes: async () => ({ results: { caret: [], lineLast: [] }, debug: {} }),
       getWarning: () => null,
+      getStatus: () => null,
       init: () => Promise.resolve(),
       terminate: () => {},
     })
@@ -140,7 +143,7 @@ describe('useRhymeSuggestions fallback', () => {
         currentLineText: 'time',
         modes: ['perfect'],
         enabled: true,
-      })
+      }),
     )
 
     await act(async () => {
@@ -162,6 +165,7 @@ describe('useRhymeSuggestions fallback', () => {
         throw dbError
       },
       getWarning: () => null,
+      getStatus: () => null,
       init: () => Promise.resolve(),
       terminate: () => {},
     })
@@ -174,7 +178,7 @@ describe('useRhymeSuggestions fallback', () => {
         currentLineText: 'time',
         modes: ['perfect'],
         enabled: true,
-      })
+      }),
     )
 
     await act(async () => {
@@ -191,6 +195,7 @@ describe('useRhymeSuggestions fallback', () => {
     mockedGetRhymeClient.mockReturnValue({
       getRhymes: async () => ({ results: { caret: [], lineLast: [] }, debug: {} }),
       getWarning: () => null,
+      getStatus: () => null,
       init: () => Promise.resolve(),
       terminate: () => {},
     })
@@ -203,7 +208,7 @@ describe('useRhymeSuggestions fallback', () => {
         currentLineText: 'time',
         modes: ['perfect'],
         enabled: true,
-      })
+      }),
     )
 
     await act(async () => {
@@ -240,6 +245,7 @@ describe('useRhymeSuggestions english filtering', () => {
         debug: {},
       }),
       getWarning: () => null,
+      getStatus: () => null,
       init: () => Promise.resolve(),
       terminate: () => {},
     })
@@ -251,7 +257,7 @@ describe('useRhymeSuggestions english filtering', () => {
         currentLineText: 'time',
         modes: ['perfect'],
         enabled: true,
-      })
+      }),
     )
 
     await act(async () => {
@@ -261,5 +267,269 @@ describe('useRhymeSuggestions english filtering', () => {
 
     expect(result.current.results.caret).toEqual(['crime', 'sublime'])
     expect(result.current.results.lineLast).toEqual(['time'])
+  })
+})
+
+describe('useRhymeSuggestions synchronization and stale-response safety', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    retryLocalInit()
+    mockedFetchAggregatedRhymes.mockReset()
+    mockedGetRhymeClient.mockReset()
+    mockedInitRhymeClient.mockReset()
+    mockedInitRhymeClient.mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  const createDeferred = <T,>() => {
+    let resolve!: (value: T) => void
+    let reject!: (reason?: unknown) => void
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res
+      reject = rej
+    })
+    return { promise, resolve, reject }
+  }
+
+  const workerRhymes: Record<string, string> = {
+    lost: 'cost',
+    tonight: 'flight',
+  }
+
+  const makeWorkerResult = (token: string) => ({
+    results: { caret: [workerRhymes[token] ?? 'time'], lineLast: [workerRhymes[token] ?? 'rhyme'] },
+    debug: {
+      caret: {
+        normalizedToken: token,
+        wordId: 1,
+        perfectKey: token,
+        vowelKey: token,
+        codaKey: token,
+        candidatePools: { perfect: 1, near: 0 },
+      },
+      lineLast: {
+        normalizedToken: token,
+        wordId: 1,
+        perfectKey: token,
+        vowelKey: token,
+        codaKey: token,
+        candidatePools: { perfect: 1, near: 0 },
+      },
+    },
+  })
+
+  it('updates the active caret target immediately during rapid typing before the debounced fetch runs', () => {
+    mockedGetRhymeClient.mockReturnValue({
+      getRhymes: jest.fn().mockResolvedValue(makeWorkerResult('tonight')),
+      getWarning: () => null,
+      getStatus: () => null,
+      init: () => Promise.resolve(),
+      terminate: () => {},
+    })
+
+    const { result, rerender } = renderHook(
+      ({ text, caretIndex, currentLineText }) =>
+        useRhymeSuggestions({
+          text,
+          caretIndex,
+          currentLineText,
+          modes: ['perfect'],
+          enabled: true,
+        }),
+      {
+        initialProps: {
+          text: 'i lost hope',
+          caretIndex: 'i lost hope'.length,
+          currentLineText: 'i lost hope',
+        },
+      },
+    )
+
+    expect(result.current.activeTokens.caretToken).toBe('hope')
+
+    rerender({
+      text: 'i lost hope in myself tonight',
+      caretIndex: 'i lost hope in myself tonight'.length,
+      currentLineText: 'i lost hope in myself tonight',
+    })
+
+    expect(result.current.activeTokens.caretToken).toBe('tonight')
+    expect(mockedGetRhymeClient().getRhymes).not.toHaveBeenCalled()
+  })
+
+  it('invalidates an in-flight local request as soon as the caret target changes, before the next debounce fires', async () => {
+    const lost = createDeferred<ReturnType<typeof makeWorkerResult>>()
+    const getRhymes = jest.fn((args) => {
+      const token = args.targets.caret ?? args.targets.lineLast ?? 'unknown'
+      if (token === 'lost') return lost.promise
+      return Promise.resolve(makeWorkerResult(token))
+    })
+    mockedGetRhymeClient.mockReturnValue({
+      getRhymes,
+      getWarning: () => null,
+      getStatus: () => null,
+      init: () => Promise.resolve(),
+      terminate: () => {},
+    })
+
+    const { result, rerender } = renderHook(
+      ({ text, caretIndex, currentLineText }) =>
+        useRhymeSuggestions({
+          text,
+          caretIndex,
+          currentLineText,
+          modes: ['perfect'],
+          enabled: true,
+        }),
+      {
+        initialProps: {
+          text: 'lost',
+          caretIndex: 4,
+          currentLineText: 'lost',
+        },
+      },
+    )
+
+    await act(async () => {
+      jest.advanceTimersByTime(260)
+      await flushPromises()
+    })
+    expect(getRhymes).toHaveBeenCalledWith(expect.objectContaining({ targets: { caret: 'lost', lineLast: 'lost' } }))
+
+    await act(async () => {
+      rerender({
+        text: 'lost tonight',
+        caretIndex: 'lost tonight'.length,
+        currentLineText: 'lost tonight',
+      })
+      await flushPromises()
+    })
+    expect(result.current.activeTokens.caretToken).toBe('tonight')
+
+    await act(async () => {
+      lost.resolve(makeWorkerResult('lost'))
+      await flushPromises()
+    })
+
+    expect(result.current.activeTokens.caretToken).toBe('tonight')
+    expect(result.current.results.caret ?? []).not.toContain('cost')
+    expect(result.current.results.caret).toBeUndefined()
+  })
+
+  it('commits only the latest request when local worker responses resolve out of order', async () => {
+    const lost = createDeferred<ReturnType<typeof makeWorkerResult>>()
+    const tonight = createDeferred<ReturnType<typeof makeWorkerResult>>()
+    const getRhymes = jest.fn((args) => {
+      const token = args.targets.caret ?? args.targets.lineLast ?? 'unknown'
+      if (token === 'lost') return lost.promise
+      if (token === 'tonight') return tonight.promise
+      return Promise.resolve(makeWorkerResult(token))
+    })
+    mockedGetRhymeClient.mockReturnValue({
+      getRhymes,
+      getWarning: () => null,
+      getStatus: () => null,
+      init: () => Promise.resolve(),
+      terminate: () => {},
+    })
+
+    const { result, rerender } = renderHook(
+      ({ text, caretIndex, currentLineText }) =>
+        useRhymeSuggestions({
+          text,
+          caretIndex,
+          currentLineText,
+          modes: ['perfect'],
+          enabled: true,
+        }),
+      {
+        initialProps: { text: 'lost', caretIndex: 4, currentLineText: 'lost' },
+      },
+    )
+
+    await act(async () => {
+      jest.advanceTimersByTime(260)
+      await flushPromises()
+    })
+
+    await act(async () => {
+      rerender({
+        text: 'lost tonight',
+        caretIndex: 'lost tonight'.length,
+        currentLineText: 'lost tonight',
+      })
+    })
+
+    await act(async () => {
+      jest.advanceTimersByTime(260)
+      await flushPromises()
+    })
+
+    await act(async () => {
+      tonight.resolve(makeWorkerResult('tonight'))
+      await flushPromises()
+    })
+    expect(result.current.results.caret).toEqual(['flight'])
+
+    await act(async () => {
+      lost.resolve(makeWorkerResult('lost'))
+      await flushPromises()
+    })
+
+    expect(result.current.activeTokens.caretToken).toBe('tonight')
+    expect(result.current.results.caret).toEqual(['flight'])
+    expect(result.current.debug.caretDetails?.normalizedToken).toBe('tonight')
+  })
+
+  it('aborts an in-flight online request when a newer caret target appears', async () => {
+    mockedInitRhymeClient.mockRejectedValue(new Error('local unavailable'))
+    mockedGetRhymeClient.mockReturnValue({
+      getRhymes: jest.fn().mockResolvedValue(makeWorkerResult('lost')),
+      getWarning: () => null,
+      getStatus: () => null,
+      init: () => Promise.resolve(),
+      terminate: () => {},
+    })
+    const signals: AbortSignal[] = []
+    mockedFetchAggregatedRhymes.mockImplementation((_token, options) => {
+      if (options?.signal) signals.push(options.signal)
+      return new Promise<AggregationResult>(() => {})
+    })
+
+    const { rerender } = renderHook(
+      ({ text, caretIndex, currentLineText }) =>
+        useRhymeSuggestions({
+          text,
+          caretIndex,
+          currentLineText,
+          modes: ['perfect'],
+          enabled: true,
+        }),
+      {
+        initialProps: { text: 'lost', caretIndex: 4, currentLineText: 'lost' },
+      },
+    )
+
+    await act(async () => {
+      jest.advanceTimersByTime(260)
+      await flushPromises()
+    })
+
+    expect(signals).toHaveLength(1)
+    expect(signals[0].aborted).toBe(false)
+
+    await act(async () => {
+      rerender({
+        text: 'lost tonight',
+        caretIndex: 'lost tonight'.length,
+        currentLineText: 'lost tonight',
+      })
+      await flushPromises()
+    })
+
+    expect(signals[0].aborted).toBe(true)
   })
 })
