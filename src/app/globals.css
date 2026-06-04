@@ -197,18 +197,19 @@ body.bg-white {
 /* Editor line break preservation */
 .editor-root {
   position: relative;
+  height: 100%;
   --rl-font: var(--rl-font-editor);
   --rl-font-size: var(--editor-font-size, 20px);
   --rl-line-height: max(var(--editor-line-height, 1.8), 1.72);
   --rl-line-pad-y: 2px;
   --rl-line-pad-y-effective: calc(var(--rl-line-pad-y) + 1px);
   --rl-line-row-height: calc(var(--rl-font-size) * var(--rl-line-height) + var(--rl-line-pad-y-effective) * 2);
-  --rl-pad-top: calc(4rem + var(--editor-safe-offset));
-  --rl-pad-bottom: 3.5rem;
+  --rl-pad-top: clamp(3.25rem, 9vh, calc(4rem + var(--editor-safe-offset)));
+  --rl-pad-bottom: 3rem;
   --rl-pad-inline: clamp(1rem, 4vw, 3rem);
   --rl-gutter-width: clamp(2.1rem, 3vw, 2.75rem);
   --rl-gutter-gap: clamp(0.5rem, 1.4vw, 0.9rem);
-  --rl-writing-width: clamp(0px, calc(100vw - var(--rl-pad-inline) * 2 - var(--rl-gutter-width) - var(--rl-gutter-gap)), 780px);
+  --rl-writing-width: clamp(0px, calc(100vw - var(--panel-right-offset, 0px) - var(--rl-pad-inline) * 2 - var(--rl-gutter-width) - var(--rl-gutter-gap)), 760px);
 }
 
 .rl-editor-grid {
@@ -218,6 +219,8 @@ body.bg-white {
   column-gap: var(--rl-gutter-gap);
   padding-inline: var(--rl-pad-inline);
   align-items: flex-start;
+  min-height: 100%;
+  height: 100%;
 }
 
 .gutterSpacer {
@@ -238,6 +241,9 @@ body.bg-white {
   isolation: isolate;
   caret-color: #f9fafb;
   background-color: transparent;
+  min-height: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 /* Dark theme editor styling */
@@ -280,11 +286,9 @@ body.bg-white .rl-editor[data-empty="true"]:not(:focus)::before {
   z-index: 0;
   left: -0.55rem;
   right: -0.55rem;
-  background-color: var(--rl-active-line-bg, rgba(124, 140, 255, 0.08));
-  border: 1px solid var(--rl-active-line-border, rgba(124, 140, 255, 0.18));
-  box-shadow:
-    0 0 0 1px rgba(124, 140, 255, 0.04),
-    0 8px 24px rgba(0, 0, 0, 0.35);
+  background-color: var(--rl-active-line-bg, rgba(124, 140, 255, 0.06));
+  border: 1px solid var(--rl-active-line-border, rgba(124, 140, 255, 0.1));
+  box-shadow: none;
   transition:
     top var(--rl-active-line-transition, 120ms) ease-out,
     height var(--rl-active-line-transition, 120ms) ease-out,
@@ -294,13 +298,13 @@ body.bg-white .rl-editor[data-empty="true"]:not(:focus)::before {
 }
 
 body.bg-black .rl-current-line-highlight {
-  --rl-active-line-bg: rgba(124, 140, 255, 0.08);
-  --rl-active-line-border: rgba(124, 140, 255, 0.18);
+  --rl-active-line-bg: rgba(124, 140, 255, 0.06);
+  --rl-active-line-border: rgba(124, 140, 255, 0.1);
 }
 
 body.bg-white .rl-current-line-highlight {
-  --rl-active-line-bg: rgba(110, 123, 255, 0.08);
-  --rl-active-line-border: rgba(110, 123, 255, 0.18);
+  --rl-active-line-bg: rgba(110, 123, 255, 0.055);
+  --rl-active-line-border: rgba(110, 123, 255, 0.12);
 }
 
 .rl-rhyme-highlight[data-rhyme-family] {
@@ -357,6 +361,7 @@ body.bg-white .editor-surface {
 }
 
 .editor-surface {
+  height: 100%;
   --rl-editor-pad-x: var(--rl-pad-inline);
   --rl-gutter-w: var(--rl-gutter-width);
   --rl-highlight-inset: 0.25rem;
@@ -444,7 +449,7 @@ body.bg-white .rl-editor .line {
 @media (max-width: 900px) {
   .editor-root {
     --rl-pad-inline: clamp(1rem, 5vw, 1.75rem);
-    --rl-writing-width: 1fr;
+    --rl-writing-width: 100%;
   }
 
   .rl-editor-grid {

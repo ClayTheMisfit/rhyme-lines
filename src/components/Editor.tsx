@@ -27,15 +27,15 @@ const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
 const RHYME_DECORATION_DEBOUNCE_MS = 180
 const ACTIVE_LINE_TUNING = {
-  yInset: -1,
-  hInset: -2,
-  bgDark: 0.08,
-  borderDark: 0.18,
-  bgLight: 0.08,
-  borderLight: 0.18,
-  opacityBlurred: 0.34,
-  motionPosMs: 150,
-  motionOpacityMs: 140,
+  yInset: 1,
+  hInset: 2,
+  bgDark: 0.06,
+  borderDark: 0.1,
+  bgLight: 0.055,
+  borderLight: 0.12,
+  opacityBlurred: 0.28,
+  motionPosMs: 140,
+  motionOpacityMs: 120,
 }
 
 type EditorProps = {
@@ -83,8 +83,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     visible: false,
     foundLine: false,
     lineId: null as string | null,
-    left: 0,
-    width: 0,
     debugTextColLeft: 0,
     debugLineLeft: 0,
   })
@@ -262,25 +260,14 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const measureLineRect = useCallback((lineEl: HTMLElement, textColEl: HTMLElement) => {
     const contentEl =
       lineEl.querySelector<HTMLElement>('[data-line-content], .line-content') ?? lineEl
-    const fallbackRect = contentEl.getBoundingClientRect()
+    const contentRect = contentEl.getBoundingClientRect()
     const textColRect = textColEl.getBoundingClientRect()
-    if (!fallbackRect.height || !textColRect.height) return null
-
-    const range = document.createRange()
-    range.selectNodeContents(contentEl)
-    const rangeRect = range.getBoundingClientRect()
-    range.detach()
-
-    const measuredRect = rangeRect.width > 0 && rangeRect.height > 0 ? rangeRect : fallbackRect
-    const lineWidth = measuredRect.width > 0 ? measuredRect.width : Math.min(fallbackRect.width, 32)
-
+    if (!contentRect.height || !textColRect.height) return null
     return {
-      top: measuredRect.top - textColRect.top,
-      left: Math.max(0, measuredRect.left - textColRect.left),
-      width: Math.max(lineWidth, 28),
-      height: measuredRect.height,
+      top: contentRect.top - textColRect.top,
+      height: contentRect.height,
       debugTextColLeft: textColRect.left,
-      debugLineLeft: measuredRect.left,
+      debugLineLeft: contentRect.left,
     }
   }, [])
 
@@ -292,8 +279,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       Math.abs(prev.height - next.height) > 0.5 ||
       prev.foundLine !== next.foundLine ||
       prev.lineId !== next.lineId ||
-      Math.abs(prev.left - next.left) > 0.5 ||
-      Math.abs(prev.width - next.width) > 0.5 ||
       (DEBUG_ACTIVE_LINE &&
         (Math.abs(prev.debugLineLeft - next.debugLineLeft) > 0.5 ||
           Math.abs(prev.debugTextColLeft - next.debugTextColLeft) > 0.5))
@@ -322,8 +307,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           visible: true,
           foundLine: false,
           lineId: null,
-          left: 0,
-          width: 48,
           debugTextColLeft: 0,
           debugLineLeft: 0,
         })
@@ -354,8 +337,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           visible: false,
           foundLine: false,
           lineId: null,
-          left: 0,
-          width: 48,
           debugTextColLeft: 0,
           debugLineLeft: 0,
         })
@@ -395,8 +376,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           visible: false,
           foundLine: true,
           lineId: resolvedLineId,
-          left: 0,
-          width: 0,
           debugTextColLeft: 0,
           debugLineLeft: 0,
         })
@@ -430,8 +409,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         visible: true,
         foundLine: true,
         lineId: resolvedLineId,
-        left: lineRect.left,
-        width: lineRect.width,
         debugTextColLeft: lineRect.debugTextColLeft,
         debugLineLeft: lineRect.debugLineLeft,
       })
@@ -476,12 +453,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const isDarkTheme = resolvedTheme === 'dark'
 
   const adjustedHeight = Math.max(lineHighlight.height - ACTIVE_LINE_TUNING.hInset, 18)
-  const horizontalPadding = 10
   const highlightStyle = {
     top: `${lineHighlight.top + ACTIVE_LINE_TUNING.yInset}px`,
-    left: `${Math.max(lineHighlight.left - horizontalPadding, -8)}px`,
-    width: `${Math.max(lineHighlight.width + horizontalPadding * 2, 48)}px`,
-    right: 'auto',
     height: `${adjustedHeight}px`,
     opacity: lineHighlight.visible ? (isEditorFocused ? 1 : ACTIVE_LINE_TUNING.opacityBlurred) : 0,
     '--rl-active-line-bg': `rgba(${isDarkTheme ? '124, 140, 255' : '110, 123, 255'}, ${
@@ -1072,22 +1045,22 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   )
 
   return (
-    <div className="flex h-full w-full">
+    <div className="flex h-full min-h-0 w-full overflow-hidden">
       {/* Editor + overlay */}
       <div
         ref={containerRef}
         data-editor-scroll
-        className="relative flex-1 overflow-auto bg-[color:var(--rl-shell-bg)] transition-all duration-300"
+        className="relative h-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[color:var(--rl-shell-bg)] transition-all duration-300"
         style={{
           marginRight: 'var(--panel-right-offset, 0px)',
           maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
         }}
       >
-        <div className="editor-root relative mx-auto w-full max-w-[1120px]">
+        <div className="editor-root relative mx-auto min-h-full w-full max-w-[1040px]">
           <div className="rl-editor-grid">
             <div aria-hidden className="gutterSpacer" />
 
-            <div ref={textColRef} className="editor-surface relative min-h-[70vh] w-full max-w-none overflow-visible">
+            <div ref={textColRef} className="editor-surface relative min-h-full w-full max-w-none overflow-visible">
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
                 className="pointer-events-none absolute inset-0 z-10"
@@ -1194,7 +1167,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onPointerDown={ensureEditorFocus}
                 data-placeholder={PLACEHOLDER_TEXT}
                 data-empty={isEditorEmpty ? 'true' : 'false'}
-                className="rl-editor relative z-20 min-h-[70vh] w-full outline-none pointer-events-auto"
+                className="rl-editor relative z-20 min-h-full w-full outline-none pointer-events-auto"
               />
               <p id="lyric-editor-instructions" className="sr-only">
                 Write lyrics here. Press Command or Control plus K to open commands, Alt plus R to toggle rhyme panel.

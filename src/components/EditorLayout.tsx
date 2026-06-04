@@ -104,7 +104,8 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
   }, [activeTabId, projectId, routeProjectIdIsInvalid, router, tabs])
 
   const layoutStyle: CSSProperties & { '--editor-layout-columns': string } = {
-    paddingTop: 'var(--header-height, 48px)',
+    height: 'calc(100dvh - var(--header-height, 48px))',
+    marginTop: 'var(--header-height, 48px)',
     '--editor-layout-columns': `${sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH}px minmax(0,1fr)`,
   }
 
@@ -118,7 +119,7 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
         <aside
           id="editor-documents-sidebar"
           data-editor-sidebar
-          className="hidden overflow-hidden border-r border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)] px-2 py-4 backdrop-blur-xl lg:flex lg:flex-col"
+          className="hidden h-full min-h-0 overflow-y-auto overflow-x-hidden border-r border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)] px-2 py-4 backdrop-blur-xl lg:flex lg:flex-col"
         >
           <div className={`mb-4 flex items-center ${sidebarExpanded ? 'justify-between' : 'justify-center'}`}>
             <TooltipProvider>
@@ -191,7 +192,7 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
             </div>
           )}
         </aside>
-        <main className="flex min-h-0 min-w-0 bg-[color:var(--rl-editor-lane)]">
+        <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-[color:var(--rl-editor-lane)]">
           {routeProjectIdIsInvalid ? null : <EditorShell />}
         </main>
       </div>
