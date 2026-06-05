@@ -21,7 +21,25 @@ const IGNORED_TEXT_SELECTOR = [
 
 const TOKEN_REGEX = /[\p{L}\p{N}']+/gu
 
+// Cache for line lengths to avoid O(n²) in getEditorPlainTextIndexFromSelection
+const lineLengthCache = new Map<HTMLElement, number>()
+
 export const normalizeEditorTextNode = (text: string) => text.replace(/\u00A0/g, ' ')
+
+/**
+ * Invalidate the cached length for a specific line element.
+ * Call this when a line's content changes.
+ */
+export function invalidateLineCache(lineElement: HTMLElement): void {
+  lineLengthCache.delete(lineElement)
+}
+
+/**
+ * Clear all cached line lengths.
+ */
+export function clearLineCache(): void {
+  lineLengthCache.clear()
+}
 
 export function shouldIgnoreEditorTextNode(node: Node | null): boolean {
   if (!node) return true
@@ -29,7 +47,7 @@ export function shouldIgnoreEditorTextNode(node: Node | null): boolean {
   return Boolean(element?.closest(IGNORED_TEXT_SELECTOR))
 }
 
-export function getLinePlainText(lineElement: HTMLElement): string {
+export function getLinePlainText(lineElement: HTMLElement, useCache = false): string {
   const doc = lineElement.ownerDocument
   const walker = doc.createTreeWalker(lineElement, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -43,7 +61,24 @@ export function getLinePlainText(lineElement: HTMLElement): string {
     text += normalizeEditorTextNode(node.textContent ?? '')
     node = walker.nextNode()
   }
-  return text.replace(/\r\n?/g, '\n')
+  text = text.replace(/\r\n?/g, '\n')
+
+  if (useCache) {
+    lineLengthCache.set(lineElement, text.length)
+  }
+
+  return text
+}
+
+/**
+ * Get the cached length of a line, or compute and cache it if not present.
+ */
+function getLinePlainTextLength(lineElement: HTMLElement): number {
+  const cached = lineLengthCache.get(lineElement)
+  if (cached !== undefined) return cached
+
+  const text = getLinePlainText(lineElement, true)
+  return text.length
 }
 
 export function getEditorLineElements(editorRoot: HTMLElement): HTMLElement[] {
@@ -137,7 +172,11 @@ export function getLineElementFromNode(editorRoot: HTMLElement, node: Node | nul
 
 export function getEditorPlainTextIndexFromSelection(
   editorRoot: HTMLElement,
-  selection: Selection | null = editorRoot.ownerDocument.getSelection()
+  selection: Selection | null = editorRoot.ownerDocument.getSelection(),
+  options?: {
+    precomputedLineIndex?: number
+    cachedLineLengths?: Map<HTMLElement, number>
+  }
 ): { index: number; lineElement: HTMLElement; lineIndex: number; lineOffset: number } | null {
   if (!selection || selection.rangeCount === 0 || !selection.focusNode) return null
   const lineElement = getLineElementFromNode(editorRoot, selection.focusNode)
@@ -147,12 +186,17 @@ export function getEditorPlainTextIndexFromSelection(
   if (lineOffset === null) return null
 
   const lines = getEditorLineElements(editorRoot)
-  const lineIndex = lines.findIndex((line) => line === lineElement)
+  const lineIndex = options?.precomputedLineIndex ?? lines.findIndex((line) => line === lineElement)
   if (lineIndex === -1) return null
 
-  const previousLength = lines
-    .slice(0, lineIndex)
-    .reduce((total, line) => total + getLinePlainText(line).length + 1, 0)
+  // Use O(n) with O(1) lookups instead of O(n²)
+  let previousLength = 0
+  for (let i = 0; i < lineIndex; i++) {
+    const lineLen = options?.cachedLineLengths
+      ? options.cachedLineLengths.get(lines[i]) ?? getLinePlainTextLength(lines[i])
+      : getLinePlainTextLength(lines[i])
+    previousLength += lineLen + 1 // +1 for newline
+  }
 
   return {
     index: previousLength + lineOffset,
