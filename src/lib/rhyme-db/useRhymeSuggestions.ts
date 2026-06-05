@@ -161,9 +161,10 @@ export const useRhymeSuggestions = ({
   )
 
   useEffect(() => {
-    if (lastObservedTargetKeyRef.current === activeTargetKey) return
+    const observedStateKey = `${enabled ? 'enabled' : 'disabled'}|${activeTargetKey}`
+    if (lastObservedTargetKeyRef.current === observedStateKey) return
 
-    lastObservedTargetKeyRef.current = activeTargetKey
+    lastObservedTargetKeyRef.current = observedStateKey
     requestCounter.current += 1
     onlineAbortRef.current?.abort()
     inFlightRequestKeyRef.current = null

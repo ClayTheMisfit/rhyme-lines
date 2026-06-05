@@ -93,6 +93,59 @@ describe('useRhymeSuggestions fallback', () => {
     expect(mockedFetchAggregatedRhymes).not.toHaveBeenCalled()
   })
 
+  it('refetches the same request after suggestions are disabled and re-enabled', async () => {
+    mockedInitRhymeClient.mockResolvedValue(undefined)
+    const getRhymes = jest.fn().mockResolvedValue({ results: { caret: ['time'], lineLast: ['rhyme'] }, debug: {} })
+    mockedGetRhymeClient.mockReturnValue({
+      getRhymes,
+      getWarning: () => null,
+      getStatus: () => null,
+      init: () => Promise.resolve(),
+      terminate: () => {},
+    })
+
+    const modes: Array<'perfect'> = ['perfect']
+    const { result, rerender } = renderHook(
+      ({ enabled }) =>
+        useRhymeSuggestions({
+          text: 'time',
+          caretIndex: 4,
+          currentLineText: 'time',
+          modes,
+          enabled,
+        }),
+      { initialProps: { enabled: true } },
+    )
+
+    await act(async () => {
+      jest.advanceTimersByTime(260)
+      await flushPromises()
+    })
+
+    expect(getRhymes).toHaveBeenCalledTimes(1)
+    expect(result.current.results.caret).toEqual(['time'])
+
+    await act(async () => {
+      rerender({ enabled: false })
+      await flushPromises()
+    })
+
+    expect(result.current.status).toBe('idle')
+    expect(result.current.results).toEqual({})
+
+    await act(async () => {
+      rerender({ enabled: true })
+      await flushPromises()
+    })
+    await act(async () => {
+      jest.advanceTimersByTime(260)
+      await flushPromises()
+    })
+
+    expect(getRhymes).toHaveBeenCalledTimes(2)
+    expect(result.current.results.caret).toEqual(['time'])
+  })
+
   it('forces spelling variants off in worker requests', async () => {
     mockedInitRhymeClient.mockResolvedValue(undefined)
     const getRhymes = jest.fn().mockResolvedValue({ results: { caret: ['time'], lineLast: [] }, debug: {} })
