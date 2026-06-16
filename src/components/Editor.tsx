@@ -2,7 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
-import { getEditorLineElements, getLinePlainText, getPlainTextOffsetWithinLine } from '@/lib/editor/plainText'
+import { getEditorLineElements, getLinePlainText, getPlainTextOffsetWithinLine, clearLineCache } from '@/lib/editor/plainText'
 import { useSettingsStore } from '@/store/settingsStore'
 import { RHYME_HIGHLIGHT_ORDER } from '@/lib/persist/schema'
 import { useRhymeHighlightSettingsStore } from '@/store/rhymeHighlightSettingsStore'
@@ -623,6 +623,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const commitEditorChange = useCallback((source: 'input' | 'paste' | 'drop' | 'program' = 'input') => {
     ensureLineStructure()
+    clearLineCache()
     const el = editorRef.current
     logDebugEvent('change', {
       phase: 'post-structure',
@@ -872,6 +873,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
       if (highlightDebounceRef.current) window.clearTimeout(highlightDebounceRef.current)
+      clearLineCache()
     }
   }, [])
 
