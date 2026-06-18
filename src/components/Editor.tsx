@@ -14,7 +14,6 @@ import { useAnalysisWorker } from '@/hooks/useAnalysisWorker'
 import type { LineInput } from '@/lib/analysis/compute'
 import { resolveEditorShortcut } from '@/lib/editor/shortcuts'
 import { useOverlayMeasurement, useLineVirtualization, useEditorInput, useEditorClipboard, useEditorSelection, useDecorationDiff } from '@/editor'
-import { resolveTheme } from '@/lib/theme/resolveTheme'
 import { buildRhymeDecorations, DEFAULT_UNDERLINE_TARGETS, resolveActiveRhymeFamilyId } from '@/lib/rhyme/rhymeDecorations'
 import { resolveInternalRhymesEnabled } from '@/lib/rhyme/highlightOptions'
 import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
@@ -33,8 +32,6 @@ const ACTIVE_LINE_TUNING = {
   hInset: 2,
   bgDark: 0.003,
   borderDark: 0.008,
-  bgLight: 0.008,
-  borderLight: 0.014,
   opacityBlurred: 0.24,
   motionPosMs: 90,
   motionOpacityMs: 90,
@@ -54,7 +51,7 @@ export type EditorHandle = {
 }
 
 const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { text = '', onTextChange = () => {}, onDirtyChange, onCursorChange, hydrated = false },
+  { text = '', onTextChange = () => {}, onDirtyChange, onCursorChange, hydrated: _hydrated = false },
   ref
 ) {
   const editorRef = useRef<HTMLDivElement>(null)
@@ -99,7 +96,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     showLineTotals,
     showRhymeDecorations,
     rhymeDebugOverlay,
-    theme,
   } = useSettingsStore(
     (state) => ({
       fontSize: state.fontSize,
@@ -107,7 +103,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       showLineTotals: state.showLineTotals,
       showRhymeDecorations: state.showRhymeDecorations,
       rhymeDebugOverlay: state.rhymeDebugOverlay,
-      theme: state.theme,
     }),
     shallow
   )
@@ -154,9 +149,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     activeLineIds,
     lines: lineInputs,
     analysis,
-    theme,
     fontSize,
     lineHeight,
+    theme: 'dark',
   })
 
   const [rhymeRecomputeSignal, setRhymeRecomputeSignal] = useState(0)
@@ -451,20 +446,13 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [updateCurrentLineHighlight]
   )
 
-  const resolvedTheme = resolveTheme(theme, { hydrated })
-  const isDarkTheme = resolvedTheme === 'dark'
-
   const adjustedHeight = Math.max(lineHighlight.height - ACTIVE_LINE_TUNING.hInset, 18)
   const highlightStyle = {
     top: `${lineHighlight.top + ACTIVE_LINE_TUNING.yInset}px`,
     height: `${adjustedHeight}px`,
     opacity: lineHighlight.visible ? (isEditorFocused ? 1 : ACTIVE_LINE_TUNING.opacityBlurred) : 0,
-    '--rl-active-line-bg': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
-      isDarkTheme ? ACTIVE_LINE_TUNING.bgDark : ACTIVE_LINE_TUNING.bgLight
-    })`,
-    '--rl-active-line-border': `rgba(${isDarkTheme ? '255, 255, 255' : '0, 0, 0'}, ${
-      isDarkTheme ? ACTIVE_LINE_TUNING.borderDark : ACTIVE_LINE_TUNING.borderLight
-    })`,
+    '--rl-active-line-bg': `rgba(255, 255, 255, ${ACTIVE_LINE_TUNING.bgDark})`,
+    '--rl-active-line-border': `rgba(255, 255, 255, ${ACTIVE_LINE_TUNING.borderDark})`,
     '--rl-active-line-transition': `${ACTIVE_LINE_TUNING.motionPosMs}ms`,
     '--rl-active-line-opacity-transition': `${ACTIVE_LINE_TUNING.motionOpacityMs}ms`,
   } as const

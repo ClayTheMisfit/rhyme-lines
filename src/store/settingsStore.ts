@@ -36,7 +36,7 @@ export type SettingsState = {
   showVariants: boolean
   commonWordsOnly: boolean
   lastUpdatedAt: number
-  setTheme: (theme: ThemeSetting) => void
+  setTheme: (theme?: ThemeSetting) => void
   setFontSize: (fontSize: number) => void
   setLineHeight: (lineHeight: number) => void
   setBadgeSize: (size: BadgeSize) => void
@@ -118,12 +118,12 @@ export const useSettingsStore = createWithEqualityFn<SettingsState>()((set, get)
   }
 
   return {
-  ...baseSettings,
-  setTheme: (theme) => {
-    set({ theme, lastUpdatedAt: Date.now() })
-    schedulePersist(get())
-  },
-  setFontSize: (fontSize) => {
+    ...baseSettings,
+    setTheme: () => {
+      set({ theme: 'dark', lastUpdatedAt: Date.now() })
+      schedulePersist(get())
+    },
+    setFontSize: (fontSize) => {
     set({ fontSize: clampValue(fontSize, DEFAULT_SETTINGS.fontSize, 12, 48), lastUpdatedAt: Date.now() })
     schedulePersist(get())
   },
@@ -290,7 +290,7 @@ export function applySettingsSnapshot(snapshot: SettingsSnapshot) {
     setCommonWordsOnly,
   } = useSettingsStore.getState()
 
-  setTheme(snapshot.theme)
+  setTheme('dark')
   setFontSize(snapshot.fontSize)
   setLineHeight(snapshot.lineHeight)
   setBadgeSize(snapshot.badgeSize)

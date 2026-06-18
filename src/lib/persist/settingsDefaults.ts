@@ -3,6 +3,7 @@ import { DEFAULT_SETTINGS, type SettingsSchema } from './schema'
 export const applySettingsDefaults = (incoming: SettingsSchema): SettingsSchema => ({
   ...DEFAULT_SETTINGS,
   ...incoming,
+  theme: 'dark',
   rhymeFilters: { ...DEFAULT_SETTINGS.rhymeFilters, ...incoming.rhymeFilters },
   showVariants: false,
   showRhymeDecorations: incoming.showRhymeDecorations ?? DEFAULT_SETTINGS.showRhymeDecorations,

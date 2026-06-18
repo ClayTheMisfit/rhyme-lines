@@ -40,7 +40,7 @@ describe('TopBar', () => {
     render(<TopBar />)
 
     expect(screen.getByRole('button', { name: 'Rename document title' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Toggle theme' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Toggle theme' })).not.toBeInTheDocument()
     expect(screen.queryByText('Document')).not.toBeInTheDocument()
   })
 })

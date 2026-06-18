@@ -22,7 +22,6 @@ const KEYBOARD_SHORTCUTS: { combo: string; description: string }[] = [
   { combo: '⌘/Ctrl + K', description: 'Open the command palette' },
   { combo: '⌘/Ctrl + N', description: 'Create a new draft' },
   { combo: '⌘/Ctrl + B', description: 'Go to workspace' },
-  { combo: '⌘/Ctrl + J', description: 'Toggle theme' },
   { combo: '⌘/Ctrl + S', description: 'Export current draft' },
   { combo: 'Alt + R', description: 'Open the rhyme panel' },
   { combo: 'Alt + H', description: 'Cycle rhyme highlight mode (Off → End → Focus → All)' },
@@ -152,7 +151,6 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
 
   const panelId = useId()
   const originalSettingsRef = useRef<null | {
-    theme: typeof theme
     fontSize: number
     lineHeight: number
     badgeSize: typeof badgeSize
@@ -163,14 +161,12 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
   }>(null)
 
   const {
-    theme,
     fontSize,
     lineHeight,
     badgeSize,
     showLineTotals,
     rhymeAutoRefresh,
     debounceMode,
-    setTheme,
     setFontSize,
     setLineHeight,
     setBadgeSize,
@@ -181,14 +177,12 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
   } = useSettingsStore(
     useCallback(
       (state) => ({
-        theme: state.theme,
         fontSize: state.fontSize,
         lineHeight: state.lineHeight,
         badgeSize: state.badgeSize,
         showLineTotals: state.showLineTotals,
         rhymeAutoRefresh: state.rhymeAutoRefresh,
         debounceMode: state.debounceMode,
-        setTheme: state.setTheme,
         setFontSize: state.setFontSize,
         setLineHeight: state.setLineHeight,
         setBadgeSize: state.setBadgeSize,
@@ -205,7 +199,6 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
   useEffect(() => {
     if (!isOpen || originalSettingsRef.current) return
     originalSettingsRef.current = {
-      theme,
       fontSize,
       lineHeight,
       badgeSize,
@@ -219,12 +212,11 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
         hideColorfulWords: useRhymeHighlightSettingsStore.getState().hideColorfulWords,
       },
     }
-  }, [badgeSize, debounceMode, fontSize, isOpen, lineHeight, rhymeAutoRefresh, showLineTotals, theme])
+  }, [badgeSize, debounceMode, fontSize, isOpen, lineHeight, rhymeAutoRefresh, showLineTotals])
 
   const handleCancel = useCallback(() => {
     const snapshot = originalSettingsRef.current
     if (snapshot) {
-      setTheme(snapshot.theme)
       setFontSize(snapshot.fontSize)
       setLineHeight(snapshot.lineHeight)
       setBadgeSize(snapshot.badgeSize)
@@ -235,7 +227,7 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
     }
     originalSettingsRef.current = null
     setIsOpen(false)
-  }, [setBadgeSize, setDebounceMode, setFontSize, setIsOpen, setLineHeight, setRhymeAutoRefresh, setShowLineTotals, setTheme])
+  }, [setBadgeSize, setDebounceMode, setFontSize, setIsOpen, setLineHeight, setRhymeAutoRefresh, setShowLineTotals])
 
   const handleSave = useCallback(() => {
     originalSettingsRef.current = null
@@ -247,7 +239,7 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
     (nextOpen: boolean) => {
       setIsOpen(nextOpen)
     },
-    []
+    [setIsOpen]
   )
 
   useEffect(() => {
@@ -311,30 +303,6 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
           </header>
 
           <div className="grid flex-1 grid-cols-1 gap-6 overflow-y-auto pb-4 pr-1 md:grid-cols-2">
-            <section className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Theme</h3>
-              <div className="flex rounded-lg border border-white/10 bg-white/5 p-1">
-                {(['dark', 'light'] as const).map((option) => {
-                  const isActive = theme === option
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => setTheme(option)}
-                      className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
-                        isActive
-                          ? 'bg-white text-black shadow'
-                          : 'text-white/70 hover:text-white hover:bg-white/10'
-                      }`}
-                      aria-pressed={isActive}
-                    >
-                      {option === 'dark' ? 'Dark' : 'Light'}
-                    </button>
-                  )
-                })}
-              </div>
-            </section>
-
             <section className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-white/50">Font size</h3>
               <label className="text-sm font-medium text-white/80" htmlFor="font-size-slider">
@@ -513,9 +481,7 @@ export function SettingsSheet({ open, onOpenChange, hideTrigger = false }: Setti
       setLineHeight,
       setRhymeAutoRefresh,
       setShowLineTotals,
-      setTheme,
       showLineTotals,
-      theme,
     ]
   )
 

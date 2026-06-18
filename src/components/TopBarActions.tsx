@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
-import { useTheme } from 'next-themes'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -20,20 +19,17 @@ import { isEditableShortcutTarget } from '@/lib/shortcuts/keyboard'
 const buttonClass =
   'inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] text-[11px] text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]'
 
-type ShortcutAction = 'palette' | 'theme' | 'rhymes' | 'export' | 'rhymeHighlightMode'
+type ShortcutAction = 'palette' | 'rhymes' | 'export' | 'rhymeHighlightMode'
 
 export default function TopBarActions() {
   const router = useRouter()
-  const { theme, setThemePreference, showRhymeDecorations, setShowRhymeDecorations } = useSettingsStore(
+  const { showRhymeDecorations, setShowRhymeDecorations } = useSettingsStore(
     (state) => ({
-      theme: state.theme,
-      setThemePreference: state.setTheme,
       showRhymeDecorations: state.showRhymeDecorations,
       setShowRhymeDecorations: state.setShowRhymeDecorations,
     }),
     shallow
   )
-  const { setTheme: setResolvedTheme } = useTheme()
   const { togglePanel } = useRhymePanelStore((state) => ({ togglePanel: state.togglePanel }), shallow)
   const mode = useRhymePanel((state) => state.mode)
   const tabs = useTabsStore((state) => state.tabs)
@@ -61,7 +57,6 @@ export default function TopBarActions() {
   useClickOutside(menuRef, () => setMenuOpen(false))
   const reduceMotion = useReducedMotion()
 
-  const themeGlyph = useMemo(() => (theme === 'dark' ? '☾' : '☀'), [theme])
   const activeTab = useMemo(() => tabs.find((tab) => tab.id === activeTabId) ?? tabs[0], [activeTabId, tabs])
 
 
@@ -80,14 +75,6 @@ export default function TopBarActions() {
     setSettingsOpen(true)
     focusSettingsPanel()
   }, [focusSettingsPanel])
-
-  const toggleTheme = useCallback(() => {
-    const next = theme === 'dark' ? 'light' : 'dark'
-    setThemePreference(next)
-    setResolvedTheme(next)
-    trackEvent('theme_switched', { theme: next })
-    setAnnouncement(`Theme switched to ${next} mode`)
-  }, [setResolvedTheme, setThemePreference, theme])
 
   const exportDraft = useCallback(() => {
     const target = activeTab
@@ -122,10 +109,6 @@ export default function TopBarActions() {
         })
         return
       }
-      if (action === 'theme') {
-        toggleTheme()
-        return
-      }
       if (action === 'rhymes') {
         toggleRhymePanel()
         setAnnouncement(panelVisible ? 'Rhyme panel hidden' : 'Rhyme panel shown')
@@ -135,7 +118,7 @@ export default function TopBarActions() {
         exportDraft()
       }
     },
-    [exportDraft, panelVisible, toggleRhymePanel, toggleTheme]
+    [exportDraft, panelVisible, toggleRhymePanel]
   )
 
   useEffect(() => {
@@ -150,9 +133,6 @@ export default function TopBarActions() {
       if (key === 'k') {
         event.preventDefault()
         shortcutDispatcher('palette')
-      } else if (key === 'j') {
-        event.preventDefault()
-        shortcutDispatcher('theme')
       } else if (key === 's') {
         event.preventDefault()
         shortcutDispatcher('export')
@@ -204,14 +184,6 @@ export default function TopBarActions() {
         },
       },
       {
-        id: 'switch-theme',
-        title: 'Switch Theme',
-        description: 'Toggle dark/light theme',
-        shortcutHint: '⌘/Ctrl J',
-        keywords: ['theme', 'appearance', 'dark', 'light'],
-        run: toggleTheme,
-      },
-      {
         id: 'export',
         title: 'Export Draft',
         description: 'Download current draft as .txt',
@@ -258,7 +230,7 @@ export default function TopBarActions() {
       }))
 
     return [...base, ...draftCommands]
-  }, [densityMode, exportDraft, newTab, openSettings, panelVisible, router, setActive, setDensityMode, tabs, toggleRhymePanel, toggleTheme])
+  }, [densityMode, exportDraft, newTab, openSettings, panelVisible, router, setActive, setDensityMode, tabs, toggleRhymePanel])
 
   return (
     <div className="ml-auto flex items-center gap-1.5">
@@ -277,21 +249,6 @@ export default function TopBarActions() {
             </motion.button>
           </TooltipTrigger>
           <TooltipContent side="bottom">Command palette · ⌘/Ctrl + K</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <motion.button
-              whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-              className={buttonClass}
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-              aria-keyshortcuts="Meta+J Control+J"
-            >
-              {themeGlyph}
-            </motion.button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Theme · ⌘/Ctrl + J</TooltipContent>
         </Tooltip>
 
         <Tooltip>

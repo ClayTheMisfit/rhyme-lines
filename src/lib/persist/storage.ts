@@ -91,7 +91,7 @@ const collectCandidates = (key: StorageKey): StoredValueCandidate[] => {
         const parsed = safeJsonParse(value)
         const parsedResult = settingsPayloadSchema.safeParse(parsed)
         if (!parsedResult.success) {
-          // Repro: set theme to light, reload; invalid stored payload can trigger a client-side exception.
+          // Repro: invalid stored settings payload can trigger a client-side exception.
           window.localStorage.removeItem(storageKey)
           continue
         }

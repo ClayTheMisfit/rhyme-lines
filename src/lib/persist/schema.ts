@@ -8,7 +8,7 @@ export const STORAGE_KEYS = {
 
 export type StorageKey = keyof typeof STORAGE_KEYS
 
-export type ThemeSetting = 'dark' | 'light' | 'system'
+export type ThemeSetting = 'dark'
 export type DebounceMode = 'cursor-50' | 'typing-250'
 export type BadgeSize = 'xs' | 'sm' | 'md'
 export type RhymeFilters = { perfect: boolean; near: boolean }

@@ -1,44 +1,24 @@
 @import "tailwindcss";
 
 @theme {
-  --color-border: 214 18% 79%;
-  --color-input: 214 18% 79%;
-  --color-ring: 214 21% 55%;
-  --color-background: 214 22% 86%;
-  --color-foreground: 222 32% 15%;
-  --color-primary: 222.2 47.4% 11.2%;
-  --color-primary-foreground: 210 40% 98%;
-  --color-secondary: 214 20% 89%;
-  --color-secondary-foreground: 222 32% 18%;
-  --color-muted: 214 20% 88%;
-  --color-muted-foreground: 210 11% 54%;
-  --color-accent: 214 18% 87%;
-  --color-accent-foreground: 222.2 47.4% 11.2%;
+  --color-background: 222.2 84% 4.9%;
+  --color-foreground: 210 40% 98%;
+  --color-muted: 217.2 32.6% 17.5%;
+  --color-muted-foreground: 215 20.2% 65.1%;
+  --color-border: 217.2 32.6% 17.5%;
+  --color-input: 217.2 32.6% 17.5%;
+  --color-ring: 212.7 26.8% 83.9%;
+  --color-primary: 210 40% 98%;
+  --color-primary-foreground: 222.2 47.4% 11.2%;
+  --color-secondary: 217.2 32.6% 17.5%;
+  --color-secondary-foreground: 210 40% 98%;
+  --color-accent: 217.2 32.6% 17.5%;
+  --color-accent-foreground: 210 40% 98%;
   --color-destructive: 0 84.2% 60.2%;
   --color-destructive-foreground: 210 40% 98%;
-  --color-card: 212 24% 93%;
-  --color-card-foreground: 222 32% 15%;
+  --color-card: 222.2 84% 4.9%;
+  --color-card-foreground: 210 40% 98%;
   --radius: 0.75rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  @theme {
-    --color-background: 222.2 84% 4.9%;
-    --color-foreground: 210 40% 98%;
-    --color-muted: 217.2 32.6% 17.5%;
-    --color-muted-foreground: 215 20.2% 65.1%;
-    --color-border: 217.2 32.6% 17.5%;
-    --color-input: 217.2 32.6% 17.5%;
-    --color-ring: 212.7 26.8% 83.9%;
-    --color-primary: 210 40% 98%;
-    --color-primary-foreground: 222.2 47.4% 11.2%;
-    --color-secondary: 217.2 32.6% 17.5%;
-    --color-secondary-foreground: 210 40% 98%;
-    --color-accent: 217.2 32.6% 17.5%;
-    --color-accent-foreground: 210 40% 98%;
-    --color-card: 222.2 84% 4.9%;
-    --color-card-foreground: 210 40% 98%;
-  }
 }
 
 @layer base {
@@ -67,15 +47,15 @@
   --rl-muted: rgba(255, 255, 255, 0.62);
   --rl-border: rgba(255, 255, 255, 0.13);
   --rl-accent: rgba(56, 189, 248, 0.85);
-  --rl-shell-bg: #d9dee5;
-  --rl-shell-chrome: #e6ebf2;
-  --rl-shell-elevated: #eef2f5;
-  --rl-editor-lane: #dde2e8;
-  --rl-shell-border: #c2c9d2;
-  --rl-shell-text: #1f2937;
-  --rl-shell-muted: #7b8794;
-  --rl-line-total-color: rgba(15, 23, 42, 0.56);
-  --rl-line-total-color-active: rgba(15, 23, 42, 0.8);
+  --rl-shell-bg: #090909;
+  --rl-shell-chrome: #0d0d0f;
+  --rl-shell-elevated: #101012;
+  --rl-editor-lane: #0f0f11;
+  --rl-shell-border: rgba(255, 255, 255, 0.08);
+  --rl-shell-text: rgba(255, 255, 255, 0.9);
+  --rl-shell-muted: rgba(255, 255, 255, 0.58);
+  --rl-line-total-color: rgba(255, 255, 255, 0.36);
+  --rl-line-total-color-active: rgba(255, 255, 255, 0.62);
 }
 
 /* Editor-specific variables */
@@ -120,14 +100,6 @@
     opacity: 0.55;
   }
 
-  /* Light theme override for syllable badges */
-  body.bg-white .syllable-badge {
-    @apply bg-gray-900/[0.04] text-gray-700/60 ring-gray-900/[0.08];
-  }
-
-  body.bg-white [data-active-line="true"] .syllable-badge {
-    @apply bg-[#f2d000]/12 ring-[#f2d000]/30 text-[#f2d000]/95;
-  }
 
   .leading-tight .syllable-badge {
     --badge-offset: 0.95em;
@@ -178,18 +150,6 @@ body.bg-black {
   --rl-line-total-color-active: rgba(255, 255, 255, 0.62);
 }
 
-body.bg-white {
-  background-color: #d9dee5;
-  --rl-shell-bg: #d9dee5;
-  --rl-shell-chrome: #e6ebf2;
-  --rl-shell-elevated: #eef2f5;
-  --rl-editor-lane: #dde2e8;
-  --rl-shell-border: #c2c9d2;
-  --rl-shell-text: #1f2937;
-  --rl-shell-muted: #7b8794;
-  --rl-line-total-color: rgba(30, 41, 59, 0.56);
-  --rl-line-total-color-active: rgba(15, 23, 42, 0.78);
-}
 
 /* Editor line break preservation */
 .editor-root {
@@ -260,9 +220,6 @@ body.bg-black .rl-editor[data-empty="true"]:not(:focus)::before {
   color: #9ca3af;
 }
 
-body.bg-white .rl-editor[data-empty="true"]:not(:focus)::before {
-  color: #7b8794;
-}
 
 /* Current line highlight overlay (non-interactive) */
 .rl-current-line-highlight {
@@ -287,10 +244,6 @@ body.bg-black .rl-current-line-highlight {
   --rl-active-line-border: rgba(255, 255, 255, 0.008);
 }
 
-body.bg-white .rl-current-line-highlight {
-  --rl-active-line-bg: rgba(0, 0, 0, 0.02);
-  --rl-active-line-border: rgba(0, 0, 0, 0.04);
-}
 
 .rl-rhyme-highlight[data-rhyme-family] {
   position: absolute;
@@ -338,12 +291,6 @@ body.bg-white .rl-current-line-highlight {
   border-bottom: 1px solid color-mix(in srgb, var(--rhyme-color, rgba(212, 176, 102, 0.72)) 44%, transparent);
 }
 
-/* Light theme editor styling */
-body.bg-white .editor-surface {
-  background-color: #f3f5f7;
-  color: #1f2937;
-  transition: background-color 150ms ease;
-}
 
 .editor-surface {
   --rl-editor-pad-x: var(--rl-pad-inline);
@@ -351,9 +298,6 @@ body.bg-white .editor-surface {
   --rl-highlight-inset: 0.25rem;
 }
 
-body.bg-white .rl-editor {
-  caret-color: #0f172a;
-}
 
 .rl-current-line-debug {
   position: absolute;
@@ -369,8 +313,7 @@ body.bg-white .rl-editor {
 }
 
 /* Line-based highlighting using CSS */
-body.bg-black .rl-editor .line,
-body.bg-white .rl-editor .line {
+body.bg-black .rl-editor .line {
   display: block;
   min-height: var(--rl-line-row-height);
 }

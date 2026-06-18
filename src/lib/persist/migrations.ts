@@ -54,9 +54,8 @@ const normalizeRhymeFilters = (value: unknown) => {
 
 const normalizeSettings = (value: unknown): SettingsSchema => {
   const payload = isRecord(value) ? value : {}
-  const themeValue = toStringValue(payload.theme)
-  const theme: SettingsSchema['theme'] =
-    themeValue === 'light' || themeValue === 'system' ? themeValue : 'dark'
+  // Rhyme Lines is dark-only; migrate any legacy light/system/auto value to dark.
+  const theme: SettingsSchema['theme'] = 'dark'
 
   const fontSize = toNumber(payload.fontSize, DEFAULT_SETTINGS.fontSize)
   const lineHeight = toNumber(payload.lineHeight, DEFAULT_SETTINGS.lineHeight)

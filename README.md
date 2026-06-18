@@ -12,7 +12,7 @@ It gives rappers, poets, and songwriters a distraction-free space to write with 
 
 * 📝 **Full-screen lyric editor** (Sublime-inspired, distraction-free)
 * 🔢 **Live syllable counts** per word & line
-* 🎨 **Dark & light themes** (toggleable)
+* 🌑 **Dark-only writing environment**
 * ⚡ **Ultra-responsive typing** (<10ms latency budget)
 * ⏱️ **Auto-save to localStorage**
 * 🎶 **Rhyme suggestions sidebar** (perfect, slant, near)

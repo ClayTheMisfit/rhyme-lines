@@ -10,7 +10,9 @@ export function Providers({ children }: { children: ReactNode }) {
     <ThemeProvider
       attribute="class"
       defaultTheme="dark"
-      enableSystem
+      forcedTheme="dark"
+      enableSystem={false}
+      storageKey="rhyme-lines:theme"
       disableTransitionOnChange
     >
       <QueryProvider>

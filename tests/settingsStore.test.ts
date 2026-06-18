@@ -31,7 +31,7 @@ describe('settings store', () => {
   it('persists updates to localStorage', () => {
     const { setFontSize, setTheme } = useSettingsStore.getState()
 
-    setTheme('light')
+    setTheme()
     setFontSize(22)
     jest.runOnlyPendingTimers()
 
@@ -39,14 +39,13 @@ describe('settings store', () => {
     expect(raw).toBeTruthy()
 
     const parsed = raw ? JSON.parse(raw) : null
-    expect(parsed?.data.theme).toBe('light')
+    expect(parsed?.data.theme).toBe('dark')
     expect(parsed?.data.fontSize).toBe(22)
     expect(parsed?.version).toBeGreaterThanOrEqual(1)
   })
 
   it('resets to defaults and can restore snapshots', () => {
     const {
-      setTheme,
       setFontSize,
       setLineHeight,
       setBadgeSize,
@@ -57,7 +56,6 @@ describe('settings store', () => {
       resetDefaults,
     } = useSettingsStore.getState()
 
-    setTheme('light')
     setFontSize(24)
     setLineHeight(1.8)
     setBadgeSize('md')
@@ -78,7 +76,7 @@ describe('settings store', () => {
     applySettingsSnapshot(snapshot)
 
     const restored = useSettingsStore.getState()
-    expect(restored.theme).toBe('light')
+    expect(restored.theme).toBe('dark')
     expect(restored.fontSize).toBe(24)
     expect(restored.lineHeight).toBeCloseTo(1.8)
     expect(restored.badgeSize).toBe('md')

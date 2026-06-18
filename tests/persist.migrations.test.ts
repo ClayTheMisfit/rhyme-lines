@@ -19,7 +19,7 @@ describe('persistence migrations', () => {
     const { data, version } = migrateSettings([{ key: 'legacy', value: JSON.stringify(legacySettings) }])
 
     expect(version).toBe(CURRENT_SCHEMA_VERSION)
-    expect(data.theme).toBe('light')
+    expect(data.theme).toBe('dark')
     expect(data.fontSize).toBe(20)
     expect(data.rhymeFilters.perfect).toBe(false)
     expect(data.rhymeFilters.near).toBe(true)

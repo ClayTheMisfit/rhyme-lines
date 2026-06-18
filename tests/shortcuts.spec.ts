@@ -23,7 +23,7 @@ describe('resolveEditorShortcut', () => {
   it('detects owned shortcuts only', () => {
     expect(resolveEditorShortcut(buildEvent({ key: 'k', ctrlKey: true }))).toBe('palette')
     expect(resolveEditorShortcut(buildEvent({ key: 'K', metaKey: true }))).toBe('palette')
-    expect(resolveEditorShortcut(buildEvent({ key: 'j', ctrlKey: true }))).toBe('theme')
+    expect(resolveEditorShortcut(buildEvent({ key: 'j', ctrlKey: true }))).toBeNull()
     expect(resolveEditorShortcut(buildEvent({ key: 's', metaKey: true }))).toBe('export')
     expect(resolveEditorShortcut(buildEvent({ key: 'r', altKey: true }))).toBe('rhymes')
     expect(resolveEditorShortcut(buildEvent({ key: 'h', altKey: true }))).toBe('rhymeHighlightMode')

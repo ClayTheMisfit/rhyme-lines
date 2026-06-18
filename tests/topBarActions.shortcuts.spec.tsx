@@ -7,7 +7,6 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace: jest.fn(), prefetch: jest.fn() }),
 }))
 
-jest.mock('next-themes', () => ({ useTheme: () => ({ setTheme: jest.fn() }) }))
 jest.mock('framer-motion', () => ({
   motion: new Proxy(
     {},
@@ -33,8 +32,8 @@ jest.mock('@/store/rhymePanelStore', () => ({
 }))
 jest.mock('@/store/settingsStore', () => ({
   useSettingsStore: (
-    selector: (state: { theme: string; setTheme: () => void; showRhymeDecorations: boolean; setShowRhymeDecorations: () => void }) => unknown
-  ) => selector({ theme: 'dark', setTheme: jest.fn(), showRhymeDecorations: true, setShowRhymeDecorations: jest.fn() }),
+    selector: (state: { showRhymeDecorations: boolean; setShowRhymeDecorations: () => void }) => unknown
+  ) => selector({ showRhymeDecorations: true, setShowRhymeDecorations: jest.fn() }),
 }))
 jest.mock('@/store/editorDensityStore', () => ({
   useEditorDensityStore: (selector: (state: { mode: string; setMode: () => void }) => unknown) =>

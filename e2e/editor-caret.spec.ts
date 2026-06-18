@@ -49,11 +49,12 @@ test.describe('Editor caret and input invariants', () => {
     await expect(editor).toContainText('hello')
   })
 
-  test('caret stays visible after theme toggle', async ({ page }) => {
+  test('caret stays visible after command palette open and close', async ({ page }) => {
     const editor = page.locator('#lyric-editor')
     await editor.click()
 
-    await page.getByTitle('Toggle theme').click()
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
+    await page.keyboard.press('Escape')
     await editor.click()
 
     const state = await caretState(page)

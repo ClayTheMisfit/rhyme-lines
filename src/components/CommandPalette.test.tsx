@@ -5,14 +5,14 @@ import { CommandPalette } from '@/components/CommandPalette'
 describe('CommandPalette', () => {
   it('filters commands by query and runs selected command on Enter', () => {
     const openSettings = jest.fn()
-    const toggleTheme = jest.fn()
+    const newDraft = jest.fn()
 
     render(
       <CommandPalette
         open
         onOpenChange={() => {}}
         commands={[
-          { id: 'theme', title: 'Switch Theme', keywords: ['appearance'], run: toggleTheme },
+          { id: 'new-draft', title: 'New Draft', keywords: ['create'], run: newDraft },
           { id: 'settings', title: 'Open Settings', keywords: ['preferences'], run: openSettings },
         ]}
       />
@@ -23,7 +23,7 @@ describe('CommandPalette', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
 
     expect(openSettings).toHaveBeenCalledTimes(1)
-    expect(toggleTheme).not.toHaveBeenCalled()
+    expect(newDraft).not.toHaveBeenCalled()
   })
 
   it('closes on Escape', () => {

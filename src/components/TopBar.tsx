@@ -3,9 +3,6 @@
 import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useMounted } from '@/hooks/useMounted'
-import { useTheme } from 'next-themes'
-import { resolveTheme } from '@/lib/theme/resolveTheme'
-import { useSettingsStore } from '@/store/settingsStore'
 import { layers } from '@/lib/layers'
 import DocumentHeader from '@/components/DocumentHeader'
 import TopBarActions from '@/components/TopBarActions'
@@ -14,30 +11,16 @@ import { useRhymePanel } from '@/lib/state/rhymePanel'
 const PANEL_SPACING_REM = '1.25rem'
 
 
-function resetBodyThemeToDashboardDefault() {
+function applyDarkBodyTheme() {
   const body = document.body
   if (!body) return
   body.classList.remove('bg-white', 'text-black')
   body.classList.add('bg-black', 'text-white')
 }
 
-function applyBodyTheme(theme: 'light' | 'dark') {
-  const body = document.body
-  if (!body) return
-  if (theme === 'light') {
-    body.classList.remove('bg-black', 'text-white')
-    body.classList.add('bg-white', 'text-black')
-  } else {
-    body.classList.remove('bg-white', 'text-black')
-    body.classList.add('bg-black', 'text-white')
-  }
-}
-
 export default function TopBar() {
   const mounted = useMounted()
   const headerRef = useRef<HTMLElement>(null)
-  const { theme } = useSettingsStore((state) => ({ theme: state.theme }))
-  const { resolvedTheme, setTheme: setResolvedTheme } = useTheme()
   const { mode, width } = useRhymePanel((state) => ({
     mode: state.mode,
     width: state.width,
@@ -77,16 +60,9 @@ export default function TopBar() {
 
   useEffect(() => {
     if (!mounted) return
-    const resolved = resolveTheme(theme, { hydrated: mounted })
-    applyBodyTheme(resolved)
-    if (resolvedTheme !== resolved) {
-      setResolvedTheme(resolved)
-    }
-
-    return () => {
-      resetBodyThemeToDashboardDefault()
-    }
-  }, [mounted, resolvedTheme, setResolvedTheme, theme])
+    applyDarkBodyTheme()
+    return () => applyDarkBodyTheme()
+  }, [mounted])
 
   return (
     <header

@@ -13,12 +13,12 @@
 - [ ] Verify offline/degraded provider state shows non-crashing fallback state.
 
 ## Command palette + keyboard-first flow
-- [ ] Open command palette via `Cmd/Ctrl+K` and execute: New Draft, Switch Theme, Export Draft.
+- [ ] Open command palette via `Cmd/Ctrl+K` and execute: New Draft, Export Draft.
 - [ ] Confirm palette closes after command run and focus returns to trigger on close.
 - [ ] Verify keyboard-only navigation for palette results (arrow keys + enter + escape).
 
 ## Theme + layout
-- [ ] Switch dark/light theme and confirm persistence after refresh.
+- [ ] Confirm the app remains dark after refresh, including after legacy stored `light` or `system` theme values.
 - [ ] Verify smaller laptop width (≈1280x720) has no clipping/trapped controls.
 
 ## Edge/state checks
@@ -27,4 +27,4 @@
 - [ ] Simulate localStorage failure (private mode/quota) and confirm autosave error state is explicit.
 
 ## Observability sanity
-- [ ] In devtools, verify analytics debug events emit for: app load, draft open/create, text activity, rhyme request/results/errors, command execution, theme switch, export, autosave success/failure.
+- [ ] In devtools, verify analytics debug events emit for: app load, draft open/create, text activity, rhyme request/results/errors, command execution, export, autosave success/failure.
