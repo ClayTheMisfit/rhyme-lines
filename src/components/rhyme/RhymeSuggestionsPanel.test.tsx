@@ -8,6 +8,13 @@ jest.mock('@/lib/rhyme-db/useRhymeSuggestions')
 
 const mockedUseRhymeSuggestions = useRhymeSuggestions as jest.MockedFunction<typeof useRhymeSuggestions>
 
+const activeTokens = {
+  caretToken: 'time',
+  lineLastToken: null,
+  rawCaretToken: 'time',
+  rawLineLastToken: null,
+}
+
 describe('RhymeSuggestionsPanel', () => {
   beforeEach(() => {
     useSettingsStore.setState({})
@@ -23,6 +30,7 @@ describe('RhymeSuggestionsPanel', () => {
       rhymeDebug: {},
       meta: { source: 'local' },
       phase: 'idle',
+      activeTokens,
     })
 
     render(
@@ -50,6 +58,7 @@ describe('RhymeSuggestionsPanel', () => {
       rhymeDebug: {},
       meta: { source: 'local' },
       phase: 'idle',
+      activeTokens,
     })
 
     render(
@@ -78,6 +87,7 @@ describe('RhymeSuggestionsPanel', () => {
       rhymeDebug: {},
       meta: { source: 'local' },
       phase: 'idle',
+      activeTokens,
     })
 
     render(

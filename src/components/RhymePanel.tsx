@@ -4,6 +4,9 @@ import { forwardRef, useCallback, useEffect, useState, type RefObject } from 're
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { RhymeSuggestionsPanel } from './rhyme/RhymeSuggestionsPanel'
 import type { EditorHandle } from './Editor'
+import { getEditorLineElements, getEditorPlainText, getEditorPlainTextIndexFromSelection, getLinePlainText } from '@/lib/editor/plainText'
+
+const DEBUG_RHYME_TARGET = process.env.NEXT_PUBLIC_DEBUG_RHYME_TARGET === '1'
 
 type RhymePanelProps = {
   editorRef?: RefObject<EditorHandle | null>
@@ -48,7 +51,7 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
   }
 
   const readEditorSnapshot = useCallback((editorElement: HTMLElement) => {
-    const text = (editorElement.innerText ?? editorElement.textContent ?? '').replace(/\r\n?/g, '\n')
+    const text = getEditorPlainText(editorElement)
     const selection = window.getSelection()
     let caretIndex = 0
     let currentLineText = ''
@@ -57,12 +60,9 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
     if (selection && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0)
       const focusNode = selection.focusNode ?? range.endContainer
-      const focusOffset = selection.focusOffset ?? range.endOffset
       if (focusNode && editorElement.contains(focusNode)) {
-        const preCaretRange = range.cloneRange()
-        preCaretRange.selectNodeContents(editorElement)
-        preCaretRange.setEnd(focusNode, focusOffset)
-        caretIndex = preCaretRange.toString().length
+        const caretSnapshot = getEditorPlainTextIndexFromSelection(editorElement, selection)
+        caretIndex = caretSnapshot?.index ?? 0
 
         let node: Node | null = focusNode
         let lineElement: HTMLElement | null = null
@@ -78,7 +78,7 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
         }
 
         if (lineElement && lineElement.dataset.placeholderLine !== 'true') {
-          currentLineText = (lineElement.innerText ?? lineElement.textContent ?? '').replace(/\r\n?/g, '\n')
+          currentLineText = getLinePlainText(lineElement)
           const rect = lineElement.getBoundingClientRect()
           activeLineRect = {
             top: rect.top,
@@ -91,12 +91,10 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
     }
 
     if (!currentLineText) {
-      const lineElements = Array.from(editorElement.querySelectorAll<HTMLElement>('.line')).filter(
-        (line) => line.dataset.placeholderLine !== 'true'
-      )
+      const lineElements = getEditorLineElements(editorElement)
       if (lineElements.length > 0) {
         const fallbackLine = lineElements[lineElements.length - 1]
-        currentLineText = (fallbackLine.innerText ?? fallbackLine.textContent ?? '').replace(/\r\n?/g, '\n')
+        currentLineText = getLinePlainText(fallbackLine)
         const rect = fallbackLine.getBoundingClientRect()
         activeLineRect = {
           top: rect.top,
@@ -105,6 +103,21 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
           height: rect.height,
         }
       }
+    }
+
+    if (DEBUG_RHYME_TARGET && typeof console !== 'undefined') {
+      console.debug('[rhyme-target:snapshot]', {
+        visibleText: text,
+        editorInnerText: editorElement.innerText,
+        editorTextContent: editorElement.textContent,
+        canonicalDocumentText: text,
+        selectionAnchorNode: selection?.anchorNode?.nodeName ?? null,
+        selectionAnchorOffset: selection?.anchorOffset ?? null,
+        selectionFocusNode: selection?.focusNode?.nodeName ?? null,
+        selectionFocusOffset: selection?.focusOffset ?? null,
+        computedCaretIndex: caretIndex,
+        currentLineText,
+      })
     }
 
     const editorLane = editorElement.closest<HTMLElement>('.editor-surface')

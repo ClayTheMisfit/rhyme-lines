@@ -42,6 +42,9 @@ export function OverlayBadge({ value, active, position, lineId }: OverlayBadgePr
         resolvedVariant === 'dots' && 'syllable-badge--dots'
       )}
       data-line-id={lineId}
+      data-syllable-badge="true"
+      data-editor-overlay="syllable-badge"
+      contentEditable={false}
       style={style}
     >
       {content}

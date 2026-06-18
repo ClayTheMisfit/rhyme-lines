@@ -1,4 +1,5 @@
 import type { SelectionPoint, SelectionSnapshot } from '@/editor/types'
+import { normalizeEditorTextNode, shouldIgnoreEditorTextNode } from '@/lib/editor/plainText'
 
 function findPointNode(root: HTMLElement, point: SelectionPoint): { node: Node; offset: number } | null {
   if (!point.lineId) return null
@@ -6,12 +7,16 @@ function findPointNode(root: HTMLElement, point: SelectionPoint): { node: Node; 
   if (!line) return null
 
   const target = Math.max(0, point.offset)
-  const walker = root.ownerDocument.createTreeWalker(line, NodeFilter.SHOW_TEXT)
+  const walker = root.ownerDocument.createTreeWalker(line, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      return shouldIgnoreEditorTextNode(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+    },
+  })
   let consumed = 0
   let textNode: Node | null = walker.nextNode()
 
   while (textNode) {
-    const length = textNode.textContent?.length ?? 0
+    const length = normalizeEditorTextNode(textNode.textContent ?? '').length
     if (consumed + length >= target) {
       return { node: textNode, offset: Math.max(0, target - consumed) }
     }

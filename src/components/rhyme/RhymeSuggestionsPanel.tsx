@@ -127,6 +127,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       rhymeDebug,
       meta,
       phase,
+      activeTokens,
     } = useRhymeSuggestions({
       text,
       caretIndex,
@@ -156,8 +157,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       [activeSuggestions]
     )
 
-    const caretToken = debug.caretDetails?.normalizedToken ?? debug.caretToken
-    const lineLastToken = debug.lineLastDetails?.normalizedToken ?? debug.lineLastToken
+    const caretToken = activeTokens.caretToken ?? debug.caretDetails?.normalizedToken ?? debug.caretToken
+    const lineLastToken = activeTokens.lineLastToken ?? debug.lineLastDetails?.normalizedToken ?? debug.lineLastToken
     const activeToken = isQueryActive ? normalizedQueryToken : activeTab === 'caret' ? caretToken : lineLastToken
     const activeTokenLabel = isQueryActive ? 'Query' : activeTab === 'caret' ? 'Caret' : 'Line End'
     const activeDebug = useMemo(() => (
@@ -709,7 +710,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
             </div>
           )}
 
-          {!isInitialLoading && status !== 'idle' && visibleSuggestions.length === 0 && (
+          {!isInitialLoading && status !== 'idle' && status !== 'loading' && visibleSuggestions.length === 0 && (
             <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
               {totalAvailable > 0
                 ? 'Filtered out by current controls. Try disabling “Common words only” or enabling Near / Slant.'

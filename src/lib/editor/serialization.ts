@@ -1,3 +1,5 @@
+import { normalizeEditorTextNode, shouldIgnoreEditorTextNode } from '@/lib/editor/plainText'
+
 /**
  * Editor serialization utilities for preserving line breaks across save/restore
  */
@@ -10,32 +12,23 @@ export function serializeFromEditor(el: HTMLElement): string {
   if (!el) return ''
 
   // Use a more reliable approach: walk the DOM and convert <br> to \n
-  const isPlaceholderNode = (node: Node): boolean => {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      return !!(node as Element).closest('[data-placeholder-line="true"]')
-    }
-    const parentElement = (node as Element | null)?.parentElement
-    return !!parentElement?.closest('[data-placeholder-line="true"]')
-  }
-
   const walker = document.createTreeWalker(
     el,
     NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
-    null
+    {
+      acceptNode(node) {
+        return shouldIgnoreEditorTextNode(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+      },
+    }
   )
 
   let result = ''
   let node: Node | null = walker.nextNode()
 
   while (node) {
-    if (isPlaceholderNode(node)) {
-      node = walker.nextNode()
-      continue
-    }
-
     if (node.nodeType === Node.TEXT_NODE) {
       // Add text content, replacing &nbsp; with spaces
-      result += (node.textContent || '').replace(/\u00A0/g, ' ')
+      result += normalizeEditorTextNode(node.textContent || '')
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       const element = node as Element
       if (element.tagName === 'BR') {

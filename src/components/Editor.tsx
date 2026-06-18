@@ -2,6 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
+import { getEditorLineElements, getLinePlainText, getPlainTextOffsetWithinLine, clearLineCache } from '@/lib/editor/plainText'
 import { useSettingsStore } from '@/store/settingsStore'
 import { RHYME_HIGHLIGHT_ORDER } from '@/lib/persist/schema'
 import { useRhymeHighlightSettingsStore } from '@/store/rhymeHighlightSettingsStore'
@@ -571,7 +572,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const el = editorRef.current
     if (!el) return { lines: [], elements: [] }
 
-    const elements = Array.from(el.querySelectorAll<HTMLDivElement>('.line'))
+    const elements = getEditorLineElements(el) as HTMLDivElement[]
 
     const seenIds = new Set<string>()
     const nextLineId = () => `line-${lineIdSeed.current++}`
@@ -587,7 +588,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       line.dataset.lineIndex = index.toString()
       return {
         id: lineId,
-        text: (line.innerText ?? line.textContent ?? '').replace(/\r\n?/g, '\n'),
+        text: getLinePlainText(line),
       }
     })
 
@@ -622,6 +623,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const commitEditorChange = useCallback((source: 'input' | 'paste' | 'drop' | 'program' = 'input') => {
     ensureLineStructure()
+    clearLineCache()
     const el = editorRef.current
     logDebugEvent('change', {
       phase: 'post-structure',
@@ -716,9 +718,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (!lineElement) return null
     const lineId = lineElement.getAttribute('data-line-id')
     if (!lineId) return null
-    const caretRange = range.cloneRange()
-    caretRange.setStart(lineElement, 0)
-    const caretOffset = caretRange.toString().length
+    const caretOffset = getPlainTextOffsetWithinLine(lineElement as HTMLElement, focusNode, range.endOffset)
+    if (caretOffset === null) return null
     return resolveActiveRhymeFamilyId(rhymeDecorations, { lineId, caretOffset })
   }, [rhymeDecorations])
 
@@ -737,15 +738,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         : focusNode.parentElement?.closest('.line')
     if (!lineElement || !editorRef.current) return null
 
-    const lines = Array.from(editorRef.current.querySelectorAll<HTMLElement>('.line'))
-      .filter((line) => line.dataset.placeholderLine !== 'true')
+    const lines = getEditorLineElements(editorRef.current)
     const lineIndex = lines.findIndex((line) => line === lineElement)
     if (lineIndex === -1) return null
 
-    const caretRange = document.createRange()
-    caretRange.setStart(lineElement, 0)
-    caretRange.setEnd(focusNode, focusOffset)
-    const caretOffset = caretRange.toString().length
+    const caretOffset = getPlainTextOffsetWithinLine(lineElement as HTMLElement, focusNode, focusOffset)
+    if (caretOffset === null) return null
     return { line: lineIndex + 1, column: caretOffset + 1 }
   }, [])
 
@@ -875,6 +873,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('rhyme:toggle-overlays', onToggleEvent as EventListener)
       if (highlightDebounceRef.current) window.clearTimeout(highlightDebounceRef.current)
+      clearLineCache()
     }
   }, [])
 
