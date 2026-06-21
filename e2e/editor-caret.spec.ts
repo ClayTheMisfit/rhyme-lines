@@ -54,6 +54,7 @@ test.describe('Editor caret and input invariants', () => {
     await editor.click()
 
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
+    await expect(page.locator('#command-palette-input')).toBeVisible()
     await page.keyboard.press('Escape')
     await editor.click()
 

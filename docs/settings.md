@@ -1,6 +1,6 @@
 # Settings system
 
-The settings sheet is backed by a persisted Zustand store located in [`store/settingsStore.ts`](../store/settingsStore.ts). The store keeps the canonical values for typography, syllable overlays, and rhyme helper behavior and writes them to `localStorage` under the key `rhyme-lines:settings`. Theme is no longer user-configurable; legacy values are normalized to `dark`.
+The settings sheet is backed by a persisted Zustand store located in [`store/settingsStore.ts`](../src/store/settingsStore.ts). The store keeps the canonical values for typography, syllable overlays, and rhyme helper behavior and writes them to `localStorage` under the key `rhyme-lines:settings`. Theme is no longer user-configurable; legacy values are normalized to `dark`.
 
 ## Defaults
 
