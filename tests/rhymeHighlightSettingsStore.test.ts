@@ -13,13 +13,13 @@ describe('rhyme highlight settings store', () => {
     })
   })
 
-  it('defaults new users to All when no saved preference exists', () => {
+  it('uses focus as the default highlight mode for new users', () => {
     useRhymeHighlightSettingsStore.getState().hydrate()
     const state = useRhymeHighlightSettingsStore.getState()
 
     expect(state.showInternalRhymes).toBe(true)
     expect(state.highlightStopwords).toBe(false)
-    expect(state.highlightMode).toBe('all')
+    expect(state.highlightMode).toBe('focus')
     expect(state.hideColorfulWords).toBe(false)
   })
 
@@ -56,7 +56,7 @@ describe('rhyme highlight settings store', () => {
     expect(state).toMatchObject(RHYME_HIGHLIGHT_DEFAULTS)
   })
 
-  it('falls back to default mode for invalid highlightMode', () => {
+  it('falls back to focus when persisted highlight mode is invalid', () => {
     localStorage.setItem(
       RHYME_HIGHLIGHT_STORAGE_KEY,
       JSON.stringify({
@@ -68,13 +68,31 @@ describe('rhyme highlight settings store', () => {
     useRhymeHighlightSettingsStore.getState().hydrate()
     const state = useRhymeHighlightSettingsStore.getState()
 
-    expect(state.highlightMode).toBe('all')
+    expect(state.highlightMode).toBe('focus')
     expect(state.showInternalRhymes).toBe(false)
     expect(state.highlightStopwords).toBe(false)
     expect(state.hideColorfulWords).toBe(false)
   })
 
-  it('does not overwrite an existing saved user highlight mode with the All default', () => {
+  it('preserves persisted all mode when explicitly saved', () => {
+    localStorage.setItem(
+      RHYME_HIGHLIGHT_STORAGE_KEY,
+      JSON.stringify({
+        ...RHYME_HIGHLIGHT_DEFAULTS,
+        highlightMode: 'all',
+      })
+    )
+
+    useRhymeHighlightSettingsStore.getState().hydrate()
+    const state = useRhymeHighlightSettingsStore.getState()
+
+    expect(state.highlightMode).toBe('all')
+    expect(JSON.parse(localStorage.getItem(RHYME_HIGHLIGHT_STORAGE_KEY) ?? '{}')).toMatchObject({
+      highlightMode: 'all',
+    })
+  })
+
+  it('preserves persisted focus mode when explicitly saved', () => {
     localStorage.setItem(
       RHYME_HIGHLIGHT_STORAGE_KEY,
       JSON.stringify({
@@ -116,7 +134,7 @@ describe('rhyme highlight settings store', () => {
     expect(state.hideColorfulWords).toBe(true)
   })
 
-  it('merges partial values with defaults', () => {
+  it('fills missing highlight mode with focus when persisted settings are partial', () => {
     localStorage.setItem(
       RHYME_HIGHLIGHT_STORAGE_KEY,
       JSON.stringify({ hideColorfulWords: true })
@@ -126,7 +144,7 @@ describe('rhyme highlight settings store', () => {
     const state = useRhymeHighlightSettingsStore.getState()
 
     expect(state.hideColorfulWords).toBe(true)
-    expect(state.highlightMode).toBe('all')
+    expect(state.highlightMode).toBe('focus')
     expect(state.showInternalRhymes).toBe(true)
     expect(state.highlightStopwords).toBe(false)
   })
