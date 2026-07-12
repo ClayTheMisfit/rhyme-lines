@@ -763,23 +763,26 @@ Jest failures should be fixed first to restore baseline confidence.
 
 ### Gap: Dependency Audit Reports Vulnerabilities
 
-**Severity:** Medium  
-**Category:** Security / DX  
+**Severity:** High
+**Category:** Security / DX
 **Files Involved:**
 - `package.json`
 - `package-lock.json`
 
 **Evidence:**
-`npm install` reported 13 vulnerabilities: 2 low, 4 moderate, 6 high, 1 critical.
+`npm audit` reports 13 vulnerabilities: 2 low, 4 moderate, 6 high, 1 critical.
+
+**Triage (verified 2026-07-12):**
+Most critical/high vulnerabilities are dev-only dependencies (handlebars, flatted, form-data, minimatch, picomatch, ws). However, the production dependency `next` (v16.0.7) has multiple HIGH severity vulnerabilities including DoS via Server Components (CVSS 7.5) and HTTP request deserialization DoS (CVSS 7.5). Fix available: upgrade to next@16.2.10.
 
 **Problem:**
-Dependencies need audit triage.
+Production dependency (next) has high-severity vulnerabilities that require updating.
 
 **Impact:**
-Potential security exposure and release review blocker.
+Potential DoS attacks and security exposure in production; release blocker.
 
 **Recommended Fix:**
-Run `npm audit`, classify whether vulnerabilities affect production/client/server/dev-only paths, and update dependencies safely. Avoid blind `npm audit fix --force` unless breakage is reviewed.
+Upgrade `next` from 16.0.7 to 16.2.10 to address high-severity vulnerabilities. Dev-only vulnerabilities (handlebars, flatted, etc.) are lower priority but should also be addressed via `npm audit fix` or selective updates.
 
 **Complexity:** Medium
 
