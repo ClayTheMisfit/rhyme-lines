@@ -16,6 +16,7 @@ import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 import { buildVisibleSuggestions } from '@/components/rhyme/buildVisibleSuggestions'
 import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 import { trackEvent } from '@/lib/analytics/events'
+import { RhymeThesaurusSection } from '@/components/rhyme/RhymeThesaurusSection'
 
 const MIN_WIDTH = 280
 const MAX_WIDTH = 640
@@ -665,6 +666,17 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               </div>
             )
           })()}
+
+          {!isInitialLoading && (
+            <RhymeThesaurusSection
+              target={activeToken}
+              modes={resolvedModes}
+              commonWordsOnly={commonWordsOnly}
+              multiSyllable={multiSyllablePerfect}
+              panelMode={mode}
+              onInsertRhyme={insertSuggestion}
+            />
+          )}
 
           {warning && !isInitialLoading && (
             <div className="px-3 pb-2 text-[11px] text-amber-600 dark:text-amber-400">
