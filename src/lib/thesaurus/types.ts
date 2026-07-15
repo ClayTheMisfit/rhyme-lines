@@ -1,4 +1,5 @@
 export type ThesaurusRelationship = 'synonym' | 'related'
+export type DatamusePartOfSpeech = 'n' | 'v' | 'adj' | 'adv' | 'u'
 
 export interface ThesaurusConcept {
   word: string
@@ -6,7 +7,7 @@ export interface ThesaurusConcept {
   relationship: ThesaurusRelationship
   score: number
   source: 'datamuse'
-  partOfSpeech?: string
+  partOfSpeech?: DatamusePartOfSpeech
   frequency?: number
 }
 
@@ -25,6 +26,6 @@ export interface RawThesaurusConcept {
   relationship: ThesaurusRelationship
   score?: number
   source: 'datamuse'
-  partOfSpeech?: string
+  partOfSpeech?: DatamusePartOfSpeech
   frequency?: number
 }

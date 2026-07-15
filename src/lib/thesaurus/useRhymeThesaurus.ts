@@ -7,6 +7,7 @@ import type { ThesaurusPhase, ThesaurusResult, ThesaurusStatus } from '@/lib/the
 
 const CACHE_TTL_MS = 12 * 60 * 1000
 const CACHE_LIMIT = 100
+const TARGET_DEBOUNCE_MS = 250
 
 type CacheEntry = { result: ThesaurusResult; expiresAt: number }
 const cache = new Map<string, CacheEntry>()
@@ -32,6 +33,7 @@ const setCached = (key: string, result: ThesaurusResult, now = Date.now()) => {
   }
 }
 
+/** Clears the bounded in-memory thesaurus cache between tests or explicit resets. */
 export const clearRhymeThesaurusCache = () => cache.clear()
 export const getRhymeThesaurusCacheSize = () => cache.size
 
@@ -44,6 +46,10 @@ type State = {
   error?: string
 }
 
+/**
+ * Fetches meaning alternatives for a normalized rhyme target with latest-request-wins,
+ * abortable requests, a small target debounce, and a bounded TTL cache.
+ */
 export function useRhymeThesaurus({ target, enabled }: Args) {
   const normalizedTarget = useMemo(() => normalizeToken(target ?? ''), [target])
   const [state, setState] = useState<State>({ status: 'idle', phase: 'idle', result: null })
@@ -51,6 +57,7 @@ export function useRhymeThesaurus({ target, enabled }: Args) {
   const abortRef = useRef<AbortController | null>(null)
   const inFlightKeyRef = useRef<string | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  const debounceRef = useRef<number | null>(null)
 
   const refresh = useCallback(() => {
     if (!normalizedTarget) return
@@ -60,10 +67,14 @@ export function useRhymeThesaurus({ target, enabled }: Args) {
 
   useEffect(() => {
     if (!enabled || !normalizedTarget) {
+      if (debounceRef.current != null) {
+        window.clearTimeout(debounceRef.current)
+        debounceRef.current = null
+      }
       abortRef.current?.abort()
       abortRef.current = null
       inFlightKeyRef.current = null
-      setState((prev) => ({ ...prev, status: 'idle', phase: 'idle', error: undefined }))
+      setState({ status: 'idle', phase: 'idle', result: null, error: undefined })
       return
     }
 
@@ -76,39 +87,66 @@ export function useRhymeThesaurus({ target, enabled }: Args) {
     if (inFlightKeyRef.current === normalizedTarget) return
 
     abortRef.current?.abort()
+    if (debounceRef.current != null) {
+      window.clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
+
+    setState((prev) => {
+      const matchingResult = prev.result?.target === normalizedTarget ? prev.result : null
+      return {
+        status: 'loading',
+        phase: matchingResult ? 'refreshing' : 'initial',
+        result: matchingResult,
+        error: undefined,
+      }
+    })
+
     const controller = new AbortController()
     abortRef.current = controller
     inFlightKeyRef.current = normalizedTarget
     requestCounter.current += 1
     const requestId = requestCounter.current
 
-    setState((prev) => ({
-      status: 'loading',
-      phase: prev.result ? 'refreshing' : 'initial',
-      result: prev.result,
-      error: undefined,
-    }))
+    const runRequest = () => {
+      debounceRef.current = null
+      fetchDatamuseThesaurus(normalizedTarget, controller.signal)
+        .then((result) => {
+          if (controller.signal.aborted || requestId !== requestCounter.current) return
+          setCached(normalizedTarget, result)
+          setState({ status: 'success', phase: 'idle', result })
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted || requestId !== requestCounter.current) return
+          const message = error instanceof Error ? error.message : 'Meaning suggestions are temporarily unavailable.'
+          setState((prev) => ({ ...prev, status: 'error', phase: 'error', error: message }))
+        })
+        .finally(() => {
+          if (requestId === requestCounter.current) {
+            inFlightKeyRef.current = null
+            if (abortRef.current === controller) abortRef.current = null
+          }
+        })
+    }
 
-    fetchDatamuseThesaurus(normalizedTarget, controller.signal)
-      .then((result) => {
-        if (controller.signal.aborted || requestId !== requestCounter.current) return
-        setCached(normalizedTarget, result)
-        setState({ status: 'success', phase: 'idle', result })
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted || requestId !== requestCounter.current) return
-        const message = error instanceof Error ? error.message : 'Meaning suggestions are temporarily unavailable.'
-        setState((prev) => ({ ...prev, status: 'error', phase: 'error', error: message }))
-      })
-      .finally(() => {
-        if (requestId === requestCounter.current) {
-          inFlightKeyRef.current = null
-          if (abortRef.current === controller) abortRef.current = null
-        }
-      })
+    if (refreshTick > 0) {
+      runRequest()
+    } else {
+      debounceRef.current = window.setTimeout(runRequest, TARGET_DEBOUNCE_MS)
+    }
 
     return () => {
+      if (debounceRef.current != null) {
+        window.clearTimeout(debounceRef.current)
+        debounceRef.current = null
+      }
       controller.abort()
+      if (abortRef.current === controller) {
+        abortRef.current = null
+      }
+      if (inFlightKeyRef.current === normalizedTarget) {
+        inFlightKeyRef.current = null
+      }
     }
   }, [enabled, normalizedTarget, refreshTick])
 

@@ -345,6 +345,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           return
         }
 
+        const shortcutIgnored = Boolean(target?.closest('[data-rhyme-panel-shortcuts="ignore"]'))
+        if (shortcutIgnored && ['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
+          return
+        }
+
         const suggestions = suggestionsRef.current
         if (suggestions.length === 0) return
 
