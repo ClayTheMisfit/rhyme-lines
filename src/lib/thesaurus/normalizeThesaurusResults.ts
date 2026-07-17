@@ -13,6 +13,10 @@ const isSingleUsableWord = (word: string, normalized: string) =>
   /^[a-z][a-z'-]*$/i.test(word) &&
   isEnglishWord(normalized)
 
+/**
+ * Produces deterministic, bounded, single-word thesaurus groups for a target.
+ * Synonyms win over duplicate related concepts and lyric target echoes are excluded.
+ */
 export function normalizeThesaurusResults(target: string, rawConcepts: RawThesaurusConcept[]): ThesaurusResult {
   const normalizedTarget = normalizeToken(target)
   const byWord = new Map<string, ThesaurusConcept>()

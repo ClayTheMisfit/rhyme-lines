@@ -1,9 +1,10 @@
 import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 import { normalizeThesaurusResults } from '@/lib/thesaurus/normalizeThesaurusResults'
-import type { RawThesaurusConcept, ThesaurusResult } from '@/lib/thesaurus/types'
+import type { DatamusePartOfSpeech, RawThesaurusConcept, ThesaurusResult } from '@/lib/thesaurus/types'
 
 const DATAMUSE_BASE = 'https://api.datamuse.com/words'
 const RAW_LIMIT = 40
+const DATAMUSE_PARTS_OF_SPEECH = new Set<DatamusePartOfSpeech>(['n', 'v', 'adj', 'adv', 'u'])
 
 interface DatamuseThesaurusResponse {
   word?: unknown
@@ -19,9 +20,11 @@ const extractFrequency = (tags: unknown): number | undefined => {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
-const extractPartOfSpeech = (tags: unknown): string | undefined => {
+const extractPartOfSpeech = (tags: unknown): DatamusePartOfSpeech | undefined => {
   if (!Array.isArray(tags)) return undefined
-  return tags.find((item): item is string => typeof item === 'string' && /^[nvajr]$/.test(item))
+  return tags.find((item): item is DatamusePartOfSpeech => (
+    typeof item === 'string' && DATAMUSE_PARTS_OF_SPEECH.has(item as DatamusePartOfSpeech)
+  ))
 }
 
 const fetchRelationship = async (
@@ -52,6 +55,10 @@ const fetchRelationship = async (
   })
 }
 
+/**
+ * Fetches Datamuse synonym and meaning-related concepts, then normalizes them
+ * into the thesaurus domain without exposing raw API records to the UI.
+ */
 export async function fetchDatamuseThesaurus(target: string, signal?: AbortSignal): Promise<ThesaurusResult> {
   const normalizedTarget = normalizeToken(target)
   if (!normalizedTarget) return normalizeThesaurusResults('', [])

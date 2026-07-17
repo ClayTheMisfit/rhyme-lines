@@ -24,7 +24,7 @@ type Props = {
 const conceptButtonClass = (selected: boolean) =>
   `rounded-full border px-2.5 py-1 text-[12px] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--rl-shell-elevated)] dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#101012] ${
     selected
-      ? 'border-[#c4932a]/55 bg-[#f2d000]/15 text-slate-950 dark:text-[#fff6b0]'
+      ? 'border-[#c4932a]/70 bg-[#f2d000]/15 font-semibold text-slate-950 dark:text-[#fff6b0]'
       : 'border-[color:var(--rl-shell-border)] bg-[#eef2f5] text-slate-700 hover:text-slate-950 dark:bg-white/[0.03] dark:text-white/68 dark:hover:text-white/90'
   }`
 
@@ -49,11 +49,14 @@ export function RhymeThesaurusSection({
   const enabled = isOpen && panelMode !== 'hidden' && Boolean(normalizedTarget)
   const thesaurus = useRhymeThesaurus({ target: normalizedTarget, enabled })
 
+  const reportedErrorKeyRef = React.useRef<string | null>(null)
   React.useEffect(() => {
-    if (thesaurus.status === 'error') {
-      trackEvent('rhyme_thesaurus_request_failed', { panelMode })
-    }
-  }, [panelMode, thesaurus.status])
+    if (thesaurus.status !== 'error') return
+    const errorKey = `${thesaurus.normalizedTarget}|${thesaurus.error ?? ''}`
+    if (reportedErrorKeyRef.current === errorKey) return
+    reportedErrorKeyRef.current = errorKey
+    trackEvent('rhyme_thesaurus_request_failed', { panelMode })
+  }, [panelMode, thesaurus.error, thesaurus.normalizedTarget, thesaurus.status])
 
   const selectedWord = selectedConcept?.normalizedWord ?? ''
   const conceptRhymes = useRhymeSuggestions({
@@ -66,7 +69,7 @@ export function RhymeThesaurusSection({
     multiSyllable,
     commonWordsOnly,
     debug: false,
-    enabled: isOpen && Boolean(selectedWord),
+    enabled: isOpen && panelMode !== 'hidden' && Boolean(selectedWord),
   })
   const visibleConceptRhymes = React.useMemo(
     () => buildVisibleSuggestions(conceptRhymes.results.caret ?? conceptRhymes.results.lineLast ?? [], { limit: CONCEPT_RHYME_LIMIT }),
@@ -76,12 +79,10 @@ export function RhymeThesaurusSection({
   if (panelMode === 'hidden') return null
 
   const toggleOpen = () => {
-    setIsOpen((prev) => {
-      const next = !prev
-      trackEvent(next ? 'rhyme_thesaurus_opened' : 'rhyme_thesaurus_closed', { panelMode })
-      if (!next) setSelectedConcept(null)
-      return next
-    })
+    const next = !isOpen
+    setIsOpen(next)
+    trackEvent(next ? 'rhyme_thesaurus_opened' : 'rhyme_thesaurus_closed', { panelMode })
+    if (!next) setSelectedConcept(null)
   }
 
   const selectConcept = (concept: ThesaurusConcept) => {
@@ -115,11 +116,17 @@ export function RhymeThesaurusSection({
     }
   }
 
+  const hasCurrentResult = thesaurus.result?.target === thesaurus.normalizedTarget
+  const currentResult = hasCurrentResult ? thesaurus.result : null
+  const selectedConceptIsCurrent = Boolean(
+    selectedConcept && currentResult?.concepts.some((concept) => concept.normalizedWord === selectedConcept.normalizedWord)
+  )
+
   const renderConceptGroup = (label: string, concepts: ThesaurusConcept[]) => {
     if (concepts.length === 0) return null
     return (
-      <div className="space-y-1.5">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-white/45">{label}</p>
+      <div role="group" aria-labelledby={`${sectionId}-${label.toLowerCase().replace(/\s+/g, '-')}`} className="space-y-1.5">
+        <p id={`${sectionId}-${label.toLowerCase().replace(/\s+/g, '-')}`} className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-white/45">{label}</p>
         <div className="flex flex-wrap gap-1.5">
           {concepts.map((concept) => {
             const selected = selectedConcept?.normalizedWord === concept.normalizedWord
@@ -131,7 +138,8 @@ export function RhymeThesaurusSection({
                 onClick={() => selectConcept(concept)}
                 className={conceptButtonClass(selected)}
               >
-                {concept.word}
+                {selected && <span aria-hidden="true" className="mr-1">✓</span>}
+                <span>{concept.word}</span>
               </button>
             )
           })}
@@ -141,7 +149,7 @@ export function RhymeThesaurusSection({
   }
 
   return (
-    <section className="mb-2 rounded-md border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)]/95 p-3 text-[12px]" aria-labelledby={`${sectionId}-trigger`}>
+    <section data-rhyme-panel-shortcuts="ignore" className="mb-2 rounded-md border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)]/95 p-3 text-[12px]" aria-labelledby={`${sectionId}-trigger`}>
       <button
         id={`${sectionId}-trigger`}
         type="button"
@@ -151,7 +159,7 @@ export function RhymeThesaurusSection({
         className="inline-flex w-full items-center justify-between gap-2 text-left text-[12px] font-medium text-slate-700 transition-colors hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--rl-shell-elevated)] dark:text-white/72 dark:hover:text-white/92 dark:focus-visible:ring-white/25"
       >
         <span>Explore meanings</span>
-        <span aria-hidden="true" className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}>▾</span>
+        <span aria-hidden="true" className={`transition-transform motion-reduce:transition-none ${isOpen ? 'rotate-180' : ''}`}>▾</span>
       </button>
 
       {isOpen && (
@@ -183,18 +191,18 @@ export function RhymeThesaurusSection({
             </div>
           )}
 
-          {thesaurus.status === 'success' && thesaurus.result && thesaurus.result.concepts.length === 0 && (
+          {thesaurus.status === 'success' && currentResult && currentResult.concepts.length === 0 && (
             <p role="status" className="text-[12px] text-slate-500 dark:text-slate-400">No useful meaning alternatives found.</p>
           )}
 
-          {thesaurus.result && thesaurus.result.concepts.length > 0 && (
+          {currentResult && currentResult.concepts.length > 0 && (
             <div className="space-y-3">
-              {renderConceptGroup('Synonyms', thesaurus.result.synonyms)}
-              {renderConceptGroup('Related concepts', thesaurus.result.related)}
+              {renderConceptGroup('Synonyms', currentResult.synonyms)}
+              {renderConceptGroup('Related concepts', currentResult.related)}
             </div>
           )}
 
-          {selectedConcept && (
+          {selectedConceptIsCurrent && selectedConcept && (
             <div className="space-y-2 rounded-sm border border-[color:var(--rl-shell-border)] bg-[#eef2f5]/70 p-2 dark:bg-white/[0.03]">
               <p className="text-[11px] font-semibold text-slate-700 dark:text-white/72">Rhymes for “{selectedConcept.word}”</p>
               {conceptRhymes.phase === 'initial' && (
@@ -204,7 +212,7 @@ export function RhymeThesaurusSection({
                 <p role="status" className="text-[12px] text-slate-500 dark:text-slate-400">No strong rhymes found for “{selectedConcept.word}.”</p>
               )}
               {visibleConceptRhymes.length > 0 && (
-                <div className="flex flex-wrap gap-1.5" aria-label={`Rhymes for ${selectedConcept.word}`}>
+                <div role="group" className="flex flex-wrap gap-1.5" aria-label={`Rhymes for ${selectedConcept.word}`}>
                   {visibleConceptRhymes.map((rhyme) => (
                     <button
                       key={rhyme}
