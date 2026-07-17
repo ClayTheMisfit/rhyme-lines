@@ -77,10 +77,12 @@ describe('RhymeThesaurusSection', () => {
     renderSection({ onInsertRhyme, commonWordsOnly: true, multiSyllable: true })
 
     await user.click(screen.getByRole('button', { name: /explore meanings/i }))
+    expect(screen.getByText('Meaning paths for “dream”')).toBeInTheDocument()
     expect(screen.getByText('Synonyms')).toBeInTheDocument()
     expect(screen.getByText('Related concepts')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'vision' }))
+    expect(screen.getByText('Meaning paths for “dream”')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'vision' })).toHaveAttribute('aria-pressed', 'true')
     expect(onInsertRhyme).not.toHaveBeenCalled()
     expect(mockedRhymes).toHaveBeenLastCalledWith(expect.objectContaining({ queryToken: 'vision', commonWordsOnly: true, multiSyllable: true, enabled: true }))

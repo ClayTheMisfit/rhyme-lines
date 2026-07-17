@@ -758,7 +758,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     onCursorChange?.(resolveCursorFromSelection())
   }, [onCursorChange, resolveActiveFamilyFromSelection, resolveCursorFromSelection, scheduleAnalysis, scheduleCurrentLineHighlight, showRhymeDecorations])
 
-  useEditorSelection({
+  const { restore, snapshotRef, getSnapshot } = useEditorSelection({
     editorRef,
     onSelectionChange: handleSelectionChange,
   })
@@ -961,8 +961,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (!node) return
     if (document.activeElement !== node) {
       node.focus({ preventScroll: true })
+      restore(snapshotRef.current)
+      return
     }
-  }, [])
+    getSnapshot()
+  }, [getSnapshot, restore, snapshotRef])
 
   const insertText = useCallback(
     (textToInsert: string) => {
@@ -985,13 +988,15 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         range.setEndAfter(textNode)
         selection.removeAllRanges()
         selection.addRange(range)
+        getSnapshot()
+        commitEditorChange('program')
         return true
-      } catch (error) {
+      } catch {
         if (typeof document.execCommand !== 'function') return false
         return document.execCommand('insertText', false, textToInsert)
       }
     },
-    [ensureEditorFocus]
+    [commitEditorChange, ensureEditorFocus, getSnapshot]
   )
 
   const insertPlainText = useCallback(
