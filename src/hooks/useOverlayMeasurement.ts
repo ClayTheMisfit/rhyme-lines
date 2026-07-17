@@ -14,6 +14,7 @@ type UseOverlayMeasurementArgs = {
   containerRef: React.RefObject<HTMLElement | null>
   lineElementsRef: React.RefObject<HTMLDivElement[]>
   lineVersion: number
+  geometryVersion?: number
   activeLineIds: Set<string>
   lines: LineInput[]
   analysis: AnalysisResult
@@ -46,6 +47,7 @@ export function useOverlayMeasurement({
   containerRef,
   lineElementsRef,
   lineVersion,
+  geometryVersion = 0,
   activeLineIds,
   lines,
   analysis,
@@ -107,8 +109,8 @@ export function useOverlayMeasurement({
     const fontFamily = style.fontFamily || 'monospace'
     const fontSizePx = Number.parseFloat(style.fontSize) || fontSize
     const resolvedLineHeight = Number.parseFloat(style.lineHeight) || fontSizePx * lineHeight
-    return `${fontFamily}|${fontSizePx}|${resolvedLineHeight}|${containerWidth}|${devicePixelRatio}|${theme}`
-  }, [activeLineIds, containerWidth, devicePixelRatio, fontSize, lineElementsRef, lineHeight, theme])
+    return `${fontFamily}|${fontSizePx}|${resolvedLineHeight}|${containerWidth}|${devicePixelRatio}|${theme}|${geometryVersion}`
+  }, [activeLineIds, containerWidth, devicePixelRatio, fontSize, lineElementsRef, lineHeight, theme, geometryVersion])
 
   useEffect(() => {
     if (!enabled || !analysis || analysis.docId !== docId || !isClient()) {

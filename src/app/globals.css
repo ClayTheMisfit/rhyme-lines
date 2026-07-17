@@ -194,6 +194,7 @@ body.bg-white {
 /* Editor line break preservation */
 .editor-root {
   position: relative;
+  min-width: 0;
   --rl-font: var(--rl-font-editor);
   --rl-font-size: var(--editor-font-size, 23px);
   --rl-line-height: max(var(--editor-line-height, 2.02), 1.72);
@@ -209,8 +210,10 @@ body.bg-white {
 
 .rl-editor-grid {
   display: grid;
-  grid-template-columns: var(--rl-gutter-width) minmax(760px, 1120px);
-  justify-content: start;
+  grid-template-columns: var(--rl-gutter-width) minmax(0, 1fr);
+  justify-content: stretch;
+  min-width: 0;
+  width: 100%;
   column-gap: var(--rl-gutter-gap);
   padding-inline: var(--rl-pad-inline) clamp(1rem, 3vw, 2.4rem);
   align-items: flex-start;

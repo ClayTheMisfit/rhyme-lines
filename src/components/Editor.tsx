@@ -20,6 +20,7 @@ import { resolveInternalRhymesEnabled } from '@/lib/rhyme/highlightOptions'
 import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
 import { RhymeDecorationOverlay } from '@/components/editor/RhymeDecorationOverlay'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { useResizeObservedGeometryInvalidation } from '@/hooks/useResizeObservedGeometryInvalidation'
 
 const PLACEHOLDER_TEXT = 'Start writing…'
 const ANALYSIS_DOC_ID = 'rhyme-editor'
@@ -76,6 +77,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [activeLineId, setActiveLineId] = useState<string | null>(null)
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
   const [lineVersion, setLineVersion] = useState(0)
+  const [geometryVersion, setGeometryVersion] = useState(0)
   const [isEditorFocused, setIsEditorFocused] = useState(false)
   const [isEditorEmpty, setIsEditorEmpty] = useState(true)
   const [activeRhymeFamilyId, setActiveRhymeFamilyId] = useState<number | null>(null)
@@ -151,6 +153,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     containerRef,
     lineElementsRef,
     lineVersion,
+    geometryVersion,
     activeLineIds,
     lines: lineInputs,
     analysis,
@@ -193,6 +196,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     decorations: rhymeDecorations,
     viewportRange,
     lineVersion,
+    geometryVersion,
   })
 
   const captureSelectionSnapshot = useCallback(() => {
@@ -450,6 +454,18 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     },
     [updateCurrentLineHighlight]
   )
+
+
+  const invalidateOverlayGeometry = useCallback(() => {
+    setGeometryVersion((version) => version + 1)
+    setLineVersion((version) => version + 1)
+    scheduleCurrentLineHighlight({ immediate: true })
+  }, [scheduleCurrentLineHighlight])
+
+  useResizeObservedGeometryInvalidation({
+    targetRef: textColRef,
+    onInvalidate: invalidateOverlayGeometry,
+  })
 
   const resolvedTheme = resolveTheme(theme, { hydrated })
   const isDarkTheme = resolvedTheme === 'dark'
@@ -1055,17 +1071,17 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       <div
         ref={containerRef}
         data-editor-scroll
-        className="relative flex-1 overflow-auto transition-all duration-300"
+        className="relative min-w-0 flex-1 overflow-auto transition-all duration-300"
         style={{
           marginRight: 'var(--panel-right-offset, 0px)',
           maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
         }}
       >
-        <div className="editor-root relative mr-auto w-full max-w-[1480px]">
+        <div className="editor-root relative w-full max-w-none">
           <div className="rl-editor-grid">
             <div aria-hidden className="gutterSpacer" />
 
-            <div ref={textColRef} className="editor-surface relative min-h-[70vh] w-full max-w-none">
+            <div ref={textColRef} className="editor-surface relative min-h-[70vh] w-full min-w-0 max-w-none">
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
                 className="pointer-events-none absolute inset-0 z-10"
@@ -1172,7 +1188,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onPointerDown={ensureEditorFocus}
                 data-placeholder={PLACEHOLDER_TEXT}
                 data-empty={isEditorEmpty ? 'true' : 'false'}
-                className="rl-editor relative z-20 min-h-[70vh] w-full outline-none pointer-events-auto"
+                className="rl-editor relative z-20 min-h-[70vh] w-full min-w-0 outline-hidden pointer-events-auto"
               />
               <p id="lyric-editor-instructions" className="sr-only">
                 Write lyrics here. Press Command or Control plus K to open commands, Alt plus R to toggle rhyme panel.
