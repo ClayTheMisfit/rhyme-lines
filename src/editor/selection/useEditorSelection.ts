@@ -18,7 +18,9 @@ export function useEditorSelection({ editorRef, onSelectionChange }: UseEditorSe
     const root = editorRef.current
     if (!root) return null
     const snapshot = serializeSelection(root, root.ownerDocument.getSelection())
-    snapshotRef.current = snapshot
+    if (snapshot) {
+      snapshotRef.current = snapshot
+    }
     return snapshot
   }, [editorRef])
 
