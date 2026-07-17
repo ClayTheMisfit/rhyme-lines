@@ -1055,17 +1055,17 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       <div
         ref={containerRef}
         data-editor-scroll
-        className="relative flex-1 overflow-auto transition-all duration-300"
+        className="relative min-w-0 flex-1 overflow-auto transition-all duration-300"
         style={{
           marginRight: 'var(--panel-right-offset, 0px)',
           maxWidth: 'calc(100% - var(--panel-right-offset, 0px))',
         }}
       >
-        <div className="editor-root relative mr-auto w-full max-w-[1480px]">
+        <div className="editor-root relative w-full max-w-none">
           <div className="rl-editor-grid">
             <div aria-hidden className="gutterSpacer" />
 
-            <div ref={textColRef} className="editor-surface relative min-h-[70vh] w-full max-w-none">
+            <div ref={textColRef} className="editor-surface relative min-h-[70vh] w-full min-w-0 max-w-none">
               {/* Layer contract: highlight (z-0, inert) sits below text; badges (z-20, inert) float above; editable layer owns all focus. */}
               <div
                 className="pointer-events-none absolute inset-0 z-10"
@@ -1172,7 +1172,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onPointerDown={ensureEditorFocus}
                 data-placeholder={PLACEHOLDER_TEXT}
                 data-empty={isEditorEmpty ? 'true' : 'false'}
-                className="rl-editor relative z-20 min-h-[70vh] w-full outline-none pointer-events-auto"
+                className="rl-editor relative z-20 min-h-[70vh] w-full min-w-0 outline-none pointer-events-auto"
               />
               <p id="lyric-editor-instructions" className="sr-only">
                 Write lyrics here. Press Command or Control plus K to open commands, Alt plus R to toggle rhyme panel.
