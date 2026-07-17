@@ -88,6 +88,32 @@ describe('useRhymeThesaurus', () => {
     await waitFor(() => expect(result.current.status).toBe('success'))
   })
 
+
+  it('uses manual refresh as a one-shot signal and debounces the next target change', async () => {
+    mockedFetch
+      .mockResolvedValueOnce(resultFor('dream'))
+      .mockResolvedValueOnce(resultFor('dream'))
+      .mockResolvedValueOnce(resultFor('night'))
+    const { result, rerender } = renderHook(({ target }) => useRhymeThesaurus({ target, enabled: true }), {
+      initialProps: { target: 'dream' },
+    })
+
+    flushDebounce()
+    await waitFor(() => expect(result.current.status).toBe('success'))
+
+    act(() => result.current.refresh())
+    await waitFor(() => expect(mockedFetch).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(result.current.status).toBe('success'))
+
+    rerender({ target: 'night' })
+    expect(mockedFetch).toHaveBeenCalledTimes(2)
+    act(() => jest.advanceTimersByTime(249))
+    expect(mockedFetch).toHaveBeenCalledTimes(2)
+    act(() => jest.advanceTimersByTime(1))
+    await waitFor(() => expect(mockedFetch).toHaveBeenCalledTimes(3))
+    expect(mockedFetch).toHaveBeenLastCalledWith('night', expect.any(AbortSignal))
+  })
+
   it('debounces rapid target changes and requests only the final target', async () => {
     mockedFetch.mockResolvedValue(resultFor('dreaming'))
     const { rerender } = renderHook(({ target }) => useRhymeThesaurus({ target, enabled: true }), { initialProps: { target: 'dream' } })

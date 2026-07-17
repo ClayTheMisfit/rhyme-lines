@@ -57,6 +57,7 @@ export function useRhymeThesaurus({ target, enabled }: Args) {
   const abortRef = useRef<AbortController | null>(null)
   const inFlightKeyRef = useRef<string | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  const consumedRefreshTickRef = useRef(0)
   const debounceRef = useRef<number | null>(null)
 
   const refresh = useCallback(() => {
@@ -129,7 +130,9 @@ export function useRhymeThesaurus({ target, enabled }: Args) {
         })
     }
 
-    if (refreshTick > 0) {
+    const shouldRunImmediately = refreshTick > 0 && consumedRefreshTickRef.current !== refreshTick
+    if (shouldRunImmediately) {
+      consumedRefreshTickRef.current = refreshTick
       runRequest()
     } else {
       debounceRef.current = window.setTimeout(runRequest, TARGET_DEBOUNCE_MS)
