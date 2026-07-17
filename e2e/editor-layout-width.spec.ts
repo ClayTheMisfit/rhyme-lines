@@ -61,8 +61,8 @@ test.describe('editor writing surface width', () => {
     expect(full.gridTemplateColumns).not.toContain('1120px')
     expect(full.surfaceWidth).toBeGreaterThan(1120)
     expect(full.rootWidth).toBeGreaterThan(1480)
-    expect(full.editorWidth).toBeCloseTo(full.surfaceWidth, 1)
-    expect(full.gridWidth).toBeCloseTo(full.rootWidth, 1)
+    expect(Math.abs(full.editorWidth - full.surfaceWidth)).toBeLessThanOrEqual(1)
+    expect(Math.abs(full.gridWidth - full.rootWidth)).toBeLessThanOrEqual(1)
 
     const toggle = page.getByRole('button', { name: /rhyme panel/i })
     await expect(toggle).toHaveCount(1)
@@ -84,7 +84,7 @@ test.describe('editor writing surface width', () => {
 
     const restored = await editorLayoutMetrics(page)
     expect(restored.surfaceWidth).toBeGreaterThan(1120)
-    expect(restored.surfaceWidth).toBeCloseTo(full.surfaceWidth, 2)
+    expect(Math.abs(restored.surfaceWidth - full.surfaceWidth)).toBeLessThanOrEqual(2)
   })
 
   test('shrinks fluidly below the previous fixed text-column minimum', async ({ page }) => {

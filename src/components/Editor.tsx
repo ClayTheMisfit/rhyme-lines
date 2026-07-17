@@ -1172,7 +1172,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onPointerDown={ensureEditorFocus}
                 data-placeholder={PLACEHOLDER_TEXT}
                 data-empty={isEditorEmpty ? 'true' : 'false'}
-                className="rl-editor relative z-20 min-h-[70vh] w-full min-w-0 outline-none pointer-events-auto"
+                className="rl-editor relative z-20 min-h-[70vh] w-full min-w-0 outline-hidden pointer-events-auto"
               />
               <p id="lyric-editor-instructions" className="sr-only">
                 Write lyrics here. Press Command or Control plus K to open commands, Alt plus R to toggle rhyme panel.
