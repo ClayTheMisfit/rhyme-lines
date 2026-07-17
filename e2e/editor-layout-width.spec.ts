@@ -1,6 +1,6 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
-async function editorLayoutMetrics(page: import('@playwright/test').Page) {
+async function editorLayoutMetrics(page: Page) {
   return page.evaluate(() => {
     const scroll = document.querySelector<HTMLElement>('[data-editor-scroll]')
     const root = document.querySelector<HTMLElement>('.editor-root')
@@ -32,14 +32,25 @@ async function editorLayoutMetrics(page: import('@playwright/test').Page) {
   })
 }
 
-test.describe('editor writing surface width', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/')
-    await page.waitForSelector('#lyric-editor')
-  })
 
+async function openFreshEditor(page: Page) {
+  await page.goto('/')
+
+  const newProjectButton = page.getByRole('button', { name: /new project/i })
+  await expect(newProjectButton).toBeVisible()
+
+  await Promise.all([
+    page.waitForURL(/\/editor\/[^/?#]+(?:[?#].*)?$/),
+    newProjectButton.click(),
+  ])
+
+  await expect(page.locator('#lyric-editor')).toBeVisible()
+}
+
+test.describe('editor writing surface width', () => {
   test('uses available width on wide screens and restores after docked rhyme panel closes', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 })
+    await openFreshEditor(page)
 
     const editor = page.locator('#lyric-editor')
     await editor.click()
@@ -53,7 +64,9 @@ test.describe('editor writing surface width', () => {
     expect(full.editorWidth).toBeCloseTo(full.surfaceWidth, 1)
     expect(full.gridWidth).toBeCloseTo(full.rootWidth, 1)
 
-    const toggle = page.getByTitle(/rhyme panel/i)
+    const toggle = page.getByRole('button', { name: /rhyme panel/i })
+    await expect(toggle).toHaveCount(1)
+
     const panel = page.locator('[data-testid="rhyme-panel"]')
     if (!(await panel.isVisible())) {
       await toggle.click()
@@ -76,6 +89,7 @@ test.describe('editor writing surface width', () => {
 
   test('shrinks fluidly below the previous fixed text-column minimum', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 })
+    await openFreshEditor(page)
 
     const metrics = await editorLayoutMetrics(page)
     expect(metrics.gridTemplateColumns).not.toContain('760px')
