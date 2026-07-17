@@ -26,6 +26,7 @@ type UseRhymeDecorationOverlayArgs = {
   decorations: RhymeDecorationSnapshot
   viewportRange: ViewportRange
   lineVersion: number
+  geometryVersion?: number
 }
 
 const isInViewport = (index: number, start: number, end: number) => {
@@ -41,6 +42,7 @@ export function useRhymeDecorationOverlay({
   decorations,
   viewportRange,
   lineVersion,
+  geometryVersion = 0,
 }: UseRhymeDecorationOverlayArgs) {
   const [rects, setRects] = useState<RhymeDecorationRect[]>([])
 
@@ -140,7 +142,7 @@ export function useRhymeDecorationOverlay({
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId)
     }
-  }, [decorations, enabled, editorRef, lineElementsRef, lineVersion, tokensByLine, viewportRange.end, viewportRange.start])
+  }, [decorations, enabled, editorRef, lineElementsRef, geometryVersion, lineVersion, tokensByLine, viewportRange.end, viewportRange.start])
 
   return rects
 }
