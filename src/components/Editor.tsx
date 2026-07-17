@@ -20,6 +20,7 @@ import { resolveInternalRhymesEnabled } from '@/lib/rhyme/highlightOptions'
 import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
 import { RhymeDecorationOverlay } from '@/components/editor/RhymeDecorationOverlay'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { useResizeObservedGeometryInvalidation } from '@/hooks/useResizeObservedGeometryInvalidation'
 
 const PLACEHOLDER_TEXT = 'Start writing…'
 const ANALYSIS_DOC_ID = 'rhyme-editor'
@@ -76,6 +77,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [activeLineId, setActiveLineId] = useState<string | null>(null)
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null)
   const [lineVersion, setLineVersion] = useState(0)
+  const [geometryVersion, setGeometryVersion] = useState(0)
   const [isEditorFocused, setIsEditorFocused] = useState(false)
   const [isEditorEmpty, setIsEditorEmpty] = useState(true)
   const [activeRhymeFamilyId, setActiveRhymeFamilyId] = useState<number | null>(null)
@@ -151,6 +153,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     containerRef,
     lineElementsRef,
     lineVersion,
+    geometryVersion,
     activeLineIds,
     lines: lineInputs,
     analysis,
@@ -193,6 +196,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     decorations: rhymeDecorations,
     viewportRange,
     lineVersion,
+    geometryVersion,
   })
 
   const captureSelectionSnapshot = useCallback(() => {
@@ -450,6 +454,18 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     },
     [updateCurrentLineHighlight]
   )
+
+
+  const invalidateOverlayGeometry = useCallback(() => {
+    setGeometryVersion((version) => version + 1)
+    setLineVersion((version) => version + 1)
+    scheduleCurrentLineHighlight({ immediate: true })
+  }, [scheduleCurrentLineHighlight])
+
+  useResizeObservedGeometryInvalidation({
+    targetRef: textColRef,
+    onInvalidate: invalidateOverlayGeometry,
+  })
 
   const resolvedTheme = resolveTheme(theme, { hydrated })
   const isDarkTheme = resolvedTheme === 'dark'
