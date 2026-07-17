@@ -50,19 +50,31 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
     focusEditor()
   }
 
-  const readEditorSnapshot = useCallback((editorElement: HTMLElement) => {
+  const readEditorSnapshot = useCallback((
+    editorElement: HTMLElement,
+    previous?: {
+      caretIndex: number
+      currentLineText: string
+      activeLineRect: { top: number; left: number; width: number; height: number } | null
+    }
+  ) => {
     const text = getEditorPlainText(editorElement)
     const selection = window.getSelection()
-    let caretIndex = 0
-    let currentLineText = ''
-    let activeLineRect: { top: number; left: number; width: number; height: number } | null = null
+    const previousHasSelection = Boolean(previous?.currentLineText || previous?.activeLineRect || previous?.caretIndex)
+    let hasEditorSelection = false
+    let caretIndex = previous?.caretIndex ?? 0
+    let currentLineText = previous?.currentLineText ?? ''
+    let activeLineRect: { top: number; left: number; width: number; height: number } | null = previous?.activeLineRect ?? null
 
     if (selection && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0)
       const focusNode = selection.focusNode ?? range.endContainer
       if (focusNode && editorElement.contains(focusNode)) {
+        hasEditorSelection = true
+        currentLineText = ''
+        activeLineRect = null
         const caretSnapshot = getEditorPlainTextIndexFromSelection(editorElement, selection)
-        caretIndex = caretSnapshot?.index ?? 0
+        caretIndex = caretSnapshot?.index ?? previous?.caretIndex ?? 0
 
         let node: Node | null = focusNode
         let lineElement: HTMLElement | null = null
@@ -90,7 +102,9 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
       }
     }
 
-    if (!currentLineText) {
+    if (!hasEditorSelection && previousHasSelection) {
+      // Keep the last editor-derived caret target while focus moves through the rhyme panel.
+    } else if (!currentLineText) {
       const lineElements = getEditorLineElements(editorElement)
       if (lineElements.length > 0) {
         const fallbackLine = lineElements[lineElements.length - 1]
@@ -142,7 +156,7 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
       }
       frameId = window.requestAnimationFrame(() => {
         frameId = null
-        setEditorSnapshot(readEditorSnapshot(editorElement))
+        setEditorSnapshot((previous) => readEditorSnapshot(editorElement, previous))
       })
     }
 
