@@ -79,9 +79,12 @@ const reorderGroup = (tabs: Tab[], id: TabId, targetIndex: number): Tab[] => {
   const [item] = reordered.splice(fromIndex, 1)
   reordered.splice(clampedTarget, 0, item)
   const positionById = new Map(reordered.map((tab, index) => [tab.id, (index + 1) * 1000]))
+  const now = Date.now()
   return tabs.map((tab) => {
-    const position = positionById.get(tab.id)
-    return position ? { ...tab, position, updatedAt: Date.now() } : tab
+    const newPosition = positionById.get(tab.id)
+    if (!newPosition) return tab
+    if (newPosition === tab.position) return tab
+    return tab.id === id ? { ...tab, position: newPosition, updatedAt: now } : { ...tab, position: newPosition }
   })
 }
 
