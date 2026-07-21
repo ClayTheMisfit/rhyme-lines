@@ -14,6 +14,8 @@ export interface ProjectDocument {
   archivedAt?: string | null
   deletedAt: string | null
   folderId: string | null
+  isPinned: boolean
+  position: number
 }
 
 export interface ProjectSummary {
@@ -26,6 +28,8 @@ export interface ProjectSummary {
   archivedAt?: string | null
   deletedAt: string | null
   folderId: string | null
+  isPinned: boolean
+  position: number
   folderName?: string | null
   wordCount: number
   lineCount: number
@@ -90,7 +94,7 @@ const filterMeaningfulDrafts = (drafts: DraftSchema[]) => {
 
 const parseDraft = (
   draft: DraftSchema,
-  existing?: Pick<ProjectDocument, 'archived' | 'archivedAt'>
+  existing?: Pick<ProjectDocument, 'archived' | 'archivedAt' | 'isPinned' | 'position'>
 ): ProjectDocument => {
   const draftArchived = typeof draft.archived === 'boolean' ? draft.archived : undefined
   const existingArchived = typeof existing?.archived === 'boolean' ? existing.archived : undefined
@@ -110,6 +114,8 @@ const parseDraft = (
     archivedAt,
     deletedAt: typeof draft.deletedAt === 'string' ? draft.deletedAt : null,
     folderId: typeof draft.folderId === 'string' ? draft.folderId : null,
+    isPinned: typeof draft.isPinned === 'boolean' ? draft.isPinned : existing?.isPinned ?? false,
+    position: typeof draft.position === 'number' ? draft.position : existing?.position ?? draft.updatedAt,
   }
 }
 
@@ -125,6 +131,8 @@ const toSummary = (project: ProjectDocument, folders: ProjectFolder[]): ProjectS
     archivedAt: typeof project.archivedAt === 'string' ? project.archivedAt : null,
     deletedAt: typeof project.deletedAt === 'string' ? project.deletedAt : null,
     folderId: typeof project.folderId === 'string' ? project.folderId : null,
+    isPinned: project.isPinned === true,
+    position: project.position,
     folderName: folders.find((folder) => folder.id === project.folderId)?.name ?? null,
     wordCount: countWords(project.content),
     lineCount: countLines(project.content),
@@ -151,6 +159,8 @@ const toDraft = (project: ProjectDocument, previous?: DraftSchema): DraftSchema 
     archivedAt: typeof project.archivedAt === 'string' ? project.archivedAt : null,
     deletedAt: typeof project.deletedAt === 'string' ? project.deletedAt : null,
     folderId: typeof project.folderId === 'string' ? project.folderId : null,
+    isPinned: project.isPinned === true,
+    position: project.position,
     lines: lines.length ? lines : [{ id: `${project.id}-line-0`, text: '' }],
     selection: previous?.selection,
   }
@@ -166,6 +176,13 @@ const toFolder = (folder: FolderSchema): ProjectFolder => ({
   createdAt: folder.createdAt,
   updatedAt: folder.updatedAt,
 })
+
+export const sortByDocumentOrder = (projects: ProjectSummary[]) =>
+  [...projects].sort((a, b) => {
+    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
+    if (a.position !== b.position) return a.position - b.position
+    return Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
+  })
 
 const sortByUpdated = (projects: ProjectSummary[]) =>
   [...projects].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
@@ -189,6 +206,8 @@ const normalizeProject = (project: ProjectSummary): ProjectSummary => ({
   deletedAt: typeof project.deletedAt === 'string' ? project.deletedAt : null,
   folderId: typeof project.folderId === 'string' ? project.folderId : null,
   folderName: typeof project.folderName === 'string' ? project.folderName : null,
+  isPinned: project.isPinned === true,
+  position: typeof project.position === 'number' ? project.position : Date.parse(project.updatedAt),
 })
 
 const sortArchived = (projects: ProjectSummary[]) =>
@@ -224,6 +243,8 @@ export const createProject = (title = 'Untitled'): ProjectDocument => {
     archivedAt: null,
     deletedAt: null,
     folderId: null,
+    isPinned: false,
+    position: Date.now(),
   }
 
   const collection = readCollection()
