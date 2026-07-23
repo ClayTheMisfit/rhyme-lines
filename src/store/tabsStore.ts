@@ -25,6 +25,8 @@ export interface Tab {
   isDirty: boolean
   createdAt: number
   updatedAt: number
+  isPinned: boolean
+  position: number
 }
 
 interface TabsState {
@@ -34,7 +36,12 @@ interface TabsState {
     newTab: () => void
     setActive: (id: TabId) => void
     closeTab: (id: TabId) => void
+    deleteTab: (id: TabId) => void
     renameTab: (id: TabId, title: string) => void
+    pinTab: (id: TabId) => void
+    unpinTab: (id: TabId) => void
+    moveTab: (id: TabId, direction: -1 | 1) => void
+    moveTabToIndex: (id: TabId, targetIndex: number) => void
     updateSnapshot: (id: TabId, patch: Partial<EditorSnapshot>) => void
     markDirty: (id: TabId, dirty: boolean) => void
     hydrate: (payload: DraftCollection) => void
@@ -42,6 +49,44 @@ interface TabsState {
 }
 
 const PERSIST_DEBOUNCE_MS = 250
+
+export const MAX_TAB_TITLE_LENGTH = 100
+
+export const getOrderedTabs = (tabs: Tab[]): Tab[] =>
+  [...tabs].sort((a, b) => {
+    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
+    if (a.position !== b.position) return a.position - b.position
+    return a.createdAt - b.createdAt
+  })
+
+const getNextPosition = (tabs: Tab[], isPinned: boolean) =>
+  tabs.filter((tab) => tab.isPinned === isPinned).reduce((max, tab) => Math.max(max, tab.position), 0) + 1000
+
+const normalizeTitle = (title: string, fallback: string) => {
+  const trimmed = title.trim()
+  return (trimmed || fallback).slice(0, MAX_TAB_TITLE_LENGTH)
+}
+
+const reorderGroup = (tabs: Tab[], id: TabId, targetIndex: number): Tab[] => {
+  const moving = tabs.find((tab) => tab.id === id)
+  if (!moving) return tabs
+  const group = getOrderedTabs(tabs).filter((tab) => tab.isPinned === moving.isPinned)
+  const fromIndex = group.findIndex((tab) => tab.id === id)
+  if (fromIndex === -1) return tabs
+  const clampedTarget = Math.max(0, Math.min(targetIndex, group.length - 1))
+  if (fromIndex === clampedTarget) return tabs
+  const reordered = [...group]
+  const [item] = reordered.splice(fromIndex, 1)
+  reordered.splice(clampedTarget, 0, item)
+  const positionById = new Map(reordered.map((tab, index) => [tab.id, (index + 1) * 1000]))
+  const now = Date.now()
+  return tabs.map((tab) => {
+    const newPosition = positionById.get(tab.id)
+    if (!newPosition) return tab
+    if (newPosition === tab.position) return tab
+    return tab.id === id ? { ...tab, position: newPosition, updatedAt: now } : { ...tab, position: newPosition }
+  })
+}
 
 const makeId = (): TabId => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -57,6 +102,8 @@ const tabFromDraft = (draft: DraftSchema): Tab => ({
   isDirty: false,
   createdAt: draft.createdAt,
   updatedAt: draft.updatedAt,
+  isPinned: draft.isPinned === true,
+  position: typeof draft.position === 'number' ? draft.position : draft.updatedAt,
 })
 
 const createDefaultTab = (): Tab => tabFromDraft(createEmptyDraft(makeId()))
@@ -80,6 +127,8 @@ const buildDraftFromTab = (tab: Tab, previousDraft?: DraftSchema): DraftSchema =
     archivedAt: previousDraft?.archivedAt ?? null,
     deletedAt: previousDraft?.deletedAt ?? null,
     folderId: previousDraft?.folderId ?? null,
+    isPinned: tab.isPinned === true,
+    position: tab.position,
     lines: draftLines.length ? draftLines : [{ id: `${tab.id}-line-0`, text: '' }],
     selection: previousDraft?.selection,
   }
@@ -120,7 +169,7 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
   activeTabId: baseTabs.activeTabId,
   actions: {
     newTab: () => {
-      const tab = createDefaultTab()
+      const tab = { ...createDefaultTab(), position: getNextPosition(get().tabs, false) }
       set((state) => ({
         tabs: [...state.tabs, tab],
         activeTabId: tab.id,
@@ -165,8 +214,28 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
         }
       })
     },
+
+    deleteTab: (id) => {
+      set((state) => {
+        const ordered = getOrderedTabs(state.tabs)
+        const index = ordered.findIndex((tab) => tab.id === id)
+        if (index === -1) return state
+        const nextTabs = state.tabs.filter((tab) => tab.id !== id)
+        if (!nextTabs.length) {
+          const replacement = createDefaultTab()
+          return { ...state, tabs: [replacement], activeTabId: replacement.id }
+        }
+        let nextActiveId = state.activeTabId
+        if (state.activeTabId === id) {
+          const nextVisible = ordered[index + 1] ?? ordered[index - 1]
+          nextActiveId = nextTabs.find((tab) => tab.id === nextVisible?.id)?.id ?? nextTabs[0].id
+        }
+        return { ...state, tabs: nextTabs, activeTabId: nextActiveId }
+      })
+    },
     renameTab: (id, title) => {
-      const normalized = title.trim() || 'Untitled'
+      const existing = get().tabs.find((tab) => tab.id === id)
+      const normalized = normalizeTitle(title, existing?.title || 'Untitled')
       set((state) => ({
         ...state,
         tabs: state.tabs.map((tab) =>
@@ -179,6 +248,30 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
             : tab
         ),
       }))
+    },
+    pinTab: (id) => {
+      set((state) => ({
+        ...state,
+        tabs: state.tabs.map((tab) => tab.id === id ? { ...tab, isPinned: true, position: getNextPosition(state.tabs, true), updatedAt: Date.now() } : tab),
+      }))
+    },
+    unpinTab: (id) => {
+      set((state) => ({
+        ...state,
+        tabs: state.tabs.map((tab) => tab.id === id ? { ...tab, isPinned: false, position: getNextPosition(state.tabs, false), updatedAt: Date.now() } : tab),
+      }))
+    },
+    moveTab: (id, direction) => {
+      set((state) => {
+        const moving = state.tabs.find((tab) => tab.id === id)
+        if (!moving) return state
+        const group = getOrderedTabs(state.tabs).filter((tab) => tab.isPinned === moving.isPinned)
+        const index = group.findIndex((tab) => tab.id === id)
+        return { ...state, tabs: reorderGroup(state.tabs, id, index + direction) }
+      })
+    },
+    moveTabToIndex: (id, targetIndex) => {
+      set((state) => ({ ...state, tabs: reorderGroup(state.tabs, id, targetIndex) }))
     },
     updateSnapshot: (id, patch) => {
       set((state) => ({

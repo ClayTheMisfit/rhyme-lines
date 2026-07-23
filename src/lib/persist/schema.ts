@@ -60,6 +60,8 @@ export interface DraftSchema {
   archivedAt?: string | null
   deletedAt?: string | null
   folderId?: string | null
+  isPinned?: boolean
+  position?: number
   lines: DraftLine[]
   selection?: DraftSelection
 }
@@ -150,6 +152,8 @@ export function createEmptyDraft(docId: string, title = 'Untitled'): DraftSchema
     archivedAt: null,
     deletedAt: null,
     folderId: null,
+    isPinned: false,
+    position: now,
     lines: [{ id: `${docId}-line-0`, text: '' }],
   }
 }
