@@ -16,4 +16,21 @@ describe('countSyllables', () => {
   it('does not over-split unknown suffix words without lexical signal', () => {
     expect(countSyllables('zillionover')).toBe(4)
   })
+
+  it.each(['waves', 'waves...', '“waves”', 'waves!'])('ignores punctuation and silent e in %s', (word) => {
+    expect(countSyllables(word)).toBe(1)
+  })
+
+  it.each(['survived', 'survived,', 'survived;'])('derives regular past tense pronunciation for %s', (word) => {
+    expect(countSyllables(word)).toBe(2)
+  })
+
+  it('distinguishes the common verb and adjective pronunciations of learned', () => {
+    expect(countSyllables('learned')).toBe(1)
+    expect(countSyllables('learned', { previousWord: 'a', nextWord: 'scholar' })).toBe(2)
+  })
+
+  it.each(["I'm", 'I’m'])('normalizes apostrophes in %s', (word) => {
+    expect(countSyllables(word)).toBe(1)
+  })
 })
