@@ -26,6 +26,10 @@ describe('project analysis metrics', () => {
     })
   })
 
+  it('uses neighboring words for context-sensitive syllable counts', () => {
+    expect(analyzeProjectContent('a learned scholar').averageSyllablesPerLine).toBe(4)
+  })
+
   it('counts only repeated visible rhyme families for the dense reference block', () => {
     const lyrics = [
       'tag bag flag rag gag wag',

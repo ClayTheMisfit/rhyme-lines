@@ -32,11 +32,20 @@ export const analyzeProjectContent = (content: string): ProjectAnalysisMetrics =
   const lineInputs = lines.map((text, index) => ({ id: `analysis-line-${index}`, text }))
 
   for (const line of lines) {
-    const lexemes = tokenizeLine(line)
-      .map((token) => normalizeLexeme(token.text))
-      .filter(Boolean)
+    const canonicalTokens = tokenizeLine(line)
+    const lexemes = canonicalTokens
+      .map((token, index) => ({ index, text: normalizeLexeme(token.text) }))
+      .filter((token) => token.text)
 
-    const lineSyllables = lexemes.reduce((sum, token) => sum + countSyllables(token), 0)
+    const lineSyllables = lexemes.reduce(
+      (sum, token) =>
+        sum +
+        countSyllables(token.text, {
+          previousWord: canonicalTokens[token.index - 1]?.text,
+          nextWord: canonicalTokens[token.index + 1]?.text,
+        }),
+      0
+    )
     totalSyllables += lineSyllables
 
   }
