@@ -100,6 +100,12 @@ function estimateInflectedSyllables(word: string): number | null {
     // apply this after a sibilant spelling, where `-es` is normally spoken
     // (`faces`, `roses`, `judges`).
     if (!/(?:[csxzg]|sh|ch)e$/.test(stem) && stem.endsWith('e')) {
+      // Terminal `ie` is already one vowel group in these regular plurals.
+      // Running the singular fallback would apply its hiatus rule and add an
+      // extra syllable to words such as `movies`, `cookies`, and `pies`.
+      if (stem.endsWith('ie')) {
+        return Math.max(1, stem.match(/[aeiouy]+/g)?.length ?? 0)
+      }
       return countSingleTokenSyllables(stem)
     }
   }

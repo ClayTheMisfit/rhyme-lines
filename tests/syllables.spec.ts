@@ -33,6 +33,15 @@ describe('countSyllables', () => {
     expect(countSyllables(word)).toBe(2)
   })
 
+  it.each([
+    ['movies', 2],
+    ['cookies', 2],
+    ['pies', 1],
+    ['zombies', 2],
+  ])('does not add a syllable to an -ie base in %s', (word, expected) => {
+    expect(countSyllables(word)).toBe(expected)
+  })
+
   it.each(['sacred', 'hatred', 'wretched', 'rugged'])('does not treat lexical -ed ending in %s as an inflection', (word) => {
     expect(countSyllables(word)).toBe(2)
   })
