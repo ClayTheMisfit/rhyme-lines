@@ -6,6 +6,7 @@ const SYLLABLE_OVERRIDES: Record<string, number> = {
   the: 1, a: 1, i: 1, you: 1, are: 1, fire: 1, hour: 1, choir: 1,
   people: 2, every: 2, evening: 3, queue: 1, queued: 1, queues: 1,
   hundred: 2, naked: 2, wicked: 2, crooked: 2, beloved: 3,
+  sacred: 2, hatred: 2, wretched: 2, rugged: 2,
   business: 2, camera: 2, chocolate: 2, family: 2, depression: 3, imperfections: 4,
 }
 
@@ -98,18 +99,12 @@ function estimateInflectedSyllables(word: string): number | null {
     // An appended `s` hides a silent e from the word-final fallback. Do not
     // apply this after a sibilant spelling, where `-es` is normally spoken
     // (`faces`, `roses`, `judges`).
-    if (/[^csxzg]e$/.test(stem)) {
-      return estimateUninflectedSyllables(stem)
+    if (!/(?:[csxzg]|sh|ch)e$/.test(stem) && stem.endsWith('e')) {
+      return countSingleTokenSyllables(stem)
     }
   }
 
   return null
-}
-
-function estimateUninflectedSyllables(word: string): number {
-  const core = word.replace(/e\b/, '')
-  const vowelGroups = core.match(/[aeiouy]+/g)
-  return Math.max(1, vowelGroups?.length ?? 0)
 }
 
 function isLearnedAdjective(word: string, context?: SyllableContext): boolean {
