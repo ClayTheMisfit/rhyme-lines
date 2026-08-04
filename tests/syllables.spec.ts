@@ -34,6 +34,14 @@ describe('countSyllables', () => {
   })
 
   it.each([
+    ['styles', 1],
+    ['aisles', 1],
+    ['gazelles', 2],
+  ])('does not treat a silent-e stem as syllabic-le in %s', (word, expected) => {
+    expect(countSyllables(word)).toBe(expected)
+  })
+
+  it.each([
     ['movies', 2],
     ['cookies', 2],
     ['pies', 1],

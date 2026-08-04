@@ -14,6 +14,11 @@ const COMPOUND_SUFFIXES = ['out', 'up', 'in', 'on', 'off', 'over'] as const
 const FUSED_COMPOUND_ALLOWLIST = new Set(['vibeout', 'fadeout', 'blackout', 'burnout', 'chillout', 'freakout', 'lockout'])
 const syllableCache = new Map<string, number>()
 
+function hasSyllabicLeEnding(word: string): boolean {
+  return /[bcdfghjklmnpqrstvwxyz]le$/.test(word)
+    && !/(?:[aeiou]sle|yle|lle)$/.test(word)
+}
+
 export type SyllableContext = {
   previousWord?: string
   nextWord?: string
@@ -106,7 +111,15 @@ function estimateInflectedSyllables(word: string): number | null {
       if (stem.endsWith('ie')) {
         return Math.max(1, stem.match(/[aeiouy]+/g)?.length ?? 0)
       }
-      return countSingleTokenSyllables(stem)
+
+      // Only delegate when the singular's final `le` is itself syllabic. The
+      // broad consonant-le fallback also matches silent-e words such as style,
+      // aisle, and gazelle, which would add a syllable to their plurals.
+      if (hasSyllabicLeEnding(stem)) {
+        return countSingleTokenSyllables(stem)
+      }
+
+      return Math.max(1, stem.replace(/e$/, '').match(/[aeiouy]+/g)?.length ?? 0)
     }
   }
 
