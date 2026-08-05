@@ -43,12 +43,13 @@ describe('canonical rhyme quality pipeline', () => {
     const ranked = dedupeForTest([
       { word: 'rain', quality: 'perfect', score: 80, provider: 'local' },
       { word: 'Rain', quality: 'perfect', score: 300, provider: 'datamuse' },
-      { word: ' “rain” ', quality: 'near', score: 92, provider: 'rhymebrain' },
+      { word: ' "rain" ', quality: 'near', score: 92, provider: 'rhymebrain' },
     ], allFilters, 'brain')
 
     expect(ranked).toHaveLength(1)
     expect(ranked[0].normalized).toBe('rain')
-    expect(ranked[0].providers.sort()).toEqual(['datamuse', 'local', 'rhymebrain'].sort())
+    expect(ranked[0].providers).toEqual(['datamuse', 'local', 'rhymebrain'])
+    expect(ranked[0].sources).toEqual(['datamuse', 'local', 'rhymebrain'])
   })
 
   test.each(['brain', 'Brain', 'brain!', '“brain”'])('excludes query variant %s from suggestions', (query) => {
@@ -120,6 +121,15 @@ describe('canonical rhyme quality pipeline', () => {
     const forward = dedupeForTest(brainFixture(), allFilters, 'brain').map((item) => item.normalized)
     const reverse = dedupeForTest(brainFixture().reverse(), allFilters, 'brain').map((item) => item.normalized)
     expect(reverse).toEqual(forward)
+  })
+
+  test('syllable fit acts as tie-breaker when other scores are equal', () => {
+    const ranked = dedupeForTest([
+      { word: 'explain', quality: 'perfect', score: 80, provider: 'local', syllables: 2, frequency: 60 },
+      { word: 'rain', quality: 'perfect', score: 80, provider: 'local', syllables: 1, frequency: 60 },
+    ], allFilters, 'brain', 1)
+    expect(ranked[0].normalized).toBe('rain')
+    expect(ranked[1].normalized).toBe('explain')
   })
 
   test('broader corpus suppresses malformed and name-like results while preserving useful rhymes', () => {

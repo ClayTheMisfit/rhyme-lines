@@ -193,15 +193,14 @@ function scoreCandidate(item: AggregatedSuggestion, querySyllables: number | und
   return { ...item, syllableFit: fit / 0.35, scoreBreakdown: breakdown, finalScore, score: finalScore }
 }
 
-function mergeCandidates(raw: ProviderCandidate[], filters: RhymeFilterSelection, query = ''): AggregatedSuggestion[] {
+function mergeCandidates(raw: ProviderCandidate[], filters: RhymeFilterSelection, query = '', querySyllables?: number): AggregatedSuggestion[] {
   const rejected: CandidateRejection[] = []
-  return buildRankedCandidates(raw, filters, query, rejected).suggestions
+  return buildRankedCandidates(raw, filters, query, rejected, DEFAULT_MAX_RESULTS, querySyllables).suggestions
 }
 
-function buildRankedCandidates(raw: ProviderCandidate[], filters: RhymeFilterSelection, query: string, rejected: CandidateRejection[], limit = DEFAULT_MAX_RESULTS) {
+function buildRankedCandidates(raw: ProviderCandidate[], filters: RhymeFilterSelection, query: string, rejected: CandidateRejection[], limit = DEFAULT_MAX_RESULTS, querySyllables?: number) {
   const normalizedQuery = normalizeCandidateWord(query)
   const map = new Map<string, AggregatedSuggestion>()
-  const querySyllables = raw.find((item) => normalizeCandidateWord(item.word) === normalizedQuery)?.syllables ?? undefined
 
   for (const item of raw) {
     const normalized = normalizeCandidateWord(item.word)
@@ -250,7 +249,11 @@ function buildRankedCandidates(raw: ProviderCandidate[], filters: RhymeFilterSel
     if (!existing.sources.includes(item.provider)) existing.sources.push(item.provider)
   }
 
-  const scored = Array.from(map.values()).map((item) => scoreCandidate(item, querySyllables))
+  const scored = Array.from(map.values()).map((item) => {
+    item.providers.sort()
+    item.sources.sort()
+    return scoreCandidate(item, querySyllables)
+  })
   scored.sort((a, b) =>
     (b.finalScore ?? 0) - (a.finalScore ?? 0) ||
     qualityPriority(a.quality) - qualityPriority(b.quality) ||
@@ -265,12 +268,19 @@ function buildRankedCandidates(raw: ProviderCandidate[], filters: RhymeFilterSel
 }
 
 async function wait(ms: number, signal: AbortSignal) {
+  if (signal.aborted) throw signal.reason ?? new DOMException('Aborted', 'AbortError')
   if (ms <= 0) return
   await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(resolve, ms)
-    const onAbort = () => { clearTimeout(timeout); signal.removeEventListener('abort', onAbort); reject(signal.reason ?? new DOMException('Aborted', 'AbortError')) }
+    const timeout = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    const onAbort = () => {
+      clearTimeout(timeout)
+      signal.removeEventListener('abort', onAbort)
+      reject(signal.reason ?? new DOMException('Aborted', 'AbortError'))
+    }
     signal.addEventListener('abort', onAbort, { once: true })
-    if (!signal.aborted) setTimeout(() => signal.removeEventListener('abort', onAbort), ms)
   })
 }
 
@@ -278,16 +288,31 @@ async function invokeProvider(word: string, provider: RhymeProvider, options: Ag
   const state = providerState.get(provider.name) ?? { lastStart: 0, failCount: 0, backoffUntil: 0 }
   const now = Date.now()
   if (state.backoffUntil > now) return { candidates: [], snapshot: { name: provider.name, ok: false, skipped: true, durationMs: 0, error: 'backoff' } }
-  const waitMs = Math.max(0, state.lastStart + (provider.minIntervalMs ?? 150) - now)
-  if (waitMs > 0) await wait(waitMs, options.signal)
+  const minIntervalMs = provider.minIntervalMs ?? 150
+  const nextStart = Math.max(now, state.lastStart + minIntervalMs)
+  providerState.set(provider.name, { lastStart: nextStart, failCount: state.failCount, backoffUntil: state.backoffUntil })
+  const waitMs = nextStart - now
+  if (waitMs > 0) {
+    try {
+      await wait(waitMs, options.signal)
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw error
+      if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') throw error
+      throw error
+    }
+  }
   const started = Date.now()
   try {
     const results = await provider.fetch(word, options)
-    providerState.set(provider.name, { lastStart: Date.now(), failCount: 0, backoffUntil: 0 })
+    const currentState = providerState.get(provider.name) ?? { lastStart: 0, failCount: 0, backoffUntil: 0 }
+    providerState.set(provider.name, { lastStart: Math.max(currentState.lastStart, Date.now()), failCount: 0, backoffUntil: 0 })
     return { candidates: results, snapshot: { name: provider.name, ok: true, durationMs: Date.now() - started } }
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') throw error
     const nextFail = state.failCount + 1
-    providerState.set(provider.name, { lastStart: Date.now(), failCount: nextFail, backoffUntil: Date.now() + Math.min(1000 + nextFail * 250, 4000) })
+    const currentState = providerState.get(provider.name) ?? { lastStart: 0, failCount: 0, backoffUntil: 0 }
+    providerState.set(provider.name, { lastStart: Math.max(currentState.lastStart, Date.now()), failCount: nextFail, backoffUntil: Date.now() + Math.min(1000 + nextFail * 250, 4000) })
     return { candidates: [], snapshot: { name: provider.name, ok: false, durationMs: Date.now() - started, error: error instanceof Error ? error.message : 'Unknown error' } }
   }
 }
@@ -299,7 +324,9 @@ const collectAggregatedRhymes = async (word: string, options: AggregateOptions, 
   const candidates = settled.flatMap((item) => item.candidates).slice(0, 250)
   const snapshots = settled.map((item) => item.snapshot)
   const rejected: CandidateRejection[] = []
-  const ranked = buildRankedCandidates(candidates, options.filters, word, rejected, options.limit ?? DEFAULT_MAX_RESULTS)
+  const normalizedQuery = normalizeCandidateWord(word)
+  const querySyllables = candidates.find((item) => normalizeCandidateWord(item.word) === normalizedQuery)?.syllables ?? undefined
+  const ranked = buildRankedCandidates(candidates, options.filters, word, rejected, options.limit ?? DEFAULT_MAX_RESULTS, querySyllables)
   const buckets: AggregationResult['buckets'] = { perfect: [], near: [], slant: [] }
   for (const suggestion of ranked.suggestions) buckets[suggestion.quality].push(suggestion)
   return { suggestions: ranked.suggestions, buckets, providerStates: snapshots, diagnostics: { rankingVersion: RHYME_RANKING_VERSION, rawCandidateCount: candidates.length, normalizedCandidateCount: new Set(candidates.map((item) => normalizeCandidateWord(item.word))).size, validatedCandidateCount: candidates.length - rejected.filter((item) => ['empty','query-word','control-or-linebreak','html-like','numeric-only','url-or-email','multi-word','malformed'].includes(item.reason)).length, lexicalCandidateCount: ranked.scoredCount, scoredCandidateCount: ranked.scoredCount, rejected, durationMs: Date.now() - started } }
@@ -308,5 +335,5 @@ const collectAggregatedRhymes = async (word: string, options: AggregateOptions, 
 export async function fetchAggregatedRhymes(word: string, options: AggregateOptions): Promise<AggregationResult> { return collectAggregatedRhymes(word, options, providers) }
 export async function fetchAggregatedRhymesWithProviders(word: string, options: AggregateOptions, activeProviders: RhymeProvider[]): Promise<AggregationResult> { return collectAggregatedRhymes(word, options, activeProviders) }
 export function resetProviderState() { providerState.clear() }
-export function dedupeForTest(candidates: ProviderCandidate[], filters: RhymeFilterSelection, query = '') { return mergeCandidates(candidates, filters, query) }
+export function dedupeForTest(candidates: ProviderCandidate[], filters: RhymeFilterSelection, query = '', querySyllables?: number) { return mergeCandidates(candidates, filters, query, querySyllables) }
 export const __testables = { buildRankedCandidates, normalizeCandidateWord, DEFAULT_VISIBLE_LIMIT }

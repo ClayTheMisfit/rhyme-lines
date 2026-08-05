@@ -41,7 +41,8 @@ describe('candidate dedupe and normalization', () => {
     const merged = dedupeForTest(candidates, filters)
     expect(merged).toHaveLength(1)
     expect(merged[0].quality).toBe('perfect')
-    expect(merged[0].providers.sort()).toEqual(['datamuse', 'local', 'rhymebrain'].sort())
+    expect(merged[0].providers).toEqual(['datamuse', 'local', 'rhymebrain'])
+    expect(merged[0].sources).toEqual(['datamuse', 'local', 'rhymebrain'])
   })
 
   test('keeps deterministic ordering via alphabetical tie breaker', () => {
@@ -51,6 +52,10 @@ describe('candidate dedupe and normalization', () => {
     ]
     const merged = dedupeForTest(candidates, filters)
     expect(merged.map((item) => item.word)).toEqual(['bar', 'foo'])
+    expect(merged[0].providers).toEqual(['local'])
+    expect(merged[0].sources).toEqual(['local'])
+    expect(merged[1].providers).toEqual(['local'])
+    expect(merged[1].sources).toEqual(['local'])
   })
 })
 
