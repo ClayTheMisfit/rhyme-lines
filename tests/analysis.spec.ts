@@ -165,8 +165,26 @@ describe('analysis pipeline', () => {
     expect(result.wordSyllables['ampm'][0]?.syllables).toBe(3)
     expect(result.lineTotals['ampm']).toBe(8)
 
-    expect(result.lineTotals['ina']).toBe(8)
+    expect(result.lineTotals['ina']).toBe(7)
     expect(result.lineTotals['compound']).toBe(6)
+  })
+
+  it('counts pasted lyric lines from the same canonical word analysis', () => {
+    const lines = [
+      { id: 'waves', text: 'Pain comes in waves... I learned to surf it a little better' },
+      { id: 'survived', text: 'Same scars, new verse; I survived, but I’m not the same' },
+      { id: 'learned-adjective', text: 'a learned scholar' },
+    ]
+    const result = computeAnalysis(lines)
+
+    expect(result.wordSyllables.waves.map((word) => word.syllables)).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2])
+    expect(result.wordSyllables.survived.map((word) => word.syllables)).toEqual([1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1])
+    expect(result.lineTotals).toMatchObject({ waves: 14, survived: 12, 'learned-adjective': 5 })
+
+    for (const line of lines) {
+      const wordTotal = result.wordSyllables[line.id].reduce((sum, word) => sum + word.syllables, 0)
+      expect(result.lineTotals[line.id]).toBe(wordTotal)
+    }
   })
 
   it('keeps year/time/full-line regression totals stable', () => {

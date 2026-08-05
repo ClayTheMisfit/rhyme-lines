@@ -23,10 +23,13 @@ export function computeAnalysis(
     // 3) countSyllables computes syllables per canonical token.
     // 4) lineTotals is always the exact sum of this canonical wordSyllables array.
     const canonicalTokens = tokenizeLine(line.text)
-    const canonicalWordSyllables = canonicalTokens.map((token) => ({
+    const canonicalWordSyllables = canonicalTokens.map((token, index) => ({
       start: token.start,
       end: token.end,
-      syllables: countSyllables(normalizeTokenForSyllables(token.text)),
+      syllables: countSyllables(normalizeTokenForSyllables(token.text), {
+        previousWord: canonicalTokens[index - 1]?.text,
+        nextWord: canonicalTokens[index + 1]?.text,
+      }),
     }))
 
     wordSyllables[line.id] = canonicalWordSyllables

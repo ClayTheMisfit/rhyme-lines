@@ -1,10 +1,12 @@
 import { isCommonEnglishWord } from '@/lib/rhyme-db/commonEnglish'
 import { countYearSyllables, parseYearToken } from '@/lib/nlp/yearSyllables'
-import { getPronunciation } from '@/lib/phonetics/pronunciation'
+import { getPronunciation, normalizeApostrophes } from '@/lib/phonetics/pronunciation'
 
 const SYLLABLE_OVERRIDES: Record<string, number> = {
   the: 1, a: 1, i: 1, you: 1, are: 1, fire: 1, hour: 1, choir: 1,
   people: 2, every: 2, evening: 3, queue: 1, queued: 1, queues: 1,
+  hundred: 2, naked: 2, wicked: 2, crooked: 2, beloved: 3,
+  sacred: 2, hatred: 2, wretched: 2, rugged: 2,
   business: 2, camera: 2, chocolate: 2, family: 2, depression: 3, imperfections: 4,
 }
 
@@ -12,7 +14,12 @@ const COMPOUND_SUFFIXES = ['out', 'up', 'in', 'on', 'off', 'over'] as const
 const FUSED_COMPOUND_ALLOWLIST = new Set(['vibeout', 'fadeout', 'blackout', 'burnout', 'chillout', 'freakout', 'lockout'])
 const syllableCache = new Map<string, number>()
 
-export function countSyllables(wordRaw: string): number {
+export type SyllableContext = {
+  previousWord?: string
+  nextWord?: string
+}
+
+export function countSyllables(wordRaw: string, context?: SyllableContext): number {
   const normalizedInput = wordRaw.toLowerCase().trim()
   if (!normalizedInput) return 0
 
@@ -21,20 +28,22 @@ export function countSyllables(wordRaw: string): number {
     return countYearSyllables(possibleYear, countSingleTokenSyllables)
   }
 
-  const cached = syllableCache.get(normalizedInput)
+  const learnedAdjective = isLearnedAdjective(normalizedInput, context)
+  const cacheKey = learnedAdjective ? `${normalizedInput}\0adjective` : normalizedInput
+  const cached = syllableCache.get(cacheKey)
   if (cached !== undefined) return cached
 
   const parts = normalizedInput.split(/\s+/).filter(Boolean)
   const result = parts.length > 1
     ? parts.reduce((sum, part) => sum + countSingleTokenSyllables(part), 0)
-    : countSingleTokenSyllables(parts[0] ?? '')
+    : learnedAdjective ? 2 : countSingleTokenSyllables(parts[0] ?? '')
 
-  syllableCache.set(normalizedInput, result)
+  syllableCache.set(cacheKey, result)
   return result
 }
 
 function countSingleTokenSyllables(token: string): number {
-  const word = token.toLowerCase().replace(/[^a-z']/g, '')
+  const word = normalizeApostrophes(token.toLowerCase()).replace(/[^a-z']/g, '')
   if (!word) return 0
 
   if (word in SYLLABLE_OVERRIDES) return SYLLABLE_OVERRIDES[word]
@@ -43,6 +52,9 @@ function countSingleTokenSyllables(token: string): number {
   if (pronunciation.normalized && pronunciation.source !== 'heuristic' && pronunciation.syllables > 0) {
     return pronunciation.syllables
   }
+
+  const inflectedCount = estimateInflectedSyllables(word)
+  if (inflectedCount !== null) return inflectedCount
 
   const compoundCount = estimateCompoundSuffixSyllables(word)
   if (compoundCount !== null) return compoundCount
@@ -61,6 +73,50 @@ function countSingleTokenSyllables(token: string): number {
   if (/^[ai]$/.test(word)) count = 1
 
   return Math.max(1, count)
+}
+
+/**
+ * Estimate regular English inflections from their uninflected spelling.
+ *
+ * A trailing silent e stops being word-final once `s` or `d` is appended, so
+ * the generic vowel-group fallback used to count `comes`, `waves`, and
+ * `survived` one syllable too high. Deriving the base first also models the
+ * usual pronunciation of `-ed`: it adds a syllable only after a t/d sound.
+ */
+function estimateInflectedSyllables(word: string): number | null {
+  if (!/^[a-z]+$/.test(word)) return null
+
+  if (word.endsWith('ed') && word.length > 3) {
+    const stem = word.slice(0, -2)
+    const base = stem.endsWith('i') ? `${stem.slice(0, -1)}y` : `${stem}e`
+    const baseCount = countSingleTokenSyllables(base)
+    const pronouncedEnding = /[td]$/.test(stem) ? 1 : 0
+    return baseCount + pronouncedEnding
+  }
+
+  if (word.endsWith('s') && !word.endsWith('ss') && word.length > 2) {
+    const stem = word.slice(0, -1)
+    // An appended `s` hides a silent e from the word-final fallback. Do not
+    // apply this after a sibilant spelling, where `-es` is normally spoken
+    // (`faces`, `roses`, `judges`).
+    if (/[^csxzg]e$/.test(stem)) {
+      return estimateUninflectedSyllables(stem)
+    }
+  }
+
+  return null
+}
+
+function estimateUninflectedSyllables(word: string): number {
+  const core = word.replace(/e\b/, '')
+  const vowelGroups = core.match(/[aeiouy]+/g)
+  return Math.max(1, vowelGroups?.length ?? 0)
+}
+
+function isLearnedAdjective(word: string, context?: SyllableContext): boolean {
+  if (normalizeApostrophes(word).replace(/[^a-z']/g, '') !== 'learned') return false
+  if (!context?.nextWord) return false
+  return /^(?:a|an|the)$/i.test(context.previousWord ?? '')
 }
 
 function estimateCompoundSuffixSyllables(word: string): number | null {
