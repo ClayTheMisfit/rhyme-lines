@@ -5,6 +5,7 @@ export interface RhymeSuggestion {
   syllables?: number
   frequency?: number
   source?: string
+  tags?: string[]
 }
 
 export interface DatamuseResponse {
@@ -36,6 +37,7 @@ export async function fetchPerfectRhymes(word: string, signal?: AbortSignal): Pr
     syllables: isNaN(item.numSyllables || 0) ? undefined : item.numSyllables,
     frequency: extractFrequency(item.tags),
     source: 'datamuse',
+    tags: item.tags,
   }))
 }
 
@@ -59,6 +61,7 @@ export async function fetchSlantRhymes(word: string, signal?: AbortSignal): Prom
     syllables: isNaN(item.numSyllables || 0) ? undefined : item.numSyllables,
     frequency: extractFrequency(item.tags),
     source: 'datamuse',
+    tags: item.tags,
   }))
 }
 

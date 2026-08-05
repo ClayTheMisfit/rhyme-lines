@@ -27,6 +27,7 @@ export async function fetchRhymeBrainRhymes(word: string, signal?: AbortSignal):
     score: isNaN(item.score) ? 0 : item.score,
     syllables: isNaN(item.syllables) ? undefined : item.syllables,
     source: 'rhymebrain',
+    tags: item.flags ? item.flags.split('').map((flag) => `rhymebrain:${flag}`) : [],
   }))
 }
 

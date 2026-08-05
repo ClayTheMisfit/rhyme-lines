@@ -1,5 +1,5 @@
 import { LRUCache } from '../cache/lru'
-import type { AggregationResult, RhymeFilterSelection } from './aggregate'
+import { RHYME_RANKING_VERSION, type AggregationResult, type RhymeFilterSelection } from './aggregate'
 
 interface CacheEntry {
   result: AggregationResult
@@ -15,7 +15,7 @@ export function buildCacheKey(target: string, filters: RhymeFilterSelection): st
   const filterKey = ['perfect', 'near', 'slant']
     .map((key) => `${key}:${filters[key as keyof RhymeFilterSelection] ? '1' : '0'}`)
     .join('|')
-  return `${target.toLowerCase().trim()}|${filterKey}`
+  return `${target.toLowerCase().trim()}|ranking:${RHYME_RANKING_VERSION}|limit:50|lexical:default|${filterKey}`
 }
 
 export function getCachedRhymes(key: string): AggregationResult | null {

@@ -10,6 +10,9 @@ export interface ProviderCandidate {
   score: number
   syllables?: number
   provider: string
+  frequency?: number
+  tags?: string[]
+  phoneticSimilarity?: number
 }
 
 export interface RhymeProvider {
@@ -38,6 +41,8 @@ const datamuse: RhymeProvider = {
           score: item.score,
           syllables: item.syllables,
           provider: 'datamuse',
+          frequency: item.frequency,
+          tags: item.tags,
         }))
       )
     }
@@ -51,6 +56,8 @@ const datamuse: RhymeProvider = {
           score: item.score,
           syllables: item.syllables,
           provider: 'datamuse',
+          frequency: item.frequency,
+          tags: item.tags,
         }))
       )
     }
