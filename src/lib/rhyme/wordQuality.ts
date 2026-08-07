@@ -29,7 +29,7 @@ const UNCOMMON_THRESHOLD = 25000
 // Keep this module-level Set so classification remains O(1) per candidate.
 const KNOWN_NAMES = new Set([
   'blaine', 'braim', 'brynn', 'chaym', 'dwayne', 'haim', 'hayne', 'heim',
-  'jayne', 'kaine', 'kane', 'layne', 'petr', 'schrime', 'seim', 'shane',
+  'jayne', 'kaine', 'kane', 'layne', 'maine', 'petr', 'schrime', 'seim', 'shane',
   'syme', 'thane', 'wayne', 'zain',
 ])
 

@@ -1,7 +1,7 @@
 import { classifyCandidate } from './wordQuality'
 
 describe('rhyme lexical quality', () => {
-  test.each(['petr', 'zain', 'layne', 'hayne', 'brynn', 'kane'])(
+  test.each(['petr', 'zain', 'layne', 'hayne', 'brynn', 'kane', 'maine'])(
     'classifies name-only candidate %s as proper',
     (word) => expect(classifyCandidate(word).qualityTier).toBe('proper')
   )
