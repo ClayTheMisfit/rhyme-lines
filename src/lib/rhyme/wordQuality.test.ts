@@ -1,7 +1,7 @@
 import { classifyCandidate } from './wordQuality'
 
 describe('rhyme lexical quality', () => {
-  test.each(['petr', 'zain', 'layne', 'hayne', 'brynn', 'kane', 'maine'])(
+  test.each(['petr', 'zain', 'layne', 'hayne', 'kane', 'maine', 'kain', 'raine', 'shayne'])(
     'classifies name-only candidate %s as proper',
     (word) => expect(classifyCandidate(word).qualityTier).toBe('proper')
   )
@@ -27,5 +27,13 @@ describe('rhyme lexical quality', () => {
     expect(classifyCandidate('letter').qualityTier).not.toBe('proper')
     expect(classifyCandidate('petr').qualityTier).toBe('proper')
     expect(classifyCandidate('quern').qualityTier).not.toBe('proper')
+  })
+
+  test.each(['Shayne', 'shayne', 'SHAYNE'])('name evidence is case invariant for %s', (word) => {
+    expect(classifyCandidate(word).isProper).toBe(true)
+  })
+
+  test('modern lexical evidence wins over name-list membership', () => {
+    expect(classifyCandidate('Grace', { frequency: 20, tags: ['n'] }).isProper).toBe(false)
   })
 })

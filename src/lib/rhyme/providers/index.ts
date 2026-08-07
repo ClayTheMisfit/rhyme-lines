@@ -79,6 +79,7 @@ const rhymeBrain: RhymeProvider = {
         score: item.score,
         syllables: item.syllables,
         provider: 'rhymebrain',
+        tags: item.tags,
       }))
   },
 }

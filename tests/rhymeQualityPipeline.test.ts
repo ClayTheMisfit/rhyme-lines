@@ -5,7 +5,7 @@ import type { ProviderCandidate } from '@/lib/rhyme/providers'
 const allFilters: RhymeFilterSelection = { perfect: true, near: true, slant: true }
 
 const brainFixture = (order: string[] = [
-  'rain','zain','hayne','feign','layne','ane','pain','chain','train','gain','main','plain','lane','drain','strain','vein','reign','sane','crane',
+  'rain','zain','hayne','kain','raine','shayne','feign','layne','ane','pain','chain','train','gain','main','plain','lane','drain','strain','vein','reign','sane','crane',
 ]): ProviderCandidate[] => order.map((word, index) => ({
   word,
   quality: 'perfect',
@@ -21,7 +21,7 @@ describe('canonical rhyme quality pipeline', () => {
     const words = ranked.map((item) => item.normalized)
 
     expect(words.slice(0, 12)).toEqual(expect.arrayContaining(['rain', 'pain', 'train', 'chain', 'gain', 'main']))
-    expect(words).not.toEqual(expect.arrayContaining(['zain', 'hayne', 'layne', 'ane']))
+    expect(words).not.toEqual(expect.arrayContaining(['zain', 'hayne', 'layne', 'kain', 'raine', 'shayne', 'ane']))
     expect(words).toContain('feign')
     for (const common of ['rain', 'pain', 'train', 'chain', 'gain']) {
       expect(words.indexOf(common)).toBeLessThan(words.indexOf('feign'))
@@ -108,6 +108,22 @@ describe('canonical rhyme quality pipeline', () => {
     expect(dedupeForTest([pronunciationOnly, tagged], allFilters, 'better')).toEqual([])
   })
 
+  test('pronunciation evidence does not establish ordinary lexical validity', () => {
+    const ranked = dedupeForTest([
+      { word: 'rain', quality: 'perfect', score: 80, provider: 'local', syllables: 1 },
+      { word: 'Raine', quality: 'perfect', score: 100, provider: 'rhymebrain', syllables: 1 },
+    ], allFilters, 'brain')
+    expect(ranked.map((item) => item.normalized)).toEqual(['rain'])
+  })
+
+  test('retains source casing while merging normalized candidates deterministically', () => {
+    const ranked = dedupeForTest([
+      { word: 'Rain', quality: 'perfect', score: 80, provider: 'datamuse' },
+      { word: 'rain', quality: 'perfect', score: 70, provider: 'local' },
+    ], allFilters, 'brain')
+    expect(ranked[0].sourceWords).toEqual(['Rain', 'rain'])
+  })
+
   test('archaic and dialect metadata rejects default results while common modern words remain', () => {
     const ranked = dedupeForTest([
       { word: 'ane', quality: 'perfect', score: 100, provider: 'datamuse', tags: ['archaic'] },
@@ -185,6 +201,6 @@ describe('canonical rhyme quality pipeline', () => {
     const perfect = buildCacheKey('Brain', { perfect: true, near: false, slant: false })
     const near = buildCacheKey('brain', { perfect: false, near: true, slant: false })
     expect(perfect).not.toBe(near)
-    expect(perfect).toContain('ranking:lexical-v3')
+    expect(perfect).toContain('ranking:lexical-v4')
   })
 })

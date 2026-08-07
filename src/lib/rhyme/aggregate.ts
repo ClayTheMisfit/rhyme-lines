@@ -40,6 +40,7 @@ export interface AggregatedSuggestion {
   syllables?: number
   sources: string[]
   providers: string[]
+  sourceWords?: string[]
   providerConfidence?: number
   frequencyScore?: number
   lexicalQuality?: number
@@ -92,7 +93,7 @@ export interface AggregateOptions {
 }
 
 const QUALITY_PRIORITY: RhymeQuality[] = ['perfect', 'near', 'slant']
-export const RHYME_RANKING_VERSION = 'lexical-v3'
+export const RHYME_RANKING_VERSION = 'lexical-v4'
 const DEFAULT_MAX_RESULTS = 50
 const DEFAULT_VISIBLE_LIMIT = 6
 const COMMON_WORDS = new Set([
@@ -242,6 +243,7 @@ function buildRankedCandidates(raw: ProviderCandidate[], filters: RhymeFilterSel
         syllables: item.syllables,
         sources: [item.provider],
         providers: [item.provider],
+        sourceWords: [item.word],
         providerConfidence,
         frequencyScore: frequencyValue ?? 0.42,
         lexicalQuality,
@@ -262,11 +264,14 @@ function buildRankedCandidates(raw: ProviderCandidate[], filters: RhymeFilterSel
     if (item.syllables && !existing.syllables) existing.syllables = item.syllables
     if (!existing.providers.includes(item.provider)) existing.providers.push(item.provider)
     if (!existing.sources.includes(item.provider)) existing.sources.push(item.provider)
+    existing.sourceWords ??= []
+    if (!existing.sourceWords.includes(item.word)) existing.sourceWords.push(item.word)
   }
 
   const scored = Array.from(map.values()).map((item) => {
     item.providers.sort()
     item.sources.sort()
+    item.sourceWords?.sort()
     return scoreCandidate(item, querySyllables)
   })
   scored.sort((a, b) =>
