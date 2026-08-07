@@ -1,6 +1,7 @@
 import type { RhymeSuggestion } from './providers/datamuse'
 import type { ProviderCandidate, RhymeProvider } from './providers'
 import { providers } from './providers'
+import { classifyCandidate } from './wordQuality'
 
 export type RhymeQuality = 'perfect' | 'near' | 'slant'
 
@@ -91,13 +92,12 @@ export interface AggregateOptions {
 }
 
 const QUALITY_PRIORITY: RhymeQuality[] = ['perfect', 'near', 'slant']
-export const RHYME_RANKING_VERSION = 'lexical-v2'
+export const RHYME_RANKING_VERSION = 'lexical-v3'
 const DEFAULT_MAX_RESULTS = 50
 const DEFAULT_VISIBLE_LIMIT = 6
 const COMMON_WORDS = new Set([
   'rain','pain','train','chain','gain','main','plain','lane','drain','strain','vein','reign','sane','crane','time','rhyme','line','fine','mine','shine','light','night','right','bright','heart','part','start','art','alone','stone','phone','home','motion','ocean','better','letter','show','flow','glow','cold','old','gold','dream','team','seem','rose','hope','grace'
 ])
-const KNOWN_NAME_ONLY = new Set(['zain','hayne','layne','jayne','wayne','dwayne','blaine','shane','thane','kaine','maine'])
 const ARCHAIC_OR_DIALECT = new Set(['ane','eftsoons','yclept'])
 const PROVIDER_MAX_SCORE: Record<string, number> = { datamuse: 1000, rhymebrain: 100, local: 100 }
 const PUNCT_WRAPPERS = /^[\s"“”'‘’`´.,!?;:()[\]{}<>]+|[\s"“”'‘’`´.,!?;:()[\]{}<>]+$/gu
@@ -145,17 +145,20 @@ function inferFrequency(item: ProviderCandidate, normalized: string): number | u
   return undefined
 }
 
-function lexicalFlags(item: ProviderCandidate, normalized: string, frequencyKnown: boolean): LexicalFlags {
+function lexicalFlags(item: ProviderCandidate, normalized: string, frequencyKnown: boolean, mergedNameEvidence: boolean): LexicalFlags {
   const tags = item.tags ?? []
   const properTag = tags.some((tag) => /^(prop|name|surname|given-name|proper)$/i.test(tag))
   const archaicTag = tags.some((tag) => /^(archaic|obsolete)$/i.test(tag))
   const dialectTag = tags.some((tag) => /^(dialect|dialectal|regional)$/i.test(tag))
   const abbreviationTag = tags.some((tag) => /^(abbr|acronym|initialism)$/i.test(tag))
-  const isNameOnly = KNOWN_NAME_ONLY.has(normalized) && !COMMON_WORDS.has(normalized)
+  const lexicalClassification = classifyCandidate(item.word, {
+    frequency: item.frequency,
+    tags,
+  })
   const isArchaic = archaicTag || ARCHAIC_OR_DIALECT.has(normalized)
   const isDialectal = dialectTag
   return {
-    isProperNoun: properTag || isNameOnly,
+    isProperNoun: mergedNameEvidence || properTag || lexicalClassification.isProper,
     isAbbreviation: abbreviationTag || /^[A-Z.]{2,}$/.test(item.word.trim()),
     isArchaic,
     isDialectal,
@@ -201,6 +204,18 @@ function mergeCandidates(raw: ProviderCandidate[], filters: RhymeFilterSelection
 function buildRankedCandidates(raw: ProviderCandidate[], filters: RhymeFilterSelection, query: string, rejected: CandidateRejection[], limit = DEFAULT_MAX_RESULTS, querySyllables?: number) {
   const normalizedQuery = normalizeCandidateWord(query)
   const map = new Map<string, AggregatedSuggestion>()
+  const mergedNameEvidence = new Set<string>()
+
+  // Risk evidence is aggregated before filtering so a pronunciation-only source
+  // cannot reintroduce a name flagged by another provider. This pre-pass is
+  // deterministic and remains linear in the already-bounded candidate pool.
+  for (const item of raw) {
+    const normalized = normalizeCandidateWord(item.word)
+    const hasProperTag = item.tags?.some((tag) => /^(prop|name|surname|given-name|proper)$/i.test(tag)) ?? false
+    if (hasProperTag || classifyCandidate(item.word, { frequency: item.frequency, tags: item.tags }).isProper) {
+      mergedNameEvidence.add(normalized)
+    }
+  }
 
   for (const item of raw) {
     const normalized = normalizeCandidateWord(item.word)
@@ -209,7 +224,7 @@ function buildRankedCandidates(raw: ProviderCandidate[], filters: RhymeFilterSel
     if (!filters[item.quality]) { rejected.push({ word: item.word, normalized, provider: item.provider, reason: 'inactive-filter' }); continue }
     const frequencyValue = inferFrequency(item, normalized)
     const frequencyKnown = frequencyValue !== undefined
-    const flags = lexicalFlags(item, normalized, frequencyKnown)
+    const flags = lexicalFlags(item, normalized, frequencyKnown, mergedNameEvidence.has(normalized))
     if (flags.isProperNoun || flags.isAbbreviation || flags.isArchaic || flags.isDialectal) {
       rejected.push({ word: item.word, normalized, provider: item.provider, reason: flags.isProperNoun ? 'proper-name' : flags.isAbbreviation ? 'abbreviation' : flags.isArchaic ? 'archaic' : 'dialectal' })
       continue

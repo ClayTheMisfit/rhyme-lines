@@ -65,12 +65,12 @@ export async function fetchSlantRhymes(word: string, signal?: AbortSignal): Prom
   }))
 }
 
-function extractFrequency(tags?: string[]): number {
-  if (!tags) return 0
+function extractFrequency(tags?: string[]): number | undefined {
+  if (!tags) return undefined
   
   const freqTag = tags.find(tag => tag.startsWith('f:'))
-  if (!freqTag) return 0
+  if (!freqTag) return undefined
   
-  const freq = parseInt(freqTag.slice(2), 10)
-  return isNaN(freq) ? 0 : Math.max(0, freq)
+  const freq = Number.parseFloat(freqTag.slice(2))
+  return Number.isNaN(freq) ? undefined : Math.max(0, freq)
 }

@@ -74,6 +74,40 @@ describe('canonical rhyme quality pipeline', () => {
     expect(ranked.map((item) => item.normalized)).not.toContain('zain')
   })
 
+  test('filters Petr from the better fixture without changing legitimate ranking', () => {
+    const fixture: ProviderCandidate[] = [
+      { word: 'letter', quality: 'perfect', score: 100, provider: 'local', syllables: 2, frequency: 80 },
+      { word: 'getter', quality: 'perfect', score: 95, provider: 'local', syllables: 2, frequency: 70 },
+      { word: 'wetter', quality: 'perfect', score: 90, provider: 'local', syllables: 2, frequency: 65 },
+      { word: 'petr', quality: 'perfect', score: 89, provider: 'local', syllables: 2 },
+      { word: 'setter', quality: 'perfect', score: 85, provider: 'local', syllables: 2, frequency: 60 },
+      { word: 'debtor', quality: 'near', score: 80, provider: 'datamuse', syllables: 2, frequency: 55 },
+    ]
+
+    const ranked = dedupeForTest(fixture, allFilters, 'better', 2)
+    expect(ranked.map((item) => item.normalized)).toEqual(['letter', 'getter', 'wetter', 'setter', 'debtor'])
+    expect(dedupeForTest(fixture, { perfect: true, near: false, slant: false }, 'better', 2)
+      .map((item) => item.normalized)).not.toContain('debtor')
+  })
+
+  test.each(['Petr', 'petr', 'PETR'])('suppresses name evidence regardless of casing: %s', (word) => {
+    expect(dedupeForTest([
+      { word, quality: 'perfect', score: 100, provider: 'local', syllables: 2 },
+    ], allFilters, 'better')).toHaveLength(0)
+  })
+
+  test('preserves proper-name evidence across provider merges in either order', () => {
+    const tagged: ProviderCandidate = {
+      word: 'novak', quality: 'perfect', score: 70, provider: 'datamuse', tags: ['surname'],
+    }
+    const pronunciationOnly: ProviderCandidate = {
+      word: 'novak', quality: 'perfect', score: 90, provider: 'local', syllables: 2,
+    }
+
+    expect(dedupeForTest([tagged, pronunciationOnly], allFilters, 'better')).toEqual([])
+    expect(dedupeForTest([pronunciationOnly, tagged], allFilters, 'better')).toEqual([])
+  })
+
   test('archaic and dialect metadata rejects default results while common modern words remain', () => {
     const ranked = dedupeForTest([
       { word: 'ane', quality: 'perfect', score: 100, provider: 'datamuse', tags: ['archaic'] },
@@ -151,6 +185,6 @@ describe('canonical rhyme quality pipeline', () => {
     const perfect = buildCacheKey('Brain', { perfect: true, near: false, slant: false })
     const near = buildCacheKey('brain', { perfect: false, near: true, slant: false })
     expect(perfect).not.toBe(near)
-    expect(perfect).toContain('ranking:lexical-v2')
+    expect(perfect).toContain('ranking:lexical-v3')
   })
 })

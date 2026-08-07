@@ -526,6 +526,7 @@ export const getRhymesForToken = (
   const showVariants = context.showVariants ?? false
   const isPerfectMode = normalizedMode === 'perfect'
   const shouldIncludeTier = (tier: QualityTier) => {
+    if (tier === 'proper') return false
     if (commonWordsOnly) {
       return tier === 'common' || tier === 'uncommon'
     }

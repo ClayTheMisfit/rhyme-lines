@@ -273,6 +273,7 @@ export const useRhymeSuggestions = ({
         result?.suggestions.map((suggestion) => suggestion.word) ?? []
 
       const shouldIncludeTier = (tier: string) => {
+        if (tier === 'proper') return false
         if (commonWordsOnly) {
           return tier === 'common' || tier === 'uncommon'
         }

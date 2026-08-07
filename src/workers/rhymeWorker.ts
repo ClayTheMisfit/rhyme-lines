@@ -2,6 +2,7 @@ import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
 import { buildDbUrl } from '@/lib/rhyme-db/buildDbUrl'
 import { parseRhymeDbPayload, type ParsedRhymeDb, type RhymeDbLoadStatus } from '@/lib/rhyme-db/loadRhymeDb'
 import { RHYME_DB_VERSION } from '@/lib/rhyme-db/version'
+import { LEXICAL_POLICY_VERSION } from '@/lib/rhyme/wordQuality'
 import {
   getRhymesForTargets,
   normalizeToken,
@@ -339,7 +340,7 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
       const showVariants = message.context?.showVariants ? '1' : '0'
       const commonWordsOnly = message.context?.commonWordsOnly ? '1' : '0'
       const debugFlag = message.context?.debug ? '1' : '0'
-      const cacheKey = `${normalizedMode}|${message.max}|${desiredSyllables}|${multiSyllable}|${showVariants}|common:${commonWordsOnly}|debug:${debugFlag}|c:${caretToken}|l:${lineLastToken}`
+      const cacheKey = `${LEXICAL_POLICY_VERSION}|${normalizedMode}|${message.max}|${desiredSyllables}|${multiSyllable}|${showVariants}|common:${commonWordsOnly}|debug:${debugFlag}|c:${caretToken}|l:${lineLastToken}`
 
       const cached = cache.get(cacheKey)
       if (cached) {

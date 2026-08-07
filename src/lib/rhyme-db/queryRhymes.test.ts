@@ -196,7 +196,7 @@ describe('queryRhymes', () => {
     expect(commonOnly.words.slice(0, 3).sort()).toEqual(['dime', 'prime', 'rhyme'])
   })
 
-  it('includes proper nouns by default', () => {
+  it('suppresses proper nouns by default', () => {
     const words = ['time', 'dime', 'rhyme', 'haim', "i'm"]
     const perfect = buildIndex([['AY-M', [0, 1, 2, 3, 4]]])
     const empty = buildIndex([])
@@ -228,7 +228,8 @@ describe('queryRhymes', () => {
     )
 
     const results = getRhymesForToken(dbStrict, 'time', 'perfect', 10)
-    expect(results.words).toEqual(expect.arrayContaining(['rhyme', 'dime', "i'm", 'haim']))
+    expect(results.words).toEqual(expect.arrayContaining(['rhyme', 'dime', "i'm"]))
+    expect(results.words).not.toContain('haim')
   })
 
   it('excludes rare words when commonWordsOnly is true', () => {

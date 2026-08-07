@@ -11,19 +11,32 @@ type Classification = {
   qualityTier: QualityTier
 }
 
+export type LexicalEvidence = {
+  frequency?: number
+  tags?: readonly string[]
+}
+
+export const LEXICAL_POLICY_VERSION = 'proper-names-v2'
+
 const COMMON_WORD_RANKS = commonWordRanks as Record<string, number>
 const MAX_RANK_SCORE = 120000
 const COMMON_THRESHOLD = 65000
 const UNCOMMON_THRESHOLD = 25000
 
+// A compact lexical-risk index, rather than an unconditional denylist. These
+// CMUdict/provider forms are predominantly given names or surnames in English
+// text. A separate ordinary-word signal below deliberately wins for collisions.
+// Keep this module-level Set so classification remains O(1) per candidate.
 const KNOWN_NAMES = new Set([
-  'haim',
-  'heim',
-  'seim',
-  'syme',
-  'braim',
-  'chaym',
-  'schrime',
+  'blaine', 'braim', 'brynn', 'chaym', 'dwayne', 'haim', 'hayne', 'heim',
+  'jayne', 'kaine', 'kane', 'layne', 'petr', 'schrime', 'seim', 'shane',
+  'syme', 'thane', 'wayne', 'zain',
+])
+
+// Common lexical forms which are also frequently used as names. Name-list
+// membership must never suppress these ordinary uses.
+const ORDINARY_NAME_COLLISIONS = new Set([
+  'chase', 'grace', 'hope', 'hunter', 'mark', 'rain', 'rose', 'summer', 'will',
 ])
 
 const FOREIGN_TOKENS = new Set([
@@ -38,7 +51,6 @@ const FOREIGN_TOKENS = new Set([
   'sein',
 ])
 
-const isTitleCase = (word: string) => /^[A-Z][a-z]+$/.test(word)
 const hasInnerCaps = (word: string) => /^[A-Z][a-z]+[A-Z]/.test(word) || /[A-Z].+[A-Z]/.test(word)
 
 const getCommonScore = (normalized: string) => {
@@ -48,7 +60,7 @@ const getCommonScore = (normalized: string) => {
   return baseScore + bonus
 }
 
-export const classifyCandidate = (word: string): Classification => {
+export const classifyCandidate = (word: string, evidence: LexicalEvidence = {}): Classification => {
   const normalized = word.toLowerCase()
   const isWeird = !/^[a-zA-Z'-]+$/.test(word)
   if (isWeird) {
@@ -62,10 +74,14 @@ export const classifyCandidate = (word: string): Classification => {
   }
 
   const commonScore = getCommonScore(normalized)
+  const hasLexicalPartOfSpeech = evidence.tags?.some((tag) => /^(n|v|adj|adv)$/i.test(tag)) ?? false
+  const hasStrongOrdinaryEvidence =
+    isCommonEnglishWord(normalized) ||
+    ORDINARY_NAME_COLLISIONS.has(normalized) ||
+    (hasLexicalPartOfSpeech && typeof evidence.frequency === 'number' && evidence.frequency > 0)
   const looksProper =
-    KNOWN_NAMES.has(normalized) ||
-    hasInnerCaps(word) ||
-    (isTitleCase(word) && !isCommonEnglishWord(normalized))
+    (KNOWN_NAMES.has(normalized) && !hasStrongOrdinaryEvidence) ||
+    (hasInnerCaps(word) && !hasStrongOrdinaryEvidence)
   const isForeignLike = FOREIGN_TOKENS.has(normalized)
 
   if (isForeignLike) {
@@ -124,4 +140,9 @@ export const QUALITY_TIER_ORDER: Record<QualityTier, number> = {
   proper: 3,
   foreign: 4,
   weird: 5,
+}
+
+export const __testables = {
+  hasKnownNameEvidence: (word: string) => KNOWN_NAMES.has(word.toLowerCase()),
+  hasOrdinaryNameCollisionEvidence: (word: string) => ORDINARY_NAME_COLLISIONS.has(word.toLowerCase()),
 }
