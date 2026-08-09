@@ -209,6 +209,11 @@ const normalizePanel = (value: unknown): PanelSchema => {
   const panelValue = isRecord(value.rhymePanel) ? value.rhymePanel : {}
   const positionValue = isRecord(panelValue.position) ? panelValue.position : undefined
   const filters = normalizeRhymeFilters(value.filters)
+  const suggestionModeValue = toStringValue(value.rhymeSuggestionMode)
+  const rhymeSuggestionMode: PanelSchema['rhymeSuggestionMode'] =
+    suggestionModeValue === 'perfect' || suggestionModeValue === 'near' || suggestionModeValue === 'slant'
+      ? suggestionModeValue
+      : 'all'
 
   return {
     rhymePanel: {
@@ -227,6 +232,7 @@ const normalizePanel = (value: unknown): PanelSchema => {
     selectedIndex: isFiniteNumber(value.selectedIndex) ? value.selectedIndex : null,
     syllableFilter: isFiniteNumber(value.syllableFilter) ? value.syllableFilter : DEFAULT_PANEL_STATE.syllableFilter,
     multiSyllablePerfect: toBoolean(value.multiSyllablePerfect, DEFAULT_PANEL_STATE.multiSyllablePerfect ?? false),
+    rhymeSuggestionMode,
   }
 }
 

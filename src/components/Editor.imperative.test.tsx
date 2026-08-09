@@ -71,4 +71,27 @@ describe('Editor imperative API', () => {
     expect(getEditorPlainTextIndexFromSelection(editor, document.getSelection())?.index).toBe(59)
     expect(onTextChange).toHaveBeenLastCalledWith(expect.stringContaining('first word on line one\nsecond line ends with dream decision\nthird line stays here'))
   })
+
+  it('replaces a validated rhyme target through the normal editor change path', async () => {
+    const editorRef = createRef<EditorHandle>()
+    const onTextChange = jest.fn()
+    const text = 'Midnight in my Brain,'
+    render(<Editor ref={editorRef} text={text} onTextChange={onTextChange} />)
+    const editor = await screen.findByRole('textbox', { name: /lyric editor/i })
+    await waitFor(() => expect(editor.textContent).toContain(text))
+
+    let replaced = false
+    act(() => {
+      replaced = editorRef.current?.replaceRhymeTarget('pain', {
+        start: text.indexOf('Brain'),
+        end: text.indexOf('Brain') + 5,
+        normalizedWord: 'brain',
+      }) ?? false
+    })
+
+    expect(replaced).toBe(true)
+    expect(editor.textContent).toContain('Midnight in my Pain,')
+    expect(onTextChange).toHaveBeenLastCalledWith(expect.stringContaining('Midnight in my Pain,'))
+    expect(document.activeElement).toBe(editor)
+  })
 })

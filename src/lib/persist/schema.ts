@@ -12,6 +12,7 @@ export type ThemeSetting = 'dark' | 'light' | 'system'
 export type DebounceMode = 'cursor-50' | 'typing-250'
 export type BadgeSize = 'xs' | 'sm' | 'md'
 export type RhymeFilters = { perfect: boolean; near: boolean }
+export type RhymeSuggestionMode = 'all' | 'perfect' | 'near' | 'slant'
 export type RhymeHighlightMode = 'off' | 'end' | 'focus' | 'all'
 export const DEFAULT_HIGHLIGHT_MODE: RhymeHighlightMode = 'focus'
 export const RHYME_HIGHLIGHT_ORDER = ['off', 'end', 'focus', 'all'] as const satisfies readonly RhymeHighlightMode[]
@@ -98,6 +99,7 @@ export interface PanelSchema {
   selectedIndex?: number | null
   syllableFilter?: number
   multiSyllablePerfect?: boolean
+  rhymeSuggestionMode?: RhymeSuggestionMode
 }
 
 export const DEFAULT_RHYME_FILTERS: RhymeFilters = {
@@ -139,6 +141,7 @@ export const DEFAULT_PANEL_STATE: PanelSchema = {
   selectedIndex: null,
   syllableFilter: 0,
   multiSyllablePerfect: false,
+  rhymeSuggestionMode: 'all',
 }
 
 export function createEmptyDraft(docId: string, title = 'Untitled'): DraftSchema {

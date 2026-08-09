@@ -4,7 +4,7 @@ import { create } from 'zustand'
 import { assertClientOnly } from '@/lib/env/assertClientOnly'
 import { isClient } from '@/lib/env/isClient'
 import { applyRhymePanelState, useRhymePanel, type RhymePanelMode } from '@/lib/state/rhymePanel'
-import type { RhymeFilters } from '@/lib/persist/schema'
+import type { RhymeFilters, RhymeSuggestionMode } from '@/lib/persist/schema'
 import { DEFAULT_PANEL_STATE, type PanelSchema } from '@/lib/persist/schema'
 import { writeVersioned } from '@/lib/persist/storage'
 
@@ -18,6 +18,7 @@ export interface RhymePanelState {
   selectedIndex: number | null
   panelWidth: number
   multiSyllablePerfect: boolean
+  rhymeSuggestionMode: RhymeSuggestionMode
   
   // Actions
   togglePanel: () => void
@@ -28,6 +29,7 @@ export interface RhymePanelState {
   resetSelection: () => void
   setPanelWidth: (width: number) => void
   setMultiSyllablePerfect: (value: boolean) => void
+  setRhymeSuggestionMode: (value: RhymeSuggestionMode) => void
 }
 
 const basePanelState = DEFAULT_PANEL_STATE
@@ -40,6 +42,7 @@ export const useRhymePanelStore = create<RhymePanelState>()((set, get) => ({
   selectedIndex: basePanelState.selectedIndex ?? null,
   panelWidth: basePanelState.rhymePanel.width ?? useRhymePanel.getState().width,
   multiSyllablePerfect: basePanelState.multiSyllablePerfect ?? false,
+  rhymeSuggestionMode: basePanelState.rhymeSuggestionMode ?? 'all',
 
   // Actions
   togglePanel: () => {
@@ -71,6 +74,7 @@ export const useRhymePanelStore = create<RhymePanelState>()((set, get) => ({
     set({ panelWidth: width })
   },
   setMultiSyllablePerfect: (value) => set({ multiSyllablePerfect: value }),
+  setRhymeSuggestionMode: (rhymeSuggestionMode) => set({ rhymeSuggestionMode, selectedIndex: 0 }),
 }))
 
 const PANEL_PERSIST_DEBOUNCE_MS = 250
@@ -92,6 +96,7 @@ const buildPanelPersistPayload = (): PanelSchema => {
     selectedIndex: filters.selectedIndex,
     syllableFilter: panel.filter,
     multiSyllablePerfect: filters.multiSyllablePerfect,
+    rhymeSuggestionMode: filters.rhymeSuggestionMode,
   }
 }
 
@@ -133,6 +138,7 @@ export function hydrateRhymePanel(panel: PanelSchema) {
   const selectedIndex = panel.selectedIndex ?? null
   const panelWidth = panel.rhymePanel.width ?? useRhymePanel.getState().width
   const multiSyllablePerfect = panel.multiSyllablePerfect ?? false
+  const rhymeSuggestionMode = panel.rhymeSuggestionMode ?? 'all'
   const mode: RhymePanelMode = panel.rhymePanel.isOpen
     ? panel.rhymePanel.isDetached
       ? 'detached'
@@ -148,5 +154,6 @@ export function hydrateRhymePanel(panel: PanelSchema) {
     selectedIndex,
     panelWidth,
     multiSyllablePerfect,
+    rhymeSuggestionMode,
   })
 }

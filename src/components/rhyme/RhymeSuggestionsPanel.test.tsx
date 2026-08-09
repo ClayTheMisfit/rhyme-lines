@@ -73,7 +73,9 @@ describe('RhymeSuggestionsPanel', () => {
 
     expect(screen.queryByText('Show spelling variants')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Perfect' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Near / Slant' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Near' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Slant' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /time/i })).toBeInTheDocument()
   })
 

@@ -5,6 +5,7 @@ import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { RhymeSuggestionsPanel } from './rhyme/RhymeSuggestionsPanel'
 import type { EditorHandle } from './Editor'
 import { getEditorLineElements, getEditorPlainText, getEditorPlainTextIndexFromSelection, getLinePlainText } from '@/lib/editor/plainText'
+import { resolveRhymeTarget, type RhymeTargetRange } from '@/lib/editor/rhymeReplacement'
 
 const DEBUG_RHYME_TARGET = process.env.NEXT_PUBLIC_DEBUG_RHYME_TARGET === '1'
 
@@ -23,6 +24,7 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
     currentLineText: '',
     activeLineRect: null as { top: number; left: number; width: number; height: number } | null,
     editorLaneRect: null as { top: number; left: number; width: number; height: number } | null,
+    targetRange: null as RhymeTargetRange | null,
   })
 
   const focusEditor = () => {
@@ -56,6 +58,7 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
       caretIndex: number
       currentLineText: string
       activeLineRect: { top: number; left: number; width: number; height: number } | null
+      targetRange?: RhymeTargetRange | null
     }
   ) => {
     const text = getEditorPlainText(editorElement)
@@ -142,7 +145,12 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
         })()
       : null
 
-    return { text, caretIndex, currentLineText, activeLineRect, editorLaneRect }
+    const targetRange = hasEditorSelection
+      ? resolveRhymeTarget(text, caretIndex)
+      : previous
+        ? previous.targetRange ?? null
+        : null
+    return { text, caretIndex, currentLineText, activeLineRect, editorLaneRect, targetRange }
   }, [])
 
   useEffect(() => {
@@ -188,6 +196,7 @@ const RhymePanel = forwardRef<HTMLDivElement, RhymePanelProps>(({ editorRef }, r
       activeLineRect={editorSnapshot.activeLineRect}
       editorLaneRect={editorSnapshot.editorLaneRect}
       editorRef={editorRef}
+      targetRange={editorSnapshot.targetRange}
       ref={ref}
     />
   )

@@ -17,18 +17,16 @@ import { buildVisibleSuggestions } from '@/components/rhyme/buildVisibleSuggesti
 import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 import { trackEvent } from '@/lib/analytics/events'
 import { RhymeThesaurusSection } from '@/components/rhyme/RhymeThesaurusSection'
+import type { RhymeTargetRange } from '@/lib/editor/rhymeReplacement'
 
 const MIN_WIDTH = 280
 const MAX_WIDTH = 640
 const QUICK_ASSIST_LIMIT = 6
-const PANEL_RESULTS_LIMIT = 220
+const PANEL_RESULTS_LIMIT = 40
 type QualityKey = keyof RhymeFilters
 type PanelAnchorRect = { top: number; left: number; width: number; height: number }
 
-const QUALITY_CHIPS: ReadonlyArray<{ label: string; value: QualityKey }> = [
-  { label: 'Perfect', value: 'perfect' },
-  { label: 'Near / Slant', value: 'near' },
-]
+const FILTER_MODES = ['all', 'perfect', 'near', 'slant'] as const
 
 type Props = {
   mode: RhymePanelMode
@@ -39,10 +37,11 @@ type Props = {
   activeLineRect?: PanelAnchorRect | null
   editorLaneRect?: PanelAnchorRect | null
   editorRef?: React.RefObject<EditorHandle | null>
+  targetRange?: RhymeTargetRange | null
 }
 
 export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
-  ({ mode, onClose, text, caretIndex, currentLineText, editorRef }, forwardedRef) => {
+  ({ mode, onClose, text, caretIndex, currentLineText, editorRef, targetRange }, forwardedRef) => {
     const searchRef = React.useRef<HTMLInputElement>(null)
     const suggestionsRef = React.useRef<string[]>([])
     const panelRef = React.useRef<HTMLDivElement>(null)
@@ -68,6 +67,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       setSearchQuery,
       multiSyllablePerfect,
       setMultiSyllablePerfect,
+      rhymeSuggestionMode,
+      setRhymeSuggestionMode,
     } = useRhymePanelStore((state) => ({
       selectedIndex: state.selectedIndex,
       setSelectedIndex: state.setSelectedIndex,
@@ -75,6 +76,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       setSearchQuery: state.setSearchQuery,
       multiSyllablePerfect: state.multiSyllablePerfect,
       setMultiSyllablePerfect: state.setMultiSyllablePerfect,
+      rhymeSuggestionMode: state.rhymeSuggestionMode,
+      setRhymeSuggestionMode: state.setRhymeSuggestionMode,
     }))
 
     const [advancedOpen, setAdvancedOpen] = useState(false)
@@ -106,13 +109,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       })
     )
 
-    const activeModes = useMemo(
-      () => QUALITY_CHIPS.filter((chip) => rhymeFilters[chip.value]).map((chip) => chip.value),
-      [rhymeFilters]
-    )
-    const resolvedModes = useMemo(
-      () => (activeModes.length > 0 ? activeModes : QUALITY_CHIPS.map((chip) => chip.value)),
-      [activeModes]
+    const resolvedModes = useMemo<QualityKey[]>(
+      () => rhymeSuggestionMode === 'perfect' ? ['perfect'] : ['perfect', 'near'],
+      [rhymeSuggestionMode]
     )
 
     const normalizedQueryToken = useMemo(() => normalizeToken(debouncedQuery), [debouncedQuery])
@@ -260,17 +259,6 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     }, [debouncedQuery, searchQuery])
 
     React.useEffect(() => {
-      if (activeModes.length === 0) {
-        const resetFilters = QUALITY_CHIPS.reduce<RhymeFilters>((acc, chip) => {
-          acc[chip.value] = true
-          return acc
-        }, { perfect: true, near: true })
-        trackEvent('rhyme_filter_changed', { quality: 'reset_all' })
-        setRhymeFilters(resetFilters)
-      }
-    }, [activeModes.length, setRhymeFilters])
-
-    React.useEffect(() => {
       if (visibleSuggestions.length === 0) {
         setSelectedIndex(null)
         return
@@ -292,8 +280,14 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         const editorApi = editorRef?.current
         if (editorApi?.insertText) {
           try {
-            const result = editorApi.insertText(word)
+            const result = targetRange
+              ? editorApi.replaceRhymeTarget(word, targetRange)
+              : editorApi.insertText(word)
             if (!result) {
+              if (targetRange) {
+                editorApi.focus()
+                return
+              }
               console.warn('Editor insertion returned false; falling back to DOM insertion.')
             } else {
               return
@@ -323,7 +317,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           console.error('Failed to insert suggestion:', err)
         }
       },
-      [editorRef]
+      [editorRef, targetRange]
     )
 
     const handleClose = React.useCallback(() => {
@@ -345,7 +339,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           return
         }
 
-        const shortcutIgnored = Boolean(target?.closest('[data-rhyme-panel-shortcuts="ignore"]'))
+        const shortcutIgnored = Boolean(target?.closest('[data-rhyme-panel-shortcuts="ignore"], [role="group"]'))
         if (shortcutIgnored && ['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
           return
         }
@@ -353,23 +347,39 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         const suggestions = suggestionsRef.current
         if (suggestions.length === 0) return
 
+        const focusSuggestion = (index: number) => {
+          setSelectedIndex(index)
+          panelRef.current?.querySelector<HTMLElement>(`#rhyme-suggestion-${index}`)?.focus()
+        }
         switch (event.key) {
-          case 'ArrowDown': {
+          case 'ArrowDown':
+          case 'ArrowRight': {
             event.preventDefault()
             const next =
               selectedIndex == null
                 ? 0
                 : (selectedIndex + 1) % suggestions.length
-            setSelectedIndex(next)
+            focusSuggestion(next)
             return
           }
-          case 'ArrowUp': {
+          case 'ArrowUp':
+          case 'ArrowLeft': {
             event.preventDefault()
             const next =
               selectedIndex == null
                 ? suggestions.length - 1
                 : (selectedIndex - 1 + suggestions.length) % suggestions.length
-            setSelectedIndex(next)
+            focusSuggestion(next)
+            return
+          }
+          case 'Home': {
+            event.preventDefault()
+            focusSuggestion(0)
+            return
+          }
+          case 'End': {
+            event.preventDefault()
+            focusSuggestion(suggestions.length - 1)
             return
           }
           case 'Enter': {
@@ -428,6 +438,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               <button
                 type="button"
                 onClick={handleOpenPanelFromAssist}
+                aria-expanded="false"
+                aria-controls="rhyme-expanded-panel"
                 className="cursor-pointer rounded-sm px-2 py-1 text-[11px] font-medium text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/45"
               >
                 See more
@@ -488,33 +500,30 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {QUALITY_CHIPS.map((chip) => {
-                const isActive = rhymeFilters[chip.value]
-                const activeClasses =
-                  chip.value === 'perfect'
-                    ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-200'
-                    : chip.value === 'near'
-                    ? 'border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-200'
-                    : 'border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-200'
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Rhyme type">
+              {FILTER_MODES.map((filterMode) => {
+                const isActive = rhymeSuggestionMode === filterMode
+                const label = filterMode.charAt(0).toUpperCase() + filterMode.slice(1)
                 return (
                   <button
-                    key={chip.value}
+                    key={filterMode}
                     type="button"
                     onClick={() => {
-                      const next = { ...rhymeFilters, [chip.value]: !rhymeFilters[chip.value] }
-                      const hasAny = Object.values(next).some(Boolean)
-                      trackEvent('rhyme_filter_changed', { quality: chip.value, enabled: !rhymeFilters[chip.value] })
-                      setRhymeFilters(hasAny ? next : { perfect: true, near: true })
+                      setRhymeSuggestionMode(filterMode)
+                      const next = filterMode === 'perfect'
+                        ? { perfect: true, near: false }
+                        : { perfect: true, near: true }
+                      setRhymeFilters(next)
+                      trackEvent('rhyme_filter_changed', { quality: filterMode })
                     }}
-                    className={`rounded-full border px-3 py-1 text-[11px] font-medium transition duration-100 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100 active:scale-[0.98] dark:focus-visible:ring-white/25 dark:focus-visible:ring-offset-[#111113] ${
+                    className={`rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d000]/45 ${
                       isActive
-                        ? activeClasses
-                        : 'border-[color:var(--rl-shell-border)] bg-[#eef2f5] text-slate-700 hover:text-slate-900 dark:border-white/[0.1] dark:bg-[#0d0d0f] dark:text-white/58 dark:hover:text-white/88'
+                        ? 'border-[#f2d000]/45 bg-[#f2d000]/12 text-[color:var(--rl-shell-text)]'
+                        : 'border-[color:var(--rl-shell-border)] text-[color:var(--rl-shell-muted)] hover:text-[color:var(--rl-shell-text)]'
                     }`}
                     aria-pressed={isActive}
                   >
-                    {chip.label}
+                    {label}
                   </button>
                 )
               })}
@@ -621,9 +630,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                   <p className="text-[11px] text-slate-400 dark:text-slate-500">{totalAvailable} results</p>
                 )}
               </div>
-              <p className="mt-1 text-[14px] font-semibold text-slate-900 dark:text-white/90">
-                {activeToken ?? '—'}
-              </p>
+              <h2 id="rhyme-panel-target" className="mt-1 text-[14px] font-semibold text-slate-900 dark:text-white/90">
+                Rhymes for “{activeToken ?? '—'}”
+              </h2>
             </div>
           )}
 
@@ -859,6 +868,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       onKeyDown: handleKeyDown,
       className: 'focus:outline-none',
       'data-testid': 'rhyme-panel-root',
+      id: 'rhyme-expanded-panel',
+      role: 'region',
+      'aria-labelledby': 'rhyme-panel-target',
     }
 
     const panel = (
