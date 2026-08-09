@@ -163,10 +163,9 @@ describe('RhymeSuggestionsPanel', () => {
     const search = screen.getByRole('textbox', { name: 'Type a word to get rhymes' })
     search.focus()
 
-    expect(fireEvent.keyDown(search, { key: 'ArrowLeft' })).toBe(true)
-    expect(fireEvent.keyDown(search, { key: 'ArrowRight' })).toBe(true)
-    expect(fireEvent.keyDown(search, { key: 'Home' })).toBe(true)
-    expect(fireEvent.keyDown(search, { key: 'End' })).toBe(true)
+    for (const key of ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Enter']) {
+      expect(fireEvent.keyDown(search, { key })).toBe(true)
+    }
     expect(search).toHaveFocus()
   })
 })

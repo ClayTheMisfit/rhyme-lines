@@ -349,7 +349,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         }
 
         const shortcutIgnored = Boolean(target?.closest('[data-rhyme-panel-shortcuts="ignore"], [role="group"]'))
-        const isEditableControl = target?.matches('input, textarea, [contenteditable="true"]')
+        const isEditableControl = Boolean(
+          target?.closest('input, textarea, [contenteditable]:not([contenteditable="false"])')
+        )
         if ((shortcutIgnored || isEditableControl) && ['ArrowDown', 'ArrowUp', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
           return
         }
