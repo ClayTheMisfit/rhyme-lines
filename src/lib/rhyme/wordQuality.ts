@@ -12,7 +12,6 @@ type Classification = {
 }
 
 const COMMON_WORD_RANKS = commonWordRanks as Record<string, number>
-const MAX_RANK_SCORE = 120000
 const COMMON_THRESHOLD = 65000
 const UNCOMMON_THRESHOLD = 25000
 
@@ -42,8 +41,10 @@ const isTitleCase = (word: string) => /^[A-Z][a-z]+$/.test(word)
 const hasInnerCaps = (word: string) => /^[A-Z][a-z]+[A-Z]/.test(word) || /[A-Z].+[A-Z]/.test(word)
 
 const getCommonScore = (normalized: string) => {
-  const rank = COMMON_WORD_RANKS[normalized]
-  const baseScore = typeof rank === 'number' ? Math.max(0, MAX_RANK_SCORE - rank) : 0
+  // This resource stores a corpus commonness score (larger means more common),
+  // not an ordinal rank. Inverting it promotes the rarest observed forms.
+  const corpusScore = COMMON_WORD_RANKS[normalized]
+  const baseScore = typeof corpusScore === 'number' ? corpusScore : 0
   const bonus = isCommonEnglishWord(normalized) ? 50000 : 0
   return baseScore + bonus
 }

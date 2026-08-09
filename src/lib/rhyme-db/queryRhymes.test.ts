@@ -89,12 +89,12 @@ describe('queryRhymes', () => {
 
   it('returns perfect rhymes deterministically', () => {
     const results = getRhymesForToken(db, 'fine', 'perfect', 10)
-    expect(results.words).toEqual(['mine', 'line'])
+    expect(results.words).toEqual(['line', 'mine'])
   })
 
   it('normalizes mode casing', () => {
     const results = getRhymesForToken(db, 'fine', 'Perfect', 10)
-    expect(results.words).toEqual(['mine', 'line'])
+    expect(results.words).toEqual(['line', 'mine'])
   })
 
   it('ranks near rhymes with matching vowel and coda higher', () => {
@@ -116,7 +116,7 @@ describe('queryRhymes', () => {
 
   it('filters to common rhymes by default', () => {
     const results = getRhymesForToken(db, 'fine', 'perfect', 10)
-    expect(results.words).toEqual(['mine', 'line'])
+    expect(results.words).toEqual(['line', 'mine'])
   })
 
   it('emits debug stage counts when enabled', () => {
@@ -263,7 +263,7 @@ describe('queryRhymes', () => {
     )
 
     const commonOnly = getRhymesForToken(dbWithRare, 'time', 'perfect', 10, { commonWordsOnly: true })
-    expect(commonOnly.words).toEqual(['rhyme', 'dime'])
+    expect(commonOnly.words).toEqual(['dime', 'rhyme'])
   })
 
   it('keeps near rhymes when the target coda is empty', () => {
@@ -437,7 +437,7 @@ describe('queryRhymes', () => {
     expect(multi.words).toContain('overwalking')
   })
 
-  it('keeps variants when commonWordsOnly is true for perfect rhymes', () => {
+  it('excludes rare variants when commonWordsOnly is true for perfect rhymes', () => {
     const words = ['mat', 'cat', 'bat', 'fat', 'hat', 'rat', 'sat', 'vat', 'pat', 'chat', 'flat', 'brat', 'spat', 'scat', 'splat', 'bhatt', 'blatt', 'batt', 'pratt']
     const perfect = buildIndex([['AE-T', words.map((_, idx) => idx)]])
     const empty = buildIndex([])
@@ -470,7 +470,7 @@ describe('queryRhymes', () => {
 
     const results = getRhymesForToken(dbWithVariants, 'mat', 'perfect', 200, { commonWordsOnly: true })
     expect(results.words).toEqual(expect.arrayContaining(['cat', 'bat', 'fat', 'hat', 'rat', 'sat', 'vat', 'pat']))
-    expect(results.words).toEqual(expect.arrayContaining(['bhatt', 'blatt', 'batt', 'pratt']))
+    expect(results.words).not.toEqual(expect.arrayContaining(['bhatt', 'blatt', 'batt', 'pratt']))
   })
 
   it('excludes rare variants by default but keeps common words first', () => {
