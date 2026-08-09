@@ -44,7 +44,7 @@ describe('RhymeSuggestionsPanel', () => {
     )
 
     expect(
-      screen.getByText('No strong matches yet. Try Near / Slant.')
+      screen.getByText('No strong matches yet. Try Near.')
     ).toBeInTheDocument()
   })
 
@@ -75,7 +75,7 @@ describe('RhymeSuggestionsPanel', () => {
     expect(screen.getByRole('button', { name: 'Perfect' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Near' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Slant' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Slant' })).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: /time/i })).toBeInTheDocument()
   })
 

@@ -2,7 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
-import { getEditorLineElements, getLinePlainText, getPlainTextOffsetWithinLine, clearLineCache } from '@/lib/editor/plainText'
+import { getEditorLineElements, getLinePlainText, getPlainTextOffsetWithinLine, clearLineCache, getEditorPlainText } from '@/lib/editor/plainText'
 import { useSettingsStore } from '@/store/settingsStore'
 import { RHYME_HIGHLIGHT_ORDER } from '@/lib/persist/schema'
 import { useRhymeHighlightSettingsStore } from '@/store/rhymeHighlightSettingsStore'
@@ -1023,7 +1023,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     (word: string, target: RhymeTargetRange) => {
       const node = editorRef.current
       if (!node) return false
-      const currentText = serializeFromEditor(node)
+      const currentText = getEditorPlainText(node)
       const replacement = applyRhymeReplacement(currentText, target, word)
       if (!replacement) return false
 

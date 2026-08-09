@@ -26,7 +26,7 @@ const PANEL_RESULTS_LIMIT = 40
 type QualityKey = keyof RhymeFilters
 type PanelAnchorRect = { top: number; left: number; width: number; height: number }
 
-const FILTER_MODES = ['all', 'perfect', 'near', 'slant'] as const
+const FILTER_MODES = ['all', 'perfect', 'near'] as const
 
 type Props = {
   mode: RhymePanelMode
@@ -340,7 +340,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         }
 
         const shortcutIgnored = Boolean(target?.closest('[data-rhyme-panel-shortcuts="ignore"], [role="group"]'))
-        if (shortcutIgnored && ['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
+        const isInteractiveControl = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.id === 'rhyme-search'
+        if ((shortcutIgnored || isInteractiveControl) && ['ArrowDown', 'ArrowUp', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
           return
         }
 
@@ -739,8 +740,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           {!isInitialLoading && status !== 'idle' && status !== 'loading' && visibleSuggestions.length === 0 && (
             <div className="px-3 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
               {totalAvailable > 0
-                ? 'Filtered out by current controls. Try disabling “Common words only” or enabling Near / Slant.'
-                : 'No strong matches yet. Try Near / Slant.'}
+                ? 'Filtered out by current controls. Try disabling "Common words only" or enabling Near.'
+                : 'No strong matches yet. Try Near.'}
             </div>
           )}
 
@@ -773,7 +774,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                         {rhymeFilters.perfect && !rhymeFilters.near
                           ? 'Perfect'
                           : rhymeFilters.near && !rhymeFilters.perfect
-                            ? 'Near / Slant'
+                            ? 'Near'
                             : 'Mixed'}
                       </span>
                     </div>
