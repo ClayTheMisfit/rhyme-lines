@@ -13,7 +13,7 @@ import type { RhymeSuggestionDebug, RhymeSuggestionDebugState } from '@/lib/rhym
 import { isEnglishWord } from '@/lib/rhyme-db/isEnglishWord'
 import { getPreferredRhymeSource, markLocalInitFailed } from '@/lib/rhymes/rhymeSource'
 
-const ALL_MODES = ['perfect', 'near'] as const
+const ALL_MODES = ['perfect', 'near', 'slant'] as const
 type NormalizedMode = (typeof ALL_MODES)[number]
 const isMode = (value: string): value is NormalizedMode => (ALL_MODES as readonly string[]).includes(value)
 
@@ -262,7 +262,7 @@ export const useRhymeSuggestions = ({
         return {
           perfect: normalized.includes('perfect'),
           near: normalized.includes('near'),
-          slant: normalized.includes('near'),
+          slant: normalized.includes('slant'),
         }
       }
 
@@ -508,7 +508,9 @@ export const useRhymeSuggestions = ({
                   caret: caretToken ?? undefined,
                   lineLast: lineLastToken ?? undefined,
                 },
-                mode,
+                // The local index exposes one broad non-perfect pool. Online
+                // providers retain separate near/slant quality metadata.
+                mode: mode === 'slant' ? 'near' : mode,
                 max: maxResults,
                 context: {
                   wordUsage,

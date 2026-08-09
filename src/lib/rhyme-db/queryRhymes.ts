@@ -9,7 +9,7 @@ import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 
 export { normalizeToken }
 
-export type Mode = 'perfect' | 'near' | 'Perfect' | 'Near'
+export type Mode = 'perfect' | 'near' | 'slant' | 'Perfect' | 'Near' | 'Slant'
 
 export type RhymeDbRuntimeMaps = {
   perfectKeysByWordId: string[][]

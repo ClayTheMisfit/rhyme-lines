@@ -7,7 +7,6 @@ import { layers } from '@/lib/layers'
 import { useRhymePanel, type RhymePanelMode } from '@/lib/state/rhymePanel'
 import { DockablePanel } from '@/components/panels/DockablePanel'
 import { useRhymeSuggestions } from '@/lib/rhyme-db/useRhymeSuggestions'
-import type { RhymeFilters } from '@/lib/persist/schema'
 import type { EditorHandle } from '@/components/Editor'
 import { getLocalInitFailureReason } from '@/lib/rhymes/rhymeSource'
 import { useMemo, useState } from 'react'
@@ -17,16 +16,16 @@ import { buildVisibleSuggestions } from '@/components/rhyme/buildVisibleSuggesti
 import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 import { trackEvent } from '@/lib/analytics/events'
 import { RhymeThesaurusSection } from '@/components/rhyme/RhymeThesaurusSection'
-import type { RhymeTargetRange } from '@/lib/editor/rhymeReplacement'
+import { resolveRhymeTarget, type RhymeTargetRange } from '@/lib/editor/rhymeReplacement'
 
 const MIN_WIDTH = 280
 const MAX_WIDTH = 640
 const QUICK_ASSIST_LIMIT = 6
 const PANEL_RESULTS_LIMIT = 40
-type QualityKey = keyof RhymeFilters
+type QualityKey = 'perfect' | 'near' | 'slant'
 type PanelAnchorRect = { top: number; left: number; width: number; height: number }
 
-const FILTER_MODES = ['all', 'perfect', 'near'] as const
+const FILTER_MODES = ['all', 'perfect', 'near', 'slant'] as const
 
 type Props = {
   mode: RhymePanelMode
@@ -110,13 +109,23 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     )
 
     const resolvedModes = useMemo<QualityKey[]>(
-      () => rhymeSuggestionMode === 'perfect' ? ['perfect'] : ['perfect', 'near'],
+      () => rhymeSuggestionMode === 'all' ? ['perfect', 'near', 'slant'] : [rhymeSuggestionMode],
       [rhymeSuggestionMode]
     )
 
     const normalizedQueryToken = useMemo(() => normalizeToken(debouncedQuery), [debouncedQuery])
     const isQueryActive = Boolean(normalizedQueryToken)
     const shouldFetchSuggestions = mode !== 'hidden' || !isQueryActive
+
+    const activeTargetRange = useMemo(() => {
+      if (isQueryActive) return null
+      if (activeTab === 'caret') return targetRange ?? null
+
+      const lineStart = text.lastIndexOf('\n', Math.max(0, caretIndex - 1)) + 1
+      const nextLineBreak = text.indexOf('\n', lineStart)
+      const lineEnd = nextLineBreak === -1 ? text.length : nextLineBreak
+      return resolveRhymeTarget(text, lineEnd)
+    }, [activeTab, caretIndex, isQueryActive, targetRange, text])
 
     const {
       status,
@@ -280,11 +289,11 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         const editorApi = editorRef?.current
         if (editorApi?.insertText) {
           try {
-            const result = targetRange
-              ? editorApi.replaceRhymeTarget(word, targetRange)
+            const result = activeTargetRange
+              ? editorApi.replaceRhymeTarget(word, activeTargetRange)
               : editorApi.insertText(word)
             if (!result) {
-              if (targetRange) {
+              if (activeTargetRange) {
                 editorApi.focus()
                 return
               }
@@ -317,7 +326,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
           console.error('Failed to insert suggestion:', err)
         }
       },
-      [editorRef, targetRange]
+      [activeTargetRange, editorRef]
     )
 
     const handleClose = React.useCallback(() => {
@@ -340,8 +349,8 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
         }
 
         const shortcutIgnored = Boolean(target?.closest('[data-rhyme-panel-shortcuts="ignore"], [role="group"]'))
-        const isInteractiveControl = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.id === 'rhyme-search'
-        if ((shortcutIgnored || isInteractiveControl) && ['ArrowDown', 'ArrowUp', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+        const isEditableControl = target?.matches('input, textarea, [contenteditable="true"]')
+        if ((shortcutIgnored || isEditableControl) && ['ArrowDown', 'ArrowUp', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
           return
         }
 
@@ -511,9 +520,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     type="button"
                     onClick={() => {
                       setRhymeSuggestionMode(filterMode)
-                      const next = filterMode === 'perfect'
-                        ? { perfect: true, near: false }
-                        : { perfect: true, near: true }
+                      const next = {
+                        perfect: filterMode === 'all' || filterMode === 'perfect',
+                        near: filterMode === 'all' || filterMode === 'near' || filterMode === 'slant',
+                      }
                       setRhymeFilters(next)
                       trackEvent('rhyme_filter_changed', { quality: filterMode })
                     }}
