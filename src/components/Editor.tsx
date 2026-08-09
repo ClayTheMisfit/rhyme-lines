@@ -2,7 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { serializeFromEditor, hydrateEditorFromText } from '@/lib/editor/serialization'
-import { getEditorLineElements, getLinePlainText, getPlainTextOffsetWithinLine, clearLineCache } from '@/lib/editor/plainText'
+import { getEditorLineElements, getLinePlainText, getPlainTextOffsetWithinLine, clearLineCache, getEditorPlainText } from '@/lib/editor/plainText'
 import { useSettingsStore } from '@/store/settingsStore'
 import { RHYME_HIGHLIGHT_ORDER } from '@/lib/persist/schema'
 import { useRhymeHighlightSettingsStore } from '@/store/rhymeHighlightSettingsStore'
@@ -21,6 +21,9 @@ import { useRhymeDecorationOverlay } from '@/hooks/useRhymeDecorationOverlay'
 import { RhymeDecorationOverlay } from '@/components/editor/RhymeDecorationOverlay'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useResizeObservedGeometryInvalidation } from '@/hooks/useResizeObservedGeometryInvalidation'
+import { applyRhymeReplacement, type RhymeTargetRange } from '@/lib/editor/rhymeReplacement'
+import type { SelectionSnapshot } from '@/editor/types'
+import { restoreSelection as restoreEditorSelection } from '@/editor/selection/restoreSelection'
 
 const PLACEHOLDER_TEXT = 'Start writing…'
 const ANALYSIS_DOC_ID = 'rhyme-editor'
@@ -52,6 +55,7 @@ type EditorProps = {
 export type EditorHandle = {
   focus: () => void
   insertText: (text: string) => boolean
+  replaceRhymeTarget: (word: string, target: RhymeTargetRange) => boolean
 }
 
 const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
@@ -1015,6 +1019,42 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     [commitEditorChange, ensureEditorFocus, getSnapshot]
   )
 
+  const replaceRhymeTarget = useCallback(
+    (word: string, target: RhymeTargetRange) => {
+      const node = editorRef.current
+      if (!node) return false
+      const currentText = getEditorPlainText(node)
+      const replacement = applyRhymeReplacement(currentText, target, word)
+      if (!replacement) return false
+
+      const lines = getEditorLineElements(node)
+      const resolvePoint = (index: number) => {
+        let remaining = index
+        for (const line of lines) {
+          const length = getLinePlainText(line).length
+          if (remaining <= length) return { line, offset: remaining }
+          remaining -= length + 1
+        }
+        return null
+      }
+      const start = resolvePoint(target.start)
+      const end = resolvePoint(target.end)
+      if (!start || !end || start.line !== end.line) return false
+      const lineId = start.line.dataset.lineId
+      if (!lineId) return false
+      const selectionSnapshot: SelectionSnapshot = {
+        anchor: { lineId, offset: start.offset },
+        focus: { lineId, offset: end.offset },
+        direction: 'forward',
+        isCollapsed: false,
+      }
+      ensureEditorFocus()
+      if (!restoreEditorSelection(node, selectionSnapshot)) return false
+      return insertText(replacement.text.slice(target.start, replacement.caretIndex))
+    },
+    [ensureEditorFocus, insertText]
+  )
+
   const insertPlainText = useCallback(
     (textToInsert: string) => {
       const node = editorRef.current
@@ -1061,8 +1101,9 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     () => ({
       focus: ensureEditorFocus,
       insertText,
+      replaceRhymeTarget,
     }),
-    [ensureEditorFocus, insertText]
+    [ensureEditorFocus, insertText, replaceRhymeTarget]
   )
 
   return (
