@@ -117,7 +117,8 @@ describe('RhymeSuggestionsPanel', () => {
     ['Perfect', ['perfect']],
     ['Near', ['near']],
     ['Slant', ['slant']],
-  ] as const)('maps %s to a distinct quality set', async (label, modes) => {
+  ] as const)('keeps one canonical query while selecting %s locally', async (label, _modes) => {
+    void _modes
     mockedUseRhymeSuggestions.mockReturnValue({
       status: 'success', error: undefined, warning: undefined,
       results: { caret: ['rhyme'], lineLast: [] },
@@ -129,8 +130,33 @@ describe('RhymeSuggestionsPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: label }))
 
     await waitFor(() => expect(mockedUseRhymeSuggestions).toHaveBeenLastCalledWith(
-      expect.objectContaining({ modes: [...modes] })
+      expect.objectContaining({ modes: ['perfect', 'near', 'slant'] })
     ))
+  })
+
+  it('filters and labels candidates by intrinsic category without relabeling', () => {
+    mockedUseRhymeSuggestions.mockReturnValue({
+      status: 'success', error: undefined, warning: undefined,
+      results: {
+        caret: ['game', 'orange', 'silver'], lineLast: [],
+        caretCandidates: [
+          { word: 'game', category: 'perfect' },
+          { word: 'orange', category: 'near' },
+          { word: 'silver', category: 'slant' },
+        ],
+      },
+      debug: { caretToken: 'same', lineLastToken: undefined }, rhymeDebug: {},
+      meta: { source: 'local' }, phase: 'idle', activeTokens,
+    })
+    render(<RhymeSuggestionsPanel mode="docked" onClose={() => {}} text="same" caretIndex={4} currentLineText="same" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Near' }))
+    expect(screen.queryByRole('option', { name: /game/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /orange near/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Slant' }))
+    expect(screen.queryByRole('option', { name: /orange/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /silver slant/i })).toBeInTheDocument()
   })
 
   it('replaces the line-ending target when Line End suggestions are active', () => {

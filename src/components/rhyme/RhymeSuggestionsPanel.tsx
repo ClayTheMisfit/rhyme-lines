@@ -17,6 +17,7 @@ import { estimateSyllables } from '@/lib/nlp/estimateSyllables'
 import { trackEvent } from '@/lib/analytics/events'
 import { RhymeThesaurusSection } from '@/components/rhyme/RhymeThesaurusSection'
 import { resolveRhymeTarget, type RhymeTargetRange } from '@/lib/editor/rhymeReplacement'
+import { filterRhymeCandidates } from '@/lib/rhyme/filterCandidates'
 
 const MIN_WIDTH = 280
 const MAX_WIDTH = 640
@@ -86,12 +87,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const {
       commonWordsOnly,
       setCommonWordsOnly,
-      rhymeFilters,
       setRhymeFilters,
     } = useSettingsStore((state) => ({
       commonWordsOnly: state.commonWordsOnly,
       setCommonWordsOnly: state.setCommonWordsOnly,
-      rhymeFilters: state.rhymeFilters,
       setRhymeFilters: state.setRhymeFilters,
     }), shallow)
 
@@ -108,10 +107,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
       })
     )
 
-    const resolvedModes = useMemo<QualityKey[]>(
-      () => rhymeSuggestionMode === 'all' ? ['perfect', 'near', 'slant'] : [rhymeSuggestionMode],
-      [rhymeSuggestionMode]
-    )
+    // Fetch one canonical, pre-ranked set. Filter changes are local and must
+    // never become classification inputs or trigger provider/worker requests.
+    const resolvedModes = useMemo<QualityKey[]>(() => ['perfect', 'near', 'slant'], [])
 
     const normalizedQueryToken = useMemo(() => normalizeToken(debouncedQuery), [debouncedQuery])
     const isQueryActive = Boolean(normalizedQueryToken)
@@ -152,11 +150,20 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
 
     const caretSuggestions = results.caret ?? []
     const lineSuggestions = results.lineLast ?? []
-    const activeSuggestions = isQueryActive
-      ? (results.caret ?? results.lineLast ?? [])
+    const canonicalCandidates = isQueryActive
+      ? (results.caretCandidates ?? results.lineLastCandidates ?? [])
       : activeTab === 'caret'
-        ? caretSuggestions
-        : lineSuggestions
+        ? (results.caretCandidates ?? [])
+        : (results.lineLastCandidates ?? [])
+    const filteredCandidates = useMemo(
+      () => filterRhymeCandidates(canonicalCandidates, rhymeSuggestionMode),
+      [canonicalCandidates, rhymeSuggestionMode],
+    )
+    const activeSuggestions = canonicalCandidates.length > 0
+      ? filteredCandidates.map(({ word }) => word)
+      : isQueryActive
+        ? (results.caret ?? results.lineLast ?? [])
+        : activeTab === 'caret' ? caretSuggestions : lineSuggestions
     const visibleSuggestions = useMemo(
       () => buildVisibleSuggestions(activeSuggestions, { limit: PANEL_RESULTS_LIMIT }),
       [activeSuggestions]
@@ -783,11 +790,7 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                     <div className="min-w-0">
                       <span className="block truncate font-medium text-slate-900 dark:text-white/88">{suggestion}</span>
                       <span className="block text-[10px] uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
-                        {rhymeFilters.perfect && !rhymeFilters.near
-                          ? 'Perfect'
-                          : rhymeFilters.near && !rhymeFilters.perfect
-                            ? 'Near'
-                            : 'Mixed'}
+                        {filteredCandidates.find((candidate) => candidate.word === suggestion)?.category ?? 'Mixed'}
                       </span>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">

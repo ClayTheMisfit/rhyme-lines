@@ -12,6 +12,7 @@ import { classifyCandidate, QUALITY_TIER_ORDER } from '@/lib/rhyme/wordQuality'
 import type { RhymeSuggestionDebug, RhymeSuggestionDebugState } from '@/lib/rhyme-db/rhymeDebug'
 import { isEnglishWord } from '@/lib/rhyme-db/isEnglishWord'
 import { getPreferredRhymeSource, markLocalInitFailed } from '@/lib/rhymes/rhymeSource'
+import type { CanonicalRhymeCandidate } from '@/lib/rhyme/filterCandidates'
 
 const ALL_MODES = ['perfect', 'near', 'slant'] as const
 type NormalizedMode = (typeof ALL_MODES)[number]
@@ -22,7 +23,12 @@ type LoadPhase = 'idle' | 'initial' | 'refreshing' | 'error'
 
 type LineRange = { start: number; end: number }
 
-type Results = { caret?: string[]; lineLast?: string[] }
+type Results = {
+  caret?: string[]
+  lineLast?: string[]
+  caretCandidates?: CanonicalRhymeCandidate[]
+  lineLastCandidates?: CanonicalRhymeCandidate[]
+}
 type WorkerResults = { results: Results; debug?: RhymeTargetsDebug }
 
 type DebugInfo = {
@@ -272,6 +278,14 @@ export const useRhymeSuggestions = ({
       const toSuggestions = (result: AggregationResult | null) =>
         result?.suggestions.map((suggestion) => suggestion.word) ?? []
 
+      const toCandidates = (result: AggregationResult | null, words: string[]): CanonicalRhymeCandidate[] => {
+        const categories = new Map(result?.suggestions.map(({ word, quality }) => [word, quality]))
+        return words.flatMap((word) => {
+          const category = categories.get(word)
+          return category ? [{ word, category }] : []
+        })
+      }
+
       const shouldIncludeTier = (tier: string) => {
         if (commonWordsOnly) {
           return tier === 'common' || tier === 'uncommon'
@@ -410,21 +424,27 @@ export const useRhymeSuggestions = ({
           const filtered = filterAndSort(suggestions, rawCaretToken ?? null)
           onlineResults.caret = filtered.list
           onlineResults.lineLast = filtered.list
+          onlineResults.caretCandidates = toCandidates(sharedResult, filtered.list)
+          onlineResults.lineLastCandidates = onlineResults.caretCandidates
           if (filtered.debug) {
             onlineDebug.caret = filtered.debug
             onlineDebug.lineLast = filtered.debug
           }
         } else {
           if (outcomes.get('caret')) {
-            const filtered = filterAndSort(toSuggestions(outcomes.get('caret') ?? null), rawCaretToken ?? null)
+            const caretResult = outcomes.get('caret') ?? null
+            const filtered = filterAndSort(toSuggestions(caretResult), rawCaretToken ?? null)
             onlineResults.caret = filtered.list
+            onlineResults.caretCandidates = toCandidates(caretResult, filtered.list)
             if (filtered.debug) {
               onlineDebug.caret = filtered.debug
             }
           }
           if (outcomes.get('lineLast')) {
-            const filtered = filterAndSort(toSuggestions(outcomes.get('lineLast') ?? null), rawLineLastToken ?? null)
+            const lineResult = outcomes.get('lineLast') ?? null
+            const filtered = filterAndSort(toSuggestions(lineResult), rawLineLastToken ?? null)
             onlineResults.lineLast = filtered.list
+            onlineResults.lineLastCandidates = toCandidates(lineResult, filtered.list)
             if (filtered.debug) {
               onlineDebug.lineLast = filtered.debug
             }
@@ -599,11 +619,26 @@ export const useRhymeSuggestions = ({
           }
 
           const resultsByMode = fulfilled.map((entry) => (entry as PromiseFulfilledResult<WorkerResults>).value)
+          const intrinsicLocalMode = (word: string, target: 'caret' | 'lineLast') => {
+            const mode = orderedModes.find((_, index) => resultsByMode[index]?.results[target]?.includes(word)) ?? 'near'
+            // The local database has a canonical perfect pool and one broad
+            // non-perfect pool. Do not relabel that pool as slant because the
+            // UI happened to request Slant.
+            return mode === 'slant' ? 'near' : mode
+          }
           const caretMerge = mergeList(resultsByMode.map((result) => result.results.caret))
           const lineLastMerge = mergeList(resultsByMode.map((result) => result.results.lineLast))
           const mergedResults: Results = {
             caret: caretMerge.merged,
             lineLast: lineLastMerge.merged,
+            caretCandidates: caretMerge.merged.map((word) => ({
+              word,
+              category: intrinsicLocalMode(word, 'caret'),
+            })),
+            lineLastCandidates: lineLastMerge.merged.map((word) => ({
+              word,
+              category: intrinsicLocalMode(word, 'lineLast'),
+            })),
           }
           const mergedDebug: RhymeTargetsDebug = {
             caret: mergeDebug(resultsByMode.map((result) => result.debug?.caret)),
