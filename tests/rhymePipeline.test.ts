@@ -87,7 +87,8 @@ describe('lexical-quality ranking', () => {
     const canonical = dedupeForTest(candidates(samePool), filters)
     const preview = canonical.slice(0, 6).map((entry) => entry.word)
 
-    expect(preview).not.toEqual(expect.arrayContaining(['aime', 'ame']))
+    expect(preview).not.toContain('aime')
+    expect(preview).not.toContain('ame')
     expect(canonical.map((entry) => entry.word)).toEqual(expect.arrayContaining([
       'fame', 'blame', 'shame', 'claim', 'flame', 'frame', 'tame',
     ]))
@@ -111,11 +112,44 @@ describe('lexical-quality ranking', () => {
     expect(canonical.find((entry) => entry.normalized === 'fame')?.providers.sort()).toEqual(['fixture', 'second', 'third'])
   })
 
+  it('produces deterministic rankings regardless of input casing for same normalized value', () => {
+    const inputLowerFirst: ProviderCandidate[] = [
+      { word: 'fame', quality: 'perfect', score: 100, provider: 'provider1' },
+      { word: 'Fame', quality: 'perfect', score: 100, provider: 'provider2' },
+      { word: 'blame', quality: 'perfect', score: 100, provider: 'provider1' },
+      { word: 'Blame', quality: 'perfect', score: 100, provider: 'provider2' },
+      { word: 'aime', quality: 'perfect', score: 100, provider: 'provider1' },
+      { word: 'Aime', quality: 'perfect', score: 100, provider: 'provider2' },
+    ]
+    const inputUpperFirst: ProviderCandidate[] = [
+      { word: 'Fame', quality: 'perfect', score: 100, provider: 'provider2' },
+      { word: 'fame', quality: 'perfect', score: 100, provider: 'provider1' },
+      { word: 'Blame', quality: 'perfect', score: 100, provider: 'provider2' },
+      { word: 'blame', quality: 'perfect', score: 100, provider: 'provider1' },
+      { word: 'Aime', quality: 'perfect', score: 100, provider: 'provider2' },
+      { word: 'aime', quality: 'perfect', score: 100, provider: 'provider1' },
+    ]
+
+    const resultsLowerFirst = dedupeForTest(inputLowerFirst, filters)
+    const resultsUpperFirst = dedupeForTest(inputUpperFirst, filters)
+
+    // Rankings should be identical regardless of input casing/order
+    expect(resultsLowerFirst.map((entry) => entry.normalized)).toEqual(
+      resultsUpperFirst.map((entry) => entry.normalized)
+    )
+
+    // Verify that classification-based ranking is working (blame/fame should rank higher than aime)
+    const normalizedWords = resultsLowerFirst.map((entry) => entry.normalized)
+    expect(normalizedWords.indexOf('blame')).toBeLessThan(normalizedWords.indexOf('aime'))
+    expect(normalizedWords.indexOf('fame')).toBeLessThan(normalizedWords.indexOf('aime'))
+  })
+
   it.each(['perfect', 'near', 'slant'] as const)('applies lexical quality in %s mode', (quality) => {
     const modeFilters = { perfect: false, near: false, slant: false, [quality]: true }
     const pool = candidates(samePool).map((candidate) => ({ ...candidate, quality }))
     const preview = dedupeForTest(pool, modeFilters).slice(0, 6).map((entry) => entry.word)
-    expect(preview).not.toEqual(expect.arrayContaining(['aime', 'ame']))
+    expect(preview).not.toContain('aime')
+    expect(preview).not.toContain('ame')
   })
 
   it('separates pronunciation eligibility from ordinary-English evidence', () => {

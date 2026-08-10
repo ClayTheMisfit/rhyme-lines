@@ -470,7 +470,10 @@ describe('queryRhymes', () => {
 
     const results = getRhymesForToken(dbWithVariants, 'mat', 'perfect', 200, { commonWordsOnly: true })
     expect(results.words).toEqual(expect.arrayContaining(['cat', 'bat', 'fat', 'hat', 'rat', 'sat', 'vat', 'pat']))
-    expect(results.words).not.toEqual(expect.arrayContaining(['bhatt', 'blatt', 'batt', 'pratt']))
+    expect(results.words).not.toContain('bhatt')
+    expect(results.words).not.toContain('blatt')
+    expect(results.words).not.toContain('batt')
+    expect(results.words).not.toContain('pratt')
   })
 
   it('excludes rare variants by default but keeps common words first', () => {
