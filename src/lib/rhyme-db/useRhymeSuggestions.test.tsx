@@ -323,6 +323,78 @@ describe('useRhymeSuggestions english filtering', () => {
   })
 })
 
+describe('useRhymeSuggestions multi-mode category classification', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    retryLocalInit()
+    mockedFetchAggregatedRhymes.mockReset()
+    mockedGetRhymeClient.mockReset()
+    mockedInitRhymeClient.mockReset()
+    mockedInitRhymeClient.mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('correctly classifies candidates when an earlier mode rejects and a later mode succeeds', async () => {
+    // Regression test: when perfect mode rejects and near mode succeeds,
+    // the near-mode candidates should be classified as 'near', not 'perfect'.
+    // The bug was that rejected promises were filtered out before zipping
+    // with orderedModes, causing index misalignment.
+    const getRhymes = jest.fn((args) => {
+      const mode = args.mode
+      if (mode === 'perfect') {
+        return Promise.reject(new Error('perfect mode unavailable'))
+      }
+      if (mode === 'near') {
+        return Promise.resolve({
+          results: { caret: ['rhyme', 'crime'], lineLast: ['time', 'chime'] },
+          debug: {},
+        })
+      }
+      return Promise.resolve({ results: { caret: [], lineLast: [] }, debug: {} })
+    })
+    mockedGetRhymeClient.mockReturnValue({
+      getRhymes,
+      getWarning: () => null,
+      getStatus: () => null,
+      init: () => Promise.resolve(),
+      terminate: () => {},
+    })
+
+    const { result } = renderHook(() =>
+      useRhymeSuggestions({
+        text: 'time',
+        caretIndex: 4,
+        currentLineText: 'time',
+        modes: ['perfect', 'near'],
+        enabled: true,
+      }),
+    )
+
+    await act(async () => {
+      jest.advanceTimersByTime(260)
+      await flushPromises()
+    })
+
+    expect(result.current.status).toBe('success')
+    expect(result.current.results.caret).toEqual(['rhyme', 'crime'])
+    expect(result.current.results.lineLast).toEqual(['time', 'chime'])
+
+    // Critical assertion: candidates from near mode should be classified as 'near',
+    // not misattributed to the rejected 'perfect' mode
+    expect(result.current.results.caretCandidates).toEqual([
+      { word: 'rhyme', category: 'near' },
+      { word: 'crime', category: 'near' },
+    ])
+    expect(result.current.results.lineLastCandidates).toEqual([
+      { word: 'time', category: 'near' },
+      { word: 'chime', category: 'near' },
+    ])
+  })
+})
+
 describe('useRhymeSuggestions synchronization and stale-response safety', () => {
   beforeEach(() => {
     jest.useFakeTimers()

@@ -557,8 +557,17 @@ export const useRhymeSuggestions = ({
             return
           }
 
-          const fulfilled = settled.filter((entry) => entry.status === 'fulfilled')
-          if (fulfilled.length === 0) {
+          // Preserve the pairing between each result and its original mode by mapping
+          // over settled results together with orderedModes, then filtering afterwards.
+          // This prevents misalignment when earlier modes reject.
+          const resultsByMode = settled
+            .map((entry, index) => ({
+              mode: orderedModes[index],
+              result: entry.status === 'fulfilled' ? entry.value : null,
+            }))
+            .filter((item): item is { mode: NormalizedMode; result: WorkerResults } => item.result !== null)
+
+          if (resultsByMode.length === 0) {
             const message = 'Failed to fetch rhymes'
             setStatus('error')
             setError(message)
@@ -566,7 +575,7 @@ export const useRhymeSuggestions = ({
             return
           }
 
-          if (fulfilled.length !== settled.length) {
+          if (resultsByMode.length !== settled.length) {
             setWarning('Some rhyme modes failed')
           }
 
@@ -618,16 +627,15 @@ export const useRhymeSuggestions = ({
             }
           }
 
-          const resultsByMode = fulfilled.map((entry) => (entry as PromiseFulfilledResult<WorkerResults>).value)
           const intrinsicLocalMode = (word: string, target: 'caret' | 'lineLast') => {
-            const mode = orderedModes.find((_, index) => resultsByMode[index]?.results[target]?.includes(word)) ?? 'near'
+            const mode = resultsByMode.find((item) => item.result.results[target]?.includes(word))?.mode ?? 'near'
             // The local database has a canonical perfect pool and one broad
             // non-perfect pool. Do not relabel that pool as slant because the
             // UI happened to request Slant.
             return mode === 'slant' ? 'near' : mode
           }
-          const caretMerge = mergeList(resultsByMode.map((result) => result.results.caret))
-          const lineLastMerge = mergeList(resultsByMode.map((result) => result.results.lineLast))
+          const caretMerge = mergeList(resultsByMode.map((item) => item.result.results.caret))
+          const lineLastMerge = mergeList(resultsByMode.map((item) => item.result.results.lineLast))
           const mergedResults: Results = {
             caret: caretMerge.merged,
             lineLast: lineLastMerge.merged,
@@ -641,8 +649,8 @@ export const useRhymeSuggestions = ({
             })),
           }
           const mergedDebug: RhymeTargetsDebug = {
-            caret: mergeDebug(resultsByMode.map((result) => result.debug?.caret)),
-            lineLast: mergeDebug(resultsByMode.map((result) => result.debug?.lineLast)),
+            caret: mergeDebug(resultsByMode.map((item) => item.result.debug?.caret)),
+            lineLast: mergeDebug(resultsByMode.map((item) => item.result.debug?.lineLast)),
           }
           if (requestId !== requestCounter.current) return
 
@@ -700,13 +708,13 @@ export const useRhymeSuggestions = ({
                 rawCaretToken ?? null,
                 caretMerge.merged,
                 caretMerge.deduped,
-                resultsByMode.map((result) => result.debug?.caret),
+                resultsByMode.map((item) => item.result.debug?.caret),
               ),
               lineLast: buildCombinedDebug(
                 rawLineLastToken ?? null,
                 lineLastMerge.merged,
                 lineLastMerge.deduped,
-                resultsByMode.map((result) => result.debug?.lineLast),
+                resultsByMode.map((item) => item.result.debug?.lineLast),
               ),
             })
           } else {
@@ -717,8 +725,9 @@ export const useRhymeSuggestions = ({
             const logIfTime = (label: 'caret' | 'lineLast', token: string | null | undefined) => {
               const normalized = normalizeToken(token ?? '')
               if (normalized !== 'time') return
-              const modeSnapshots = orderedModes.map((mode, index) => {
-                const modeResult = resultsByMode[index]
+              const modeSnapshots = orderedModes.map((mode) => {
+                const modeItem = resultsByMode.find((item) => item.mode === mode)
+                const modeResult = modeItem?.result
                 const debugInfo = label === 'caret' ? modeResult?.debug?.caret : modeResult?.debug?.lineLast
                 const words = (label === 'caret' ? modeResult?.results?.caret : modeResult?.results?.lineLast) ?? []
                 return {
