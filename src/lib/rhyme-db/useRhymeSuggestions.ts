@@ -12,6 +12,7 @@ import { classifyCandidate, QUALITY_TIER_ORDER } from '@/lib/rhyme/wordQuality'
 import type { RhymeSuggestionDebug, RhymeSuggestionDebugState } from '@/lib/rhyme-db/rhymeDebug'
 import { isEnglishWord } from '@/lib/rhyme-db/isEnglishWord'
 import { getPreferredRhymeSource, markLocalInitFailed } from '@/lib/rhymes/rhymeSource'
+import type { CanonicalRhymeCandidate } from '@/lib/rhyme/filterCandidates'
 
 const ALL_MODES = ['perfect', 'near', 'slant'] as const
 type NormalizedMode = (typeof ALL_MODES)[number]
@@ -22,7 +23,12 @@ type LoadPhase = 'idle' | 'initial' | 'refreshing' | 'error'
 
 type LineRange = { start: number; end: number }
 
-type Results = { caret?: string[]; lineLast?: string[] }
+type Results = {
+  caret?: string[]
+  lineLast?: string[]
+  caretCandidates?: CanonicalRhymeCandidate[]
+  lineLastCandidates?: CanonicalRhymeCandidate[]
+}
 type WorkerResults = { results: Results; debug?: RhymeTargetsDebug }
 
 type DebugInfo = {
@@ -272,6 +278,14 @@ export const useRhymeSuggestions = ({
       const toSuggestions = (result: AggregationResult | null) =>
         result?.suggestions.map((suggestion) => suggestion.word) ?? []
 
+      const toCandidates = (result: AggregationResult | null, words: string[]): CanonicalRhymeCandidate[] => {
+        const categories = new Map(result?.suggestions.map(({ word, quality }) => [word, quality]))
+        return words.flatMap((word) => {
+          const category = categories.get(word)
+          return category ? [{ word, category }] : []
+        })
+      }
+
       const shouldIncludeTier = (tier: string) => {
         if (commonWordsOnly) {
           return tier === 'common' || tier === 'uncommon'
@@ -410,21 +424,27 @@ export const useRhymeSuggestions = ({
           const filtered = filterAndSort(suggestions, rawCaretToken ?? null)
           onlineResults.caret = filtered.list
           onlineResults.lineLast = filtered.list
+          onlineResults.caretCandidates = toCandidates(sharedResult, filtered.list)
+          onlineResults.lineLastCandidates = onlineResults.caretCandidates
           if (filtered.debug) {
             onlineDebug.caret = filtered.debug
             onlineDebug.lineLast = filtered.debug
           }
         } else {
           if (outcomes.get('caret')) {
-            const filtered = filterAndSort(toSuggestions(outcomes.get('caret') ?? null), rawCaretToken ?? null)
+            const caretResult = outcomes.get('caret') ?? null
+            const filtered = filterAndSort(toSuggestions(caretResult), rawCaretToken ?? null)
             onlineResults.caret = filtered.list
+            onlineResults.caretCandidates = toCandidates(caretResult, filtered.list)
             if (filtered.debug) {
               onlineDebug.caret = filtered.debug
             }
           }
           if (outcomes.get('lineLast')) {
-            const filtered = filterAndSort(toSuggestions(outcomes.get('lineLast') ?? null), rawLineLastToken ?? null)
+            const lineResult = outcomes.get('lineLast') ?? null
+            const filtered = filterAndSort(toSuggestions(lineResult), rawLineLastToken ?? null)
             onlineResults.lineLast = filtered.list
+            onlineResults.lineLastCandidates = toCandidates(lineResult, filtered.list)
             if (filtered.debug) {
               onlineDebug.lineLast = filtered.debug
             }
@@ -537,8 +557,17 @@ export const useRhymeSuggestions = ({
             return
           }
 
-          const fulfilled = settled.filter((entry) => entry.status === 'fulfilled')
-          if (fulfilled.length === 0) {
+          // Preserve the pairing between each result and its original mode by mapping
+          // over settled results together with orderedModes, then filtering afterwards.
+          // This prevents misalignment when earlier modes reject.
+          const resultsByMode = settled
+            .map((entry, index) => ({
+              mode: orderedModes[index],
+              result: entry.status === 'fulfilled' ? entry.value : null,
+            }))
+            .filter((item): item is { mode: NormalizedMode; result: WorkerResults } => item.result !== null)
+
+          if (resultsByMode.length === 0) {
             const message = 'Failed to fetch rhymes'
             setStatus('error')
             setError(message)
@@ -546,7 +575,7 @@ export const useRhymeSuggestions = ({
             return
           }
 
-          if (fulfilled.length !== settled.length) {
+          if (resultsByMode.length !== settled.length) {
             setWarning('Some rhyme modes failed')
           }
 
@@ -598,16 +627,30 @@ export const useRhymeSuggestions = ({
             }
           }
 
-          const resultsByMode = fulfilled.map((entry) => (entry as PromiseFulfilledResult<WorkerResults>).value)
-          const caretMerge = mergeList(resultsByMode.map((result) => result.results.caret))
-          const lineLastMerge = mergeList(resultsByMode.map((result) => result.results.lineLast))
+          const intrinsicLocalMode = (word: string, target: 'caret' | 'lineLast') => {
+            const mode = resultsByMode.find((item) => item.result.results[target]?.includes(word))?.mode ?? 'near'
+            // The local database has a canonical perfect pool and one broad
+            // non-perfect pool. Do not relabel that pool as slant because the
+            // UI happened to request Slant.
+            return mode === 'slant' ? 'near' : mode
+          }
+          const caretMerge = mergeList(resultsByMode.map((item) => item.result.results.caret))
+          const lineLastMerge = mergeList(resultsByMode.map((item) => item.result.results.lineLast))
           const mergedResults: Results = {
             caret: caretMerge.merged,
             lineLast: lineLastMerge.merged,
+            caretCandidates: caretMerge.merged.map((word) => ({
+              word,
+              category: intrinsicLocalMode(word, 'caret'),
+            })),
+            lineLastCandidates: lineLastMerge.merged.map((word) => ({
+              word,
+              category: intrinsicLocalMode(word, 'lineLast'),
+            })),
           }
           const mergedDebug: RhymeTargetsDebug = {
-            caret: mergeDebug(resultsByMode.map((result) => result.debug?.caret)),
-            lineLast: mergeDebug(resultsByMode.map((result) => result.debug?.lineLast)),
+            caret: mergeDebug(resultsByMode.map((item) => item.result.debug?.caret)),
+            lineLast: mergeDebug(resultsByMode.map((item) => item.result.debug?.lineLast)),
           }
           if (requestId !== requestCounter.current) return
 
@@ -665,13 +708,13 @@ export const useRhymeSuggestions = ({
                 rawCaretToken ?? null,
                 caretMerge.merged,
                 caretMerge.deduped,
-                resultsByMode.map((result) => result.debug?.caret),
+                resultsByMode.map((item) => item.result.debug?.caret),
               ),
               lineLast: buildCombinedDebug(
                 rawLineLastToken ?? null,
                 lineLastMerge.merged,
                 lineLastMerge.deduped,
-                resultsByMode.map((result) => result.debug?.lineLast),
+                resultsByMode.map((item) => item.result.debug?.lineLast),
               ),
             })
           } else {
@@ -682,8 +725,9 @@ export const useRhymeSuggestions = ({
             const logIfTime = (label: 'caret' | 'lineLast', token: string | null | undefined) => {
               const normalized = normalizeToken(token ?? '')
               if (normalized !== 'time') return
-              const modeSnapshots = orderedModes.map((mode, index) => {
-                const modeResult = resultsByMode[index]
+              const modeSnapshots = orderedModes.map((mode) => {
+                const modeItem = resultsByMode.find((item) => item.mode === mode)
+                const modeResult = modeItem?.result
                 const debugInfo = label === 'caret' ? modeResult?.debug?.caret : modeResult?.debug?.lineLast
                 const words = (label === 'caret' ? modeResult?.results?.caret : modeResult?.results?.lineLast) ?? []
                 return {
