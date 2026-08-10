@@ -8,6 +8,7 @@ interface CacheEntry {
 
 const MAX_ENTRIES = 200
 const TTL = 10 * 60 * 1000
+export const RHYME_PIPELINE_VERSION = 2
 
 const cache = new LRUCache<string, CacheEntry>(MAX_ENTRIES, (entry) => entry.result.suggestions.length + 1)
 
@@ -15,7 +16,7 @@ export function buildCacheKey(target: string, filters: RhymeFilterSelection): st
   const filterKey = ['perfect', 'near', 'slant']
     .map((key) => `${key}:${filters[key as keyof RhymeFilterSelection] ? '1' : '0'}`)
     .join('|')
-  return `${target.toLowerCase().trim()}|${filterKey}`
+  return `v${RHYME_PIPELINE_VERSION}|${target.toLowerCase().trim()}|${filterKey}`
 }
 
 export function getCachedRhymes(key: string): AggregationResult | null {

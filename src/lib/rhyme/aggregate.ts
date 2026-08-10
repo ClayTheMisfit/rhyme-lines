@@ -2,6 +2,7 @@ import type { RhymeSuggestion } from './providers/datamuse'
 import { normalizeRhymeToken } from './targetWord'
 import type { ProviderCandidate, RhymeProvider } from './providers'
 import { providers } from './providers'
+import { classifyCandidate, QUALITY_TIER_ORDER } from './wordQuality'
 
 export type RhymeQuality = 'perfect' | 'near' | 'slant'
 
@@ -66,12 +67,28 @@ export function normalizeQuality(type: RhymeSuggestion['type'] | 'near'): RhymeQ
 function rankCandidates(candidates: AggregatedSuggestion[], filters: RhymeFilterSelection) {
   const activeQualities = QUALITY_PRIORITY.filter((quality) => filters[quality])
 
+  // Build classification cache keyed by normalized value
+  const classificationCache = new Map<string, ReturnType<typeof classifyCandidate>>()
+  for (const candidate of candidates) {
+    if (!classificationCache.has(candidate.normalized)) {
+      classificationCache.set(candidate.normalized, classifyCandidate(candidate.normalized))
+    }
+  }
+
   candidates.sort((a, b) => {
     const aQualityPriority = activeQualities.indexOf(a.quality)
     const bQualityPriority = activeQualities.indexOf(b.quality)
 
     if (aQualityPriority !== bQualityPriority) {
       return (aQualityPriority === -1 ? 99 : aQualityPriority) - (bQualityPriority === -1 ? 99 : bQualityPriority)
+    }
+
+    const aLexical = classificationCache.get(a.normalized)!
+    const bLexical = classificationCache.get(b.normalized)!
+    const tierDelta = QUALITY_TIER_ORDER[aLexical.qualityTier] - QUALITY_TIER_ORDER[bLexical.qualityTier]
+    if (tierDelta !== 0) return tierDelta
+    if (aLexical.commonScore !== bLexical.commonScore) {
+      return bLexical.commonScore - aLexical.commonScore
     }
 
     if (b.score !== a.score) {

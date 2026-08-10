@@ -89,7 +89,7 @@ describe('queryRhymes', () => {
     const db = createTestDb()
     const result = getRhymesForToken(db, 'blue', 'perfect', 10)
 
-    expect(result.words).toEqual(['true', 'through'])
+    expect(result.words).toEqual(['through', 'true'])
     expect(result.words).not.toContain('blue')
   })
 
@@ -97,7 +97,7 @@ describe('queryRhymes', () => {
     const db = createTestDb()
     const result = getRhymesForToken(db, 'blue', 'near', 10)
 
-    expect(result.words).toEqual(['true', 'through', 'glue', 'clue'])
+    expect(result.words).toEqual(['through', 'true', 'clue', 'glue'])
   })
 
   it('returns empty results for missing tokens in perfect mode', () => {
@@ -117,7 +117,7 @@ describe('queryRhymes', () => {
       {},
     )
 
-    expect(result.results.caret).toEqual(['true', 'through'])
+    expect(result.results.caret).toEqual(['through', 'true'])
     expect(result.results.lineLast).toEqual([])
   })
 })
