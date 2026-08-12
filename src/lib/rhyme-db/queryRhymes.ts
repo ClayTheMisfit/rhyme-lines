@@ -855,11 +855,15 @@ export const getRhymesForToken = (
 
   if (normalizedMode === 'near' || normalizedMode === 'slant') {
     const relatedVowelKeys = normalizedMode === 'near'
-      ? (targetVowelKey ? [targetVowelKey] : [])
-      : db.indexes.vowel.keys.filter((key) => vowelSimilarity(targetVowel, key) >= 0.5)
-    const relatedCodaKeys = normalizedMode === 'slant' && targetCodaKey
-      ? db.indexes.coda.keys.filter(
-          (key) => codaSimilarity(splitCodaKey(targetCodaKey), splitCodaKey(key)) >= 0.6,
+      ? vowelKeys
+      : db.indexes.vowel.keys.filter((key) =>
+          vowelKeys.some((targetKey) => vowelSimilarity(targetKey, key) >= 0.5)
+        )
+    const relatedCodaKeys = normalizedMode === 'slant'
+      ? db.indexes.coda.keys.filter((key) =>
+          codaKeys.some((targetKey) =>
+            codaSimilarity(splitCodaKey(targetKey), splitCodaKey(key)) >= 0.6
+          )
         )
       : []
     const vowelSet = collectWordIds(db.indexes.vowel, relatedVowelKeys)
