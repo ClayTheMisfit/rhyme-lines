@@ -99,14 +99,19 @@ describe('queryRhymes', () => {
 
   it('ranks near rhymes with matching vowel and coda higher', () => {
     const results = getRhymesForToken(db, 'fine', 'near', 10)
-    expect(results.words.indexOf('line')).toBeGreaterThanOrEqual(0)
-    expect(results.words.indexOf('mine')).toBeGreaterThanOrEqual(0)
-    expect(results.words.indexOf('time')).toBeGreaterThan(results.words.indexOf('line'))
+    expect(results.words).toEqual(expect.arrayContaining(['time', 'tide']))
+    expect(results.words).not.toEqual(expect.arrayContaining(['line', 'mine']))
   })
 
   it('avoids coda-only pooling in near mode', () => {
     const results = getRhymesForToken(db, 'fine', 'near', 10)
     expect(results.words).not.toContain('moon')
+  })
+
+  it('returns a broader but still phonetic pool in slant mode', () => {
+    const results = getRhymesForToken(db, 'fine', 'Slant', 10)
+    expect(results.words).toContain('moon')
+    expect(results.words).not.toEqual(expect.arrayContaining(['line', 'mine', 'find', 'time']))
   })
 
   it('removes trivial inflections', () => {
@@ -301,7 +306,7 @@ describe('queryRhymes', () => {
     expect(results.words).toEqual(['flow'])
   })
 
-  it('filters stopwords and short words in near mode', () => {
+  it('does not promote perfect stopword matches into near mode', () => {
     const words = ['skill', 'will', 'still', 'chill', 'fill', 'bill', 'in', 'is', 'his', 'when', 'did', 'does', 'good', 'even']
     const vowel = buildIndex([['IH', words.map((_, idx) => idx)]])
     const coda = buildIndex([['L', words.map((_, idx) => idx)]])
@@ -334,12 +339,12 @@ describe('queryRhymes', () => {
     )
 
     const results = getRhymesForToken(dbWithStopwords, 'skill', 'near', 50)
-    expect(results.words).toEqual(expect.arrayContaining(['will', 'still']))
+    expect(results.words).not.toEqual(expect.arrayContaining(['will', 'still']))
     expect(results.words).not.toEqual(expect.arrayContaining(['chill', 'fill', 'bill']))
     expect(results.words).not.toEqual(expect.arrayContaining(['in', 'is', 'his', 'when', 'did', 'does', 'good', 'even']))
   })
 
-  it('keeps near rhymes in the same vowel family and downranks contractions', () => {
+  it('does not duplicate perfect rhymes into the near bucket', () => {
     const words = ['time', 'rhyme', 'prime', 'dime', 'room', 'game', 'name', 'came', 'home', "i'm"]
     const perfect = buildIndex([['AY-M', [0, 1, 2, 3, 9]]])
     const vowel = buildIndex([
@@ -380,12 +385,12 @@ describe('queryRhymes', () => {
     )
 
     const results = getRhymesForToken(dbWithNear, 'time', 'near', 20)
-    expect(results.words).toEqual(expect.arrayContaining(['rhyme', 'prime', 'dime']))
+    expect(results.words).not.toEqual(expect.arrayContaining(['rhyme', 'prime', 'dime']))
     const excluded = ['room', 'home', 'game', 'name', 'came']
     for (const word of excluded) {
       expect(results.words).not.toContain(word)
     }
-    expect(results.words.indexOf("i'm")).toBeGreaterThan(results.words.indexOf('prime'))
+    expect(results.words).not.toContain("i'm")
   })
 
   it('normalizes punctuation for token lookup', () => {

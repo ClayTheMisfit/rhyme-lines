@@ -531,7 +531,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                       setRhymeSuggestionMode(filterMode)
                       const next = {
                         perfect: filterMode === 'all' || filterMode === 'perfect',
-                        near: filterMode === 'all' || filterMode === 'near' || filterMode === 'slant',
+                        // The persisted legacy shape has no slant field. Keep
+                        // its near flag truthful; suggestionMode is the
+                        // canonical three-tier selection used by the query.
+                        near: filterMode === 'all' || filterMode === 'near',
                       }
                       setRhymeFilters(next)
                       trackEvent('rhyme_filter_changed', { quality: filterMode })

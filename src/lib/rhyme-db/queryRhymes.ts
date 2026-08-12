@@ -6,10 +6,15 @@ import {
 import { isCommonEnglishWord } from '@/lib/rhyme-db/commonEnglish'
 import { classifyCandidate, QUALITY_TIER_ORDER, type QualityTier } from '@/lib/rhyme/wordQuality'
 import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
+import {
+  classifyIndexedRhymeQuality,
+  normalizeRhymeMode,
+  type RhymeMode,
+} from '@/lib/rhyme/rhymeQuality'
 
 export { normalizeToken }
 
-export type Mode = 'perfect' | 'near' | 'slant' | 'Perfect' | 'Near' | 'Slant'
+export type Mode = RhymeMode
 
 export type RhymeDbRuntimeMaps = {
   perfectKeysByWordId: string[][]
@@ -39,8 +44,6 @@ export type RhymeQueryContext = {
 
 const MAX_RESULTS = Number.MAX_SAFE_INTEGER
 const MAX_CANDIDATES = 2000
-
-const normalizeMode = (mode: Mode) => mode.toLowerCase() as 'perfect' | 'near'
 
 const STOPWORDS = new Set([
   'a',
@@ -503,7 +506,7 @@ export const getRhymesForToken = (
   }
 
   const runtimeDb = db as RhymeDbRuntime
-  const normalizedMode = normalizeMode(mode)
+  const normalizedMode = normalizeRhymeMode(mode)
   const freqAvailable =
     Array.isArray(runtimeDb.freqByWordId) && runtimeDb.freqByWordId.length === runtimeDb.words.length
   const getFrequency = (id: number) => (freqAvailable ? runtimeDb.freqByWordId?.[id] ?? 0 : 0)
@@ -786,7 +789,7 @@ export const getRhymesForToken = (
     recordStage('afterCommonOnly', filtered.length)
     filtered = applyFilter(
       filtered,
-      (entry) => commonWordsOnly || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore),
+      (entry) => showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore),
       'variant_spelling'
     )
     filtered = applyFilter(filtered, (entry) => {
@@ -850,9 +853,21 @@ export const getRhymesForToken = (
     }
   }
 
-  if (normalizedMode === 'near') {
-    const vowelSet = targetVowelKey ? collectWordIds(db.indexes.vowel, [targetVowelKey]) : new Set<number>()
-    if (vowelSet.size === 0) {
+  if (normalizedMode === 'near' || normalizedMode === 'slant') {
+    const relatedVowelKeys = normalizedMode === 'near'
+      ? (targetVowelKey ? [targetVowelKey] : [])
+      : db.indexes.vowel.keys.filter((key) => vowelSimilarity(targetVowel, key) >= 0.5)
+    const relatedCodaKeys = normalizedMode === 'slant' && targetCodaKey
+      ? db.indexes.coda.keys.filter(
+          (key) => codaSimilarity(splitCodaKey(targetCodaKey), splitCodaKey(key)) >= 0.6,
+        )
+      : []
+    const vowelSet = collectWordIds(db.indexes.vowel, relatedVowelKeys)
+    const codaSet = collectWordIds(db.indexes.coda, relatedCodaKeys)
+    const candidateSet = normalizedMode === 'near'
+      ? vowelSet
+      : new Set([...vowelSet, ...codaSet])
+    if (candidateSet.size === 0) {
       recordStage('generated', 0)
       recordStage('afterModeFilter', 0)
       recordStage('afterRuleFilters', 0)
@@ -873,7 +888,7 @@ export const getRhymesForToken = (
           afterRareRankOrFilterCount: 0,
           vowelPoolSize: vowelSet.size,
           codaPoolSize: 0,
-          combinedUniqueCount: vowelSet.size,
+          combinedUniqueCount: candidateSet.size,
           renderedCount: 0,
           stageCounts: debugEnabled ? stageCounts : undefined,
           rejections: debugEnabled ? rejections : undefined,
@@ -883,15 +898,24 @@ export const getRhymesForToken = (
     }
 
     const targetPerfectKeys = getKeysForWordId(runtimeDb, wordId, 'perfectKeysByWordId')
-    const metadata = Array.from(vowelSet)
+    const targetRelationship = {
+      perfectKeys: targetPerfectKeys,
+      vowelKeys,
+      codaKeys: targetCodaKeys,
+    }
+    const metadata = Array.from(candidateSet)
       .filter((id) => id !== wordId)
       .map((id) => {
         const candidateVowelKeys = getKeysForWordId(runtimeDb, id, 'vowelKeysByWordId')
         const candidateCodaKeys = getKeysForWordId(runtimeDb, id, 'codaKeysByWordId')
         const candidatePerfectKeys = getKeysForWordId(runtimeDb, id, 'perfectKeysByWordId')
-        const vowelMatches = targetVowelKey ? candidateVowelKeys.includes(targetVowel) : false
-        const perfectMatch =
-          targetPerfectKeys.length > 0 && candidatePerfectKeys.some((key) => targetPerfectKeys.includes(key))
+        const relationship = classifyIndexedRhymeQuality(targetRelationship, {
+          perfectKeys: candidatePerfectKeys,
+          vowelKeys: candidateVowelKeys,
+          codaKeys: candidateCodaKeys,
+        })
+        const vowelMatches = relationship === normalizedMode
+        const perfectMatch = relationship === 'perfect'
         const codaScore = scoreCodaSimilarity(candidateCodaKeys, targetCodaKeys)
         const codaMatches = targetCodaKey ? codaScore >= 40 : false
         const rawWord = db.words[id]
@@ -971,15 +995,15 @@ export const getRhymesForToken = (
         perfectKey: null,
         vowelKey: targetVowelKey ?? null,
         codaKey: targetCodaKey ?? null,
-        candidatePools: { perfect: 0, near: vowelSet.size },
-        poolSize: vowelSet.size,
+        candidatePools: { perfect: 0, near: candidateSet.size },
+        poolSize: candidateSet.size,
         afterModeMatchCount: metadata.filter((entry) => entry.vowelMatches).length,
         afterRareRankOrFilterCount: filtered.length,
         tierCounts: process.env.NODE_ENV !== 'production' ? tierCounts : undefined,
         topCandidates: process.env.NODE_ENV !== 'production' ? topCandidates : undefined,
         vowelPoolSize: vowelSet.size,
-        codaPoolSize: 0,
-        combinedUniqueCount: vowelSet.size,
+        codaPoolSize: codaSet.size,
+        combinedUniqueCount: candidateSet.size,
         renderedCount: filtered.length,
         afterGates: { near: filtered.length },
         thresholds: { near: NEAR_BASE_SCORE },

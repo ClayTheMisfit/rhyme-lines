@@ -528,9 +528,7 @@ export const useRhymeSuggestions = ({
                   caret: caretToken ?? undefined,
                   lineLast: lineLastToken ?? undefined,
                 },
-                // The local index exposes one broad non-perfect pool. Online
-                // providers retain separate near/slant quality metadata.
-                mode: mode === 'slant' ? 'near' : mode,
+                mode,
                 max: maxResults,
                 context: {
                   wordUsage,
@@ -629,10 +627,7 @@ export const useRhymeSuggestions = ({
 
           const intrinsicLocalMode = (word: string, target: 'caret' | 'lineLast') => {
             const mode = resultsByMode.find((item) => item.result.results[target]?.includes(word))?.mode ?? 'near'
-            // The local database has a canonical perfect pool and one broad
-            // non-perfect pool. Do not relabel that pool as slant because the
-            // UI happened to request Slant.
-            return mode === 'slant' ? 'near' : mode
+            return mode
           }
           const caretMerge = mergeList(resultsByMode.map((item) => item.result.results.caret))
           const lineLastMerge = mergeList(resultsByMode.map((item) => item.result.results.lineLast))
