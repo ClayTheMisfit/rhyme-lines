@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { RhymeSuggestionsPanel } from '@/components/rhyme/RhymeSuggestionsPanel'
+import type { EditorHandle } from '@/components/Editor'
+import type { RefObject } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useRhymeSuggestions } from '@/lib/rhyme-db/useRhymeSuggestions'
@@ -18,6 +20,7 @@ const activeTokens = {
 
 describe('RhymeSuggestionsPanel', () => {
   beforeEach(() => {
+    window.localStorage.clear()
     useSettingsStore.setState({})
     useRhymePanelStore.setState({ searchQuery: '', rhymeSuggestionMode: 'all', selectedIndex: 0 })
     mockedUseRhymeSuggestions.mockClear()
@@ -159,6 +162,30 @@ describe('RhymeSuggestionsPanel', () => {
     expect(screen.getByRole('option', { name: /silver slant/i })).toBeInTheDocument()
   })
 
+  it('reports the canonical eligible total rather than a raw debug pool', () => {
+    mockedUseRhymeSuggestions.mockReturnValue({
+      status: 'success', error: undefined, warning: undefined,
+      results: {
+        caret: ['short'],
+        lineLast: [],
+        caretCandidates: [{ word: 'short', category: 'slant' }],
+      },
+      debug: {
+        caretDetails: {
+          normalizedToken: 'heart',
+          wordId: 1,
+          candidatePools: { perfect: 0, near: 4193 },
+          afterModeMatchCount: 4193,
+        },
+      },
+      rhymeDebug: {}, meta: { source: 'local' }, phase: 'idle', activeTokens,
+    })
+
+    render(<RhymeSuggestionsPanel mode="docked" onClose={() => {}} text="heart" caretIndex={5} currentLineText="heart" />)
+
+    expect(screen.getByText('1 results')).toBeInTheDocument()
+  })
+
   it('replaces the line-ending target when Line End suggestions are active', () => {
     mockedUseRhymeSuggestions.mockReturnValue({
       status: 'success', error: undefined, warning: undefined,
@@ -168,7 +195,9 @@ describe('RhymeSuggestionsPanel', () => {
       activeTokens: { ...activeTokens, caretToken: 'move', lineLastToken: 'light' },
     })
     const replaceRhymeTarget = jest.fn(() => true)
-    const editorRef = { current: { insertText: jest.fn(), replaceRhymeTarget, focus: jest.fn() } } as any
+    const editorRef = {
+      current: { insertText: jest.fn(), replaceRhymeTarget, focus: jest.fn() },
+    } as RefObject<EditorHandle>
 
     render(<RhymeSuggestionsPanel mode="docked" onClose={() => {}} text="move to light" caretIndex={2} currentLineText="move to light" editorRef={editorRef} targetRange={{ start: 0, end: 4, normalizedWord: 'move' }} />)
     fireEvent.click(screen.getByRole('button', { name: /Advanced/i }))

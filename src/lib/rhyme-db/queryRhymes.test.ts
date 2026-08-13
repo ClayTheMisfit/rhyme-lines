@@ -108,9 +108,9 @@ describe('queryRhymes', () => {
     expect(results.words).not.toContain('moon')
   })
 
-  it('returns a broader but still phonetic pool in slant mode', () => {
+  it('does not admit a candidate when only its coda is related', () => {
     const results = getRhymesForToken(db, 'fine', 'Slant', 10)
-    expect(results.words).toContain('moon')
+    expect(results.words).not.toContain('moon')
     expect(results.words).not.toEqual(expect.arrayContaining(['line', 'mine', 'find', 'time']))
   })
 
@@ -500,9 +500,9 @@ describe('queryRhymes', () => {
     ])
 
     const vowelSlant = buildIndex([
+      ['EH', [2, 3, 4, 5]], // blether, tether, feather, leather
       ['EY', [0, 1]], // neither, either
       ['IY', [0, 1]], // neither, either
-      ['EH', [2, 3, 4, 5]], // blether, tether, feather, leather
     ])
 
     const codaSlant = buildIndex([

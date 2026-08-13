@@ -187,7 +187,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const isInitialLoading = phase === 'initial'
     const isRefreshing = phase === 'refreshing'
     const localInitFailureReason = getLocalInitFailureReason()
-    const totalAvailable = activeDebug?.afterModeMatchCount ?? activeSuggestions.length
+    // Canonical candidates have already passed phonetic and lexical policy.
+    // Raw mode-match diagnostics are intentionally not user-facing totals.
+    const totalAvailable = activeSuggestions.length
     const filteredCount = visibleSuggestions.length
     const isFiltered = totalAvailable > filteredCount
     const activePanelDebug = useMemo(() => {

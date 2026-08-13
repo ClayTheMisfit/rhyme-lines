@@ -135,6 +135,7 @@ const validateDb = (db: RhymeDbV1) => {
 }
 
 const cache = new LruCache<string, { results: { caret?: string[]; lineLast?: string[] }; debug?: RhymeTargetsDebug }>(2000)
+const RHYME_WORKER_QUERY_VERSION = 3
 
 let runtimeDb: RhymeDbRuntime | null = null
 let initPromise: Promise<void> | null = null
@@ -339,7 +340,7 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
       const showVariants = message.context?.showVariants ? '1' : '0'
       const commonWordsOnly = message.context?.commonWordsOnly ? '1' : '0'
       const debugFlag = message.context?.debug ? '1' : '0'
-      const cacheKey = `${normalizedMode}|${message.max}|${desiredSyllables}|${multiSyllable}|${showVariants}|common:${commonWordsOnly}|debug:${debugFlag}|c:${caretToken}|l:${lineLastToken}`
+      const cacheKey = `v${RHYME_WORKER_QUERY_VERSION}|${normalizedMode}|${message.max}|${desiredSyllables}|${multiSyllable}|${showVariants}|common:${commonWordsOnly}|debug:${debugFlag}|c:${caretToken}|l:${lineLastToken}`
 
       const cached = cache.get(cacheKey)
       if (cached) {

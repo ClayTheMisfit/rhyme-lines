@@ -25,6 +25,18 @@ type IndexedRhyme = {
   codaKeys: readonly string[]
 }
 
+export const SLANT_MIN_VOWEL_SIMILARITY = 0.5
+export const SLANT_MIN_CODA_SIMILARITY = 0.6
+export const SLANT_MIN_COMBINED_SIMILARITY = 0.6
+export const SLANT_VOWEL_WEIGHT = 0.65
+export const SLANT_CODA_WEIGHT = 0.35
+
+export type IndexedRhymeSimilarity = {
+  vowel: number
+  coda: number
+  combined: number
+}
+
 const splitCoda = (key: string) => key.split('-').filter(Boolean)
 
 const maximumSimilarity = (
@@ -39,6 +51,19 @@ const maximumSimilarity = (
   return maximum
 }
 
+export const scoreIndexedRhymeSimilarity = (
+  target: IndexedRhyme,
+  candidate: IndexedRhyme,
+): IndexedRhymeSimilarity => {
+  const vowel = maximumSimilarity(target.vowelKeys, candidate.vowelKeys, vowelSimilarity)
+  const coda = maximumSimilarity(
+    target.codaKeys,
+    candidate.codaKeys,
+    (left, right) => codaSimilarity(splitCoda(left), splitCoda(right)),
+  )
+  return { vowel, coda, combined: vowel * SLANT_VOWEL_WEIGHT + coda * SLANT_CODA_WEIGHT }
+}
+
 /** Classifies a phonetic relationship into one mutually exclusive quality tier. */
 export const classifyIndexedRhymeQuality = (
   target: IndexedRhyme,
@@ -46,19 +71,20 @@ export const classifyIndexedRhymeQuality = (
 ): RhymeQuality | null => {
   if (target.perfectKeys.some((key) => candidate.perfectKeys.includes(key))) return 'perfect'
 
-  const vowelScore = maximumSimilarity(target.vowelKeys, candidate.vowelKeys, vowelSimilarity)
-  const codaScore = maximumSimilarity(
-    target.codaKeys,
-    candidate.codaKeys,
-    (left, right) => codaSimilarity(splitCoda(left), splitCoda(right)),
-  )
+  const similarity = scoreIndexedRhymeSimilarity(target, candidate)
 
   // Near rhymes retain the same nucleus and a strongly related ending. Slant
   // rhymes broaden either dimension, but still require a useful phonetic link.
-  if (vowelScore === 1 && (codaScore >= 0.65 || target.codaKeys.length === 0 || candidate.codaKeys.length === 0)) {
+  if (similarity.vowel === 1 && (similarity.coda >= 0.65 || target.codaKeys.length === 0 || candidate.codaKeys.length === 0)) {
     return 'near'
   }
-  if ((vowelScore >= 0.5 || codaScore >= 0.6) && vowelScore * 0.65 + codaScore * 0.35 >= 0.5) {
+  // A slant rhyme needs evidence from both the nucleus and ending. The former
+  // OR gate admitted most of CMUdict whenever either broad bucket matched.
+  if (
+    similarity.vowel >= SLANT_MIN_VOWEL_SIMILARITY &&
+    similarity.coda >= SLANT_MIN_CODA_SIMILARITY &&
+    similarity.combined >= SLANT_MIN_COMBINED_SIMILARITY
+  ) {
     return 'slant'
   }
   return null
