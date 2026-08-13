@@ -84,6 +84,41 @@ const buildDb = () => {
   return Object.assign(db, { runtime, runtimeLookups })
 }
 
+const buildSlantRankingDb = (overrides?: { frequencies?: Record<string, number>; codas?: Record<string, string> }) => {
+  const words = ['brain', 'line', 'fine', 'mine', 'shine', 'sign', 'men', 'ten', 'mean']
+  const vowels: Record<string, string> = {
+    brain: 'EY', line: 'AY', fine: 'AY', mine: 'AY', shine: 'AY', sign: 'AY', men: 'EH', ten: 'EH', mean: 'IY',
+  }
+  const codas = Object.fromEntries(words.map((word) => [word, overrides?.codas?.[word] ?? 'N']))
+  const makeIndex = (keyFor: (word: string) => string) => {
+    const groups = new Map<string, number[]>()
+    words.forEach((word, id) => groups.set(keyFor(word), [...(groups.get(keyFor(word)) ?? []), id]))
+    return buildIndex(Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b)))
+  }
+  const perfect = makeIndex((word) => `${vowels[word]}-${codas[word]}`)
+  const vowel = makeIndex((word) => vowels[word])
+  const coda = makeIndex((word) => codas[word])
+  const runtime: RhymeDbRuntimeMaps = {
+    perfectKeysByWordId: buildKeysByWordId(perfect, words.length),
+    vowelKeysByWordId: buildKeysByWordId(vowel, words.length),
+    codaKeysByWordId: buildKeysByWordId(coda, words.length),
+  }
+  const frequencies = words.map((word) => overrides?.frequencies?.[word] ?? 25_000)
+  return Object.assign({
+    version: RHYME_DB_VERSION,
+    generatedAt: new Date(0).toISOString(),
+    source: { name: 'cmudict' as const, path: 'fixture' },
+    words,
+    syllables: words.map(() => 1),
+    freqByWordId: frequencies,
+    isCommonByWordId: frequencies.map((frequency) => Number(frequency > 0)),
+    indexes: { perfect, vowel, coda },
+  } satisfies RhymeDbV1, {
+    runtime,
+    runtimeLookups: { wordToId: new Map(words.map((word, id) => [word, id])) } satisfies RhymeDbRuntimeLookups,
+  })
+}
+
 describe('queryRhymes', () => {
   const db = buildDb()
 
@@ -112,6 +147,43 @@ describe('queryRhymes', () => {
     const results = getRhymesForToken(db, 'fine', 'Slant', 10)
     expect(results.words).not.toContain('moon')
     expect(results.words).not.toEqual(expect.arrayContaining(['line', 'mine', 'find', 'time']))
+  })
+
+  it('ranks AY-N Slants ahead of weaker EH-N Slants for an EY-N target', () => {
+    const results = getRhymesForToken(buildSlantRankingDb(), 'brain', 'slant', 20).words
+    const stronger = ['line', 'fine', 'mine', 'shine', 'sign']
+    const weaker = ['men', 'ten']
+
+    for (const strong of stronger) {
+      for (const weak of weaker) expect(results.indexOf(strong)).toBeLessThan(results.indexOf(weak))
+    }
+  })
+
+  it('keeps phonetic Slant quality ahead of a large lexical-frequency gap', () => {
+    const dbWithFrequencyGap = buildSlantRankingDb({ frequencies: { line: 10_000, men: 49_999 } })
+    const results = getRhymesForToken(dbWithFrequencyGap, 'brain', 'slant', 20).words
+    expect(results.indexOf('line')).toBeLessThan(results.indexOf('men'))
+  })
+
+  it('uses canonical lexical quality to break ties within the same Slant relationship', () => {
+    const dbWithTie = buildSlantRankingDb()
+    const results = getRhymesForToken(dbWithTie, 'brain', 'slant', 20).words
+    expect(results.indexOf('line')).toBeLessThan(results.indexOf('mine'))
+  })
+
+  it('prefers the same coda to a feature-related coda at equal vowel distance', () => {
+    const dbWithCodaDistance = buildSlantRankingDb({ codas: { fine: 'M', mine: 'M-N' } })
+    const results = getRhymesForToken(dbWithCodaDistance, 'brain', 'slant', 20).words
+    expect(results.indexOf('line')).toBeLessThan(results.indexOf('mine'))
+    expect(results.indexOf('mine')).toBeLessThan(results.indexOf('fine'))
+  })
+
+  it('produces the same Slant ranking when index posting order changes', () => {
+    const stable = buildSlantRankingDb()
+    const shuffled = buildSlantRankingDb()
+    for (const index of Object.values(shuffled.indexes)) index.wordIds.reverse()
+    const expected = getRhymesForToken(stable, 'brain', 'slant', 20).words
+    expect(getRhymesForToken(shuffled, 'brain', 'slant', 20).words).toEqual(expected)
   })
 
   it('removes trivial inflections', () => {

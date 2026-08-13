@@ -135,7 +135,7 @@ const validateDb = (db: RhymeDbV1) => {
 }
 
 const cache = new LruCache<string, { results: { caret?: string[]; lineLast?: string[] }; debug?: RhymeTargetsDebug }>(2000)
-const RHYME_WORKER_QUERY_VERSION = 3
+const RHYME_WORKER_QUERY_VERSION = 4
 
 let runtimeDb: RhymeDbRuntime | null = null
 let initPromise: Promise<void> | null = null

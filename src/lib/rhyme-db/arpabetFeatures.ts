@@ -3,6 +3,9 @@ export type VowelFeature = {
   backness: 'front' | 'central' | 'back'
   rounding: 'rounded' | 'unrounded'
   tense: 'tense' | 'lax'
+  endpointHeight: 'high' | 'mid' | 'low'
+  endpointBackness: 'front' | 'central' | 'back'
+  trajectory: 'steady' | 'closing'
 }
 
 export type ConsonantFeature = {
@@ -26,21 +29,21 @@ export type Tail = {
 }
 
 const VOWEL_FEATURES: Record<string, VowelFeature> = {
-  AA: { height: 'low', backness: 'back', rounding: 'unrounded', tense: 'tense' },
-  AE: { height: 'low', backness: 'front', rounding: 'unrounded', tense: 'lax' },
-  AH: { height: 'mid', backness: 'central', rounding: 'unrounded', tense: 'lax' },
-  AO: { height: 'mid', backness: 'back', rounding: 'rounded', tense: 'tense' },
-  AW: { height: 'low', backness: 'back', rounding: 'rounded', tense: 'tense' },
-  AY: { height: 'low', backness: 'front', rounding: 'unrounded', tense: 'tense' },
-  EH: { height: 'mid', backness: 'front', rounding: 'unrounded', tense: 'lax' },
-  ER: { height: 'mid', backness: 'central', rounding: 'rounded', tense: 'tense' },
-  EY: { height: 'mid', backness: 'front', rounding: 'unrounded', tense: 'tense' },
-  IH: { height: 'high', backness: 'front', rounding: 'unrounded', tense: 'lax' },
-  IY: { height: 'high', backness: 'front', rounding: 'unrounded', tense: 'tense' },
-  OW: { height: 'mid', backness: 'back', rounding: 'rounded', tense: 'tense' },
-  OY: { height: 'mid', backness: 'back', rounding: 'rounded', tense: 'tense' },
-  UH: { height: 'high', backness: 'back', rounding: 'rounded', tense: 'lax' },
-  UW: { height: 'high', backness: 'back', rounding: 'rounded', tense: 'tense' },
+  AA: { height: 'low', backness: 'back', rounding: 'unrounded', tense: 'tense', endpointHeight: 'low', endpointBackness: 'back', trajectory: 'steady' },
+  AE: { height: 'low', backness: 'front', rounding: 'unrounded', tense: 'lax', endpointHeight: 'low', endpointBackness: 'front', trajectory: 'steady' },
+  AH: { height: 'mid', backness: 'central', rounding: 'unrounded', tense: 'lax', endpointHeight: 'mid', endpointBackness: 'central', trajectory: 'steady' },
+  AO: { height: 'mid', backness: 'back', rounding: 'rounded', tense: 'tense', endpointHeight: 'mid', endpointBackness: 'back', trajectory: 'steady' },
+  AW: { height: 'low', backness: 'back', rounding: 'rounded', tense: 'tense', endpointHeight: 'high', endpointBackness: 'back', trajectory: 'closing' },
+  AY: { height: 'low', backness: 'front', rounding: 'unrounded', tense: 'tense', endpointHeight: 'high', endpointBackness: 'front', trajectory: 'closing' },
+  EH: { height: 'mid', backness: 'front', rounding: 'unrounded', tense: 'lax', endpointHeight: 'mid', endpointBackness: 'front', trajectory: 'steady' },
+  ER: { height: 'mid', backness: 'central', rounding: 'rounded', tense: 'tense', endpointHeight: 'mid', endpointBackness: 'central', trajectory: 'steady' },
+  EY: { height: 'mid', backness: 'front', rounding: 'unrounded', tense: 'tense', endpointHeight: 'high', endpointBackness: 'front', trajectory: 'closing' },
+  IH: { height: 'high', backness: 'front', rounding: 'unrounded', tense: 'lax', endpointHeight: 'high', endpointBackness: 'front', trajectory: 'steady' },
+  IY: { height: 'high', backness: 'front', rounding: 'unrounded', tense: 'tense', endpointHeight: 'high', endpointBackness: 'front', trajectory: 'steady' },
+  OW: { height: 'mid', backness: 'back', rounding: 'rounded', tense: 'tense', endpointHeight: 'high', endpointBackness: 'back', trajectory: 'closing' },
+  OY: { height: 'mid', backness: 'back', rounding: 'rounded', tense: 'tense', endpointHeight: 'high', endpointBackness: 'front', trajectory: 'closing' },
+  UH: { height: 'high', backness: 'back', rounding: 'rounded', tense: 'lax', endpointHeight: 'high', endpointBackness: 'back', trajectory: 'steady' },
+  UW: { height: 'high', backness: 'back', rounding: 'rounded', tense: 'tense', endpointHeight: 'high', endpointBackness: 'back', trajectory: 'steady' },
 }
 
 const CONSONANT_FEATURES: Record<string, ConsonantFeature> = {
@@ -90,6 +93,31 @@ export const vowelSimilarity = (a: string, b: string) => {
     Number(featuresA.rounding === featuresB.rounding) +
     Number(featuresA.tense === featuresB.tense)
   return matches / 4
+}
+
+/**
+ * A graded vowel score for ordering candidates that already passed intrinsic
+ * rhyme classification. Unlike `vowelSimilarity`, this includes a vowel's
+ * endpoint and movement so diphthongs do not collapse onto monophthongs that
+ * happen to share the same broad onset features.
+ */
+export const vowelRankingSimilarity = (a: string, b: string) => {
+  const baseA = stripStress(a)
+  const baseB = stripStress(b)
+  if (baseA === baseB) return 1
+  const featuresA = VOWEL_FEATURES[baseA]
+  const featuresB = VOWEL_FEATURES[baseB]
+  if (!featuresA || !featuresB) return 0
+
+  const matches =
+    Number(featuresA.height === featuresB.height) +
+    Number(featuresA.backness === featuresB.backness) +
+    Number(featuresA.endpointHeight === featuresB.endpointHeight) +
+    Number(featuresA.endpointBackness === featuresB.endpointBackness) +
+    Number(featuresA.rounding === featuresB.rounding) +
+    Number(featuresA.tense === featuresB.tense) +
+    Number(featuresA.trajectory === featuresB.trajectory)
+  return matches / 7
 }
 
 export const consonantSimilarity = (a: string, b: string) => {

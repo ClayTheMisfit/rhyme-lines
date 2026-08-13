@@ -5,6 +5,7 @@ import {
   scoreIndexedRhymeSimilarity,
   SLANT_MIN_COMBINED_SIMILARITY,
 } from './rhymeQuality'
+import { vowelRankingSimilarity } from '@/lib/rhyme-db/arpabetFeatures'
 
 const indexed = (perfect: string, vowel: string, coda: string) => ({
   perfectKeys: [perfect],
@@ -13,6 +14,15 @@ const indexed = (perfect: string, vowel: string, coda: string) => ({
 })
 
 describe('rhyme quality classification', () => {
+  it('orders closing-diphthong and monophthong distances without changing broad classification', () => {
+    expect(vowelRankingSimilarity('EY', 'AY')).toBeGreaterThan(vowelRankingSimilarity('EY', 'IY'))
+    expect(vowelRankingSimilarity('EY', 'IY')).toBeGreaterThan(vowelRankingSimilarity('EY', 'EH'))
+
+    // The intrinsic classifier deliberately retains its established broad
+    // feature score; the finer trajectory model is ranking-only.
+    expect(scoreIndexedRhymeSimilarity(indexed('EY-N', 'EY', 'N'), indexed('AY-N', 'AY', 'N')).vowel).toBe(0.75)
+    expect(classifyIndexedRhymeQuality(indexed('EY-N', 'EY', 'N'), indexed('AY-N', 'AY', 'N'))).toBe('slant')
+  })
   it.each([
     ['Perfect', 'perfect'],
     ['Near', 'near'],
