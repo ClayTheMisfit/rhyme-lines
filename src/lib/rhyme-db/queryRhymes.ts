@@ -4,10 +4,11 @@ import {
   vowelSimilarity,
 } from '@/lib/rhyme-db/arpabetFeatures'
 import { isCommonEnglishWord } from '@/lib/rhyme-db/commonEnglish'
-import { classifyCandidate, QUALITY_TIER_ORDER, type QualityTier } from '@/lib/rhyme/wordQuality'
+import { classifyCandidate, DEFAULT_RHYME_LEXICAL_SCORE, QUALITY_TIER_ORDER, type QualityTier } from '@/lib/rhyme/wordQuality'
 import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
 import {
   classifyIndexedRhymeQuality,
+  scoreIndexedRhymeSimilarity,
   normalizeRhymeMode,
   type RhymeMode,
 } from '@/lib/rhyme/rhymeQuality'
@@ -509,6 +510,9 @@ export const getRhymesForToken = (
   const normalizedMode = normalizeRhymeMode(mode)
   const freqAvailable =
     Array.isArray(runtimeDb.freqByWordId) && runtimeDb.freqByWordId.length === runtimeDb.words.length
+  const lexicalEvidenceAvailable = freqAvailable && runtimeDb.freqByWordId!.some(
+    (frequency) => frequency >= DEFAULT_RHYME_LEXICAL_SCORE,
+  )
   const getFrequency = (id: number) => (freqAvailable ? runtimeDb.freqByWordId?.[id] ?? 0 : 0)
   const limit = Math.min(max, MAX_RESULTS)
   if (!freqAvailable && process.env.NODE_ENV !== 'production' && !warnedFreqInvariant) {
@@ -868,9 +872,40 @@ export const getRhymesForToken = (
       : []
     const vowelSet = collectWordIds(db.indexes.vowel, relatedVowelKeys)
     const codaSet = collectWordIds(db.indexes.coda, relatedCodaKeys)
-    const candidateSet = normalizedMode === 'near'
+    // Slant generation is an intersection of two independently indexed,
+    // inexpensive signals. The previous union routinely covered most of the
+    // 123k-word database before classification.
+    let candidateSet = normalizedMode === 'near'
       ? vowelSet
-      : new Set([...vowelSet, ...codaSet])
+      : new Set(Array.from(vowelSet).filter((id) => codaSet.has(id)))
+
+    if (normalizedMode === 'slant') {
+      const plausible = Array.from(candidateSet)
+        .filter((id) => id !== wordId)
+        .filter((id) => matchesSyllableConstraint(id))
+        .filter((id) => {
+          const word = db.words[id]
+          const quality = classifyCandidate(word)
+          return isBaseAllowed(word.toLowerCase()) &&
+            quality.qualityTier !== 'proper' &&
+            quality.qualityTier !== 'foreign' &&
+            quality.qualityTier !== 'weird' &&
+            (!lexicalEvidenceAvailable || isCommonEnglishWord(word.toLowerCase()) || quality.commonScore >= DEFAULT_RHYME_LEXICAL_SCORE)
+        })
+        .sort((a, b) => {
+          const qualityA = classifyCandidate(db.words[a])
+          const qualityB = classifyCandidate(db.words[b])
+          if (qualityA.commonScore !== qualityB.commonScore) return qualityB.commonScore - qualityA.commonScore
+          const freqDelta = getFrequency(b) - getFrequency(a)
+          return freqDelta || db.words[a].localeCompare(db.words[b])
+        })
+      if (plausible.length > MAX_CANDIDATES && cap) {
+        cap.applied = true
+        cap.limit = MAX_CANDIDATES
+        cap.stage = 'candidate_generation'
+      }
+      candidateSet = new Set(plausible.slice(0, MAX_CANDIDATES))
+    }
     if (candidateSet.size === 0) {
       recordStage('generated', 0)
       recordStage('afterModeFilter', 0)
@@ -918,6 +953,11 @@ export const getRhymesForToken = (
           vowelKeys: candidateVowelKeys,
           codaKeys: candidateCodaKeys,
         })
+        const similarity = scoreIndexedRhymeSimilarity(targetRelationship, {
+          perfectKeys: candidatePerfectKeys,
+          vowelKeys: candidateVowelKeys,
+          codaKeys: candidateCodaKeys,
+        })
         const vowelMatches = relationship === normalizedMode
         const perfectMatch = relationship === 'perfect'
         const codaScore = scoreCodaSimilarity(candidateCodaKeys, targetCodaKeys)
@@ -929,7 +969,7 @@ export const getRhymesForToken = (
         const quality = classifyCandidate(rawWord)
         const modeScore =
           (perfectMatch ? PERFECT_MATCH_SCORE : 0) +
-          (vowelMatches ? NEAR_BASE_SCORE : 0) +
+          (vowelMatches ? NEAR_BASE_SCORE + Math.round(similarity.combined * 100) : 0) +
           codaScore +
           scorePenalties(word)
         return {
