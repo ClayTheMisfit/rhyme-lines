@@ -32,11 +32,11 @@ const KNOWN_NAMES = new Set([
   'daniel', 'david', 'dennis', 'donald', 'douglas', 'edward', 'elizabeth',
   'emily', 'eric', 'frank', 'george', 'gerald', 'gregory', 'helen', 'henry',
   'james', 'jason', 'jeffrey', 'jennifer', 'john', 'joseph', 'joshua', 'judith',
-  'karen', 'kenneth', 'kevin', 'laura', 'linda', 'margaret', 'maria', 'mary',
+  'karen', 'kenneth', 'kevin', 'laura', 'linda', 'margaret', 'maria', 'mark', 'mary',
   'matthew', 'michael', 'michelle', 'nancy', 'nicholas', 'pamela', 'patricia',
   'paul', 'peter', 'philip', 'raymond', 'richard', 'robert', 'ronald', 'ruth',
   'sandra', 'sarah', 'scott', 'stephen', 'steven', 'stuart', 'susan', 'thomas',
-  'timothy', 'walter', 'william',
+  'timothy', 'walter', 'will', 'william',
 ])
 
 const FOREIGN_TOKENS = new Set([

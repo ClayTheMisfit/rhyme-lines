@@ -557,7 +557,7 @@ describe('queryRhymes', () => {
     // Test SLANT mode with a different word that benefits from fuzzy similarity across multiple pronunciations
     // Using "neither" which also has both EY and IY vowels
     // We'll add words with similar (but not exact) vowels to test fuzzy matching
-    const wordsSlant = ['neither', 'ither', 'blether', 'tether', 'feather', 'leather']
+    const wordsSlant = ['neither', 'either', 'blether', 'tether', 'feather', 'leather']
     // "neither" (0): vowels EY and IY, coda DH-ER
     // "blether" (2): vowel EH, coda DH-ER - EH has 0.75 similarity to EY (differ only in tense)
     // "tether" (3): vowel EH, coda DH-ER

@@ -184,6 +184,7 @@ describe('RhymeSuggestionsPanel', () => {
     render(<RhymeSuggestionsPanel mode="docked" onClose={() => {}} text="heart" caretIndex={5} currentLineText="heart" />)
 
     expect(screen.getByText('1 results')).toBeInTheDocument()
+    expect(screen.queryByText('4193 results')).not.toBeInTheDocument()
   })
 
   it('replaces the line-ending target when Line End suggestions are active', () => {

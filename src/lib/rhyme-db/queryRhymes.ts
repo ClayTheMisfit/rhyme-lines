@@ -11,6 +11,8 @@ import {
   classifyIndexedRhymeQuality,
   scoreIndexedRhymeSimilarity,
   normalizeRhymeMode,
+  SLANT_MIN_VOWEL_SIMILARITY,
+  SLANT_MIN_CODA_SIMILARITY,
   type RhymeMode,
 } from '@/lib/rhyme/rhymeQuality'
 
@@ -872,12 +874,12 @@ export const getRhymesForToken = (
     const relatedVowelKeys = normalizedMode === 'near'
       ? vowelKeys
       : db.indexes.vowel.keys.filter((key) =>
-          vowelKeys.some((targetKey) => vowelSimilarity(targetKey, key) >= 0.5)
+          vowelKeys.some((targetKey) => vowelSimilarity(targetKey, key) >= SLANT_MIN_VOWEL_SIMILARITY)
         )
     const relatedCodaKeys = normalizedMode === 'slant'
       ? db.indexes.coda.keys.filter((key) =>
           codaKeys.some((targetKey) =>
-            codaSimilarity(splitCodaKey(targetKey), splitCodaKey(key)) >= 0.6
+            codaSimilarity(splitCodaKey(targetKey), splitCodaKey(key)) >= SLANT_MIN_CODA_SIMILARITY
           )
         )
       : []
@@ -891,31 +893,32 @@ export const getRhymesForToken = (
       : new Set(Array.from(vowelSet).filter((id) => codaSet.has(id)))
 
     if (normalizedMode === 'slant') {
-      const plausible = Array.from(candidateSet)
+      const plausibleRecords = Array.from(candidateSet)
         .filter((id) => id !== wordId)
         .filter((id) => matchesSyllableConstraint(id))
-        .filter((id) => {
+        .map((id) => {
           const word = db.words[id]
           const quality = classifyCandidate(word)
-          return isBaseAllowed(word.toLowerCase()) &&
+          return { id, word, quality }
+        })
+        .filter(({ word, quality }) =>
+          isBaseAllowed(word.toLowerCase()) &&
             quality.qualityTier !== 'proper' &&
             quality.qualityTier !== 'foreign' &&
             quality.qualityTier !== 'weird' &&
             (!lexicalEvidenceAvailable || isCommonEnglishWord(word.toLowerCase()) || quality.commonScore >= DEFAULT_RHYME_LEXICAL_SCORE)
-        })
+        )
         .sort((a, b) => {
-          const qualityA = classifyCandidate(db.words[a])
-          const qualityB = classifyCandidate(db.words[b])
-          if (qualityA.commonScore !== qualityB.commonScore) return qualityB.commonScore - qualityA.commonScore
-          const freqDelta = getFrequency(b) - getFrequency(a)
-          return freqDelta || db.words[a].localeCompare(db.words[b])
+          if (a.quality.commonScore !== b.quality.commonScore) return b.quality.commonScore - a.quality.commonScore
+          const freqDelta = getFrequency(b.id) - getFrequency(a.id)
+          return freqDelta || a.word.localeCompare(b.word)
         })
-      if (plausible.length > MAX_CANDIDATES && cap) {
+      if (plausibleRecords.length > MAX_CANDIDATES && cap) {
         cap.applied = true
         cap.limit = MAX_CANDIDATES
         cap.stage = 'candidate_generation'
       }
-      candidateSet = new Set(plausible.slice(0, MAX_CANDIDATES))
+      candidateSet = new Set(plausibleRecords.slice(0, MAX_CANDIDATES).map((record) => record.id))
     }
     if (candidateSet.size === 0) {
       recordStage('generated', 0)
