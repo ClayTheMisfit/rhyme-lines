@@ -54,7 +54,11 @@ export async function fetchSlantRhymes(word: string, signal?: AbortSignal): Prom
 
   return data.map(item => ({
     word: item.word,
-    type: 'near' as const,
+    // Datamuse does not return pronunciations with rel_nry, so these cannot be
+    // run through the indexed ARPAbet classifier. Treat the broad source
+    // relationship as slant (the least strict tier), rather than claiming the
+    // candidates satisfy RhymeLines' stronger near-rhyme criteria.
+    type: 'slant' as const,
     score: isNaN(item.score) ? 0 : item.score,
     syllables: isNaN(item.numSyllables || 0) ? undefined : item.numSyllables,
     frequency: extractFrequency(item.tags),

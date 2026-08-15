@@ -97,7 +97,9 @@ describe('queryRhymes', () => {
     const db = createTestDb()
     const result = getRhymesForToken(db, 'blue', 'near', 10)
 
-    expect(result.words).toEqual(['through', 'true', 'clue', 'glue'])
+    // Perfect matches have their own bucket; near-only returns only candidates
+    // that fail the canonical perfect relationship.
+    expect(result.words).toEqual(['clue', 'glue'])
   })
 
   it('returns empty results for missing tokens in perfect mode', () => {

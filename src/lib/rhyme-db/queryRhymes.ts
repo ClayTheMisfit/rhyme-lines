@@ -1,15 +1,24 @@
 import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
 import {
   codaSimilarity,
+  vowelRankingSimilarity,
   vowelSimilarity,
 } from '@/lib/rhyme-db/arpabetFeatures'
 import { isCommonEnglishWord } from '@/lib/rhyme-db/commonEnglish'
-import { classifyCandidate, QUALITY_TIER_ORDER, type QualityTier } from '@/lib/rhyme/wordQuality'
+import { classifyCandidate, DEFAULT_RHYME_LEXICAL_SCORE, QUALITY_TIER_ORDER, type QualityTier } from '@/lib/rhyme/wordQuality'
 import { normalizeToken } from '@/lib/rhyme-db/normalizeToken'
+import {
+  classifyIndexedRhymeQuality,
+  scoreIndexedRhymeSimilarity,
+  normalizeRhymeMode,
+  SLANT_MIN_VOWEL_SIMILARITY,
+  SLANT_MIN_CODA_SIMILARITY,
+  type RhymeMode,
+} from '@/lib/rhyme/rhymeQuality'
 
 export { normalizeToken }
 
-export type Mode = 'perfect' | 'near' | 'slant' | 'Perfect' | 'Near' | 'Slant'
+export type Mode = RhymeMode
 
 export type RhymeDbRuntimeMaps = {
   perfectKeysByWordId: string[][]
@@ -39,8 +48,6 @@ export type RhymeQueryContext = {
 
 const MAX_RESULTS = Number.MAX_SAFE_INTEGER
 const MAX_CANDIDATES = 2000
-
-const normalizeMode = (mode: Mode) => mode.toLowerCase() as 'perfect' | 'near'
 
 const STOPWORDS = new Set([
   'a',
@@ -385,6 +392,16 @@ const scoreCodaSimilarity = (candidateKeys: string[], targetKeys: string[]) => {
   return Math.round(similarity * MAX_CODA_SCORE)
 }
 
+const maximumVowelRankingSimilarity = (candidateKeys: string[], targetKeys: string[]) => {
+  let best = 0
+  for (const candidateKey of candidateKeys) {
+    for (const targetKey of targetKeys) {
+      best = Math.max(best, vowelRankingSimilarity(candidateKey, targetKey))
+    }
+  }
+  return best
+}
+
 const isVariantSpelling = (word: string, commonScore: number) => {
   const normalized = word.toLowerCase()
   if (isCommonEnglishWord(normalized)) return false
@@ -503,9 +520,12 @@ export const getRhymesForToken = (
   }
 
   const runtimeDb = db as RhymeDbRuntime
-  const normalizedMode = normalizeMode(mode)
+  const normalizedMode = normalizeRhymeMode(mode)
   const freqAvailable =
     Array.isArray(runtimeDb.freqByWordId) && runtimeDb.freqByWordId.length === runtimeDb.words.length
+  const lexicalEvidenceAvailable = freqAvailable && runtimeDb.freqByWordId!.some(
+    (frequency) => frequency >= DEFAULT_RHYME_LEXICAL_SCORE,
+  )
   const getFrequency = (id: number) => (freqAvailable ? runtimeDb.freqByWordId?.[id] ?? 0 : 0)
   const limit = Math.min(max, MAX_RESULTS)
   if (!freqAvailable && process.env.NODE_ENV !== 'production' && !warnedFreqInvariant) {
@@ -786,7 +806,7 @@ export const getRhymesForToken = (
     recordStage('afterCommonOnly', filtered.length)
     filtered = applyFilter(
       filtered,
-      (entry) => commonWordsOnly || showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore),
+      (entry) => showVariants || !isVariantSpelling(entry.normalizedWord, entry.commonScore),
       'variant_spelling'
     )
     filtered = applyFilter(filtered, (entry) => {
@@ -850,9 +870,57 @@ export const getRhymesForToken = (
     }
   }
 
-  if (normalizedMode === 'near') {
-    const vowelSet = targetVowelKey ? collectWordIds(db.indexes.vowel, [targetVowelKey]) : new Set<number>()
-    if (vowelSet.size === 0) {
+  if (normalizedMode === 'near' || normalizedMode === 'slant') {
+    const relatedVowelKeys = normalizedMode === 'near'
+      ? vowelKeys
+      : db.indexes.vowel.keys.filter((key) =>
+          vowelKeys.some((targetKey) => vowelSimilarity(targetKey, key) >= SLANT_MIN_VOWEL_SIMILARITY)
+        )
+    const relatedCodaKeys = normalizedMode === 'slant'
+      ? db.indexes.coda.keys.filter((key) =>
+          codaKeys.some((targetKey) =>
+            codaSimilarity(splitCodaKey(targetKey), splitCodaKey(key)) >= SLANT_MIN_CODA_SIMILARITY
+          )
+        )
+      : []
+    const vowelSet = collectWordIds(db.indexes.vowel, relatedVowelKeys)
+    const codaSet = collectWordIds(db.indexes.coda, relatedCodaKeys)
+    // Slant generation is an intersection of two independently indexed,
+    // inexpensive signals. The previous union routinely covered most of the
+    // 123k-word database before classification.
+    let candidateSet = normalizedMode === 'near'
+      ? vowelSet
+      : new Set(Array.from(vowelSet).filter((id) => codaSet.has(id)))
+
+    if (normalizedMode === 'slant') {
+      const plausibleRecords = Array.from(candidateSet)
+        .filter((id) => id !== wordId)
+        .filter((id) => matchesSyllableConstraint(id))
+        .map((id) => {
+          const word = db.words[id]
+          const quality = classifyCandidate(word)
+          return { id, word, quality }
+        })
+        .filter(({ word, quality }) =>
+          isBaseAllowed(word.toLowerCase()) &&
+            quality.qualityTier !== 'proper' &&
+            quality.qualityTier !== 'foreign' &&
+            quality.qualityTier !== 'weird' &&
+            (!lexicalEvidenceAvailable || isCommonEnglishWord(word.toLowerCase()) || quality.commonScore >= DEFAULT_RHYME_LEXICAL_SCORE)
+        )
+        .sort((a, b) => {
+          if (a.quality.commonScore !== b.quality.commonScore) return b.quality.commonScore - a.quality.commonScore
+          const freqDelta = getFrequency(b.id) - getFrequency(a.id)
+          return freqDelta || a.word.localeCompare(b.word)
+        })
+      if (plausibleRecords.length > MAX_CANDIDATES && cap) {
+        cap.applied = true
+        cap.limit = MAX_CANDIDATES
+        cap.stage = 'candidate_generation'
+      }
+      candidateSet = new Set(plausibleRecords.slice(0, MAX_CANDIDATES).map((record) => record.id))
+    }
+    if (candidateSet.size === 0) {
       recordStage('generated', 0)
       recordStage('afterModeFilter', 0)
       recordStage('afterRuleFilters', 0)
@@ -873,7 +941,7 @@ export const getRhymesForToken = (
           afterRareRankOrFilterCount: 0,
           vowelPoolSize: vowelSet.size,
           codaPoolSize: 0,
-          combinedUniqueCount: vowelSet.size,
+          combinedUniqueCount: candidateSet.size,
           renderedCount: 0,
           stageCounts: debugEnabled ? stageCounts : undefined,
           rejections: debugEnabled ? rejections : undefined,
@@ -883,15 +951,36 @@ export const getRhymesForToken = (
     }
 
     const targetPerfectKeys = getKeysForWordId(runtimeDb, wordId, 'perfectKeysByWordId')
-    const metadata = Array.from(vowelSet)
+    const targetRelationship = {
+      perfectKeys: targetPerfectKeys,
+      vowelKeys,
+      codaKeys: targetCodaKeys,
+    }
+    const metadata = Array.from(candidateSet)
       .filter((id) => id !== wordId)
       .map((id) => {
         const candidateVowelKeys = getKeysForWordId(runtimeDb, id, 'vowelKeysByWordId')
         const candidateCodaKeys = getKeysForWordId(runtimeDb, id, 'codaKeysByWordId')
         const candidatePerfectKeys = getKeysForWordId(runtimeDb, id, 'perfectKeysByWordId')
-        const vowelMatches = targetVowelKey ? candidateVowelKeys.includes(targetVowel) : false
-        const perfectMatch =
-          targetPerfectKeys.length > 0 && candidatePerfectKeys.some((key) => targetPerfectKeys.includes(key))
+        const relationship = classifyIndexedRhymeQuality(targetRelationship, {
+          perfectKeys: candidatePerfectKeys,
+          vowelKeys: candidateVowelKeys,
+          codaKeys: candidateCodaKeys,
+        })
+        const similarity = scoreIndexedRhymeSimilarity(targetRelationship, {
+          perfectKeys: candidatePerfectKeys,
+          vowelKeys: candidateVowelKeys,
+          codaKeys: candidateCodaKeys,
+        })
+        // Classification intentionally keeps using the established broad
+        // similarity above. This finer score only orders valid Slant results.
+        const rankingVowelSimilarity = normalizedMode === 'slant'
+          ? maximumVowelRankingSimilarity(candidateVowelKeys, vowelKeys)
+          : similarity.vowel
+        const rankingCombinedSimilarity =
+          rankingVowelSimilarity * 0.65 + similarity.coda * 0.35
+        const vowelMatches = relationship === normalizedMode
+        const perfectMatch = relationship === 'perfect'
         const codaScore = scoreCodaSimilarity(candidateCodaKeys, targetCodaKeys)
         const codaMatches = targetCodaKey ? codaScore >= 40 : false
         const rawWord = db.words[id]
@@ -901,7 +990,7 @@ export const getRhymesForToken = (
         const quality = classifyCandidate(rawWord)
         const modeScore =
           (perfectMatch ? PERFECT_MATCH_SCORE : 0) +
-          (vowelMatches ? NEAR_BASE_SCORE : 0) +
+          (vowelMatches ? NEAR_BASE_SCORE + Math.round(rankingCombinedSimilarity * 100) : 0) +
           codaScore +
           scorePenalties(word)
         return {
@@ -971,15 +1060,15 @@ export const getRhymesForToken = (
         perfectKey: null,
         vowelKey: targetVowelKey ?? null,
         codaKey: targetCodaKey ?? null,
-        candidatePools: { perfect: 0, near: vowelSet.size },
-        poolSize: vowelSet.size,
+        candidatePools: { perfect: 0, near: candidateSet.size },
+        poolSize: candidateSet.size,
         afterModeMatchCount: metadata.filter((entry) => entry.vowelMatches).length,
         afterRareRankOrFilterCount: filtered.length,
         tierCounts: process.env.NODE_ENV !== 'production' ? tierCounts : undefined,
         topCandidates: process.env.NODE_ENV !== 'production' ? topCandidates : undefined,
         vowelPoolSize: vowelSet.size,
-        codaPoolSize: 0,
-        combinedUniqueCount: vowelSet.size,
+        codaPoolSize: codaSet.size,
+        combinedUniqueCount: candidateSet.size,
         renderedCount: filtered.length,
         afterGates: { near: filtered.length },
         thresholds: { near: NEAR_BASE_SCORE },

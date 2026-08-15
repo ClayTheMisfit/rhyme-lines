@@ -14,6 +14,7 @@ type Classification = {
 const COMMON_WORD_RANKS = commonWordRanks as Record<string, number>
 const COMMON_THRESHOLD = 65000
 const UNCOMMON_THRESHOLD = 25000
+export const DEFAULT_RHYME_LEXICAL_SCORE = 30000
 
 const KNOWN_NAMES = new Set([
   'haim',
@@ -23,6 +24,19 @@ const KNOWN_NAMES = new Set([
   'braim',
   'chaym',
   'schrime',
+  // Proper-only entries commonly present in pronunciation dictionaries. Words
+  // that are also ordinary English are protected by the common-word evidence
+  // check below rather than by maintaining a separate exception list.
+  'aaron', 'adam', 'adrian', 'alan', 'albert', 'alex', 'andrew', 'anthony',
+  'arthur', 'barbara', 'benjamin', 'brian', 'bruce', 'charles', 'christopher',
+  'daniel', 'david', 'dennis', 'donald', 'douglas', 'edward', 'elizabeth',
+  'emily', 'eric', 'frank', 'george', 'gerald', 'gregory', 'helen', 'henry',
+  'james', 'jason', 'jeffrey', 'jennifer', 'john', 'joseph', 'joshua', 'judith',
+  'karen', 'kenneth', 'kevin', 'laura', 'linda', 'margaret', 'maria', 'mark', 'mary',
+  'matthew', 'michael', 'michelle', 'nancy', 'nicholas', 'pamela', 'patricia',
+  'paul', 'peter', 'philip', 'raymond', 'richard', 'robert', 'ronald', 'ruth',
+  'sandra', 'sarah', 'scott', 'stephen', 'steven', 'stuart', 'susan', 'thomas',
+  'timothy', 'walter', 'will', 'william',
 ])
 
 const FOREIGN_TOKENS = new Set([
@@ -64,7 +78,7 @@ export const classifyCandidate = (word: string): Classification => {
 
   const commonScore = getCommonScore(normalized)
   const looksProper =
-    KNOWN_NAMES.has(normalized) ||
+    (KNOWN_NAMES.has(normalized) && !isCommonEnglishWord(normalized)) ||
     hasInnerCaps(word) ||
     (isTitleCase(word) && !isCommonEnglishWord(normalized))
   const isForeignLike = FOREIGN_TOKENS.has(normalized)

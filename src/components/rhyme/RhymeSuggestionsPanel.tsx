@@ -187,7 +187,9 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
     const isInitialLoading = phase === 'initial'
     const isRefreshing = phase === 'refreshing'
     const localInitFailureReason = getLocalInitFailureReason()
-    const totalAvailable = activeDebug?.afterModeMatchCount ?? activeSuggestions.length
+    // Canonical candidates have already passed phonetic and lexical policy.
+    // Raw mode-match diagnostics are intentionally not user-facing totals.
+    const totalAvailable = activeSuggestions.length
     const filteredCount = visibleSuggestions.length
     const isFiltered = totalAvailable > filteredCount
     const activePanelDebug = useMemo(() => {
@@ -531,7 +533,10 @@ export const RhymeSuggestionsPanel = React.forwardRef<HTMLDivElement, Props>(
                       setRhymeSuggestionMode(filterMode)
                       const next = {
                         perfect: filterMode === 'all' || filterMode === 'perfect',
-                        near: filterMode === 'all' || filterMode === 'near' || filterMode === 'slant',
+                        // The persisted legacy shape has no slant field. Keep
+                        // its near flag truthful; suggestionMode is the
+                        // canonical three-tier selection used by the query.
+                        near: filterMode === 'all' || filterMode === 'near',
                       }
                       setRhymeFilters(next)
                       trackEvent('rhyme_filter_changed', { quality: filterMode })

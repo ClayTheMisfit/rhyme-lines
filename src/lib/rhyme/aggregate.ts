@@ -3,8 +3,9 @@ import { normalizeRhymeToken } from './targetWord'
 import type { ProviderCandidate, RhymeProvider } from './providers'
 import { providers } from './providers'
 import { classifyCandidate, QUALITY_TIER_ORDER } from './wordQuality'
+import { RHYME_QUALITIES, type RhymeQuality } from './rhymeQuality'
 
-export type RhymeQuality = 'perfect' | 'near' | 'slant'
+export type { RhymeQuality } from './rhymeQuality'
 
 export interface RhymeFilterSelection {
   perfect: boolean
@@ -42,7 +43,7 @@ export interface AggregateOptions {
   offline?: boolean
 }
 
-const QUALITY_PRIORITY: RhymeQuality[] = ['perfect', 'near', 'slant']
+const QUALITY_PRIORITY: readonly RhymeQuality[] = RHYME_QUALITIES
 const MAX_RESULTS = 50
 
 interface ProviderState {
@@ -58,10 +59,8 @@ function qualityPriority(quality: RhymeQuality): number {
   return idx === -1 ? QUALITY_PRIORITY.length : idx
 }
 
-export function normalizeQuality(type: RhymeSuggestion['type'] | 'near'): RhymeQuality {
-  if (type === 'perfect') return 'perfect'
-  if (type === 'near') return 'near'
-  return 'slant'
+export function normalizeQuality(type: RhymeSuggestion['type']): RhymeQuality {
+  return type
 }
 
 function rankCandidates(candidates: AggregatedSuggestion[], filters: RhymeFilterSelection) {

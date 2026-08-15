@@ -84,6 +84,41 @@ const buildDb = () => {
   return Object.assign(db, { runtime, runtimeLookups })
 }
 
+const buildSlantRankingDb = (overrides?: { frequencies?: Record<string, number>; codas?: Record<string, string> }) => {
+  const words = ['brain', 'line', 'fine', 'mine', 'shine', 'sign', 'men', 'ten', 'mean']
+  const vowels: Record<string, string> = {
+    brain: 'EY', line: 'AY', fine: 'AY', mine: 'AY', shine: 'AY', sign: 'AY', men: 'EH', ten: 'EH', mean: 'IY',
+  }
+  const codas = Object.fromEntries(words.map((word) => [word, overrides?.codas?.[word] ?? 'N']))
+  const makeIndex = (keyFor: (word: string) => string) => {
+    const groups = new Map<string, number[]>()
+    words.forEach((word, id) => groups.set(keyFor(word), [...(groups.get(keyFor(word)) ?? []), id]))
+    return buildIndex(Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b)))
+  }
+  const perfect = makeIndex((word) => `${vowels[word]}-${codas[word]}`)
+  const vowel = makeIndex((word) => vowels[word])
+  const coda = makeIndex((word) => codas[word])
+  const runtime: RhymeDbRuntimeMaps = {
+    perfectKeysByWordId: buildKeysByWordId(perfect, words.length),
+    vowelKeysByWordId: buildKeysByWordId(vowel, words.length),
+    codaKeysByWordId: buildKeysByWordId(coda, words.length),
+  }
+  const frequencies = words.map((word) => overrides?.frequencies?.[word] ?? 25_000)
+  return Object.assign({
+    version: RHYME_DB_VERSION,
+    generatedAt: new Date(0).toISOString(),
+    source: { name: 'cmudict' as const, path: 'fixture' },
+    words,
+    syllables: words.map(() => 1),
+    freqByWordId: frequencies,
+    isCommonByWordId: frequencies.map((frequency) => Number(frequency > 0)),
+    indexes: { perfect, vowel, coda },
+  } satisfies RhymeDbV1, {
+    runtime,
+    runtimeLookups: { wordToId: new Map(words.map((word, id) => [word, id])) } satisfies RhymeDbRuntimeLookups,
+  })
+}
+
 describe('queryRhymes', () => {
   const db = buildDb()
 
@@ -99,14 +134,56 @@ describe('queryRhymes', () => {
 
   it('ranks near rhymes with matching vowel and coda higher', () => {
     const results = getRhymesForToken(db, 'fine', 'near', 10)
-    expect(results.words.indexOf('line')).toBeGreaterThanOrEqual(0)
-    expect(results.words.indexOf('mine')).toBeGreaterThanOrEqual(0)
-    expect(results.words.indexOf('time')).toBeGreaterThan(results.words.indexOf('line'))
+    expect(results.words).toEqual(expect.arrayContaining(['time', 'tide']))
+    expect(results.words).not.toEqual(expect.arrayContaining(['line', 'mine']))
   })
 
   it('avoids coda-only pooling in near mode', () => {
     const results = getRhymesForToken(db, 'fine', 'near', 10)
     expect(results.words).not.toContain('moon')
+  })
+
+  it('does not admit a candidate when only its coda is related', () => {
+    const results = getRhymesForToken(db, 'fine', 'Slant', 10)
+    expect(results.words).not.toContain('moon')
+    expect(results.words).not.toEqual(expect.arrayContaining(['line', 'mine', 'find', 'time']))
+  })
+
+  it('ranks AY-N Slants ahead of weaker EH-N Slants for an EY-N target', () => {
+    const results = getRhymesForToken(buildSlantRankingDb(), 'brain', 'slant', 20).words
+    const stronger = ['line', 'fine', 'mine', 'shine', 'sign']
+    const weaker = ['men', 'ten']
+
+    for (const strong of stronger) {
+      for (const weak of weaker) expect(results.indexOf(strong)).toBeLessThan(results.indexOf(weak))
+    }
+  })
+
+  it('keeps phonetic Slant quality ahead of a large lexical-frequency gap', () => {
+    const dbWithFrequencyGap = buildSlantRankingDb({ frequencies: { line: 10_000, men: 49_999 } })
+    const results = getRhymesForToken(dbWithFrequencyGap, 'brain', 'slant', 20).words
+    expect(results.indexOf('line')).toBeLessThan(results.indexOf('men'))
+  })
+
+  it('uses canonical lexical quality to break ties within the same Slant relationship', () => {
+    const dbWithTie = buildSlantRankingDb()
+    const results = getRhymesForToken(dbWithTie, 'brain', 'slant', 20).words
+    expect(results.indexOf('line')).toBeLessThan(results.indexOf('mine'))
+  })
+
+  it('prefers the same coda to a feature-related coda at equal vowel distance', () => {
+    const dbWithCodaDistance = buildSlantRankingDb({ codas: { fine: 'M', mine: 'M-N' } })
+    const results = getRhymesForToken(dbWithCodaDistance, 'brain', 'slant', 20).words
+    expect(results.indexOf('line')).toBeLessThan(results.indexOf('mine'))
+    expect(results.indexOf('mine')).toBeLessThan(results.indexOf('fine'))
+  })
+
+  it('produces the same Slant ranking when index posting order changes', () => {
+    const stable = buildSlantRankingDb()
+    const shuffled = buildSlantRankingDb()
+    for (const index of Object.values(shuffled.indexes)) index.wordIds.reverse()
+    const expected = getRhymesForToken(stable, 'brain', 'slant', 20).words
+    expect(getRhymesForToken(shuffled, 'brain', 'slant', 20).words).toEqual(expected)
   })
 
   it('removes trivial inflections', () => {
@@ -301,7 +378,7 @@ describe('queryRhymes', () => {
     expect(results.words).toEqual(['flow'])
   })
 
-  it('filters stopwords and short words in near mode', () => {
+  it('does not promote perfect stopword matches into near mode', () => {
     const words = ['skill', 'will', 'still', 'chill', 'fill', 'bill', 'in', 'is', 'his', 'when', 'did', 'does', 'good', 'even']
     const vowel = buildIndex([['IH', words.map((_, idx) => idx)]])
     const coda = buildIndex([['L', words.map((_, idx) => idx)]])
@@ -334,12 +411,12 @@ describe('queryRhymes', () => {
     )
 
     const results = getRhymesForToken(dbWithStopwords, 'skill', 'near', 50)
-    expect(results.words).toEqual(expect.arrayContaining(['will', 'still']))
+    expect(results.words).not.toEqual(expect.arrayContaining(['will', 'still']))
     expect(results.words).not.toEqual(expect.arrayContaining(['chill', 'fill', 'bill']))
     expect(results.words).not.toEqual(expect.arrayContaining(['in', 'is', 'his', 'when', 'did', 'does', 'good', 'even']))
   })
 
-  it('keeps near rhymes in the same vowel family and downranks contractions', () => {
+  it('does not duplicate perfect rhymes into the near bucket', () => {
     const words = ['time', 'rhyme', 'prime', 'dime', 'room', 'game', 'name', 'came', 'home', "i'm"]
     const perfect = buildIndex([['AY-M', [0, 1, 2, 3, 9]]])
     const vowel = buildIndex([
@@ -380,18 +457,168 @@ describe('queryRhymes', () => {
     )
 
     const results = getRhymesForToken(dbWithNear, 'time', 'near', 20)
-    expect(results.words).toEqual(expect.arrayContaining(['rhyme', 'prime', 'dime']))
+    expect(results.words).not.toEqual(expect.arrayContaining(['rhyme', 'prime', 'dime']))
     const excluded = ['room', 'home', 'game', 'name', 'came']
     for (const word of excluded) {
       expect(results.words).not.toContain(word)
     }
-    expect(results.words.indexOf("i'm")).toBeGreaterThan(results.words.indexOf('prime'))
+    expect(results.words).not.toContain("i'm")
   })
 
   it('normalizes punctuation for token lookup', () => {
     const clean = getRhymesForToken(db, 'time', 'near', 10)
     const punctuated = getRhymesForToken(db, 'time,', 'near', 10)
     expect(punctuated.words).toEqual(clean.words)
+  })
+
+  it('considers all target pronunciations when building near/slant candidate pools', () => {
+    // Scenario: Word "either" has two distinct pronunciations with different vowels
+    // Pronunciation 1: EY-DH-ER (vowel: EY, coda: DH-ER)
+    // Pronunciation 2: IY-DH-ER (vowel: IY, coda: DH-ER)
+    //
+    // The fix ensures that both vowel keys (EY and IY) are used when building candidate pools,
+    // rather than just selecting a single "primary" vowel key.
+    //
+    // For NEAR mode:
+    // - Candidate pool = all words with EXACT match to ANY target vowel key (EY or IY)
+    // - Quality classification downstream filters to words with vowelScore=1 AND good coda match
+    //
+    // For SLANT mode:
+    // - Candidate pool = words with vowelSimilarity >= 0.5 to ANY target vowel key
+    // - Also includes words with codaSimilarity >= 0.6 to ANY target coda key
+
+    const words = ['either', 'breather', 'neither', 'player', 'layer', 'prayer']
+
+    // "either" (wordId 0): has BOTH EY and IY vowels, coda DH-ER
+    // "breather" (wordId 1): vowel IY, coda DH-ER - perfect rhyme with either's IY pronunciation
+    // "neither" (wordId 2): has BOTH EY and IY vowels, coda DH-ER - perfect rhyme
+    // "player" (wordId 3): vowel EY, coda ER - near rhyme (exact EY vowel, different but related coda)
+    // "layer" (wordId 4): vowel EY, coda ER - near rhyme (exact EY vowel, different but related coda)
+    // "prayer" (wordId 5): vowel EY, coda ER - near rhyme (exact EY vowel, different but related coda)
+
+    const perfect = buildIndex([
+      ['EY-DH-ER', [0, 2]], // either(pronunciation 1), neither(pronunciation 1)
+      ['EY-ER', [3, 4, 5]], // player, layer, prayer
+      ['IY-DH-ER', [0, 1, 2]], // either(pronunciation 2), breather, neither(pronunciation 2)
+    ])
+
+    const vowel = buildIndex([
+      ['EY', [0, 2, 3, 4, 5]], // either(pron 1), neither(pron 1), player, layer, prayer
+      ['IY', [0, 1, 2]], // either(pron 2), breather, neither(pron 2)
+    ])
+
+    const coda = buildIndex([
+      ['DH-ER', [0, 1, 2]], // either, breather, neither
+      ['ER', [3, 4, 5]], // player, layer, prayer
+    ])
+
+    const runtime: RhymeDbRuntimeMaps = {
+      perfectKeysByWordId: buildKeysByWordId(perfect, words.length),
+      vowelKeysByWordId: buildKeysByWordId(vowel, words.length),
+      codaKeysByWordId: buildKeysByWordId(coda, words.length),
+    }
+    const runtimeLookups: RhymeDbRuntimeLookups = {
+      wordToId: new Map(words.map((word, index) => [word.toLowerCase(), index])),
+    }
+
+    const dbWithAltPronunciations = Object.assign(
+      {
+        version: RHYME_DB_VERSION,
+        generatedAt: new Date(0).toISOString(),
+        source: { name: 'cmudict', path: 'fixture' },
+        words,
+        syllables: [2, 2, 2, 2, 2, 2],
+        freqByWordId: [50, 40, 45, 35, 33, 30],
+        isCommonByWordId: [1, 1, 1, 1, 1, 1],
+        indexes: {
+          perfect,
+          vowel,
+          coda,
+        },
+      } satisfies RhymeDbV1,
+      { runtime, runtimeLookups }
+    )
+
+    // Test NEAR mode: should find candidates with EXACT vowel match to ANY of "either"'s vowel keys
+    // Near mode candidate pool = words with vowel EY OR vowel IY (exact matches only)
+    // Then classifyIndexedRhymeQuality filters to those with vowelScore=1 and good coda
+    const nearResults = getRhymesForToken(dbWithAltPronunciations, 'either', 'near', 10)
+
+    // Perfect rhymes (breather, neither) should be excluded from near mode results
+    expect(nearResults.words).not.toContain('breather')
+    expect(nearResults.words).not.toContain('neither')
+
+    // Near rhymes: player, layer, prayer all have exact EY vowel match (to either's first pronunciation)
+    // and their coda (ER) is related to either's coda (DH-ER) with codaSimilarity >= 0.65
+    // This validates that the EY pronunciation is being considered (not just IY)
+    // If only the IY pronunciation were used, these would not appear in results
+    expect(nearResults.words).toEqual(expect.arrayContaining(['player', 'layer', 'prayer']))
+
+    // Test SLANT mode with a different word that benefits from fuzzy similarity across multiple pronunciations
+    // Using "neither" which also has both EY and IY vowels
+    // We'll add words with similar (but not exact) vowels to test fuzzy matching
+    const wordsSlant = ['neither', 'either', 'blether', 'tether', 'feather', 'leather']
+    // "neither" (0): vowels EY and IY, coda DH-ER
+    // "blether" (2): vowel EH, coda DH-ER - EH has 0.75 similarity to EY (differ only in tense)
+    // "tether" (3): vowel EH, coda DH-ER
+    // "feather" (4): vowel EH, coda DH-ER
+    // "leather" (5): vowel EH, coda DH-ER
+    // "either" (1): vowels EY and IY, coda DH-ER
+
+    const perfectSlant = buildIndex([
+      ['EY-DH-ER', [0, 1]], // neither(pron 1), either(pron 1)
+      ['IY-DH-ER', [0, 1]], // neither(pron 2), either(pron 2)
+      ['EH-DH-ER', [2, 3, 4, 5]], // blether, tether, feather, leather
+    ])
+
+    const vowelSlant = buildIndex([
+      ['EH', [2, 3, 4, 5]], // blether, tether, feather, leather
+      ['EY', [0, 1]], // neither, either
+      ['IY', [0, 1]], // neither, either
+    ])
+
+    const codaSlant = buildIndex([
+      ['DH-ER', [0, 1, 2, 3, 4, 5]], // all words
+    ])
+
+    const runtimeSlant: RhymeDbRuntimeMaps = {
+      perfectKeysByWordId: buildKeysByWordId(perfectSlant, wordsSlant.length),
+      vowelKeysByWordId: buildKeysByWordId(vowelSlant, wordsSlant.length),
+      codaKeysByWordId: buildKeysByWordId(codaSlant, wordsSlant.length),
+    }
+    const runtimeLookupsSlant: RhymeDbRuntimeLookups = {
+      wordToId: new Map(wordsSlant.map((word, index) => [word.toLowerCase(), index])),
+    }
+
+    const dbSlant = Object.assign(
+      {
+        version: RHYME_DB_VERSION,
+        generatedAt: new Date(0).toISOString(),
+        source: { name: 'cmudict', path: 'fixture' },
+        words: wordsSlant,
+        syllables: [2, 2, 2, 2, 2, 2],
+        freqByWordId: [45, 50, 30, 33, 35, 32],
+        isCommonByWordId: [1, 1, 1, 1, 1, 1],
+        indexes: {
+          perfect: perfectSlant,
+          vowel: vowelSlant,
+          coda: codaSlant,
+        },
+      } satisfies RhymeDbV1,
+      { runtime: runtimeSlant, runtimeLookups: runtimeLookupsSlant }
+    )
+
+    // Test SLANT mode: should find candidates via fuzzy vowel similarity to ANY target vowel key
+    // EH has vowelSimilarity(EH, EY) = 0.75 (3/4 features match)
+    // This passes the >= 0.5 threshold for slant mode candidate pool inclusion
+    const slantResults = getRhymesForToken(dbSlant, 'neither', 'slant', 10)
+
+    // Should NOT include perfect rhyme (either)
+    expect(slantResults.words).not.toContain('either')
+
+    // Should include slant rhymes: blether, tether, feather, leather
+    // (EH vowel has 0.75 similarity to neither's EY vowel key)
+    expect(slantResults.words).toEqual(expect.arrayContaining(['blether', 'tether', 'feather', 'leather']))
   })
 
   it('allows multi-syllable results when the toggle is off', () => {

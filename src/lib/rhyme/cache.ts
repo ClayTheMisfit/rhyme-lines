@@ -8,7 +8,7 @@ interface CacheEntry {
 
 const MAX_ENTRIES = 200
 const TTL = 10 * 60 * 1000
-export const RHYME_PIPELINE_VERSION = 2
+export const RHYME_PIPELINE_VERSION = 3
 
 const cache = new LRUCache<string, CacheEntry>(MAX_ENTRIES, (entry) => entry.result.suggestions.length + 1)
 

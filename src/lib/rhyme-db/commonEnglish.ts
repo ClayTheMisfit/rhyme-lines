@@ -35,6 +35,7 @@ const COMMON_WORDS = [
   'dot', 'got', 'shot', 'spot', 'lot', 'not', 'hot', 'pot', 'cot', 'plot',
   'rhyme', 'prime', 'dime', 'time', 'line', 'mine', 'fine', 'shine', 'tone', 'alone', 'stone', 'phone',
   'day', 'night', 'light', 'bright', 'right', 'fight', 'might', 'tight',
+  'frank', 'ruth',
 ]
 
 export const COMMON_ENGLISH = new Set(COMMON_WORDS)
