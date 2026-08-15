@@ -1,6 +1,7 @@
 import type { RhymeDbV1, RhymeIndex } from '@/lib/rhyme-db/buildRhymeDb'
 import {
   codaSimilarity,
+  vowelRankingSimilarity,
   vowelSimilarity,
 } from '@/lib/rhyme-db/arpabetFeatures'
 import { isCommonEnglishWord } from '@/lib/rhyme-db/commonEnglish'
@@ -387,6 +388,16 @@ const scoreCodaSimilarity = (candidateKeys: string[], targetKeys: string[]) => {
   const similarity = maxCodaSimilarity(candidateKeys, targetKeys)
   if (similarity === 1) return EXACT_CODA_SCORE
   return Math.round(similarity * MAX_CODA_SCORE)
+}
+
+const maximumVowelRankingSimilarity = (candidateKeys: string[], targetKeys: string[]) => {
+  let best = 0
+  for (const candidateKey of candidateKeys) {
+    for (const targetKey of targetKeys) {
+      best = Math.max(best, vowelRankingSimilarity(candidateKey, targetKey))
+    }
+  }
+  return best
 }
 
 const isVariantSpelling = (word: string, commonScore: number) => {
@@ -958,6 +969,13 @@ export const getRhymesForToken = (
           vowelKeys: candidateVowelKeys,
           codaKeys: candidateCodaKeys,
         })
+        // Classification intentionally keeps using the established broad
+        // similarity above. This finer score only orders valid Slant results.
+        const rankingVowelSimilarity = normalizedMode === 'slant'
+          ? maximumVowelRankingSimilarity(candidateVowelKeys, vowelKeys)
+          : similarity.vowel
+        const rankingCombinedSimilarity =
+          rankingVowelSimilarity * 0.65 + similarity.coda * 0.35
         const vowelMatches = relationship === normalizedMode
         const perfectMatch = relationship === 'perfect'
         const codaScore = scoreCodaSimilarity(candidateCodaKeys, targetCodaKeys)
@@ -969,7 +987,7 @@ export const getRhymesForToken = (
         const quality = classifyCandidate(rawWord)
         const modeScore =
           (perfectMatch ? PERFECT_MATCH_SCORE : 0) +
-          (vowelMatches ? NEAR_BASE_SCORE + Math.round(similarity.combined * 100) : 0) +
+          (vowelMatches ? NEAR_BASE_SCORE + Math.round(rankingCombinedSimilarity * 100) : 0) +
           codaScore +
           scorePenalties(word)
         return {
