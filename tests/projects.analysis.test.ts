@@ -6,7 +6,7 @@ describe('project analysis metrics', () => {
       'Night light in the city glow',
       'I write tight when the rhythms flow',
       'Inside lines collide with hidden chimes',
-      'I glow and flow through midnight rhymes',
+      'I glow and flow through midnight road',
     ].join('\n')
 
     const metrics = analyzeProjectContent(lyrics)
@@ -24,6 +24,26 @@ describe('project analysis metrics', () => {
       endRhymeFamilyCount: 0,
       averageSyllablesPerLine: 0,
     })
+  })
+
+  it('returns zero density when no line endings rhyme', () => {
+    expect(analyzeProjectContent(['cat', 'glow', 'deep', 'road'].join('\n')).rhymeDensity).toBe(0)
+  })
+
+  it('counts one repeated pair among four valid endings', () => {
+    expect(analyzeProjectContent(['cat', 'bat', 'glow', 'road'].join('\n')).rhymeDensity).toBe(0.5)
+  })
+
+  it('returns full density when every ending participates in a repeated family', () => {
+    expect(analyzeProjectContent(['cat', 'bat', 'glow', 'snow'].join('\n')).rhymeDensity).toBe(1)
+  })
+
+  it('excludes blank lines from the denominator', () => {
+    expect(analyzeProjectContent(['cat', '', 'bat', '', 'road'].join('\n')).rhymeDensity).toBeCloseTo(2 / 3)
+  })
+
+  it('normalizes punctuation around line endings', () => {
+    expect(analyzeProjectContent(['cat!', 'bat,', 'glow.', 'road?'].join('\n')).rhymeDensity).toBe(0.5)
   })
 
   it('uses neighboring words for context-sensitive syllable counts', () => {

@@ -214,7 +214,7 @@ function DocumentRow({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
         >
           <div className="w-full max-w-sm rounded-lg border border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-elevated)] p-4 text-[color:var(--rl-shell-text)] shadow-xl">
-            <p className="text-sm font-medium">Delete "{title}"?</p>
+            <p className="text-sm font-medium">Delete &ldquo;{title}&rdquo;?</p>
             <p className="mt-2 text-xs leading-5 text-[color:var(--rl-shell-muted)]">This permanently removes the document from this device.</p>
             <div className="mt-4 flex justify-end gap-2">
               <button ref={cancelRef} type="button" onClick={() => { setConfirmingDelete(false); requestAnimationFrame(() => rowRef.current?.focus()) }} className="rounded-sm border border-[color:var(--rl-shell-border)] px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]">Cancel</button>

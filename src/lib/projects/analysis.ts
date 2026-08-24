@@ -1,7 +1,11 @@
 import { tokenizeLine } from '@/lib/analysis/tokenize'
 import { countSyllables } from '@/lib/nlp/syllables'
 import { normalizeLexeme } from '@/lib/rhyme-db/normalizeLexeme'
-import { buildRhymeDecorations } from '@/lib/rhyme/rhymeDecorations'
+import {
+  buildRhymeDecorations,
+  getEndWordTokenIndex,
+  getRhymeFamilyKey,
+} from '@/lib/rhyme/rhymeDecorations'
 
 export interface ProjectAnalysisMetrics {
   rhymeDensity: number
@@ -11,6 +15,36 @@ export interface ProjectAnalysisMetrics {
 }
 
 const clamp = (value: number) => Math.max(0, Math.min(1, value))
+
+/**
+ * Rhyme density is the fraction of valid non-empty line endings that
+ * participate in a repeated rhyme family. Singleton endings remain in the denominator.
+ */
+const calculateRhymeDensity = (lines: string[]): number => {
+  const endingFamilyKeys = lines.flatMap((line) => {
+    const tokens = tokenizeLine(line)
+    const endWordIndex = getEndWordTokenIndex(tokens)
+    if (endWordIndex === null) return []
+
+    const ending = tokens[endWordIndex]
+    const familyKey = getRhymeFamilyKey(ending.analysisKey ?? ending.text)
+    return familyKey ? [familyKey] : []
+  })
+
+  if (!endingFamilyKeys.length) return 0
+
+  const familySizes = new Map<string, number>()
+  endingFamilyKeys.forEach((familyKey) => {
+    familySizes.set(familyKey, (familySizes.get(familyKey) ?? 0) + 1)
+  })
+
+  const rhymingEndingCount = endingFamilyKeys.reduce(
+    (count, familyKey) => count + ((familySizes.get(familyKey) ?? 0) >= 2 ? 1 : 0),
+    0
+  )
+
+  return clamp(rhymingEndingCount / endingFamilyKeys.length)
+}
 
 export const analyzeProjectContent = (content: string): ProjectAnalysisMetrics => {
   const lines = content
@@ -55,27 +89,20 @@ export const analyzeProjectContent = (content: string): ProjectAnalysisMetrics =
     highlightStopwords: false,
   })
 
-  const endFamilies: string[] = []
   let internalRhymes = 0
 
   for (const tokens of visibleFamilySnapshot.tokensByLine.values()) {
     const counts = new Map<string, number>()
     for (const token of tokens) {
       counts.set(token.familyKey, (counts.get(token.familyKey) ?? 0) + 1)
-      if (token.isEndWord) endFamilies.push(token.familyKey)
     }
     for (const count of counts.values()) {
       if (count > 1) internalRhymes += count - 1
     }
   }
 
-  const endFamilyCounts = new Map<string, number>()
-  endFamilies.forEach((family) => endFamilyCounts.set(family, (endFamilyCounts.get(family) ?? 0) + 1))
-  const repeatedLineEndings = [...endFamilyCounts.values()].reduce((sum, count) => sum + (count > 1 ? count : 0), 0)
-  const rhymeDensity = clamp(repeatedLineEndings / Math.max(1, endFamilies.length))
-
   return {
-    rhymeDensity,
+    rhymeDensity: calculateRhymeDensity(lines),
     internalRhymes,
     endRhymeFamilyCount: visibleFamilySnapshot.familyCount,
     averageSyllablesPerLine: totalSyllables / lines.length,
