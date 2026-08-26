@@ -46,6 +46,13 @@ describe('project analysis metrics', () => {
     expect(analyzeProjectContent(['cat!', 'bat,', 'glow.', 'road?'].join('\n')).rhymeDensity).toBe(0.5)
   })
 
+  it('excludes filtered stopword endings from rhyme density', () => {
+    const metrics = analyzeProjectContent(['will', 'still'].join('\n'))
+
+    expect(metrics.rhymeDensity).toBe(0)
+    expect(metrics.endRhymeFamilyCount).toBe(0)
+  })
+
   it('uses neighboring words for context-sensitive syllable counts', () => {
     expect(analyzeProjectContent('a learned scholar').averageSyllablesPerLine).toBe(4)
   })

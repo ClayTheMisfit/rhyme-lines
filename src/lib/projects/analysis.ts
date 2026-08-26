@@ -1,5 +1,6 @@
 import { tokenizeLine } from '@/lib/analysis/tokenize'
 import { countSyllables } from '@/lib/nlp/syllables'
+import { isStopword } from '@/lib/nlp/stopwords'
 import { normalizeLexeme } from '@/lib/rhyme-db/normalizeLexeme'
 import {
   buildRhymeDecorations,
@@ -17,8 +18,8 @@ export interface ProjectAnalysisMetrics {
 const clamp = (value: number) => Math.max(0, Math.min(1, value))
 
 /**
- * Rhyme density is the fraction of valid non-empty line endings that
- * participate in a repeated rhyme family. Singleton endings remain in the denominator.
+ * Rhyme density is the fraction of visible, valid non-empty line endings that
+ * participate in a repeated rhyme family. Non-stopword singletons remain in the denominator.
  */
 const calculateRhymeDensity = (lines: string[]): number => {
   const endingFamilyKeys = lines.flatMap((line) => {
@@ -27,6 +28,8 @@ const calculateRhymeDensity = (lines: string[]): number => {
     if (endWordIndex === null) return []
 
     const ending = tokens[endWordIndex]
+    if (isStopword(ending.analysisKey ?? ending.text)) return []
+
     const familyKey = getRhymeFamilyKey(ending.analysisKey ?? ending.text)
     return familyKey ? [familyKey] : []
   })
