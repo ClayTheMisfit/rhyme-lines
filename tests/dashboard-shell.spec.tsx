@@ -73,6 +73,7 @@ const buildProject = (
   folderName: null,
   wordCount: 12,
   lineCount: 4,
+  totalSyllables: 24,
   rhymeDensity: 0.5,
   internalRhymes: 2,
   endRhymeFamilyCount: 2,

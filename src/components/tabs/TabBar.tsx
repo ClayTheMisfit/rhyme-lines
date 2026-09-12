@@ -8,7 +8,7 @@ const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(
 
 interface TabBarProps {
   tabs: Tab[]
-  activeTabId: string
+  activeTabId: string | null
   saveStatus: AutosaveStatus
   onNew: () => void
   onSelect: (id: string) => void

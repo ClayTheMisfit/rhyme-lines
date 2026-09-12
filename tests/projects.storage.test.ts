@@ -1,4 +1,5 @@
 import { CURRENT_SCHEMA_VERSION } from '@/lib/persist/schema'
+import { resetDraftPersistenceForTests } from '@/lib/persist/draftCoordinator'
 import {
   LAST_OPEN_PROJECT_ID_KEY,
   archiveProject,
@@ -24,6 +25,7 @@ import { buildDraftCollection } from '@/store/tabsStore'
 
 describe('project storage', () => {
   beforeEach(() => {
+    resetDraftPersistenceForTests()
     localStorage.clear()
   })
 
@@ -243,6 +245,8 @@ describe('project storage', () => {
     expect(summariesById.get('newline-content')?.lineCount).toBe(0)
     expect(summariesById.get('single-line-content')?.lineCount).toBe(1)
     expect(summariesById.get('multi-line-content')?.lineCount).toBe(3)
+    expect(summariesById.get('multi-line-content')?.totalSyllables).toBe(3)
+    expect(summariesById.get('multi-line-content')?.averageSyllablesPerLine).toBe(1)
   })
 
   it('migrates text from legacy autosave key when no structured drafts exist', () => {

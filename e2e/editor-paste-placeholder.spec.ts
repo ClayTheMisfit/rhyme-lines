@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { openTestEditor } from './fixtures/project'
 
 test.describe('Editor empty paste flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
-    await page.waitForSelector('#lyric-editor')
+    await openTestEditor(page)
   })
 
   test('click then paste into empty editor clears visual placeholder and triggers analysis', async ({ page }) => {
@@ -25,7 +25,11 @@ test.describe('Editor empty paste flow', () => {
     // This is a DOM-placeholder guard (not a visual check): visual empty-state is verified by the data-empty flip above.
     await expect(editor).not.toContainText('Start writing…')
 
-    await expect.poll(async () => page.locator('.syllable-badge').count()).toBeGreaterThan(0)
+    await expect.poll(async () =>
+      editor.locator('.line').evaluateAll((lines) =>
+        lines.map((line) => (line as HTMLElement).dataset.lineTotalDisplay ?? '')
+      )
+    ).toEqual(['2', '2'])
   })
 
   test('rich-text paste inserts plain text only', async ({ page }) => {

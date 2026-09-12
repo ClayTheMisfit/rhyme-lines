@@ -4,13 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Editor, { type EditorHandle } from './Editor'
 import RhymePanel from './RhymePanel'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
-import { useTabsStore, hydrateTabsFromPersisted } from '@/store/tabsStore'
-import { hydrateSettingsStore } from '@/store/settingsStore'
-import { hydrateRhymePanel } from '@/store/rhymePanelStore'
-import { hydrateBadgeSettings } from '@/store/settings'
-import { loadPersistedAppState } from '@/lib/persist/appState'
+import { useTabsStore } from '@/store/tabsStore'
 import { shallow } from 'zustand/shallow'
-import { useHydrated } from '@/hooks/useHydrated'
 import { useAutosave } from '@/hooks/useAutosave'
 import { useAutosaveStore } from '@/store/autosaveStore'
 import StatusBar from '@/components/StatusBar'
@@ -19,7 +14,7 @@ import { trackEvent } from '@/lib/analytics/events'
 /**
  * Render the editor shell that coordinates the lyric Editor and RhymePanel, manages hydration, focus, keyboard shortcuts, click-outside behavior, and autosave status.
  *
- * Renders a placeholder until client and app state hydration complete, then mounts the Editor and RhymePanel, wires focus helpers (including Alt+R to open the panel), subscribes to persisted state hydration, listens for outside clicks to hide the panel, and exposes a visually hidden live region reporting autosave status.
+ * Mounts after route-level app hydration, then coordinates the Editor and RhymePanel, focus helpers, keyboard shortcuts, click-outside behavior, and autosave status.
  *
  * @returns The EditorShell React element
  */
@@ -27,10 +22,8 @@ export default function EditorShell() {
   const shellRef = useRef<HTMLDivElement | null>(null)
   const floatingPanelRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<EditorHandle | null>(null)
-  const hydrated = useHydrated()
-  const [appStateReady, setAppStateReady] = useState(false)
   const [cursor, setCursor] = useState<{ line: number; column: number } | null>(null)
-  const ready = hydrated && appStateReady
+  const ready = true
   const lastTextActivityAtRef = useRef(0)
   const { mode, setMode } = useRhymePanel((state) => ({
     mode: state.mode,
@@ -141,22 +134,6 @@ export default function EditorShell() {
   }, [handleClickOutside, mode])
 
   useEffect(() => {
-    if (!hydrated) return
-    let cancelled = false
-    const snapshot = loadPersistedAppState()
-    hydrateSettingsStore(snapshot.settings)
-    hydrateTabsFromPersisted(snapshot.drafts)
-    hydrateRhymePanel(snapshot.panel)
-    hydrateBadgeSettings()
-    if (!cancelled) {
-      setAppStateReady(true)
-    }
-    return () => {
-      cancelled = true
-    }
-  }, [hydrated])
-
-  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!event.altKey || event.key.toLowerCase() !== 'r') return
       event.preventDefault()
@@ -182,15 +159,11 @@ export default function EditorShell() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [focusRhymePanel, mode, setMode])
 
-  const { markTextChanged } = useAutosave({
-    onSaved: () => {
-      const state = useTabsStore.getState()
-      const currentTab = state.tabs.find((tab) => tab.id === state.activeTabId)
-      if (currentTab) {
-        state.actions.markDirty(currentTab.id, false)
-      }
-    },
-  })
+  const handleSaved = useCallback(() => {
+    useTabsStore.getState().actions.markAllClean()
+  }, [])
+
+  const { markTextChanged } = useAutosave({ onSaved: handleSaved })
 
   const handleTextChange = useCallback(
     (text: string) => {
@@ -224,6 +197,7 @@ export default function EditorShell() {
         <div className="flex h-full w-full min-h-0 flex-1 flex-col overflow-hidden">
           <Editor
             ref={editorRef}
+            documentId={activeTab?.id ?? 'editor-empty'}
             hydrated={ready}
             text={activeTab?.snapshot.text ?? ''}
             onCursorChange={setCursor}

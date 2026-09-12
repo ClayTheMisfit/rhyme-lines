@@ -1,7 +1,6 @@
 'use client'
 
 import { create } from 'zustand'
-import { assertClientOnly } from '@/lib/env/assertClientOnly'
 import { isClient } from '@/lib/env/isClient'
 import {
   createDefaultDraftCollection,
@@ -10,7 +9,20 @@ import {
   type DraftLine,
   type DraftSchema,
 } from '@/lib/persist/schema'
-import { readWithMigrations, writeVersioned } from '@/lib/persist/storage'
+import {
+  isEditorVisibleDraft,
+  resolveActiveDraftId,
+} from '@/lib/projects/lifecycle'
+import { readWithMigrations } from '@/lib/persist/storage'
+import {
+  getAuthoritativeDraftCollection,
+  flushDraftPersistence,
+  initializeDraftPersistence,
+  isDraftPersistenceAllowed,
+  replaceAuthoritativeDraftCollection,
+  scheduleDraftPersistence,
+  subscribeDraftCollection,
+} from '@/lib/persist/draftCoordinator'
 
 export type TabId = string
 
@@ -31,7 +43,7 @@ export interface Tab {
 
 interface TabsState {
   tabs: Tab[]
-  activeTabId: TabId
+  activeTabId: TabId | null
   actions: {
     newTab: () => void
     setActive: (id: TabId) => void
@@ -44,11 +56,10 @@ interface TabsState {
     moveTabToIndex: (id: TabId, targetIndex: number) => void
     updateSnapshot: (id: TabId, patch: Partial<EditorSnapshot>) => void
     markDirty: (id: TabId, dirty: boolean) => void
-    hydrate: (payload: DraftCollection) => void
+    markAllClean: () => void
+    hydrate: (payload: DraftCollection, options?: { allowPersistence?: boolean; alreadyPersisted?: boolean }) => void
   }
 }
-
-const PERSIST_DEBOUNCE_MS = 250
 
 export const MAX_TAB_TITLE_LENGTH = 100
 
@@ -122,7 +133,7 @@ const buildDraftFromTab = (tab: Tab, previousDraft?: DraftSchema): DraftSchema =
     docId: tab.id,
     title: tab.title,
     createdAt: tab.createdAt,
-    updatedAt: Date.now(),
+    updatedAt: tab.updatedAt,
     archived: previousDraft?.archived ?? false,
     archivedAt: previousDraft?.archivedAt ?? null,
     deletedAt: previousDraft?.deletedAt ?? null,
@@ -141,8 +152,10 @@ export const buildDraftCollection = (state: Pick<TabsState, 'tabs' | 'activeTabI
     previousMap.set(draft.docId, draft)
   })
 
-  const drafts = state.tabs.map((tab) => buildDraftFromTab(tab, previousMap.get(tab.id)))
-  const activeId = drafts.find((draft) => draft.docId === state.activeTabId)?.docId ?? drafts[0]?.docId ?? ''
+  const visibleDrafts = state.tabs.map((tab) => buildDraftFromTab(tab, previousMap.get(tab.id)))
+  const hiddenDrafts = persisted?.drafts.filter((draft) => !isEditorVisibleDraft(draft)) ?? []
+  const drafts = [...visibleDrafts, ...hiddenDrafts]
+  const activeId = resolveActiveDraftId(drafts, state.activeTabId)
 
   return {
     drafts,
@@ -151,18 +164,16 @@ export const buildDraftCollection = (state: Pick<TabsState, 'tabs' | 'activeTabI
   }
 }
 
-const draftCollectionToTabs = (collection: DraftCollection): { tabs: Tab[]; activeTabId: string } => {
-  const tabs = collection.drafts.length ? collection.drafts.map(tabFromDraft) : [createDefaultTab()]
-  const fallbackActive = tabs[0]?.id ?? createDefaultTab().id
-  const activeTabId = tabs.find((tab) => tab.id === collection.activeId)?.id ?? fallbackActive
+const draftCollectionToTabs = (collection: DraftCollection): { tabs: Tab[]; activeTabId: string | null } => {
+  const visibleDrafts = collection.drafts.filter(isEditorVisibleDraft)
+  const tabs = visibleDrafts.map(tabFromDraft)
+  const activeTabId = resolveActiveDraftId(visibleDrafts, collection.activeId)
   return { tabs, activeTabId }
 }
 
-let lastPersistedDrafts: DraftCollection | null = null
-
 const baseDrafts = createDefaultDraftCollection()
-lastPersistedDrafts = baseDrafts
 const baseTabs = draftCollectionToTabs(baseDrafts)
+let applyingAuthoritativeCollection = false
 
 export const useTabsStore = create<TabsState>()((set, get) => ({
   tabs: baseTabs.tabs,
@@ -174,11 +185,13 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
         tabs: [...state.tabs, tab],
         activeTabId: tab.id,
       }))
+      flushDraftPersistence()
     },
     setActive: (id) => {
       const exists = get().tabs.some((tab) => tab.id === id)
-      if (!exists) return
+      if (!exists || get().activeTabId === id) return
       set({ activeTabId: id })
+      flushDraftPersistence()
     },
     closeTab: (id) => {
       set((state) => {
@@ -192,14 +205,7 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
         }
 
         const nextTabs = state.tabs.filter((tab) => tab.id !== id)
-        if (!nextTabs.length) {
-          const replacement = createDefaultTab()
-          return {
-            ...state,
-            tabs: [replacement],
-            activeTabId: replacement.id,
-          }
-        }
+        if (!nextTabs.length) return { ...state, tabs: [], activeTabId: null }
 
         let nextActiveId = state.activeTabId
         if (state.activeTabId === id) {
@@ -221,10 +227,7 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
         const index = ordered.findIndex((tab) => tab.id === id)
         if (index === -1) return state
         const nextTabs = state.tabs.filter((tab) => tab.id !== id)
-        if (!nextTabs.length) {
-          const replacement = createDefaultTab()
-          return { ...state, tabs: [replacement], activeTabId: replacement.id }
-        }
+        if (!nextTabs.length) return { ...state, tabs: [], activeTabId: null }
         let nextActiveId = state.activeTabId
         if (state.activeTabId === id) {
           const nextVisible = ordered[index + 1] ?? ordered[index - 1]
@@ -291,6 +294,7 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
       }))
     },
     markDirty: (id, dirty) => {
+      applyingAuthoritativeCollection = true
       set((state) => ({
         ...state,
         tabs: state.tabs.map((tab) =>
@@ -298,60 +302,71 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
             ? {
                 ...tab,
                 isDirty: dirty,
-                updatedAt: dirty ? Date.now() : tab.updatedAt,
               }
             : tab
         ),
       }))
+      applyingAuthoritativeCollection = false
     },
-    hydrate: (payload) => {
-      const safeDrafts = payload ?? createDefaultDraftCollection()
-      lastPersistedDrafts = safeDrafts
+    markAllClean: () => {
+      applyingAuthoritativeCollection = true
+      set((state) => ({
+        ...state,
+        tabs: state.tabs.map((tab) => tab.isDirty ? { ...tab, isDirty: false } : tab),
+      }))
+      applyingAuthoritativeCollection = false
+    },
+    hydrate: (payload, options) => {
+      const safeDrafts = payload
+      initializeDraftPersistence(safeDrafts, {
+        allowPersistence: options?.allowPersistence ?? true,
+        alreadyPersisted: options?.alreadyPersisted,
+      })
       const hydrated = draftCollectionToTabs(safeDrafts)
+      applyingAuthoritativeCollection = true
       set((state) => ({
         ...state,
         tabs: hydrated.tabs,
         activeTabId: hydrated.activeTabId,
       }))
+      applyingAuthoritativeCollection = false
+      scheduleDraftPersistence()
     },
   },
 }))
 
-const persistState = (state: TabsState) => {
-  if (!isClient()) {
-    if (process.env.NODE_ENV === 'development') {
-      assertClientOnly('tabs:persist')
-    }
-    return
-  }
-  const payload = buildDraftCollection(state, lastPersistedDrafts)
-  writeVersioned('drafts', payload)
-  lastPersistedDrafts = payload
-}
+useTabsStore.subscribe((state) => {
+  if (applyingAuthoritativeCollection) return
+  const payload = buildDraftCollection(state, getAuthoritativeDraftCollection())
+  replaceAuthoritativeDraftCollection(payload, { persist: 'debounced', notify: false })
+})
 
-if (isClient()) {
-  let timer: number | null = null
-  useTabsStore.subscribe((state) => {
-    if (timer) {
-      window.clearTimeout(timer)
-    }
-    timer = window.setTimeout(() => {
-      persistState(state)
-      timer = null
-    }, PERSIST_DEBOUNCE_MS)
-  })
-}
+subscribeDraftCollection((nextCollection) => {
+  const hydrated = draftCollectionToTabs(nextCollection)
+  applyingAuthoritativeCollection = true
+  useTabsStore.setState((state) => ({
+    ...state,
+    tabs: hydrated.tabs,
+    activeTabId: hydrated.activeTabId,
+  }))
+  applyingAuthoritativeCollection = false
+})
 
-export const getActiveTab = (): Tab => {
+export const getActiveTab = (): Tab | undefined => {
   const state = useTabsStore.getState()
   const active = state.tabs.find((tab) => tab.id === state.activeTabId)
-  return active ?? state.tabs[0]
+  return active
 }
 
-export function hydrateTabsFromPersisted(drafts: DraftCollection) {
-  useTabsStore.getState().actions.hydrate(drafts)
+export function hydrateTabsFromPersisted(
+  drafts: DraftCollection,
+  options?: { allowPersistence?: boolean; alreadyPersisted?: boolean }
+) {
+  useTabsStore.getState().actions.hydrate(drafts, options)
 }
 
 export function getLastPersistedDraftCollection(): DraftCollection | null {
-  return lastPersistedDrafts
+  return getAuthoritativeDraftCollection()
 }
+
+export { isDraftPersistenceAllowed }

@@ -8,6 +8,7 @@ import TopBar from '@/components/TopBar'
 import EditorShell from '@/components/EditorShell'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { getLastOpenProjectId, setLastOpenProjectId } from '@/lib/projects/storage'
+import { useAppStateHydration } from '@/hooks/useAppStateHydration'
 
 const SIDEBAR_COLLAPSED_KEY = 'rhyme-lines:editor-sidebar-collapsed'
 const SIDEBAR_EXPANDED_WIDTH = 232
@@ -229,6 +230,7 @@ function DocumentRow({
 
 export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
   const router = useRouter()
+  const { state: hydrationState } = useAppStateHydration()
   const { tabs, activeTabId, actions } = useTabsStore(
     (state) => ({ tabs: state.tabs, activeTabId: state.activeTabId, actions: state.actions }),
     shallow
@@ -239,7 +241,7 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
     () => (projectId ? tabs.find((tab) => tab.id === projectId) ?? null : null),
     [projectId, tabs]
   )
-  const routeProjectIdIsInvalid = Boolean(projectId) && !routeProject
+  const routeProjectIdIsInvalid = hydrationState === 'ready' && Boolean(projectId) && !routeProject
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const sidebarExpanded = !sidebarCollapsed
@@ -268,19 +270,21 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
   }, [])
 
   useEffect(() => {
+    if (hydrationState !== 'ready') return
     const targetProjectId = projectId || getLastOpenProjectId()
     if (!targetProjectId) return
     const targetProject = tabs.find((tab) => tab.id === targetProjectId)
     if (!targetProject) {
       const fallback = orderedTabs[0]
       if (getLastOpenProjectId() === targetProjectId) setLastOpenProjectId(fallback?.id ?? null)
-      if (projectId) router.replace(fallback ? `/editor/${fallback.id}` : '/editor')
+      if (projectId) router.replace(fallback ? `/editor/${fallback.id}` : '/')
       return
     }
     if (activeTabId !== targetProjectId) actions.setActive(targetProjectId)
-  }, [activeTabId, actions, orderedTabs, projectId, router, tabs])
+  }, [activeTabId, actions, hydrationState, orderedTabs, projectId, router, tabs])
 
   useEffect(() => {
+    if (hydrationState !== 'ready') return
     if (!activeTabId) return
     const activeTabExists = tabs.some((tab) => tab.id === activeTabId)
     if (!activeTabExists) return
@@ -288,7 +292,7 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
     const routeIsDrivingSelection = Boolean(projectId) && projectId !== activeTabId
     if (routeIsDrivingSelection) return
     if (!routeProjectIdIsInvalid && projectId !== activeTabId) router.replace(`/editor/${activeTabId}`)
-  }, [activeTabId, projectId, routeProjectIdIsInvalid, router, tabs])
+  }, [activeTabId, hydrationState, projectId, routeProjectIdIsInvalid, router, tabs])
 
   const layoutStyle: CSSProperties & { '--editor-layout-columns': string } = {
     paddingTop: 'var(--header-height, 48px)',
@@ -303,6 +307,11 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
     const group = orderedTabs.filter((tab) => tab.isPinned === dragged.isPinned)
     actions.moveTabToIndex(draggedId, group.findIndex((tab) => tab.id === targetId))
     setDraggedId(null)
+  }
+
+  const handleSelectDocument = (id: string) => {
+    actions.setActive(id)
+    router.push(`/editor/${id}`)
   }
 
   return (
@@ -321,7 +330,7 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
               <nav className="space-y-1.5" aria-label="Documents" role="list">
                 {orderedTabs.map((tab) => {
                   const group = orderedTabs.filter((item) => item.isPinned === tab.isPinned)
-                  return <DocumentRow key={tab.id} tab={tab} active={tab.id === activeTabId} indexInGroup={group.findIndex((item) => item.id === tab.id)} groupLength={group.length} onSelect={actions.setActive} onRename={actions.renameTab} onPinToggle={(id, pinned) => pinned ? actions.unpinTab(id) : actions.pinTab(id)} onMove={actions.moveTab} onDelete={actions.deleteTab} onDragStart={setDraggedId} onDropOn={handleDropOn} />
+                  return <DocumentRow key={tab.id} tab={tab} active={tab.id === activeTabId} indexInGroup={group.findIndex((item) => item.id === tab.id)} groupLength={group.length} onSelect={handleSelectDocument} onRename={actions.renameTab} onPinToggle={(id, pinned) => pinned ? actions.unpinTab(id) : actions.pinTab(id)} onMove={actions.moveTab} onDelete={actions.deleteTab} onDragStart={setDraggedId} onDropOn={handleDropOn} />
                 })}
               </nav>
             </>
@@ -329,7 +338,15 @@ export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
             <div className="mt-2 flex flex-1 items-start justify-center"><button type="button" onClick={() => setSidebarCollapsed(false)} aria-label="Open documents" className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] text-[10px] uppercase tracking-[0.14em] text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]">Docs</button></div>
           )}
         </aside>
-        <main className="flex min-h-0 min-w-0 bg-[color:var(--rl-editor-lane)]">{routeProjectIdIsInvalid ? null : <EditorShell />}</main>
+        <main
+          className="flex min-h-0 min-w-0 bg-[color:var(--rl-editor-lane)]"
+          aria-busy={hydrationState === 'pending'}
+        >
+          {hydrationState === 'ready' && !routeProjectIdIsInvalid ? <EditorShell /> : null}
+          {hydrationState === 'degraded' ? (
+            <p role="status" className="sr-only">Drafts could not be loaded from this browser.</p>
+          ) : null}
+        </main>
       </div>
     </div>
   )

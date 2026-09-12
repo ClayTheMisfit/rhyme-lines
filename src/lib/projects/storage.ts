@@ -1,6 +1,10 @@
-import { readWithMigrations, writeVersioned } from '@/lib/persist/storage'
 import { type DraftCollection, type DraftSchema, type FolderSchema } from '@/lib/persist/schema'
+import {
+  getAuthoritativeDraftCollection,
+  replaceAuthoritativeDraftCollection,
+} from '@/lib/persist/draftCoordinator'
 import { analyzeProjectContent } from '@/lib/projects/analysis'
+import { normalizeDraftCollectionLifecycle } from '@/lib/projects/lifecycle'
 
 const LAST_OPEN_PROJECT_ID_KEY = 'rhyme-lines:last-open-project-id'
 
@@ -33,6 +37,7 @@ export interface ProjectSummary {
   folderName?: string | null
   wordCount: number
   lineCount: number
+  totalSyllables: number
   rhymeDensity: number
   internalRhymes: number
   endRhymeFamilyCount: number
@@ -136,6 +141,7 @@ const toSummary = (project: ProjectDocument, folders: ProjectFolder[]): ProjectS
     folderName: folders.find((folder) => folder.id === project.folderId)?.name ?? null,
     wordCount: countWords(project.content),
     lineCount: countLines(project.content),
+    totalSyllables: analysis.totalSyllables,
     rhymeDensity: analysis.rhymeDensity,
     internalRhymes: analysis.internalRhymes,
     endRhymeFamilyCount: analysis.endRhymeFamilyCount,
@@ -166,9 +172,13 @@ const toDraft = (project: ProjectDocument, previous?: DraftSchema): DraftSchema 
   }
 }
 
-const readCollection = (): DraftCollection => readWithMigrations('drafts').data
+const readCollection = (): DraftCollection => getAuthoritativeDraftCollection()
 
-const writeCollection = (collection: DraftCollection) => writeVersioned('drafts', collection)
+const writeCollection = (collection: DraftCollection): DraftCollection => {
+  const normalized = normalizeDraftCollectionLifecycle(collection)
+  replaceAuthoritativeDraftCollection(normalized, { persist: 'immediate' })
+  return normalized
+}
 
 const toFolder = (folder: FolderSchema): ProjectFolder => ({
   id: folder.id,
@@ -258,9 +268,8 @@ export const createProject = (title = 'Untitled'): ProjectDocument => {
 export const deleteProject = (id: string): void => {
   const collection = readCollection()
   const drafts = collection.drafts.filter((draft) => draft.docId !== id)
-  const activeId = drafts.find((draft) => draft.docId === collection.activeId)?.docId ?? drafts[0]?.docId ?? ''
-  writeCollection({ drafts, activeId, folders: collection.folders ?? [] })
-  if (getLastOpenProjectId() === id) setLastOpenProjectId(activeId || null)
+  const next = writeCollection({ drafts, activeId: collection.activeId, folders: collection.folders ?? [] })
+  if (getLastOpenProjectId() === id) setLastOpenProjectId(next.activeId)
 }
 
 export const setLastOpenProjectId = (id: string | null) => {
@@ -295,7 +304,8 @@ export const archiveProject = (id: string): void => {
       archivedAt,
     }
   })
-  writeCollection({ drafts, activeId: collection.activeId, folders: collection.folders ?? [] })
+  const next = writeCollection({ drafts, activeId: collection.activeId, folders: collection.folders ?? [] })
+  if (getLastOpenProjectId() === id) setLastOpenProjectId(next.activeId)
 }
 
 export const restoreProject = (id: string): void => {
@@ -344,11 +354,9 @@ export const moveProjectToTrash = (id: string): void => {
       deletedAt,
     }
   })
-  const nextActiveId =
-    collection.activeId === id ? drafts.find((draft) => draft.docId !== id && !draft.deletedAt)?.docId ?? '' : collection.activeId
-  writeCollection({ drafts, activeId: nextActiveId, folders: collection.folders ?? [] })
+  const next = writeCollection({ drafts, activeId: collection.activeId, folders: collection.folders ?? [] })
   if (getLastOpenProjectId() === id) {
-    setLastOpenProjectId(nextActiveId || null)
+    setLastOpenProjectId(next.activeId)
   }
 }
 
@@ -369,9 +377,8 @@ export const restoreProjectFromTrash = (id: string): void => {
 export const permanentlyDeleteProject = (id: string): void => {
   const collection = readCollection()
   const drafts = collection.drafts.filter((draft) => draft.docId !== id)
-  const activeId = drafts.find((draft) => draft.docId === collection.activeId && !draft.deletedAt)?.docId ?? drafts.find((draft) => !draft.deletedAt)?.docId ?? ''
-  writeCollection({ drafts, activeId, folders: collection.folders ?? [] })
-  if (getLastOpenProjectId() === id) setLastOpenProjectId(activeId || null)
+  const next = writeCollection({ drafts, activeId: collection.activeId, folders: collection.folders ?? [] })
+  if (getLastOpenProjectId() === id) setLastOpenProjectId(next.activeId)
 }
 
 export const listFolders = (): ProjectFolder[] => {

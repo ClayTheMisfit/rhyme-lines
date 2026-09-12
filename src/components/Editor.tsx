@@ -26,7 +26,6 @@ import type { SelectionSnapshot } from '@/editor/types'
 import { restoreSelection as restoreEditorSelection } from '@/editor/selection/restoreSelection'
 
 const PLACEHOLDER_TEXT = 'Start writing…'
-const ANALYSIS_DOC_ID = 'rhyme-editor'
 const DEBUG_EDITOR = process.env.NEXT_PUBLIC_DEBUG_EDITOR === '1'
 const DEBUG_ACTIVE_LINE = process.env.NEXT_PUBLIC_DEBUG_ACTIVE_LINE === '1'
 const LINE_HIGHLIGHT_DEBOUNCE_MS = 50
@@ -45,6 +44,7 @@ const ACTIVE_LINE_TUNING = {
 }
 
 type EditorProps = {
+  documentId?: string
   text?: string
   onTextChange?: (text: string) => void
   onDirtyChange?: (dirty: boolean) => void
@@ -59,7 +59,7 @@ export type EditorHandle = {
 }
 
 const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { text = '', onTextChange = () => {}, onDirtyChange, onCursorChange, hydrated = false },
+  { documentId = 'standalone-editor', text = '', onTextChange = () => {}, onDirtyChange, onCursorChange, hydrated = false },
   ref
 ) {
   const editorRef = useRef<HTMLDivElement>(null)
@@ -142,7 +142,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   useBadgeShortcuts()
 
-  const { analysis, analysisMode, scheduleAnalysis, metrics } = useAnalysisWorker(ANALYSIS_DOC_ID)
+  const { analysis, analysisMode, scheduleAnalysis, metrics } = useAnalysisWorker(documentId)
   const { activeLineIds, viewportRange } = useLineVirtualization({
     containerRef,
     lineElementsRef,
@@ -151,7 +151,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   })
   const overlayEnabled = showOverlays && badgeMode !== 'off'
   const { tokens, measurementMeta } = useOverlayMeasurement({
-    docId: ANALYSIS_DOC_ID,
+    docId: documentId,
     enabled: overlayEnabled,
     editorRef,
     containerRef,
@@ -811,7 +811,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       applyLineTotalsToDom([])
       return
     }
-    if (!analysis || analysis.docId !== ANALYSIS_DOC_ID) return
+    if (!analysis || analysis.docId !== documentId) return
     if (!analysisLinesRef.current.length) return
     const totals = analysisLinesRef.current.map((line) => analysis.lineTotals[line.id])
     const hasMissingNonEmptyTotal = totals.some(
@@ -822,7 +822,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       return
     }
     applyLineTotalsToDom(totals)
-  }, [analysis, applyLineTotalsToDom, scheduleAnalysis, showLineTotals])
+  }, [analysis, applyLineTotalsToDom, documentId, scheduleAnalysis, showLineTotals])
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production' && metrics) {

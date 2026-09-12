@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { openTestEditor } from './fixtures/project'
 
 test.describe('Editor typing regression', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
-    await page.waitForSelector('#lyric-editor')
+    await openTestEditor(page)
   })
 
   test('keystrokes stay on the same line and backspace removes characters', async ({ page }) => {

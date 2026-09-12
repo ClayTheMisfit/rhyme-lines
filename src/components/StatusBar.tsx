@@ -27,12 +27,20 @@ const countLines = (text: string) => {
 export default function StatusBar({ text, cursor }: StatusBarProps) {
   const { status } = useAutosaveStore((state) => ({ status: state.status }), shallow)
   const { highlightMode } = useRhymeHighlightSettingsStore((state) => ({ highlightMode: state.highlightMode }), shallow)
-  const saveLabel = status === 'saving' ? 'Saving…' : status === 'error' ? 'Save failed' : 'Saved'
+  const saveLabel = status === 'saving'
+    ? 'Saving…'
+    : status === 'error'
+      ? 'Save failed'
+      : status === 'dirty'
+        ? 'Unsaved changes'
+        : 'Saved'
   const saveToneClass =
     status === 'error'
       ? 'text-rose-400/90'
       : status === 'saving'
         ? 'text-amber-300/90'
+        : status === 'dirty'
+          ? 'text-amber-300/90'
         : 'text-[color:var(--rl-shell-muted)]'
 
   return (

@@ -1,10 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { openTestEditor } from './fixtures/project'
 
 test.describe('Line totals gutter', () => {
   test('renders totals after blank lines', async ({ page }) => {
-    await page.goto('/')
-
-    const editor = page.locator('#lyric-editor')
+    const editor = await openTestEditor(page)
     await editor.click()
     await editor.type('spin test')
     await editor.press('Enter')
@@ -25,9 +24,7 @@ test.describe('Line totals gutter', () => {
   })
 
   test('persists per-line totals after inserting new lines', async ({ page }) => {
-    await page.goto('/')
-
-    const editor = page.locator('#lyric-editor')
+    const editor = await openTestEditor(page)
     await editor.click()
     await editor.type('spin spin')
 
@@ -50,9 +47,7 @@ test.describe('Line totals gutter', () => {
   })
 
   test('keeps gutter rows vertically aligned with editor line boxes', async ({ page }) => {
-    await page.goto('/')
-
-    const editor = page.locator('#lyric-editor')
+    const editor = await openTestEditor(page)
     await editor.click()
     await page.keyboard.insertText(
       `tag bag flag rag gag wag

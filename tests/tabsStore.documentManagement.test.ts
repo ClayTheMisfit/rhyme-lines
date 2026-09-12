@@ -1,5 +1,6 @@
 import { buildDraftCollection, getOrderedTabs, useTabsStore } from '@/store/tabsStore'
 import type { DraftCollection } from '@/lib/persist/schema'
+import { getDraftPersistenceRevision } from '@/lib/persist/draftCoordinator'
 
 const makeDraft = (id: string, title: string, updatedAt: number, extra = {}) => ({
   docId: id,
@@ -10,7 +11,7 @@ const makeDraft = (id: string, title: string, updatedAt: number, extra = {}) => 
   ...extra,
 })
 
-const hydrate = (drafts: DraftCollection['drafts'], activeId = drafts[0]?.docId ?? '') => {
+const hydrate = (drafts: DraftCollection['drafts'], activeId: string | null = drafts[0]?.docId ?? null) => {
   useTabsStore.getState().actions.hydrate({ drafts, activeId, folders: [] })
 }
 
@@ -52,6 +53,33 @@ describe('tabs document management', () => {
     )
   })
 
+  it('does not advance an untouched document timestamp when another document changes', () => {
+    const previous: DraftCollection = {
+      drafts: [makeDraft('a', 'Alpha', 1000), makeDraft('b', 'Beta', 2000)],
+      activeId: 'a',
+      folders: [],
+    }
+    hydrate(previous.drafts, 'a')
+
+    useTabsStore.getState().actions.updateSnapshot('a', { text: 'Alpha changed' })
+    const collection = buildDraftCollection(useTabsStore.getState(), previous)
+
+    expect(collection.drafts.find((draft) => draft.docId === 'a')?.updatedAt).toBeGreaterThan(1000)
+    expect(collection.drafts.find((draft) => draft.docId === 'b')?.updatedAt).toBe(2000)
+  })
+
+  it('clears all persisted dirty markers without creating another collection revision', () => {
+    const actions = useTabsStore.getState().actions
+    actions.markDirty('a', true)
+    actions.markDirty('b', true)
+    const before = getDraftPersistenceRevision()
+
+    actions.markAllClean()
+
+    expect(useTabsStore.getState().tabs.every((tab) => !tab.isDirty)).toBe(true)
+    expect(getDraftPersistenceRevision()).toEqual(before)
+  })
+
   it('deletes the active document and selects the next visible document', () => {
     useTabsStore.getState().actions.setActive('b')
     useTabsStore.getState().actions.deleteTab('b')
@@ -59,15 +87,16 @@ describe('tabs document management', () => {
     expect(useTabsStore.getState().activeTabId).toBe('c')
   })
 
-  it('deleting the final document leaves a valid replacement and old autosave snapshots do not recreate deleted tabs', () => {
+  it('deleting the final document leaves an empty collection and old autosave snapshots do not recreate it', () => {
     hydrate([makeDraft('solo', 'Solo', 1000)], 'solo')
     useTabsStore.getState().actions.deleteTab('solo')
     const state = useTabsStore.getState()
-    expect(state.tabs).toHaveLength(1)
-    expect(state.activeTabId).toBe(state.tabs[0].id)
+    expect(state.tabs).toEqual([])
+    expect(state.activeTabId).toBeNull()
 
     const collection = buildDraftCollection(state, { drafts: [makeDraft('solo', 'Solo', 1000)], activeId: 'solo', folders: [] })
     expect(collection.drafts.map((draft) => draft.docId)).not.toContain('solo')
+    expect(collection.activeId).toBeNull()
   })
 
   it('migrates old drafts without pin or position fields safely', () => {
