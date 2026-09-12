@@ -8,12 +8,18 @@ import {
   type SettingsSchema,
 } from './schema'
 import { readWithMigrations } from './storage'
+import type { PersistenceLoadStatus, VersionedResult } from './migrations'
 import { applySettingsDefaults, SETTINGS_DEFAULTS } from './settingsDefaults'
 
 export interface PersistedAppState {
   settings: SettingsSchema
   drafts: DraftCollection
   panel: PanelSchema
+  hydration: {
+    settings: PersistenceLoadStatus
+    drafts: PersistenceLoadStatus
+    panel: PersistenceLoadStatus
+  }
 }
 
 const clonePanelState = (panel: PanelSchema): PanelSchema => ({
@@ -29,31 +35,46 @@ const clonePanelState = (panel: PanelSchema): PanelSchema => ({
   multiSyllablePerfect: panel.multiSyllablePerfect,
 })
 
-const getDefaultAppState = (): PersistedAppState => ({
+const getDefaultAppState = (status: PersistenceLoadStatus = 'missing'): PersistedAppState => ({
   settings: applySettingsDefaults(SETTINGS_DEFAULTS),
   drafts: createDefaultDraftCollection(),
   panel: clonePanelState(DEFAULT_PANEL_STATE),
+  hydration: { settings: status, drafts: status, panel: status },
 })
+
+const readSlice = <T>(read: () => VersionedResult<T>, fallback: T): VersionedResult<T> => {
+  try {
+    return read()
+  } catch {
+    return {
+      version: 0,
+      data: fallback,
+      status: 'unavailable',
+    }
+  }
+}
 
 export function loadPersistedAppState(): PersistedAppState {
   if (!isClient()) {
     if (process.env.NODE_ENV === 'development') {
       assertClientOnly('persist:load-state')
     }
-    return getDefaultAppState()
+    return getDefaultAppState('unavailable')
   }
 
-  try {
-    const settingsResult = readWithMigrations('settings')
-    const draftsResult = readWithMigrations('drafts')
-    const panelResult = readWithMigrations('panel')
+  const defaults = getDefaultAppState()
+  const settingsResult = readSlice(() => readWithMigrations('settings'), defaults.settings)
+  const draftsResult = readSlice(() => readWithMigrations('drafts'), defaults.drafts)
+  const panelResult = readSlice(() => readWithMigrations('panel'), defaults.panel)
 
-    return {
-      settings: applySettingsDefaults(settingsResult.data),
-      drafts: draftsResult.data ?? createDefaultDraftCollection(),
-      panel: clonePanelState(panelResult.data ?? DEFAULT_PANEL_STATE),
-    }
-  } catch {
-    return getDefaultAppState()
+  return {
+    settings: applySettingsDefaults(settingsResult.data),
+    drafts: draftsResult.data,
+    panel: clonePanelState(panelResult.data),
+    hydration: {
+      settings: settingsResult.status,
+      drafts: draftsResult.status,
+      panel: panelResult.status,
+    },
   }
 }

@@ -1,9 +1,11 @@
 import { render, screen } from '@testing-library/react'
 import StatusBar from '@/components/StatusBar'
 
+let autosaveStatus = 'saved'
+
 jest.mock('@/store/autosaveStore', () => ({
   useAutosaveStore: (selector: (state: { status: string }) => unknown) =>
-    selector({ status: 'saved' }),
+    selector({ status: autosaveStatus }),
 }))
 
 jest.mock('@/store/rhymeHighlightSettingsStore', () => ({
@@ -12,6 +14,18 @@ jest.mock('@/store/rhymeHighlightSettingsStore', () => ({
 }))
 
 describe('StatusBar line metrics', () => {
+  beforeEach(() => {
+    autosaveStatus = 'saved'
+  })
+
+  test('does not describe a dirty revision as saved', () => {
+    autosaveStatus = 'dirty'
+    render(<StatusBar text="changed" cursor={null} />)
+
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument()
+  })
+
   test('shows 0 lines for truly empty text', () => {
     render(<StatusBar text="" cursor={null} />)
 

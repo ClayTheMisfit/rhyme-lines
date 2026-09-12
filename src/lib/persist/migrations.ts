@@ -13,13 +13,19 @@ import {
   createEmptyDraft,
   isRhymeHighlightMode,
 } from './schema'
+import { isEditorVisibleDraft, resolveActiveDraftId } from '@/lib/projects/lifecycle'
 import { migrateOldContent } from '../editor/serialization'
 
-export type StoredValueCandidate = { key: string; value: string }
+export type StoredValueCandidate = { key: string; value: string; allowRawText?: boolean }
+
+export type PersistenceLoadStatus = 'ok' | 'missing' | 'invalid' | 'unavailable'
 
 export interface VersionedResult<T> {
   version: number
   data: T
+  status: PersistenceLoadStatus
+  sourceKeys?: string[]
+  writable?: boolean
 }
 
 export function safeParseJSON<T>(raw: string | null, fallback: T): T {
@@ -28,6 +34,14 @@ export function safeParseJSON<T>(raw: string | null, fallback: T): T {
     return JSON.parse(raw) as T
   } catch {
     return fallback
+  }
+}
+
+const tryParseJSON = (raw: string): { ok: true; value: unknown } | { ok: false } => {
+  try {
+    return { ok: true, value: JSON.parse(raw) as unknown }
+  } catch {
+    return { ok: false }
   }
 }
 
@@ -190,12 +204,11 @@ const normalizeDraftCollection = (value: unknown): DraftCollection => {
   }
 
   const draftsSource = Array.isArray(value.drafts) ? value.drafts : []
-  const drafts =
-    draftsSource.length > 0
-      ? draftsSource.map((draft, index) => normalizeDraft(draft, `draft-${index}`))
-      : createDefaultDraftCollection().drafts
-
-  const activeId = toStringValue(value.activeId) ?? drafts[0]?.docId ?? createDefaultDraftCollection().activeId
+  const drafts = draftsSource.map((draft, index) => normalizeDraft(draft, `draft-${index}`))
+  const storedActiveId = toStringValue(value.activeId)
+  const requestedActiveId = storedActiveId
+    ?? (value.activeId === null ? null : drafts.find(isEditorVisibleDraft)?.docId ?? null)
+  const activeId = resolveActiveDraftId(drafts, requestedActiveId)
   const foldersSource = Array.isArray(value.folders) ? value.folders : []
   const folders = foldersSource
     .map((folder, index) => normalizeFolder(folder, index))
@@ -236,10 +249,22 @@ const normalizePanel = (value: unknown): PanelSchema => {
   }
 }
 
-const parseCandidates = (candidates: StoredValueCandidate[]): unknown => {
+const parseRecordCandidate = (
+  candidates: StoredValueCandidate[]
+): { value: Record<string, unknown>; sourceKey: string } | null => {
   for (const candidate of candidates) {
-    const parsed = safeParseJSON<unknown>(candidate.value, null as unknown as null)
-    if (parsed !== null) return parsed
+    const parsed = tryParseJSON(candidate.value)
+    if (!parsed.ok || !isRecord(parsed.value)) continue
+    const value = parsed.value
+    if ('data' in value) {
+      if (isRecord(value.data)) return { value: value.data, sourceKey: candidate.key }
+      continue
+    }
+    if ('state' in value) {
+      if (isRecord(value.state)) return { value: value.state, sourceKey: candidate.key }
+      continue
+    }
+    return { value, sourceKey: candidate.key }
   }
   return null
 }
@@ -248,22 +273,17 @@ export function migrateSettings(candidates: StoredValueCandidate[]): VersionedRe
   const fallback: VersionedResult<SettingsSchema> = {
     version: CURRENT_SCHEMA_VERSION,
     data: { ...DEFAULT_SETTINGS, lastUpdatedAt: Date.now(), rhymeFilters: { ...DEFAULT_RHYME_FILTERS } },
+    status: candidates.length ? 'invalid' : 'missing',
   }
 
   if (!candidates.length) return fallback
 
-  const parsed = parseCandidates(candidates)
-  if (!parsed || !isRecord(parsed)) {
-    return fallback
-  }
+  const candidate = parseRecordCandidate(candidates)
+  if (!candidate) return fallback
 
+  const parsed = candidate.value
   let version = isFiniteNumber(parsed.version) ? parsed.version : 0
-  let workingData: unknown = 'data' in parsed ? (parsed as Record<string, unknown>).data : parsed
-
-  if (!version && 'state' in parsed) {
-    version = 0
-    workingData = (parsed as { state?: unknown }).state
-  }
+  const workingData: unknown = parsed
 
   let normalized = normalizeSettings(workingData)
   if (version === 0) {
@@ -276,7 +296,7 @@ export function migrateSettings(candidates: StoredValueCandidate[]): VersionedRe
     version = 2
   }
 
-  return { version: CURRENT_SCHEMA_VERSION, data: normalized }
+  return { version: CURRENT_SCHEMA_VERSION, data: normalized, status: 'ok', sourceKeys: [candidate.sourceKey] }
 }
 
 const buildDraftFromText = (text: string): DraftCollection => {
@@ -304,7 +324,7 @@ const migrateLegacyTabs = (value: unknown): DraftCollection => {
 
   const tabs = Array.isArray(value.tabs) ? value.tabs : []
   const activeTabId = toStringValue(value.activeTabId)
-  if (!tabs.length) return createDefaultDraftCollection()
+  if (!tabs.length) return { drafts: [], activeId: null, folders: [] }
 
   const drafts: DraftSchema[] = tabs.map((tab, index) => {
     if (!isRecord(tab)) return createEmptyDraft(`draft-${index}`)
@@ -334,55 +354,67 @@ const migrateLegacyTabs = (value: unknown): DraftCollection => {
     }
   })
 
-  const activeId = drafts.find((draft) => draft.docId === activeTabId)?.docId ?? drafts[0]?.docId ?? activeTabId ?? ''
-  return drafts.length ? { drafts, activeId, folders: [] } : createDefaultDraftCollection()
+  const activeId = resolveActiveDraftId(drafts, activeTabId ?? drafts[0]?.docId ?? null)
+  return { drafts, activeId, folders: [] }
 }
 
 export function migrateDrafts(candidates: StoredValueCandidate[]): VersionedResult<DraftCollection> {
-  const fallback = { version: CURRENT_SCHEMA_VERSION, data: createDefaultDraftCollection() }
+  const fallback: VersionedResult<DraftCollection> = {
+    version: CURRENT_SCHEMA_VERSION,
+    data: createDefaultDraftCollection(),
+    status: candidates.length ? 'invalid' : 'missing',
+  }
   if (!candidates.length) return fallback
 
   for (const candidate of candidates) {
-    const parsed = safeParseJSON<unknown>(candidate.value, null as unknown as null)
-    if (parsed !== null) {
-      if (isRecord(parsed) && (parsed.tabs || parsed.activeTabId)) {
+    const parsedResult = tryParseJSON(candidate.value)
+    if (parsedResult.ok) {
+      const parsed = parsedResult.value
+      if (isRecord(parsed) && (Array.isArray(parsed.tabs) || typeof parsed.activeTabId === 'string')) {
         const migrated = migrateLegacyTabs(parsed)
-        return { version: CURRENT_SCHEMA_VERSION, data: migrated }
+        return { version: CURRENT_SCHEMA_VERSION, data: migrated, status: 'ok', sourceKeys: [candidate.key] }
       }
 
-      if (isRecord(parsed) && ('drafts' in parsed || 'activeId' in parsed || 'version' in parsed)) {
+      if (isRecord(parsed)) {
         const version = isFiniteNumber(parsed.version) ? parsed.version : 1
         const data = 'data' in parsed ? (parsed as Record<string, unknown>).data : parsed
-
-        let normalized = normalizeDraftCollection(data)
-        if (version === 1) {
-          normalized = normalizeDraftCollection({ ...normalized })
+        if (isRecord(data) && Array.isArray(data.drafts)) {
+          let normalized = normalizeDraftCollection(data)
+          if (version === 1) {
+            normalized = normalizeDraftCollection({ ...normalized })
+          }
+          return { version: CURRENT_SCHEMA_VERSION, data: normalized, status: 'ok', sourceKeys: [candidate.key] }
         }
-        return { version: CURRENT_SCHEMA_VERSION, data: normalized }
       }
     }
-  }
-
-  const textCandidate = candidates.find((candidate) => candidate.value && candidate.value.trim().length > 0)
-  if (textCandidate) {
-    return { version: CURRENT_SCHEMA_VERSION, data: buildDraftFromText(textCandidate.value) }
+    if (candidate.allowRawText && candidate.value.trim().length > 0) {
+      return {
+        version: CURRENT_SCHEMA_VERSION,
+        data: buildDraftFromText(candidate.value),
+        status: 'ok',
+        sourceKeys: [candidate.key],
+      }
+    }
   }
 
   return fallback
 }
 
-const mergePanelCandidates = (candidates: StoredValueCandidate[]): Record<string, unknown> => {
+const mergePanelCandidates = (
+  candidates: StoredValueCandidate[]
+): { value: Record<string, unknown>; sourceKeys: string[] } | null => {
   const merged: Record<string, unknown> = {}
+  const sourceKeys: string[] = []
   for (const candidate of candidates) {
-    const parsed = safeParseJSON<Record<string, unknown> | null>(candidate.value, null)
-    if (!parsed) continue
-    if ('state' in parsed) {
-      Object.assign(merged, (parsed as { state?: Record<string, unknown> }).state ?? {})
-    } else {
-      Object.assign(merged, parsed)
-    }
+    const parsedResult = tryParseJSON(candidate.value)
+    if (!parsedResult.ok || !isRecord(parsedResult.value)) continue
+    const parsed = parsedResult.value
+    const value = 'data' in parsed ? parsed.data : 'state' in parsed ? parsed.state : parsed
+    if (!isRecord(value)) continue
+    Object.assign(merged, value)
+    sourceKeys.push(candidate.key)
   }
-  return merged
+  return sourceKeys.length ? { value: merged, sourceKeys } : null
 }
 
 export function migratePanel(candidates: StoredValueCandidate[]): VersionedResult<PanelSchema> {
@@ -401,19 +433,21 @@ export function migratePanel(candidates: StoredValueCandidate[]): VersionedResul
       selectedIndex: DEFAULT_PANEL_STATE.selectedIndex,
       syllableFilter: DEFAULT_PANEL_STATE.syllableFilter,
     },
+    status: candidates.length ? 'invalid' : 'missing',
   }
   if (!candidates.length) return fallback
 
-  const merged = mergePanelCandidates(candidates)
-  if (!Object.keys(merged).length) return fallback
+  const candidate = mergePanelCandidates(candidates)
+  if (!candidate) return fallback
+  const merged = candidate.value
 
   const normalized = normalizePanel(merged)
   const version = isFiniteNumber((merged as { version?: number }).version) ? (merged as { version?: number }).version : 1
 
   if (version === 1) {
     const hydrated = normalizePanel({ ...normalized })
-    return { version: CURRENT_SCHEMA_VERSION, data: hydrated }
+    return { version: CURRENT_SCHEMA_VERSION, data: hydrated, status: 'ok', sourceKeys: candidate.sourceKeys }
   }
 
-  return { version: CURRENT_SCHEMA_VERSION, data: normalized }
+  return { version: CURRENT_SCHEMA_VERSION, data: normalized, status: 'ok', sourceKeys: candidate.sourceKeys }
 }

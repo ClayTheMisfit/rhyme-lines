@@ -76,7 +76,7 @@ export interface FolderSchema {
 
 export interface DraftCollection {
   drafts: DraftSchema[]
-  activeId: string
+  activeId: string | null
   folders?: FolderSchema[]
 }
 

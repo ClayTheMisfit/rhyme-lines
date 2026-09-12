@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { openTestEditor } from './fixtures/project'
 
 async function caretState(page: import('@playwright/test').Page) {
   return page.evaluate(() => {
@@ -28,8 +29,7 @@ async function caretState(page: import('@playwright/test').Page) {
 
 test.describe('Editor caret and input invariants', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
-    await page.waitForSelector('#lyric-editor')
+    await openTestEditor(page)
   })
 
   test('clicking focuses editor and shows caret', async ({ page }) => {
@@ -53,7 +53,7 @@ test.describe('Editor caret and input invariants', () => {
     const editor = page.locator('#lyric-editor')
     await editor.click()
 
-    await page.getByTitle('Toggle theme').click()
+    await page.getByRole('button', { name: 'Toggle theme' }).click()
     await editor.click()
 
     const state = await caretState(page)

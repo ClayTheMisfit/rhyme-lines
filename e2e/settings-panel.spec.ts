@@ -1,17 +1,20 @@
 import { expect, test } from '@playwright/test'
+import { openTestEditor } from './fixtures/project'
 
 const SETTINGS_STORAGE_KEY = 'rhyme-lines:persist:settings'
 
 test.describe('Settings panel', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
-    await page.waitForSelector('#lyric-editor')
+    await openTestEditor(page)
   })
 
   test('allows interaction and closes via button, escape, and backdrop', async ({ page }) => {
-    const settingsButton = page.getByTestId('settings-trigger')
+    const openSettings = async () => {
+      await page.getByRole('button', { name: 'More actions' }).click()
+      await page.getByRole('button', { name: 'Editor settings' }).click()
+    }
 
-    await settingsButton.click()
+    await openSettings()
     const dialog = page.getByTestId('settings-panel')
     await expect(dialog).toBeVisible()
 
@@ -24,12 +27,7 @@ test.describe('Settings panel', () => {
     const initialFontSize = Number(await fontSizeSlider.inputValue())
     const nextFontSize = initialFontSize < 28 ? initialFontSize + 1 : initialFontSize - 1
 
-    await fontSizeSlider.evaluate((node, value) => {
-      const slider = node as HTMLInputElement
-      slider.value = String(value)
-      slider.dispatchEvent(new Event('input', { bubbles: true }))
-      slider.dispatchEvent(new Event('change', { bubbles: true }))
-    }, nextFontSize)
+    await fontSizeSlider.fill(String(nextFontSize))
 
     await expect(fontSizeSlider).toHaveJSProperty('value', String(nextFontSize))
     await expect(dialog.locator('label[for="font-size-slider"]')).toHaveText(`${nextFontSize} px`)
@@ -61,12 +59,12 @@ test.describe('Settings panel', () => {
     await dialog.getByTestId('settings-close').click()
     await expect(dialog).toBeHidden()
 
-    await settingsButton.click()
+    await openSettings()
     await expect(dialog).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(dialog).toBeHidden()
 
-    await settingsButton.click()
+    await openSettings()
     await expect(dialog).toBeVisible()
     const overlay = page.getByTestId('settings-overlay')
     const overlayBox = await overlay.boundingBox()

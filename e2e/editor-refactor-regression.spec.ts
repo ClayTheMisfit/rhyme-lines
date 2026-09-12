@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test'
+import { openTestEditor } from './fixtures/project'
 
 test.describe('Editor refactor regressions', () => {
   test.beforeEach(async ({ page }) => {
     await page.context().grantPermissions(['clipboard-write', 'clipboard-read'])
-    await page.goto('/')
-    await page.waitForSelector('#lyric-editor')
+    await openTestEditor(page)
   })
 
   test('typing does not jump caret', async ({ page }) => {

@@ -8,6 +8,9 @@ jest.mock('@/components/TopBar', () => function MockTopBar() {
 jest.mock('@/components/EditorShell', () => function MockEditorShell() {
   return <div data-testid="editor-shell">Editor</div>
 })
+jest.mock('@/hooks/useAppStateHydration', () => ({
+  useAppStateHydration: () => ({ state: 'ready', draftsStatus: 'ok' }),
+}))
 
 const setActive = jest.fn()
 const newTab = jest.fn()

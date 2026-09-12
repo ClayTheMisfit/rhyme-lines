@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { openTestEditor } from './fixtures/project'
 
 async function editorLayoutMetrics(page: Page) {
   return page.evaluate(() => {
@@ -33,28 +34,20 @@ async function editorLayoutMetrics(page: Page) {
 }
 
 
-async function openFreshEditor(page: Page) {
-  await page.goto('/')
-
-  const newProjectButton = page.getByRole('button', { name: /new project/i })
-  await expect(newProjectButton).toBeVisible()
-
-  await Promise.all([
-    page.waitForURL(/\/editor\/[^/?#]+(?:[?#].*)?$/),
-    newProjectButton.click(),
-  ])
-
-  await expect(page.locator('#lyric-editor')).toBeVisible()
-}
-
 test.describe('editor writing surface width', () => {
   test('uses available width on wide screens and restores after docked rhyme panel closes', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 })
-    await openFreshEditor(page)
+    await openTestEditor(page)
 
     const editor = page.locator('#lyric-editor')
     await editor.click()
     await editor.fill('one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty')
+
+    const panel = page.locator('[data-testid="rhyme-panel"]')
+    if (await panel.isVisible()) {
+      await panel.getByRole('button', { name: 'Close panel', exact: true }).click()
+      await page.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--panel-right-offset').trim() === '0px')
+    }
 
     const full = await editorLayoutMetrics(page)
     expect(full.rootMaxWidth).toBe('none')
@@ -67,20 +60,21 @@ test.describe('editor writing surface width', () => {
     const toggle = page.getByRole('button', { name: /rhyme panel/i })
     await expect(toggle).toHaveCount(1)
 
-    const panel = page.locator('[data-testid="rhyme-panel"]')
     if (!(await panel.isVisible())) {
       await toggle.click()
     }
     await expect(panel).toBeVisible()
     await page.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--panel-right-offset').trim() !== '0px')
+    await expect.poll(async () => (await editorLayoutMetrics(page)).surfaceWidth).toBeLessThan(full.surfaceWidth - 100)
 
     const docked = await editorLayoutMetrics(page)
     expect(docked.surfaceWidth).toBeLessThan(full.surfaceWidth - 100)
     expect(docked.surfaceWidth).toBeGreaterThan(760)
 
-    await toggle.click()
-    await expect(panel).toBeHidden()
+    await panel.getByRole('button', { name: 'Close panel', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Show rhyme panel', exact: true })).toBeVisible()
     await page.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--panel-right-offset').trim() === '0px')
+    await expect.poll(async () => Math.abs((await editorLayoutMetrics(page)).surfaceWidth - full.surfaceWidth)).toBeLessThanOrEqual(2)
 
     const restored = await editorLayoutMetrics(page)
     expect(restored.surfaceWidth).toBeGreaterThan(1120)
@@ -89,7 +83,7 @@ test.describe('editor writing surface width', () => {
 
   test('shrinks fluidly below the previous fixed text-column minimum', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 })
-    await openFreshEditor(page)
+    await openTestEditor(page)
 
     const metrics = await editorLayoutMetrics(page)
     expect(metrics.gridTemplateColumns).not.toContain('760px')

@@ -1,80 +1,34 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { openTestEditor } from './fixtures/project'
 
-/**
- * E2E test to prevent regressions where the editor header gets cut off
- * when the Rhyme Suggestions panel is open.
- * 
- * This test guards against the header clipping bug where opening the
- * rhyme panel caused the header to lose vertical breathing room.
- */
-test.describe('Editor Header Height Regression', () => {
-  test('keeps header height consistent when rhyme panel is toggled', async ({ page }) => {
-    // Navigate to the editor page
-    await page.goto('/')
+test.describe('Editor header height regression', () => {
+  test('keeps header height consistent when the rhyme panel is toggled', async ({ page }) => {
+    await openTestEditor(page)
 
-    // Wait for the header to render
-    const header = page.locator('[data-testid="editor-header"]')
+    const header = page.getByTestId('editor-header')
+    const panel = page.getByTestId('rhyme-panel')
     await expect(header).toBeVisible()
 
-    // Get panel and toggle button locators
-    const panel = page.locator('[data-testid="rhyme-panel"]')
-    const toggleButton = page.locator('[data-testid="toggle-rhyme-panel"]')
-    await expect(toggleButton).toBeVisible()
-
-    // Wait for initial render and any animations
-    await page.waitForTimeout(500)
-
-    // Determine initial panel state and ensure it's closed first
-    // The panel might be open by default (isOpen: true in state)
-    // When closed, the panel returns null and won't be in the DOM
-    const initialPanelCount = await panel.count()
-    const isPanelInitiallyOpen = initialPanelCount > 0
-    
-    if (isPanelInitiallyOpen) {
-      // Close the panel first to measure header in closed state
-      await toggleButton.click()
-      await page.waitForTimeout(500) // Wait for transition and DOM update
-      
-      // Verify panel is closed (it should not be in DOM - returns null)
-      const panelCountAfterClose = await panel.count()
-      expect(panelCountAfterClose).toBe(0)
-      await page.waitForTimeout(300)
+    if (await panel.isVisible()) {
+      await page.getByRole('button', { name: 'Hide rhyme panel', exact: true }).click()
+      await page.waitForFunction(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--panel-right-offset').trim() === '0px'
+      )
     }
 
-    // Measure header height when panel is closed
-    const headerBoxClosed = await header.boundingBox()
-    expect(headerBoxClosed).not.toBeNull()
-    const headerHeightClosed = headerBoxClosed!.height
-    expect(headerHeightClosed).toBeGreaterThan(0)
+    const closed = await header.boundingBox()
+    expect(closed).not.toBeNull()
 
-    // Open the rhyme panel by clicking the toggle button
-    await toggleButton.click()
+    await page.getByRole('button', { name: 'Show rhyme panel', exact: true }).click()
+    await expect(panel).toBeVisible()
+    await page.waitForFunction(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--panel-right-offset').trim() !== '0px'
+    )
 
-    // Wait for the panel to appear (it should be in DOM and visible)
-    await expect(panel).toBeVisible({ timeout: 5000 })
-
-    // Wait a bit for any layout transitions to complete
-    await page.waitForTimeout(300)
-
-    // Measure header height when panel is open
-    const headerBoxOpen = await header.boundingBox()
-    expect(headerBoxOpen).not.toBeNull()
-    const headerHeightOpen = headerBoxOpen!.height
-
-    // Assert that the header heights are effectively the same
-    // Allowing a 1px tolerance for potential rounding differences
-    const heightDifference = Math.abs(headerHeightClosed - headerHeightOpen)
-    expect(heightDifference).toBeLessThanOrEqual(1)
-
-    // Additional assertion: verify header is fully visible at the top
-    const viewportSize = page.viewportSize()
-    expect(viewportSize).not.toBeNull()
-    
-    // Header should be at the very top of the viewport
-    expect(headerBoxOpen!.y).toBeLessThanOrEqual(1)
-    
-    // Verify header is not clipped (top should be 0 or very close)
-    expect(headerBoxOpen!.y).toBeGreaterThanOrEqual(0)
+    const open = await header.boundingBox()
+    expect(open).not.toBeNull()
+    expect(Math.abs(closed!.height - open!.height)).toBeLessThanOrEqual(1)
+    expect(open!.y).toBeGreaterThanOrEqual(0)
+    expect(open!.y).toBeLessThanOrEqual(1)
   })
 })
-

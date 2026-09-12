@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { openTestEditor } from './fixtures/project'
 
 test.describe('Rhyme suggestions panel', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
-    await page.waitForSelector('#lyric-editor')
+    await openTestEditor(page)
     const toggle = page.getByTitle(/rhyme panel/i)
     const panel = page.locator('[data-testid="rhyme-panel"]')
     if (!(await panel.isVisible())) {
@@ -14,11 +14,9 @@ test.describe('Rhyme suggestions panel', () => {
 
   test('loads rhyme suggestions for typed query', async ({ page }) => {
     const panel = page.locator('[data-testid="rhyme-panel"]')
-    const searchInput = panel.getByPlaceholder('Search')
+    const searchInput = panel.getByRole('textbox', { name: 'Type a word to get rhymes' })
 
     await searchInput.fill('day')
-    await page.waitForTimeout(400)
-
     const firstSuggestion = panel.locator('.thin-scrollbar button').first()
     await expect(firstSuggestion).toBeVisible({ timeout: 5000 })
   })
@@ -38,19 +36,11 @@ test.describe('Rhyme suggestions panel', () => {
     await expect(editor).toContainText('one two three four five')
   })
 
-  test('surfaces provider errors without breaking the editor', async ({ page }) => {
-    await page.route('https://api.datamuse.com/**', (route) =>
-      route.fulfill({ status: 500, body: 'forced failure' })
-    )
-    await page.route('https://rhymebrain.com/**', (route) =>
-      route.fulfill({ status: 500, body: 'forced failure' })
-    )
-
+  test('loads local suggestions without breaking editor input', async ({ page }) => {
     const panel = page.locator('[data-testid="rhyme-panel"]')
-    const searchInput = panel.getByPlaceholder('Search')
+    const searchInput = panel.getByRole('textbox', { name: 'Type a word to get rhymes' })
     await searchInput.fill('paper')
-
-    await expect(panel.getByText(/providers failed/i)).toBeVisible({ timeout: 5000 })
+    await expect(panel.getByRole('listbox', { name: 'Rhyme suggestions' })).toBeVisible()
 
     const editor = page.locator('#lyric-editor')
     await editor.click()

@@ -13,7 +13,7 @@ import {
   type RhymeTargetsDebug,
 } from '@/lib/rhyme-db/queryRhymes'
 
-type InitMsg = { type: 'init'; baseUrl: string }
+type InitMsg = { type: 'init'; requestId: string; baseUrl: string }
 
 type GetRhymesMsg = {
   type: 'getRhymes'
@@ -24,11 +24,11 @@ type GetRhymesMsg = {
   context?: RhymeQueryContext
 }
 
-type InitOk = { type: 'init:ok'; warning?: string; status?: RhymeDbLoadStatus }
+type InitOk = { type: 'init:ok'; requestId: string; warning?: string; status?: RhymeDbLoadStatus }
 
 type WorkerErrorPayload = { message: string; code?: 'DB_UNAVAILABLE' }
 
-type InitErr = { type: 'init:err'; error: WorkerErrorPayload }
+type InitErr = { type: 'init:err'; requestId: string; error: WorkerErrorPayload }
 
 type RhymesOk = {
   type: 'getRhymes:ok'
@@ -280,7 +280,10 @@ const loadDb = async () => {
 
 const ensureInit = async () => {
   if (!initPromise) {
-    initPromise = loadDb()
+    initPromise = loadDb().catch((error) => {
+      initPromise = null
+      throw error
+    })
   }
   return initPromise
 }
@@ -295,14 +298,14 @@ self.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
     baseUrl = message.baseUrl
     ensureInit()
       .then(() => {
-        post({ type: 'init:ok', warning: initWarning ?? undefined, status: loadStatus ?? undefined })
+        post({ type: 'init:ok', requestId: message.requestId, warning: initWarning ?? undefined, status: loadStatus ?? undefined })
       })
       .catch((error: Error) => {
         const payload: WorkerErrorPayload = {
           message: error.message,
           code: (error as Error & { code?: 'DB_UNAVAILABLE' }).code,
         }
-        post({ type: 'init:err', error: payload })
+        post({ type: 'init:err', requestId: message.requestId, error: payload })
       })
     return
   }
