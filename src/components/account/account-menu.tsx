@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { signOut } from 'next-auth/react'
+import { pauseCloudSyncForSignOut } from '@/lib/cloud-sync/client'
 
-type Profile = { name: string | null; email: string | null }
+type Profile = { id: string; name: string | null; email: string | null }
 const control = 'rounded-md px-3 py-2 text-xs text-white/80 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]'
 
 export function AccountMenu() {
@@ -43,6 +44,7 @@ export function AccountMenu() {
       if (!response?.url || new URL(response.url, window.location.origin).pathname.startsWith('/api/auth/error')) {
         throw new Error('Sign out failed')
       }
+      pauseCloudSyncForSignOut()
       setUser(null)
       setError(false)
     } catch {

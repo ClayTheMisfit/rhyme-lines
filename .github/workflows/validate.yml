@@ -12,6 +12,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: rhyme_lines
+          POSTGRES_PASSWORD: rhyme_lines_test
+          POSTGRES_DB: rhyme_lines_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rhyme_lines -d rhyme_lines_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://rhyme_lines:rhyme_lines_test@localhost:5432/rhyme_lines_test
+      AUTH_SECRET: ci-only-auth-secret-with-at-least-thirty-two-characters
+      AUTH_GOOGLE_ID: ci-placeholder-not-used
+      AUTH_GOOGLE_SECRET: ci-placeholder-not-used
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -28,6 +49,9 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -36,6 +60,9 @@ jobs:
 
       - name: Unit tests
         run: npm test -- --runInBand --silent
+
+      - name: Database integration tests
+        run: npm run test:db
 
       - name: Production build
         run: npm run build

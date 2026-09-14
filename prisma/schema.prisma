@@ -8,15 +8,46 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accounts      Account[]
-  sessions      Session[]
+  id             String          @id @default(cuid())
+  name           String?
+  email          String?         @unique
+  emailVerified  DateTime?
+  image          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  accounts       Account[]
+  sessions       Session[]
+  cloudDocuments CloudDocument[]
+}
+
+enum CloudDocumentLifecycle {
+  ACTIVE
+  ARCHIVED
+  TRASHED
+  DELETED
+}
+
+model CloudDocument {
+  id                 String                 @id @default(cuid())
+  userId             String
+  clientDocumentId   String
+  title              String                 @db.VarChar(100)
+  content            Json
+  clientCreatedAt    DateTime
+  clientUpdatedAt    DateTime
+  lifecycle          CloudDocumentLifecycle @default(ACTIVE)
+  lifecycleChangedAt DateTime?
+  isPinned           Boolean                @default(false)
+  position           Float
+  revision           Int                    @default(1)
+  deletedAt          DateTime?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientDocumentId])
+  @@index([userId, lifecycle])
+  @@index([userId, updatedAt])
 }
 
 model Account {

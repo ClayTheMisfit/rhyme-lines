@@ -11,8 +11,8 @@ export async function GET() {
   }
   try {
     const user = await getCurrentUser()
-    // The account UI does not need the stable internal ID.
-    return Response.json({ user: user ? { name: user.name, email: user.email } : null }, { headers })
+    // The client uses this non-secret ID only to partition local sync associations by account.
+    return Response.json({ user: user ? { id: user.id, name: user.name, email: user.email } : null }, { headers })
   } catch (error) {
     if (error instanceof AuthConfigurationError) console.error(error.message)
     return Response.json({ error: 'Account unavailable. You can keep writing locally.' }, { status: 503, headers })

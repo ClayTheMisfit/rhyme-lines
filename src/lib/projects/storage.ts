@@ -5,6 +5,7 @@ import {
 } from '@/lib/persist/draftCoordinator'
 import { analyzeProjectContent } from '@/lib/projects/analysis'
 import { normalizeDraftCollectionLifecycle } from '@/lib/projects/lifecycle'
+import { recordPermanentDeletionAfterLocalAck } from '@/lib/cloud-sync/client'
 
 const LAST_OPEN_PROJECT_ID_KEY = 'rhyme-lines:last-open-project-id'
 
@@ -174,9 +175,10 @@ const toDraft = (project: ProjectDocument, previous?: DraftSchema): DraftSchema 
 
 const readCollection = (): DraftCollection => getAuthoritativeDraftCollection()
 
-const writeCollection = (collection: DraftCollection): DraftCollection => {
+const writeCollection = (collection: DraftCollection, onAcknowledged?: () => void): DraftCollection => {
   const normalized = normalizeDraftCollectionLifecycle(collection)
-  replaceAuthoritativeDraftCollection(normalized, { persist: 'immediate' })
+  const result = replaceAuthoritativeDraftCollection(normalized, { persist: 'immediate' })
+  if (result?.ok) onAcknowledged?.()
   return normalized
 }
 
@@ -377,7 +379,10 @@ export const restoreProjectFromTrash = (id: string): void => {
 export const permanentlyDeleteProject = (id: string): void => {
   const collection = readCollection()
   const drafts = collection.drafts.filter((draft) => draft.docId !== id)
-  const next = writeCollection({ drafts, activeId: collection.activeId, folders: collection.folders ?? [] })
+  const next = writeCollection(
+    { drafts, activeId: collection.activeId, folders: collection.folders ?? [] },
+    () => recordPermanentDeletionAfterLocalAck(id)
+  )
   if (getLastOpenProjectId() === id) setLastOpenProjectId(next.activeId)
 }
 
