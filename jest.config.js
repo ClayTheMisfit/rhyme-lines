@@ -6,6 +6,7 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testRegex: ['(tests|scripts|src)/.*\\.(spec|test)\\.[tj]sx?$'],
   moduleNameMapper: {
+    '^next-auth/react$': '<rootDir>/tests/mocks/next-auth-react.ts',
     '^@/workers/createAnalysisWorker$': '<rootDir>/src/workers/createAnalysisWorker.mock.ts',
     '^@/lib/rhyme-db/rhymeWorkerClient$': '<rootDir>/src/lib/rhyme-db/rhymeWorkerClient.mock.ts',
     '^@/(.*)$': '<rootDir>/src/$1',

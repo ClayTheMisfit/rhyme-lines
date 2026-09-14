@@ -2,6 +2,8 @@
 
 Rhyme Lines is a local-first lyric and poetry editor for drafting lines with syllable analysis, rhyme highlighting, rhyme suggestions, autosave, and keyboard-first navigation.
 
+Accounts are optional. Anonymous users can open the dashboard, create projects, write, analyze rhymes, and autosave locally without authentication. Signing in establishes identity for future account-backed features; it does not upload, claim, or otherwise change local projects.
+
 A distraction-free lyric editor with real-time syllable analysis, rhyme tools, autosave, and a keyboard-first workflow.
 
 <!-- Future screenshot: add an editor preview asset here when the repository contains one. -->
@@ -153,9 +155,28 @@ Key implementation areas:
 
 ## Getting Started
 
+### Optional authentication setup
+
+Authentication uses Auth.js with Google OAuth, database-backed sessions, the Auth.js Prisma adapter, Prisma 7, and standard PostgreSQL. Copy `.env.example` to an ignored `.env` and provide:
+
+| Variable | Visibility | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | Server-only | Standard PostgreSQL connection URL |
+| `AUTH_SECRET` | Server-only | Auth.js signing/encryption secret; generate with `npx auth secret` |
+| `AUTH_GOOGLE_ID` | Server-only | Google OAuth client ID |
+| `AUTH_GOOGLE_SECRET` | Server-only | Google OAuth client secret |
+| `AUTH_URL` | Server-only, optional | Canonical origin override; usually inferred by Auth.js v5 |
+| `AUTH_TRUST_HOST` | Server-only, conditional | Set to `true` behind an unsupported trusted reverse proxy |
+
+Configure Google's authorized callback URL as `<AUTH_URL>/api/auth/callback/google`. Do not prefix any of these values with `NEXT_PUBLIC_`.
+
+Run `npm run db:generate` after installing dependencies, then `npm run db:migrate -- --name auth_foundation` against a development PostgreSQL database. Existing deployments can apply committed migrations with `npx prisma migrate deploy`. `npm run db:validate` validates the schema without connecting to PostgreSQL, and build/test do not require Google credentials or a live database.
+
+The App Router handler lives at `src/app/api/auth/[...nextauth]/route.ts`. `src/auth.ts` centralizes Auth.js and exposes database-session operations; `src/lib/auth/current-user.ts` is the canonical server-only identity accessor. Account UI receives only name/email, while provider tokens and session records remain server-side. Missing configuration leaves the local editor usable and makes authentication endpoints fail clearly.
+
 ### Prerequisites
 
-- Node.js `>=20`.
+- Node.js `>=22.12 <23`.
 - npm, using the committed `package-lock.json`.
 - A modern Chromium-compatible browser for local use and Playwright E2E tests.
 - `data/cmudict/cmudict.dict` must exist before running `npm run build:rhyme-db`, `npm run dev`, `npm run build`, or `npm run vercel-build`. The repository currently includes this file.

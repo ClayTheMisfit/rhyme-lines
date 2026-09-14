@@ -1,3 +1,5 @@
+import { AccountMenu } from '@/components/account/account-menu'
+
 type DashboardView = 'projects' | 'archived' | 'trash'
 
 type DashboardTopbarProps = {
@@ -89,6 +91,7 @@ export function DashboardTopbar({
           aria-label="Search projects"
         />
         <span className="hidden text-[10px] tracking-[0.05em] text-white/42 md:inline">Local-only workspace</span>
+        <AccountMenu />
       </div>
     </header>
   )

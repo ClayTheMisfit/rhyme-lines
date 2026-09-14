@@ -14,6 +14,7 @@ test.describe('Dashboard and editor routes', () => {
 
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Pick up where you left off' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible()
     await expect(page.getByText('Dashboard Draft', { exact: true }).first()).toBeVisible()
     await page.getByRole('link', { name: 'Open Dashboard Draft' }).click()
 
