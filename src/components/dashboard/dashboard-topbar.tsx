@@ -1,4 +1,5 @@
 import { AccountMenu } from '@/components/account/account-menu'
+import { CloudSyncStatus } from '@/components/cloud-sync/CloudSyncStatus'
 
 type DashboardView = 'projects' | 'archived' | 'trash'
 
@@ -90,7 +91,7 @@ export function DashboardTopbar({
           className="hidden h-8 w-52 cursor-text rounded-md border border-white/[0.08] bg-[#1a1f26] px-3 text-xs text-white/80 placeholder:text-white/42 transition-[background-color,border-color,box-shadow,color] duration-150 hover:border-white/[0.16] hover:bg-[#1d232b] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#10141a] motion-reduce:transition-none sm:flex"
           aria-label="Search projects"
         />
-        <span className="hidden text-[10px] tracking-[0.05em] text-white/42 md:inline">Local-only workspace</span>
+        <span className="hidden text-[10px] tracking-[0.05em] text-white/42 md:inline"><CloudSyncStatus /></span>
         <AccountMenu />
       </div>
     </header>

@@ -1,5 +1,7 @@
 # Rhyme Lines
 
+Cloud synchronization is an optional authenticated, local-first layer. See [Cloud sync foundation](docs/cloud-sync.md) for ownership, revision/conflict, offline, bootstrap, tombstone, development migration, and CI behavior.
+
 Rhyme Lines is a local-first lyric and poetry editor for drafting lines with syllable analysis, rhyme highlighting, rhyme suggestions, autosave, and keyboard-first navigation.
 
 Accounts are optional. Anonymous users can open the dashboard, create projects, write, analyze rhymes, and autosave locally without authentication. Signing in establishes identity for future account-backed features; it does not upload, claim, or otherwise change local projects.

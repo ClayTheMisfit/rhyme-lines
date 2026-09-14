@@ -205,7 +205,7 @@ export default function EditorShell() {
             onDirtyChange={handleDirtyChange}
           />
           <RhymePanel ref={floatingPanelRef} editorRef={editorRef} />
-          <StatusBar text={activeTab?.snapshot.text ?? ''} cursor={cursor} />
+          <StatusBar documentId={activeTab?.id ?? null} text={activeTab?.snapshot.text ?? ''} cursor={cursor} />
         </div>
       )}
       <span className="sr-only" aria-live="polite">

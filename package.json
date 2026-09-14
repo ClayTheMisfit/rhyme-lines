@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit --incremental false",
     "lint": "eslint",
     "test": "jest",
+    "test:db": "node --conditions=react-server --import tsx scripts/test-cloud-sync-db.ts",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",

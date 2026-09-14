@@ -42,10 +42,10 @@ export async function seedProjects(
   projects: TestProject[],
   activeId: string | null = projects[0]?.id ?? null
 ) {
-  await page.goto('/')
   const drafts = projects.map(toDraft)
-  await page.evaluate(
+  await page.addInitScript(
     ({ drafts, activeId, draftsKey, lastOpenKey }) => {
+      if (window.sessionStorage.getItem('rhyme-lines:e2e-seed-applied')) return
       window.localStorage.clear()
       window.localStorage.setItem(
         draftsKey,
@@ -53,9 +53,14 @@ export async function seedProjects(
       )
       if (activeId) window.localStorage.setItem(lastOpenKey, activeId)
       window.localStorage.setItem('rhyme-lines:editor-sidebar-collapsed', 'false')
+      window.sessionStorage.setItem('rhyme-lines:e2e-seed-applied', 'true')
     },
     { drafts, activeId, draftsKey: DRAFTS_STORAGE_KEY, lastOpenKey: LAST_OPEN_PROJECT_KEY }
   )
+  await page.goto('/')
+  // Seeding now happens before application code; wait until the new dashboard
+  // hydration and account check have both completed before continuing.
+  await expect(page.getByRole('status').filter({ hasText: /Cloud: (?!Checking)/ })).toBeVisible()
 }
 
 export async function openProject(page: Page, id: string) {

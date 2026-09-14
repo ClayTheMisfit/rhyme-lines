@@ -3,8 +3,10 @@
 import { useAutosaveStore } from '@/store/autosaveStore'
 import { useRhymeHighlightSettingsStore } from '@/store/rhymeHighlightSettingsStore'
 import { shallow } from 'zustand/shallow'
+import { CloudSyncStatus } from '@/components/cloud-sync/CloudSyncStatus'
 
 type StatusBarProps = {
+  documentId: string | null
   text: string
   cursor: { line: number; column: number } | null
 }
@@ -24,7 +26,7 @@ const countLines = (text: string) => {
   return end >= start ? end - start + 1 : 0
 }
 
-export default function StatusBar({ text, cursor }: StatusBarProps) {
+export default function StatusBar({ documentId, text, cursor }: StatusBarProps) {
   const { status } = useAutosaveStore((state) => ({ status: state.status }), shallow)
   const { highlightMode } = useRhymeHighlightSettingsStore((state) => ({ highlightMode: state.highlightMode }), shallow)
   const saveLabel = status === 'saving'
@@ -56,6 +58,7 @@ export default function StatusBar({ text, cursor }: StatusBarProps) {
         <span>Words {countWords(text).toLocaleString()}</span>
         <span>Lines {countLines(text).toLocaleString()}</span>
         <span>Rhyme {highlightMode}</span>
+        <CloudSyncStatus documentId={documentId} />
       </div>
       <span>{cursor ? `Ln ${cursor.line}, Col ${cursor.column}` : 'Ln —, Col —'}</span>
     </footer>

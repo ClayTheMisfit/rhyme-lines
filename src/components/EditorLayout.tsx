@@ -9,6 +9,7 @@ import EditorShell from '@/components/EditorShell'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { getLastOpenProjectId, setLastOpenProjectId } from '@/lib/projects/storage'
 import { useAppStateHydration } from '@/hooks/useAppStateHydration'
+import { useCloudSync } from '@/hooks/useCloudSync'
 
 const SIDEBAR_COLLAPSED_KEY = 'rhyme-lines:editor-sidebar-collapsed'
 const SIDEBAR_EXPANDED_WIDTH = 232
@@ -230,7 +231,9 @@ function DocumentRow({
 
 export default function EditorLayout({ projectId }: EditorLayoutProps = {}) {
   const router = useRouter()
-  const { state: hydrationState } = useAppStateHydration()
+  const hydration = useAppStateHydration()
+  const { state: hydrationState } = hydration
+  useCloudSync(hydration)
   const { tabs, activeTabId, actions } = useTabsStore(
     (state) => ({ tabs: state.tabs, activeTabId: state.activeTabId, actions: state.actions }),
     shallow

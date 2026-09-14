@@ -28,8 +28,13 @@ import {
   type ProjectFolder,
   type ProjectSummary,
 } from '@/lib/projects/storage'
+import { useAppStateHydration } from '@/hooks/useAppStateHydration'
+import { useCloudSync } from '@/hooks/useCloudSync'
+import { subscribeDraftCollection } from '@/lib/persist/draftCoordinator'
 
 export function DashboardShell() {
+  const hydration = useAppStateHydration()
+  useCloudSync(hydration)
   const router = useRouter()
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [activeProjectCount, setActiveProjectCount] = useState(0)
@@ -65,7 +70,11 @@ export function DashboardShell() {
     reloadProjects()
     const handleStorage = () => reloadProjects()
     window.addEventListener('storage', handleStorage)
-    return () => window.removeEventListener('storage', handleStorage)
+    const unsubscribe = subscribeDraftCollection(reloadProjects)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      unsubscribe()
+    }
   }, [reloadProjects])
 
   const handleCreateProject = useCallback(() => {
