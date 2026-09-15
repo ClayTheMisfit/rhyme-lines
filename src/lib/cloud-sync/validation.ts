@@ -91,6 +91,32 @@ export const parseLifecycleInput = (value: unknown): { action: CloudLifecycleAct
   return { action: value.action as CloudLifecycleAction, baseRevision: value.baseRevision as number }
 }
 
+const requireRevision = (value: unknown, name: string) => {
+  if (!Number.isInteger(value) || (value as number) < 1) throw new CloudPayloadError(`${name} is invalid`)
+  return value as number
+}
+
+export const parseCheckpointInput = (value: unknown): { expectedRevision: number; reason: 'AUTO' } => {
+  if (!isRecord(value)) throw new CloudPayloadError('Checkpoint payload is invalid')
+  if (value.reason !== undefined && value.reason !== 'AUTO') throw new CloudPayloadError('reason is invalid')
+  return { expectedRevision: requireRevision(value.expectedRevision, 'expectedRevision'), reason: 'AUTO' }
+}
+
+export const parseRestoreInput = (value: unknown): { baseRevision: number } => {
+  if (!isRecord(value)) throw new CloudPayloadError('Restore payload is invalid')
+  return { baseRevision: requireRevision(value.baseRevision, 'baseRevision') }
+}
+
+export const parseHistoryPage = (request: Request): { cursor: string | null; limit: number } => {
+  const params = new URL(request.url).searchParams
+  const cursor = params.get('cursor')
+  const rawLimit = params.get('limit')
+  const limit = rawLimit === null ? 20 : Number(rawLimit)
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw new CloudPayloadError('limit is invalid')
+  if (cursor !== null && (cursor.length < 1 || cursor.length > 500)) throw new CloudPayloadError('cursor is invalid')
+  return { cursor, limit }
+}
+
 export async function readJsonBody(request: Request): Promise<unknown> {
   const contentLength = Number(request.headers.get('content-length'))
   if (Number.isFinite(contentLength) && contentLength > MAX_CLOUD_REQUEST_BYTES) {

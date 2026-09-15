@@ -9,7 +9,15 @@ import {
 } from '@/lib/persist/draftCoordinator'
 import { isEditorVisibleDraft, resolveActiveDraftId } from '@/lib/projects/lifecycle'
 import { useCloudSyncStore } from '@/store/cloudSyncStore'
-import type { CloudDocumentDto, CloudDocumentInput, CloudDocumentListResponse } from './contracts'
+import type { CloudAccountState } from '@/store/cloudSyncStore'
+import type {
+  CloudDocumentDto,
+  CloudDocumentInput,
+  CloudDocumentListResponse,
+  RestoreEligibility,
+  RestoreVersionResult,
+} from './contracts'
+import { HistoryCheckpointScheduler } from './historyScheduler'
 import {
   emptyDocumentMetadata,
   ensureAccountMetadata,
@@ -25,6 +33,52 @@ export const CLOUD_SYNC_BASE_RETRY_MS = 1_000
 export const CLOUD_SYNC_MAX_RETRY_MS = 30_000
 export const getCloudSyncRetryDelay = (attempt: number) =>
   Math.min(CLOUD_SYNC_BASE_RETRY_MS * 2 ** Math.max(0, attempt - 1), CLOUD_SYNC_MAX_RETRY_MS)
+
+export const evaluateRestoreEligibility = (input: {
+  online: boolean
+  accountState: CloudAccountState
+  association?: DocumentSyncMetadata
+  inFlight: boolean
+  localMatches: boolean
+}): RestoreEligibility => {
+  if (!input.online || input.association?.state === 'offline') return { allowed: false, reason: 'Reconnect before restoring.' }
+  if (input.accountState === 'account-switch' || input.association?.state === 'account-switch') {
+    return { allowed: false, reason: 'Confirm the active account before restoring.' }
+  }
+  if (input.accountState === 'auth-required' || input.association?.state === 'auth-required') {
+    return { allowed: false, reason: 'Sign in before restoring.' }
+  }
+  if (input.accountState !== 'ready') return { allowed: false, reason: 'Sign in before restoring.' }
+  const association = input.association
+  if (!association) return { allowed: false, reason: 'Sync this document before restoring.' }
+  if (association.state === 'conflict') return { allowed: false, reason: 'Resolve the sync conflict before restoring.' }
+  if (association.state !== 'synced'
+    || input.inFlight
+    || association.pendingPermanentDelete
+    || !input.localMatches
+    || !association.cloudDocumentId
+    || !association.lastKnownServerRevision) {
+    return { allowed: false, reason: 'Finish syncing before restoring.' }
+  }
+  return {
+    allowed: true,
+    cloudDocumentId: association.cloudDocumentId,
+    baseRevision: association.lastKnownServerRevision,
+  }
+}
+
+export const requestHistoryCheckpoint = async (cloudDocumentId: string, expectedRevision: number): Promise<boolean> => {
+  try {
+    const response = await fetch(`/api/cloud/documents/${encodeURIComponent(cloudDocumentId)}/versions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expectedRevision, reason: 'AUTO' }),
+    })
+    return response.ok
+  } catch {
+    return false
+  }
+}
 
 type AccountResponse = { user: { id: string; name: string | null; email: string | null } | null }
 
@@ -93,6 +147,7 @@ class CloudSyncManager {
   private inFlight = new Set<string>()
   private retryTimers = new Map<string, number>()
   private suppressAcknowledgement = false
+  private historyScheduler = new HistoryCheckpointScheduler()
 
   start(draftsStatus: PersistenceLoadStatus | null) {
     if (this.started || !draftsStatus) return
@@ -134,12 +189,14 @@ class CloudSyncManager {
       if (!response.ok) throw new Error('account-unavailable')
       const payload = await response.json() as AccountResponse
       if (!payload.user) {
+        this.historyScheduler.clear()
         this.accountId = null
         useCloudSyncStore.getState().actions.setAccountState('anonymous')
         return
       }
       const accountId = payload.user.id
       if (this.metadata.lastAccountId && this.metadata.lastAccountId !== accountId) {
+        this.historyScheduler.clear()
         this.accountId = null
         useCloudSyncStore.getState().actions.setAccountState('account-switch')
         const account = ensureAccountMetadata(this.metadata, accountId)
@@ -183,6 +240,11 @@ class CloudSyncManager {
       }
       account.initialized = true
       this.persist(account)
+      for (const [localId, association] of Object.entries(account.associations)) {
+        if (association.state === 'synced' && association.lastKnownServerRevision) {
+          this.scheduleHistoryCheckpoint(localId, association.lastKnownServerRevision)
+        }
+      }
       this.queueAcknowledgedCollection()
       return
     }
@@ -250,13 +312,18 @@ class CloudSyncManager {
     }
     account.initialized = true
     this.persist(account)
+    for (const [localId, association] of Object.entries(account.associations)) {
+      if (association.state === 'synced' && association.cloudDocumentId && association.lastKnownServerRevision) {
+        this.scheduleHistoryCheckpoint(localId, association.lastKnownServerRevision)
+      }
+    }
     this.queueAcknowledgedCollection()
   }
 
   private replaceFromCloud(collection: DraftCollection) {
     this.suppressAcknowledgement = true
     try {
-      replaceAuthoritativeDraftCollection(collection, { persist: 'immediate' })
+      return replaceAuthoritativeDraftCollection(collection, { persist: 'immediate' })
     } finally {
       this.suppressAcknowledgement = false
     }
@@ -416,6 +483,11 @@ class CloudSyncManager {
         return
       }
       Object.assign(association, this.syncedMetadata(payload.document, sentDraft))
+      if (payload.document.lifecycle !== 'DELETED') {
+        this.scheduleHistoryCheckpoint(localId, payload.document.revision)
+      } else {
+        this.historyScheduler.cancel(localId)
+      }
       if (continuePermanentDeletion) {
         association.pendingPermanentDelete = true
         association.state = 'pending'
@@ -479,7 +551,123 @@ class CloudSyncManager {
     }, Math.max(0, delay)))
   }
 
+  private scheduleHistoryCheckpoint(localId: string, expectedRevision: number) {
+    this.historyScheduler.schedule(localId, expectedRevision, (revision) => {
+      void this.createHistoryCheckpoint(localId, revision)
+    })
+  }
+
+  private async createHistoryCheckpoint(localId: string, expectedRevision: number) {
+    if (!this.accountId || !navigator.onLine) return
+    const account = ensureAccountMetadata(this.metadata, this.accountId)
+    const association = account.associations[localId]
+    if (!association
+      || association.state !== 'synced'
+      || association.pendingPermanentDelete
+      || association.lastKnownServerRevision !== expectedRevision
+      || !association.cloudDocumentId
+      || this.inFlight.has(localId)) return
+    // History is secondary. The result never changes canonical sync state.
+    await requestHistoryCheckpoint(association.cloudDocumentId, expectedRevision)
+  }
+
+  getRestoreEligibility(localId: string): RestoreEligibility {
+    const association = this.accountId
+      ? ensureAccountMetadata(this.metadata, this.accountId).associations[localId]
+      : undefined
+    const local = getAuthoritativeDraftCollection().drafts.find((draft) => draft.docId === localId)
+    return evaluateRestoreEligibility({
+      online: navigator.onLine,
+      accountState: useCloudSyncStore.getState().accountState,
+      association,
+      inFlight: this.inFlight.has(localId),
+      localMatches: Boolean(local && association?.lastSyncedLocalVersion === localDocumentVersion(local)),
+    })
+  }
+
+  getHistoryTarget(localId: string): { cloudDocumentId: string; currentRevision: number } | null {
+    if (!this.accountId || useCloudSyncStore.getState().accountState !== 'ready') return null
+    const association = ensureAccountMetadata(this.metadata, this.accountId).associations[localId]
+    if (!association?.cloudDocumentId
+      || !association.lastKnownServerRevision
+      || association.state === 'deleted'
+      || association.lastKnownLifecycle === 'DELETED') return null
+    return {
+      cloudDocumentId: association.cloudDocumentId,
+      currentRevision: association.lastKnownServerRevision,
+    }
+  }
+
+  async restoreVersion(localId: string, versionId: string): Promise<RestoreVersionResult> {
+    const eligibility = this.getRestoreEligibility(localId)
+    if (!eligibility.allowed) return { ok: false, kind: 'blocked', message: eligibility.reason }
+    const accountId = this.accountId
+    if (!accountId) return { ok: false, kind: 'blocked', message: 'Sign in before restoring.' }
+    const account = ensureAccountMetadata(this.metadata, accountId)
+    const association = account.associations[localId]
+    const localAtStart = getAuthoritativeDraftCollection().drafts.find((draft) => draft.docId === localId)
+    const localVersionAtStart = localAtStart ? localDocumentVersion(localAtStart) : null
+    this.historyScheduler.cancel(localId)
+    this.inFlight.add(localId)
+    try {
+      const response = await fetch(
+        `/api/cloud/documents/${encodeURIComponent(eligibility.cloudDocumentId)}/versions/${encodeURIComponent(versionId)}/restore`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ baseRevision: eligibility.baseRevision }),
+        }
+      )
+      if (response.status === 409) {
+        const conflict = await response.json() as { currentRevision?: number }
+        association.state = 'conflict'
+        association.lastError = 'Cloud version changed before restore'
+        if (Number.isInteger(conflict.currentRevision)) association.lastKnownServerRevision = conflict.currentRevision!
+        this.persist(account)
+        return { ok: false, kind: 'conflict', message: 'The cloud document changed. Refresh before restoring.' }
+      }
+      if (!response.ok) return { ok: false, kind: 'failed', message: 'This version could not be restored.' }
+      const payload = await response.json() as { document: CloudDocumentDto }
+      if (this.accountId !== accountId || useCloudSyncStore.getState().accountState !== 'ready') {
+        return { ok: false, kind: 'blocked', message: 'The active account changed. Local content was preserved.' }
+      }
+      const collection = getAuthoritativeDraftCollection()
+      const previous = collection.drafts.find((draft) => draft.docId === localId)
+      if (!previous) return { ok: false, kind: 'failed', message: 'The local document is unavailable.' }
+      if (localVersionAtStart !== localDocumentVersion(previous)) {
+        association.state = 'conflict'
+        association.lastError = 'Local work changed while a version was being restored'
+        association.lastKnownServerRevision = payload.document.revision
+        this.persist(account)
+        return { ok: false, kind: 'conflict', message: 'Local changes were preserved. Resolve the sync conflict before continuing.' }
+      }
+      const restoredDraft = cloudToDraft(payload.document, previous)
+      const persistence = this.replaceFromCloud({
+        ...collection,
+        drafts: collection.drafts.map((draft) => draft.docId === localId ? restoredDraft : draft),
+      })
+      if (!persistence?.ok) {
+        association.cloudDocumentId = payload.document.id
+        association.lastKnownServerRevision = payload.document.revision
+        association.state = 'error'
+        association.lastError = 'Restored cloud version could not be saved locally'
+        this.persist(account)
+        return { ok: false, kind: 'failed', message: 'The cloud restore succeeded, but the local copy could not be saved.' }
+      }
+      Object.assign(association, this.syncedMetadata(payload.document, restoredDraft))
+      this.persist(account)
+      this.scheduleHistoryCheckpoint(localId, payload.document.revision)
+      return { ok: true, document: payload.document }
+    } catch {
+      return { ok: false, kind: 'failed', message: 'This version could not be restored.' }
+    } finally {
+      this.inFlight.delete(localId)
+      this.pump()
+    }
+  }
+
   signOut() {
+    this.historyScheduler.clear()
     this.accountId = null
     useCloudSyncStore.getState().actions.setAccountState('anonymous')
   }
@@ -494,6 +682,7 @@ class CloudSyncManager {
     this.unsubscribe = null
     this.inFlight.clear()
     this.retryTimers.clear()
+    this.historyScheduler.clear()
     this.metadata = readCloudSyncMetadata()
     useCloudSyncStore.getState().actions.reset()
   }

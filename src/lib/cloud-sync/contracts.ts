@@ -45,3 +45,38 @@ export type CloudConflictResponse = {
   expectedRevision: number
   currentRevision: number
 }
+
+export const CLOUD_DOCUMENT_VERSION_REASONS = ['INITIAL', 'AUTO', 'LIFECYCLE', 'PRE_RESTORE', 'RESTORE'] as const
+export type CloudDocumentVersionReason = (typeof CLOUD_DOCUMENT_VERSION_REASONS)[number]
+
+export type CloudDocumentVersionMetadata = {
+  id: string
+  sourceRevision: number
+  title: string
+  lifecycle: CloudDocumentLifecycle
+  reason: CloudDocumentVersionReason
+  createdAt: string
+}
+
+export type CloudDocumentVersionDto = CloudDocumentVersionMetadata & {
+  documentId: string
+  lines: CloudDocumentLine[]
+  lifecycleChangedAt: string | null
+  isPinned: boolean
+  position: number
+  clientCreatedAt: number
+  clientUpdatedAt: number
+}
+
+export type CloudDocumentVersionListResponse = {
+  versions: CloudDocumentVersionMetadata[]
+  nextCursor: string | null
+}
+
+export type RestoreEligibility =
+  | { allowed: true; cloudDocumentId: string; baseRevision: number }
+  | { allowed: false; reason: string }
+
+export type RestoreVersionResult =
+  | { ok: true; document: CloudDocumentDto }
+  | { ok: false; kind: 'blocked' | 'conflict' | 'failed'; message: string }

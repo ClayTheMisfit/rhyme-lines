@@ -2,6 +2,8 @@
 
 Rhyme Lines remains local-first. The editor writes through `tabsStore` and `draftCoordinator`; only a successful local persistence acknowledgement wakes the cloud queue. Network, authentication, or PostgreSQL failures never change the local-save result and never enter the editor input, selection, analysis, or overlay paths.
 
+Cloud-backed immutable checkpoints and restore-as-new-revision behavior are documented in [Version History Foundation](./version-history.md).
+
 ## Data flow
 
 ```text
