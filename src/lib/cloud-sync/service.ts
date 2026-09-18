@@ -170,6 +170,11 @@ async function currentOwnedRecord(userId: string, id: string) {
   return getDatabase().cloudDocument.findFirst({ where: { id, userId } })
 }
 
+async function lockHistoryDocument(transaction: Prisma.TransactionClient, userId: string, id: string) {
+  // Serialize snapshot writers with lifecycle updates and the permanent-delete purge.
+  await transaction.$queryRaw`SELECT "id" FROM "CloudDocument" WHERE "id" = ${id} AND "userId" = ${userId} FOR UPDATE`
+}
+
 export async function listCloudDocuments(userId: string): Promise<CloudDocumentListResponse> {
   const records = await getDatabase().cloudDocument.findMany({
     where: { userId },
@@ -196,13 +201,15 @@ export async function createCloudDocument(userId: string, input: CloudDocumentIn
       create: { userId, clientDocumentId: input.clientDocumentId, ...data },
       update: {},
     })
-    if (current.lifecycle !== 'DELETED') {
+    await lockHistoryDocument(transaction, userId, current.id)
+    const latest = await transaction.cloudDocument.findUniqueOrThrow({ where: { id: current.id } })
+    if (latest.lifecycle !== 'DELETED') {
       await transaction.cloudDocumentVersion.createMany({
-        data: [snapshotData(current, 'INITIAL')],
+        data: [snapshotData(latest, 'INITIAL')],
         skipDuplicates: true,
       })
     }
-    return current
+    return latest
   })
   return recordToDto(record)
 }
@@ -266,6 +273,7 @@ export async function checkpointCloudDocument(
   expectedRevision: number
 ): Promise<CloudDocumentVersionMetadata> {
   return getDatabase().$transaction(async (transaction) => {
+    await lockHistoryDocument(transaction, userId, id)
     const current = await transaction.cloudDocument.findFirst({
       where: { id, userId, lifecycle: { not: 'DELETED' } },
     })
@@ -350,6 +358,7 @@ export async function restoreCloudDocumentVersion(
   baseRevision: number
 ): Promise<{ document: CloudDocumentDto; version: CloudDocumentVersionMetadata }> {
   return getDatabase().$transaction(async (transaction) => {
+    await lockHistoryDocument(transaction, userId, documentId)
     const current = await transaction.cloudDocument.findFirst({
       where: { id: documentId, userId, lifecycle: { not: 'DELETED' } },
     })

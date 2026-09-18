@@ -42,6 +42,7 @@ async function expectError(action: () => Promise<unknown>, constructor: new (...
 
 async function main() {
   const db = getDatabase()
+  const originalCounts = await Promise.all([db.user.count(), db.account.count(), db.session.count(), db.cloudDocument.count()])
   try {
     await db.user.createMany({ data: [
       { id: userA, email: `${userA}@example.test` },
@@ -190,14 +191,46 @@ async function main() {
     assert.equal((await getCloudDocument(userA, restoreDocument.id)).revision, 9)
     assert.equal(await db.cloudDocumentVersion.count({ where: { documentId: restoreDocument.id } }), historyCountBeforeConflict)
 
-    console.log('Cloud sync and version history database integration: 10 scenarios passed')
+    // Hold a real deletion transaction open while a checkpoint is requested.
+    // A checkpoint must wait for the parent lock, then observe the tombstone.
+    const raceDocument = await createCloudDocument(userA, input('delete-race-doc'))
+    await transitionCloudDocument(userA, raceDocument.id, 'trash', 1)
+    let locked!: () => void
+    const deletionLocked = new Promise<void>((resolve) => { locked = resolve })
+    let release!: () => void
+    const releaseDeletion = new Promise<void>((resolve) => { release = resolve })
+    const deletion = db.$transaction(async (transaction) => {
+      await transaction.cloudDocument.update({ where: { id: raceDocument.id }, data: {
+        lifecycle: 'DELETED', title: 'Deleted document', content: { lines: [] }, revision: { increment: 1 },
+      } })
+      await transaction.cloudDocumentVersion.deleteMany({ where: { documentId: raceDocument.id } })
+      locked()
+      await releaseDeletion
+    })
+    await deletionLocked
+    const checkpointAfterDelete = expectError(
+      () => checkpointCloudDocument(userA, raceDocument.id, 2), CloudDocumentNotFoundError
+    )
+    try {
+      // Allow the second connection to reach the held row lock before commit.
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    } finally {
+      release()
+    }
+    await deletion
+    await checkpointAfterDelete
+    assert.equal(await db.cloudDocumentVersion.count({ where: { documentId: raceDocument.id } }), 0)
+    console.log('Cloud sync and version history database integration: 11 scenarios passed (including checkpoint/delete race)')
   } finally {
     await db.user.deleteMany({ where: { id: { in: [userA, userB] } } })
+    assert.deepEqual(await Promise.all([db.user.count(), db.account.count(), db.session.count(), db.cloudDocument.count()]), originalCounts)
+    console.log('Existing authentication and cloud document counts preserved')
     await db.$disconnect()
   }
 }
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.name : 'CloudSyncDatabaseTestError')
+  if (error && typeof error === 'object' && 'code' in error) console.error(`Database error code: ${String(error.code)}`)
   process.exitCode = 1
 })

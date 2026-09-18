@@ -23,6 +23,8 @@ The browser sends only document identity, expected server revision, and the allo
 
 Checkpoint errors are secondary: they do not change local `Saved` acknowledgement, canonical cloud sync state, retry/conflict state, or editor usability.
 
+Snapshot writers acquire the owned parent row lock before reading canonical content. This serializes checkpoint/bootstrap and restore with lifecycle mutations, so a concurrent permanent-delete purge cannot be followed by reinsertion of a stale lyrical snapshot.
+
 ## API and pagination
 
 All routes use `getCurrentUser()`, private no-store responses, parent ownership checks, and generic not-found responses for non-owned IDs.
@@ -57,6 +59,8 @@ After success, `CloudSyncManager` converts the returned canonical document to a 
 Archive and trash history remains available. Permanent deletion is different: in the same transaction as tombstone redaction, every version row for the document is deleted. The redacted `CloudDocument` tombstone and monotonic revision remain for stale-device resurrection protection. Version list/get/restore routes reject deleted parents, so permanently deleted lyrics cannot be recovered through history.
 
 Version client state (open panel, selected item, cursors, loading, errors, and confirmation) is component-local and never stored in `Draft`. History transport metadata is account-scoped through the existing cloud association. Account switching clears scheduled checkpoint work and blocks history lookup/restore until the active account is safe. Lyrics are not logged, sent to analytics, or included in error messages. Provider access and refresh tokens are unrelated and are never used by Version History.
+
+The dialog remounts its private session on account, document, and open/close boundaries. Late list, preview, and restore responses from a discarded session cannot repopulate another account's UI. Preview selection also ignores responses superseded by a newer selection.
 
 ## UI and performance boundary
 

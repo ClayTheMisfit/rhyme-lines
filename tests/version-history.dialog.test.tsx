@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { VersionHistoryDialog } from '@/components/history/VersionHistoryDialog'
 import { cloudSyncManager } from '@/lib/cloud-sync/client'
 
@@ -10,9 +10,10 @@ jest.mock('@/lib/cloud-sync/client', () => ({
   },
 }))
 
+let mockAccountState = 'ready'
 jest.mock('@/store/cloudSyncStore', () => ({
   useCloudSyncStore: (selector: (state: unknown) => unknown) => selector({
-    accountState: 'ready',
+    accountState: mockAccountState,
     documentStates: { 'local-1': 'synced' },
   }),
 }))
@@ -27,6 +28,7 @@ const response = (body: unknown, status = 200) => ({
 describe('VersionHistoryDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockAccountState = 'ready'
     Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: fetchMock })
     fetchMock.mockImplementation(async (url) => {
       if (String(url).endsWith('/version-3')) {
@@ -71,5 +73,28 @@ describe('VersionHistoryDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm restore' }))
     await waitFor(() => expect(cloudSyncManager.restoreVersion).toHaveBeenCalledWith('local-1', 'version-3'))
     expect(await screen.findByText('Restored as revision 10.')).toBeInTheDocument()
+  })
+
+  it('discards an old account metadata response after the session changes', async () => {
+    let resolve!: (value: Response) => void
+    fetchMock.mockImplementationOnce(() => new Promise((done) => { resolve = done }))
+    const view = render(<VersionHistoryDialog documentId="local-1" open onOpenChange={() => {}} />)
+    mockAccountState = 'anonymous'
+    view.rerender(<VersionHistoryDialog documentId="local-1" open onOpenChange={() => {}} />)
+    await act(async () => { resolve(response({ versions: [{ id: 'old-account', sourceRevision: 1, reason: 'INITIAL', lifecycle: 'ACTIVE', createdAt: '2026-09-15T12:00:00.000Z' }], nextCursor: null })) })
+    expect(screen.queryByText(/Revision 1 · Initial/)).not.toBeInTheDocument()
+  })
+
+  it('discards an old account content response after the session changes', async () => {
+    const view = render(<VersionHistoryDialog documentId="local-1" open onOpenChange={() => {}} />)
+    const entry = await screen.findByRole('listitem')
+    let resolve!: (value: Response) => void
+    fetchMock.mockImplementationOnce(() => new Promise((done) => { resolve = done }))
+    fireEvent.click(entry)
+    mockAccountState = 'anonymous'
+    view.rerender(<VersionHistoryDialog documentId="local-1" open onOpenChange={() => {}} />)
+    await act(async () => { resolve(response({ version: { title: 'PRIVATE_OLD_ACCOUNT', lines: [{ id: 'line', text: 'PRIVATE_SENTINEL' }] } })) })
+    expect(screen.queryByText('PRIVATE_OLD_ACCOUNT')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Read-only historical preview')).not.toBeInTheDocument()
   })
 })

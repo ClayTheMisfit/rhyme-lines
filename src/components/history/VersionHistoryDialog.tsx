@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -38,11 +38,27 @@ const formatTimestamp = (value: string) => new Intl.DateTimeFormat(undefined, {
 }).format(new Date(value))
 
 export function VersionHistoryDialog({
+  ...props
+}: VersionHistoryDialogProps) {
+  const accountState = useCloudSyncStore((state) => state.accountState)
+  useCloudSyncStore((state) => props.documentId ? state.documentStates[props.documentId] : undefined)
+  const target = props.documentId ? cloudSyncManager.getHistoryTarget(props.documentId) : null
+  // Each account/document/open-session boundary discards all private history state.
+  return <VersionHistorySession key={`${accountState}:${props.documentId}:${target?.cloudDocumentId}:${props.open}`} {...props} />
+}
+
+function VersionHistorySession({
   documentId,
   open,
   onOpenChange,
   onCloseAutoFocus,
 }: VersionHistoryDialogProps) {
+  const active = useRef(true)
+  const previewRequest = useRef(0)
+  useEffect(() => {
+    active.current = true
+    return () => { active.current = false }
+  }, [])
   const accountState = useCloudSyncStore((state) => state.accountState)
   useCloudSyncStore((state) => documentId ? state.documentStates[documentId] : undefined)
   const [versions, setVersions] = useState<CloudDocumentVersionMetadata[]>([])
@@ -77,6 +93,7 @@ export function VersionHistoryDialog({
       })
       if (!response.ok) throw new Error('history unavailable')
       let payload = await response.json() as CloudDocumentVersionListResponse
+      if (!active.current) return
       const bootstrapEligibility = documentId ? cloudSyncManager.getRestoreEligibility(documentId) : null
       if (!append && payload.versions.length === 0 && bootstrapEligibility?.allowed) {
         const checkpoint = await fetch(`/api/cloud/documents/${encodeURIComponent(targetCloudDocumentId)}/versions`, {
@@ -91,13 +108,16 @@ export function VersionHistoryDialog({
           if (retry.ok) payload = await retry.json() as CloudDocumentVersionListResponse
         }
       }
+      if (!active.current) return
       setVersions((current) => append ? [...current, ...payload.versions] : payload.versions)
       setNextCursor(payload.nextCursor)
     } catch {
-      setError('Version history could not be loaded.')
+      if (active.current) setError('Version history could not be loaded.')
     } finally {
-      if (append) setLoadingMore(false)
-      else setLoading(false)
+      if (active.current) {
+        if (append) setLoadingMore(false)
+        else setLoading(false)
+      }
     }
   }, [documentId, targetCloudDocumentId])
 
@@ -116,6 +136,7 @@ export function VersionHistoryDialog({
 
   const selectVersion = async (version: CloudDocumentVersionMetadata) => {
     if (!targetCloudDocumentId) return
+    const request = ++previewRequest.current
     setPreviewLoading(true)
     setPreviewError(null)
     setConfirmingRestore(false)
@@ -127,11 +148,11 @@ export function VersionHistoryDialog({
       )
       if (!response.ok) throw new Error('preview unavailable')
       const payload = await response.json() as { version: CloudDocumentVersionDto }
-      setSelected(payload.version)
+      if (active.current && request === previewRequest.current) setSelected(payload.version)
     } catch {
-      setPreviewError('This version could not be loaded.')
+      if (active.current && request === previewRequest.current) setPreviewError('This version could not be loaded.')
     } finally {
-      setPreviewLoading(false)
+      if (active.current && request === previewRequest.current) setPreviewLoading(false)
     }
   }
 
@@ -140,6 +161,7 @@ export function VersionHistoryDialog({
     setRestoring(true)
     setRestoreMessage(null)
     const result = await cloudSyncManager.restoreVersion(documentId, selected.id)
+    if (!active.current) return
     setRestoring(false)
     setConfirmingRestore(false)
     if (!result.ok) {
