@@ -25,6 +25,8 @@ Checkpoint errors are secondary: they do not change local `Saved` acknowledgemen
 
 Snapshot writers acquire the owned parent row lock before reading canonical content. This serializes checkpoint/bootstrap and restore with lifecycle mutations, so a concurrent permanent-delete purge cannot be followed by reinsertion of a stale lyrical snapshot.
 
+History transactions have a bounded 15-second timeout to accommodate multi-query operations, row-lock waits, and remote database latency. Timeout still rolls back the entire operation; it never changes local writing acknowledgement.
+
 ## API and pagination
 
 All routes use `getCurrentUser()`, private no-store responses, parent ownership checks, and generic not-found responses for non-owned IDs.

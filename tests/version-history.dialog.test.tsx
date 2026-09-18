@@ -85,6 +85,23 @@ describe('VersionHistoryDialog', () => {
     expect(screen.queryByText(/Revision 1 · Initial/)).not.toBeInTheDocument()
   })
 
+  it('removes the previous restore target while another preview is loading', async () => {
+    fetchMock.mockResolvedValueOnce(response({ versions: [
+      { id: 'version-3', sourceRevision: 3, reason: 'AUTO', lifecycle: 'ACTIVE', createdAt: '2026-09-15T12:00:00.000Z' },
+      { id: 'version-2', sourceRevision: 2, reason: 'AUTO', lifecycle: 'ACTIVE', createdAt: '2026-09-15T11:00:00.000Z' },
+    ], nextCursor: null }))
+    render(<VersionHistoryDialog documentId="local-1" open onOpenChange={() => {}} />)
+    const entries = await screen.findAllByRole('listitem')
+    fireEvent.click(entries[0])
+    await screen.findByLabelText('Read-only historical preview')
+    fetchMock.mockImplementationOnce(() => new Promise(() => {}))
+    fireEvent.click(entries[1])
+    expect(screen.queryByLabelText('Read-only historical preview')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Restore this version' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Confirm restore' })).not.toBeInTheDocument()
+    expect(cloudSyncManager.restoreVersion).not.toHaveBeenCalled()
+  })
+
   it('discards an old account content response after the session changes', async () => {
     const view = render(<VersionHistoryDialog documentId="local-1" open onOpenChange={() => {}} />)
     const entry = await screen.findByRole('listitem')

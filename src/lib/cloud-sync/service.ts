@@ -138,6 +138,9 @@ const snapshotData = (
   reason,
 })
 
+// Multi-query history transactions may include a row-lock wait and remote DB latency.
+const HISTORY_TRANSACTION_OPTIONS = { timeout: 15_000 }
+
 type HistoryCursor = { createdAt: string; id: string }
 
 const encodeHistoryCursor = (record: Pick<CloudDocumentVersionRecord, 'createdAt' | 'id'>) =>
@@ -210,7 +213,7 @@ export async function createCloudDocument(userId: string, input: CloudDocumentIn
       })
     }
     return latest
-  })
+  }, HISTORY_TRANSACTION_OPTIONS)
   return recordToDto(record)
 }
 
@@ -264,7 +267,7 @@ export async function transitionCloudDocument(
       })
     }
     return recordToDto(updated)
-  })
+  }, HISTORY_TRANSACTION_OPTIONS)
 }
 
 export async function checkpointCloudDocument(
@@ -290,7 +293,7 @@ export async function checkpointCloudDocument(
       where: { documentId_sourceRevision: { documentId: id, sourceRevision: current.revision } },
     })
     return versionToMetadata(version)
-  })
+  }, HISTORY_TRANSACTION_OPTIONS)
 }
 
 export async function listCloudDocumentVersions(
@@ -401,5 +404,5 @@ export async function restoreCloudDocumentVersion(
       data: snapshotData(restored, 'RESTORE'),
     })
     return { document: recordToDto(restored), version: versionToMetadata(restoreVersion) }
-  })
+  }, HISTORY_TRANSACTION_OPTIONS)
 }

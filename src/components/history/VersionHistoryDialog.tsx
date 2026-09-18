@@ -137,6 +137,7 @@ function VersionHistorySession({
   const selectVersion = async (version: CloudDocumentVersionMetadata) => {
     if (!targetCloudDocumentId) return
     const request = ++previewRequest.current
+    setSelected(null)
     setPreviewLoading(true)
     setPreviewError(null)
     setConfirmingRestore(false)
