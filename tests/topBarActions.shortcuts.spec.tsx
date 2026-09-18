@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import TopBarActions from '@/components/TopBarActions'
 
 const push = jest.fn()
@@ -19,7 +19,14 @@ jest.mock('framer-motion', () => ({
 }))
 jest.mock('@/hooks/useClickOutside', () => ({ useClickOutside: jest.fn() }))
 jest.mock('@/components/settings/SettingsSheet', () => () => null)
-jest.mock('@/components/CommandPalette', () => ({ CommandPalette: () => null }))
+jest.mock('@/components/CommandPalette', () => ({
+  CommandPalette: ({ commands }: { commands: Array<{ id: string; title: string; run: () => void }> }) => (
+    <div>{commands.map((command) => <button key={command.id} onClick={command.run}>{command.title}</button>)}</div>
+  ),
+}))
+jest.mock('@/components/history/VersionHistoryDialog', () => ({
+  VersionHistoryDialog: ({ open }: { open: boolean }) => open ? <div>History dialog open</div> : null,
+}))
 jest.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => children,
   TooltipContent: ({ children }: { children: ReactNode }) => children,
@@ -82,5 +89,11 @@ describe('TopBarActions shortcuts', () => {
     }
 
     expect(push).not.toHaveBeenCalled()
+  })
+
+  it('opens Version History from the command collection', () => {
+    render(<TopBarActions />)
+    fireEvent.click(screen.getByRole('button', { name: 'Version History' }))
+    expect(screen.getByText('History dialog open')).toBeInTheDocument()
   })
 })

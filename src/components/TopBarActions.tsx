@@ -16,6 +16,7 @@ import { CommandPalette, type CommandPaletteItem } from '@/components/CommandPal
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { trackEvent } from '@/lib/analytics/events'
 import { isEditableShortcutTarget } from '@/lib/shortcuts/keyboard'
+import { VersionHistoryDialog } from '@/components/history/VersionHistoryDialog'
 
 const buttonClass =
   'inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-sm border border-[color:var(--rl-shell-border)] bg-[color:color-mix(in_srgb,var(--rl-shell-elevated)_74%,transparent)] text-[11px] text-[color:var(--rl-shell-muted)] transition-colors hover:text-[color:var(--rl-shell-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-shell-border)]'
@@ -55,6 +56,7 @@ export default function TopBarActions() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [announcement, setAnnouncement] = useState('')
   const paletteTriggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -220,6 +222,13 @@ export default function TopBarActions() {
         run: exportDraft,
       },
       {
+        id: 'version-history',
+        title: 'Version History',
+        description: 'Preview and restore synced checkpoints',
+        keywords: ['history', 'version', 'restore', 'checkpoint'],
+        run: () => setHistoryOpen(true),
+      },
+      {
         id: 'settings',
         title: 'Open Settings',
         description: 'Open editor preferences',
@@ -361,6 +370,12 @@ export default function TopBarActions() {
         }}
         onCommandRun={(command) => trackEvent('command_executed', { commandId: command.id })}
         commands={commandItems}
+      />
+      <VersionHistoryDialog
+        documentId={activeTab?.id ?? null}
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        onCloseAutoFocus={() => paletteTriggerRef.current?.focus()}
       />
       <span className="sr-only" aria-live="polite">
         {announcement}

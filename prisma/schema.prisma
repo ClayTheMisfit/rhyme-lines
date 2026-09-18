@@ -8,16 +8,17 @@ datasource db {
 }
 
 model User {
-  id             String          @id @default(cuid())
-  name           String?
-  email          String?         @unique
-  emailVerified  DateTime?
-  image          String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  accounts       Account[]
-  sessions       Session[]
-  cloudDocuments CloudDocument[]
+  id                    String                 @id @default(cuid())
+  name                  String?
+  email                 String?                @unique
+  emailVerified         DateTime?
+  image                 String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  accounts              Account[]
+  sessions              Session[]
+  cloudDocuments        CloudDocument[]
+  cloudDocumentVersions CloudDocumentVersion[]
 }
 
 enum CloudDocumentLifecycle {
@@ -44,10 +45,43 @@ model CloudDocument {
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
   user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versions           CloudDocumentVersion[]
 
   @@unique([userId, clientDocumentId])
   @@index([userId, lifecycle])
   @@index([userId, updatedAt])
+}
+
+enum CloudDocumentVersionReason {
+  INITIAL
+  AUTO
+  LIFECYCLE
+  PRE_RESTORE
+  RESTORE
+}
+
+model CloudDocumentVersion {
+  id                 String                     @id @default(cuid())
+  documentId         String
+  userId             String
+  sourceRevision     Int
+  title              String                     @db.VarChar(100)
+  content            Json
+  lifecycle          CloudDocumentLifecycle
+  lifecycleChangedAt DateTime?
+  isPinned           Boolean
+  position           Float
+  clientCreatedAt    DateTime
+  clientUpdatedAt    DateTime
+  reason             CloudDocumentVersionReason
+  createdAt          DateTime                   @default(now())
+  document           CloudDocument              @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user               User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, sourceRevision])
+  @@index([documentId, createdAt])
+  @@index([documentId, sourceRevision])
+  @@index([userId])
 }
 
 model Account {

@@ -5,7 +5,7 @@ import {
   localDocumentVersion,
   resetCloudSyncForTests,
 } from '@/lib/cloud-sync/client'
-import { CLOUD_SYNC_STORAGE_KEY, emptyDocumentMetadata } from '@/lib/cloud-sync/metadata'
+import { CLOUD_SYNC_STORAGE_KEY, emptyDocumentMetadata, readCloudSyncMetadata } from '@/lib/cloud-sync/metadata'
 import {
   getAuthoritativeDraftCollection,
   initializeDraftPersistence,
@@ -306,5 +306,131 @@ describe('cloud sync queue', () => {
       .map((call) => JSON.parse(call[1]?.body as string) as { lines: Array<{ text: string }> })
     expect(putBodies).toHaveLength(2)
     expect(putBodies[1].lines[0].text).toBe('latest edit')
+  })
+
+  it('applies a successful restore through the coordinator without a revision N+2 upload', async () => {
+    const initial = { ...draft('current revision eight'), updatedAt: 800 }
+    initializeLocal(initial)
+    localStorage.setItem(CLOUD_SYNC_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      lastAccountId: 'user-a',
+      accounts: {
+        'user-a': {
+          initialized: true,
+          associations: {
+            'local-1': {
+              ...emptyDocumentMetadata(),
+              cloudDocumentId: 'cloud-1',
+              lastKnownServerRevision: 8,
+              lastKnownLifecycle: 'ACTIVE',
+              lastSyncedLocalVersion: localDocumentVersion(initial),
+              state: 'synced',
+            },
+          },
+        },
+      },
+    }))
+    const restoredDraft = { ...initial, title: 'Historical', updatedAt: 300, lines: [{ id: 'line-1', text: 'historical revision three' }] }
+    fetchMock.mockImplementation(async (url, init) => {
+      if (String(url) === '/api/account') return response(200, { user: { id: 'user-a', name: null, email: null } })
+      if (String(url) === '/api/cloud/documents' && !init?.method) return response(200, { documents: [dto(initial, 8)], tombstones: [] })
+      if (String(url).endsWith('/restore')) return response(200, { document: dto(restoredDraft, 9) })
+      return response(201, { version: { id: 'version-9' } })
+    })
+
+    cloudSyncManager.start('ok')
+    await waitFor(() => expect(useCloudSyncStore.getState().accountState).toBe('ready'))
+    const result = await cloudSyncManager.restoreVersion('local-1', 'version-3')
+
+    expect(result.ok).toBe(true)
+    expect(getAuthoritativeDraftCollection().drafts[0].lines[0].text).toBe('historical revision three')
+    expect(useCloudSyncStore.getState().documentStates['local-1']).toBe('synced')
+    expect(readCloudSyncMetadata().accounts['user-a'].associations['local-1'].lastKnownServerRevision).toBe(9)
+    expect(fetchMock.mock.calls.filter((call) => call[1]?.method === 'PUT')).toHaveLength(0)
+  })
+
+  it('preserves local work that changes while a server restore is in flight', async () => {
+    const initial = { ...draft('current revision eight'), updatedAt: 800 }
+    initializeLocal(initial)
+    localStorage.setItem(CLOUD_SYNC_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      lastAccountId: 'user-a',
+      accounts: {
+        'user-a': {
+          initialized: true,
+          associations: {
+            'local-1': {
+              ...emptyDocumentMetadata(),
+              cloudDocumentId: 'cloud-1',
+              lastKnownServerRevision: 8,
+              lastKnownLifecycle: 'ACTIVE',
+              lastSyncedLocalVersion: localDocumentVersion(initial),
+              state: 'synced',
+            },
+          },
+        },
+      },
+    }))
+    let finishRestore: ((value: Response) => void) | undefined
+    const restoreResponse = new Promise<Response>((resolve) => { finishRestore = resolve })
+    fetchMock.mockImplementation(async (url, init) => {
+      if (String(url) === '/api/account') return response(200, { user: { id: 'user-a', name: null, email: null } })
+      if (String(url) === '/api/cloud/documents' && !init?.method) return response(200, { documents: [dto(initial, 8)], tombstones: [] })
+      if (String(url).endsWith('/restore')) return restoreResponse
+      return response(201, { version: { id: 'version-9' } })
+    })
+
+    cloudSyncManager.start('ok')
+    await waitFor(() => expect(useCloudSyncStore.getState().accountState).toBe('ready'))
+    const restore = cloudSyncManager.restoreVersion('local-1', 'version-3')
+    const newerLocal = { ...initial, updatedAt: 900, lines: [{ id: 'line-1', text: 'unsynchronized local work' }] }
+    replaceAuthoritativeDraftCollection({ drafts: [newerLocal], activeId: 'local-1', folders: [] }, { persist: 'immediate' })
+    finishRestore?.(response(200, { document: dto({ ...initial, updatedAt: 300, lines: [{ id: 'line-1', text: 'historical' }] }, 9) }))
+
+    const result = await restore
+    expect(result).toMatchObject({ ok: false, kind: 'conflict' })
+    expect(getAuthoritativeDraftCollection().drafts[0].lines[0].text).toBe('unsynchronized local work')
+    expect(useCloudSyncStore.getState().documentStates['local-1']).toBe('conflict')
+    expect(fetchMock.mock.calls.filter((call) => call[1]?.method === 'PUT')).toHaveLength(0)
+  })
+
+  it('preserves local content when the restore base revision is stale', async () => {
+    const initial = { ...draft('local revision eight'), updatedAt: 800 }
+    initializeLocal(initial)
+    localStorage.setItem(CLOUD_SYNC_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      lastAccountId: 'user-a',
+      accounts: {
+        'user-a': {
+          initialized: true,
+          associations: {
+            'local-1': {
+              ...emptyDocumentMetadata(),
+              cloudDocumentId: 'cloud-1',
+              lastKnownServerRevision: 8,
+              lastKnownLifecycle: 'ACTIVE',
+              lastSyncedLocalVersion: localDocumentVersion(initial),
+              state: 'synced',
+            },
+          },
+        },
+      },
+    }))
+    fetchMock.mockImplementation(async (url, init) => {
+      if (String(url) === '/api/account') return response(200, { user: { id: 'user-a', name: null, email: null } })
+      if (String(url) === '/api/cloud/documents' && !init?.method) return response(200, { documents: [dto(initial, 8)], tombstones: [] })
+      if (String(url).endsWith('/restore')) return response(409, { error: 'conflict', currentRevision: 9 })
+      return response(201, { version: { id: 'version-8' } })
+    })
+
+    cloudSyncManager.start('ok')
+    await waitFor(() => expect(useCloudSyncStore.getState().accountState).toBe('ready'))
+    const result = await cloudSyncManager.restoreVersion('local-1', 'version-3')
+
+    expect(result).toMatchObject({ ok: false, kind: 'conflict' })
+    expect(getAuthoritativeDraftCollection().drafts[0].lines[0].text).toBe('local revision eight')
+    expect(readCloudSyncMetadata().accounts['user-a'].associations['local-1'].lastKnownServerRevision).toBe(9)
+    expect(useCloudSyncStore.getState().documentStates['local-1']).toBe('conflict')
+    expect(fetchMock.mock.calls.filter((call) => call[1]?.method === 'PUT')).toHaveLength(0)
   })
 })
