@@ -55,6 +55,16 @@ beforeEach(async () => {
 
     if (url === '/api/cloud/documents/cloud-1' && !init?.method) return response(200, { document: cloud })
 
+    if (url === '/api/cloud/documents/cloud-1' && init?.method === 'PATCH') {
+      cloud = { ...cloud, lifecycle: 'TRASHED', revision: cloud.revision + 1 }
+      return response(200, { document: cloud })
+    }
+
+    if (url === '/api/cloud/documents/cloud-1' && init?.method === 'DELETE') {
+      cloud = { ...cloud, lifecycle: 'DELETED', revision: cloud.revision + 1 }
+      return response(200, { document: cloud })
+    }
+
     if (url.endsWith('/resolve')) {
 
       const body = JSON.parse(init?.body as string)
@@ -109,6 +119,18 @@ it('persists metadata without lyric bodies and stops retry through reload', asyn
 
   expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false)
 
+})
+
+it('lets permanent deletion supersede a conflict and reach the cloud', async () => {
+  replaceAuthoritativeDraftCollection({ ...getAuthoritativeDraftCollection(), drafts: [], activeId: null }, { persist: 'immediate' })
+  cloudSyncManager.markPermanentDeletion(local.docId)
+
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+    '/api/cloud/documents/cloud-1',
+    expect.objectContaining({ method: 'PATCH' })
+  ))
+  await waitFor(() => expect(association().pendingPermanentDelete).toBe(false))
+  expect(association().state).toBe('deleted')
 })
 
 it('Keep Local submits explicit intent with fresh revision, clears only on acceptance', async () => {

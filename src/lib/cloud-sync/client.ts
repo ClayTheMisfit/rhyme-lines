@@ -412,6 +412,7 @@ class CloudSyncManager {
     const account = ensureAccountMetadata(this.metadata, this.accountId)
     const association = account.associations[localDocumentId] ??= emptyDocumentMetadata()
     association.pendingPermanentDelete = true
+    association.conflict = undefined
     association.state = navigator.onLine ? 'pending' : 'offline'
     this.persist(account)
     this.pump()
@@ -421,7 +422,7 @@ class CloudSyncManager {
     if (!this.accountId || !navigator.onLine || useCloudSyncStore.getState().accountState !== 'ready') return
     const account = ensureAccountMetadata(this.metadata, this.accountId)
     for (const [localId, association] of Object.entries(account.associations)) {
-      if (association.conflict) continue
+      if (association.conflict && !association.pendingPermanentDelete) continue
       if ((association.state !== 'pending' && association.state !== 'offline') || this.inFlight.has(localId)) continue
       if (association.nextRetryAt && association.nextRetryAt > Date.now()) {
         this.scheduleRetry(localId, association.nextRetryAt - Date.now())

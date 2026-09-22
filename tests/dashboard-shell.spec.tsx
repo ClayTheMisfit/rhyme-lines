@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { DashboardShell } from '@/components/dashboard/dashboard-shell'
 import * as storage from '@/lib/projects/storage'
 import type { ProjectFolder, ProjectSummary } from '@/lib/projects/storage'
+import { useCloudSyncStore } from '@/store/cloudSyncStore'
 
 const pushMock = jest.fn()
 
@@ -109,6 +110,7 @@ describe('DashboardShell', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    useCloudSyncStore.getState().actions.reset()
     storageMocks.listActiveProjectSummaries.mockReturnValue([newest, older])
     storageMocks.listArchivedProjectSummaries.mockReturnValue([archived])
     storageMocks.listTrashProjectSummaries.mockReturnValue([trashed])
@@ -168,6 +170,22 @@ describe('DashboardShell', () => {
     await user.click(screen.getByRole('button', { name: /Projects/i }))
     await waitFor(() => expect(screen.getByText('Recent Drafts')).toBeInTheDocument())
     expect(screen.getByText('Newest Draft')).toBeInTheDocument()
+  })
+
+  it('offers conflict resolution for archived and trashed projects', async () => {
+    const user = userEvent.setup()
+    useCloudSyncStore.getState().actions.setAccountState('ready')
+    useCloudSyncStore.getState().actions.replaceDocumentStates({
+      [archived.id]: 'conflict',
+      [trashed.id]: 'conflict',
+    })
+    render(<DashboardShell />)
+
+    await user.click(screen.getByRole('button', { name: /Archived/i }))
+    expect(await screen.findByRole('button', { name: `Resolve sync conflict for ${archived.title}` })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Trash/i }))
+    expect(await screen.findByRole('button', { name: `Resolve sync conflict for ${trashed.title}` })).toBeInTheDocument()
   })
 
   it('does not render a dashboard Draft action control', async () => {
