@@ -18,6 +18,17 @@ export type CloudSyncState =
   | 'deleted'
 
 export type DocumentSyncMetadata = {
+  conflict?: {
+    localKnownRevision: number | null
+    serverRevisionAtConflict: number | null
+    localVersionMarker: string | null
+    serverUpdatedAt: string | null
+    conflictDetectedAt: number
+    conflictReason: string
+    recoveryDocumentId?: string
+    recoveryLocalMarker?: string
+    recoveryCopyMarker?: string
+  } | null
   cloudDocumentId: string | null
   lastKnownServerRevision: number | null
   lastKnownLifecycle: CloudDocumentLifecycle | null
@@ -44,6 +55,7 @@ export type CloudSyncMetadata = {
 const emptyRoot = (): CloudSyncMetadata => ({ version: 1, lastAccountId: null, accounts: {} })
 
 export const emptyDocumentMetadata = (): DocumentSyncMetadata => ({
+  conflict: null,
   cloudDocumentId: null,
   lastKnownServerRevision: null,
   lastKnownLifecycle: null,
@@ -89,6 +101,17 @@ export function readCloudSyncMetadata(): CloudSyncMetadata {
           attempts: Number.isInteger(raw.attempts) ? Math.max(0, raw.attempts as number) : 0,
           nextRetryAt: typeof raw.nextRetryAt === 'number' ? raw.nextRetryAt : null,
           pendingPermanentDelete: raw.pendingPermanentDelete === true,
+          conflict: isRecord(raw.conflict) ? {
+            localKnownRevision: Number.isInteger(raw.conflict.localKnownRevision) ? raw.conflict.localKnownRevision as number : null,
+            serverRevisionAtConflict: Number.isInteger(raw.conflict.serverRevisionAtConflict) ? raw.conflict.serverRevisionAtConflict as number : null,
+            localVersionMarker: typeof raw.conflict.localVersionMarker === 'string' ? raw.conflict.localVersionMarker : null,
+            serverUpdatedAt: typeof raw.conflict.serverUpdatedAt === 'string' ? raw.conflict.serverUpdatedAt : null,
+            conflictDetectedAt: typeof raw.conflict.conflictDetectedAt === 'number' ? raw.conflict.conflictDetectedAt : 0,
+            conflictReason: typeof raw.conflict.conflictReason === 'string' ? raw.conflict.conflictReason : 'Cloud and local versions differ',
+            ...(typeof raw.conflict.recoveryDocumentId === 'string' ? { recoveryDocumentId: raw.conflict.recoveryDocumentId } : {}),
+            ...(typeof raw.conflict.recoveryLocalMarker === 'string' ? { recoveryLocalMarker: raw.conflict.recoveryLocalMarker } : {}),
+            ...(typeof raw.conflict.recoveryCopyMarker === 'string' ? { recoveryCopyMarker: raw.conflict.recoveryCopyMarker } : {}),
+          } : null,
         }
       }
       root.accounts[accountId] = { initialized: value.initialized === true, associations }

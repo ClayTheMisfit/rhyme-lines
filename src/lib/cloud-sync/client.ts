@@ -4,9 +4,11 @@ import type { PersistenceLoadStatus } from '@/lib/persist/migrations'
 import type { DraftCollection, DraftSchema } from '@/lib/persist/schema'
 import {
   getAuthoritativeDraftCollection,
+  flushDraftPersistence,
   replaceAuthoritativeDraftCollection,
   subscribeDraftPersistence,
 } from '@/lib/persist/draftCoordinator'
+import { createDocumentId } from '@/lib/projects/documentId'
 import { isEditorVisibleDraft, resolveActiveDraftId } from '@/lib/projects/lifecycle'
 import { useCloudSyncStore } from '@/store/cloudSyncStore'
 import type { CloudAccountState } from '@/store/cloudSyncStore'
@@ -82,7 +84,7 @@ export const requestHistoryCheckpoint = async (cloudDocumentId: string, expected
 
 type AccountResponse = { user: { id: string; name: string | null; email: string | null } | null }
 
-const lifecycleForDraft = (draft: DraftSchema): CloudDocumentInput['lifecycle'] =>
+export const lifecycleForDraft = (draft: DraftSchema): CloudDocumentInput['lifecycle'] =>
   draft.deletedAt ? 'TRASHED' : draft.archived || draft.archivedAt ? 'ARCHIVED' : 'ACTIVE'
 
 export const localDocumentVersion = (draft: DraftSchema): string => [
@@ -138,6 +140,26 @@ const equivalent = (document: CloudDocumentDto, draft: DraftSchema) => {
     && JSON.stringify(document.lines) === JSON.stringify(input.lines)
 }
 
+export type ConflictPreview = {
+  accountId: string
+  local: DraftSchema
+  localMarker: string
+  cloud: CloudDocumentDto
+  localKnownRevision: number | null
+  detectedAt: number
+}
+export type ConflictAction = 'keep-local' | 'use-cloud' | 'save-both'
+export type ConflictResult = { ok: true } | { ok: false; kind: 'stale' | 'blocked' | 'failed'; message: string }
+
+// Exact canonical comparison is kept in the temporary preview, never in persisted metadata.
+// This computation runs only on user-triggered inspection/resolution, outside typing.
+export const conflictLocalMarker = (draft: DraftSchema) => JSON.stringify({ ...draftToCloudInput(draft), folderId: draft.folderId ?? null })
+const safeMarker = (value: string): string => {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index++) hash = Math.imul(hash ^ value.charCodeAt(index), 16777619)
+  return `${value.length}:${hash >>> 0}`
+}
+
 class CloudSyncManager {
   private started = false
   private draftsStatus: PersistenceLoadStatus = 'unavailable'
@@ -179,8 +201,22 @@ class CloudSyncManager {
   }
 
   private persist(account?: AccountSyncMetadata) {
-    writeCloudSyncMetadata(this.metadata)
+    if (account) for (const [localId, association] of Object.entries(account.associations)) {
+      if (association.state === 'conflict' && !association.conflict) {
+        const local = getAuthoritativeDraftCollection().drafts.find((draft) => draft.docId === localId)
+        association.conflict = {
+          localKnownRevision: association.lastKnownServerRevision,
+          serverRevisionAtConflict: association.lastKnownServerRevision,
+          localVersionMarker: local ? safeMarker(conflictLocalMarker(local)) : null,
+          serverUpdatedAt: null,
+          conflictDetectedAt: Date.now(),
+          conflictReason: association.lastError ?? 'Cloud and local versions differ',
+        }
+      }
+    }
+    const durable = writeCloudSyncMetadata(this.metadata)
     this.publish(account)
+    return durable
   }
 
   private async refreshAccountAndBootstrap() {
@@ -191,6 +227,7 @@ class CloudSyncManager {
       if (!payload.user) {
         this.historyScheduler.clear()
         this.accountId = null
+        useCloudSyncStore.getState().actions.replaceDocumentStates({})
         useCloudSyncStore.getState().actions.setAccountState('anonymous')
         return
       }
@@ -208,7 +245,7 @@ class CloudSyncManager {
       this.metadata.lastAccountId = accountId
       const account = ensureAccountMetadata(this.metadata, accountId)
       for (const association of Object.values(account.associations)) {
-        if (association.state === 'auth-required') association.state = navigator.onLine ? 'pending' : 'offline'
+        if (association.state === 'auth-required') association.state = association.conflict ? 'conflict' : navigator.onLine ? 'pending' : 'offline'
       }
       useCloudSyncStore.getState().actions.setAccountState('ready')
       this.persist(account)
@@ -273,6 +310,7 @@ class CloudSyncManager {
       }
       association.cloudDocumentId = document.id
       association.lastKnownLifecycle = document.lifecycle
+      if (association.state === 'conflict' || association.conflict || this.inFlight.has(local.docId)) continue
       if ((association.lastKnownServerRevision ?? 0) < document.revision) {
         if (association.lastSyncedLocalVersion === localDocumentVersion(local)) {
           const replacement = cloudToDraft(document, local)
@@ -289,7 +327,11 @@ class CloudSyncManager {
     for (const tombstone of cloud.tombstones) {
       const local = localById.get(tombstone.clientDocumentId)
       const association = account.associations[tombstone.clientDocumentId]
-      if (!association) continue
+      if (!association) {
+        if (local) account.associations[local.docId] = { ...emptyDocumentMetadata(), cloudDocumentId: tombstone.id, lastKnownServerRevision: tombstone.revision, lastKnownLifecycle: 'DELETED', state: 'conflict', lastError: 'Cloud document was permanently deleted' }
+        continue
+      }
+      if (this.inFlight.has(tombstone.clientDocumentId) || association.state === 'conflict' || association.conflict) continue
       association.cloudDocumentId = tombstone.id
       association.lastKnownServerRevision = tombstone.revision
       association.lastKnownLifecycle = 'DELETED'
@@ -320,10 +362,10 @@ class CloudSyncManager {
     this.queueAcknowledgedCollection()
   }
 
-  private replaceFromCloud(collection: DraftCollection) {
+  private replaceFromCloud(collection: DraftCollection, requireDurable = false) {
     this.suppressAcknowledgement = true
     try {
-      return replaceAuthoritativeDraftCollection(collection, { persist: 'immediate' })
+      return replaceAuthoritativeDraftCollection(collection, { persist: 'immediate', requireDurable })
     } finally {
       this.suppressAcknowledgement = false
     }
@@ -331,6 +373,7 @@ class CloudSyncManager {
 
   private syncedMetadata(document: CloudDocumentDto, draft?: DraftSchema): DocumentSyncMetadata {
     return {
+      conflict: null,
       cloudDocumentId: document.id,
       lastKnownServerRevision: document.revision,
       lastKnownLifecycle: document.lifecycle,
@@ -350,7 +393,7 @@ class CloudSyncManager {
     const collection = getAuthoritativeDraftCollection()
     for (const draft of collection.drafts.filter(isMeaningfulDraft)) {
       const association = account.associations[draft.docId] ??= emptyDocumentMetadata()
-      if (association.state === 'conflict' || association.state === 'deleted') continue
+      if (association.conflict || association.state === 'conflict' || association.state === 'deleted') continue
       if (association.pendingPermanentDelete) {
         association.state = navigator.onLine ? 'pending' : 'offline'
         continue
@@ -375,9 +418,10 @@ class CloudSyncManager {
   }
 
   private pump() {
-    if (!this.accountId || !navigator.onLine) return
+    if (!this.accountId || !navigator.onLine || useCloudSyncStore.getState().accountState !== 'ready') return
     const account = ensureAccountMetadata(this.metadata, this.accountId)
     for (const [localId, association] of Object.entries(account.associations)) {
+      if (association.conflict) continue
       if ((association.state !== 'pending' && association.state !== 'offline') || this.inFlight.has(localId)) continue
       if (association.nextRetryAt && association.nextRetryAt > Date.now()) {
         this.scheduleRetry(localId, association.nextRetryAt - Date.now())
@@ -388,6 +432,7 @@ class CloudSyncManager {
   }
 
   private async syncOne(localId: string, association: DocumentSyncMetadata, account: AccountSyncMetadata) {
+    const accountIdAtStart = this.accountId
     this.inFlight.add(localId)
     let completed = false
     association.state = 'syncing'
@@ -456,12 +501,15 @@ class CloudSyncManager {
         }
       }
 
+      if (this.accountId !== accountIdAtStart) return
       if (response.status === 401) return this.pauseForAuthentication(account)
       if (response.status === 409) {
         const conflict = await response.json() as { currentRevision?: number }
         association.state = 'conflict'
         association.lastError = 'Cloud version changed'
+        const known = association.lastKnownServerRevision
         if (Number.isInteger(conflict.currentRevision)) association.lastKnownServerRevision = conflict.currentRevision!
+        association.conflict = { localKnownRevision: known, serverRevisionAtConflict: association.lastKnownServerRevision, localVersionMarker: sentDraft ? safeMarker(conflictLocalMarker(sentDraft)) : null, serverUpdatedAt: null, conflictDetectedAt: Date.now(), conflictReason: association.lastError }
         return
       }
       if (!response.ok) {
@@ -512,7 +560,7 @@ class CloudSyncManager {
       }
     } finally {
       this.inFlight.delete(localId)
-      this.persist(account)
+      this.persist(this.accountId === accountIdAtStart ? account : undefined)
       const current = getAuthoritativeDraftCollection().drafts.find((candidate) => candidate.docId === localId)
       if (completed && current && association.lastSyncedLocalVersion !== localDocumentVersion(current)) {
         association.state = 'pending'
@@ -666,9 +714,158 @@ class CloudSyncManager {
     }
   }
 
+  private finishConflict(account: AccountSyncMetadata, association: DocumentSyncMetadata, document: CloudDocumentDto, local?: DraftSchema): ConflictResult {
+    const previous = { ...association, conflict: association.conflict ? { ...association.conflict } : null }
+    Object.assign(association, this.syncedMetadata(document, local))
+    if (!this.persist(account)) {
+      Object.assign(association, previous)
+      this.publish(account)
+      return { ok: false, kind: 'failed', message: 'Content is safe, but conflict metadata could not be saved. The conflict remains until storage is available.' }
+    }
+    // A cloud adoption can remount the editor shell before the dialog component
+    // receives this result. Close the store-owned session at its durable boundary.
+    useCloudSyncStore.getState().actions.closeConflictDialog()
+    return { ok: true }
+  }
+
+  getConflictTarget(localId: string): string | null {
+    if (!this.accountId || useCloudSyncStore.getState().accountState !== 'ready') return null
+    const association = ensureAccountMetadata(this.metadata, this.accountId).associations[localId]
+    return association?.state === 'conflict' ? association.cloudDocumentId : null
+  }
+
+  getConflictBlock(localId: string): string | null {
+    if (!navigator.onLine) return 'Reconnect to resolve this conflict.'
+    if (!this.accountId || useCloudSyncStore.getState().accountState !== 'ready') return 'Sign in with the original account to resolve this conflict.'
+    if (this.inFlight.has(localId)) return 'A document operation is still running.'
+    if (!this.getConflictTarget(localId)) return 'This document has no resolvable conflict.'
+    if (!getAuthoritativeDraftCollection().drafts.some((draft) => draft.docId === localId)) return 'The local candidate is unavailable. Conflict was preserved.'
+    return null
+  }
+
+  private async validateConflictAccount(accountId: string, account: AccountSyncMetadata) {
+    if (!navigator.onLine) throw new Error('Reconnect to resolve this conflict.')
+    const response = await fetch('/api/account', { cache: 'no-store' })
+    if (!response.ok) throw new Error('The active account could not be verified.')
+    const payload = await response.json() as AccountResponse
+    if (this.accountId !== accountId || payload.user?.id !== accountId) {
+      this.historyScheduler.clear()
+      this.accountId = null
+      useCloudSyncStore.getState().actions.replaceDocumentStates({})
+      useCloudSyncStore.getState().actions.setAccountState(payload.user ? 'account-switch' : 'auth-required')
+      throw new Error('The active account changed. Local content and conflict were preserved.')
+    }
+    if (useCloudSyncStore.getState().accountState !== 'ready') {
+      this.pauseForAuthentication(account)
+      throw new Error('Sign in again to resolve this conflict.')
+    }
+  }
+
+  private async fetchConflictCloud(accountId: string, account: AccountSyncMetadata, cloudId: string) {
+    const response = await fetch(`/api/cloud/documents/${encodeURIComponent(cloudId)}`, { cache: 'no-store' })
+    if (this.accountId !== accountId) throw new Error('The active account changed.')
+    if (response.status === 401) {
+      this.pauseForAuthentication(account)
+      throw new Error('Sign in again to resolve this conflict.')
+    }
+    if (!response.ok) throw new Error('The latest cloud version could not be loaded. Both versions were preserved.')
+    const payload = await response.json() as { document: CloudDocumentDto }
+    if (this.accountId !== accountId) throw new Error('The active account changed.')
+    return payload.document
+  }
+
+  async inspectConflict(localId: string): Promise<ConflictPreview> {
+    const block = this.getConflictBlock(localId)
+    if (block) throw new Error(block)
+    const accountId = this.accountId!
+    const account = ensureAccountMetadata(this.metadata, accountId)
+    const association = account.associations[localId]
+    await this.validateConflictAccount(accountId, account)
+    const cloud = await this.fetchConflictCloud(accountId, account, association.cloudDocumentId!)
+    const local = getAuthoritativeDraftCollection().drafts.find((draft) => draft.docId === localId)
+    if (!local || cloud.clientDocumentId !== localId) throw new Error('The local candidate is unavailable.')
+    association.conflict ??= { localKnownRevision: association.lastKnownServerRevision, serverRevisionAtConflict: cloud.revision, localVersionMarker: null, serverUpdatedAt: cloud.serverUpdatedAt, conflictDetectedAt: Date.now(), conflictReason: 'Cloud and local versions differ' }
+    association.conflict.serverRevisionAtConflict = cloud.revision
+    association.conflict.serverUpdatedAt = cloud.serverUpdatedAt
+    association.conflict.localVersionMarker = safeMarker(conflictLocalMarker(local))
+    this.persist(account)
+    return { accountId, local: structuredClone(local), localMarker: conflictLocalMarker(local), cloud, localKnownRevision: association.conflict.localKnownRevision, detectedAt: association.conflict.conflictDetectedAt }
+  }
+
+  async resolveConflict(localId: string, action: ConflictAction, preview: ConflictPreview): Promise<ConflictResult> {
+    const block = this.getConflictBlock(localId)
+    if (block) return { ok: false, kind: 'blocked', message: block }
+    const accountId = this.accountId!
+    if (preview.accountId !== accountId || preview.cloud.id !== this.getConflictTarget(localId)) return { ok: false, kind: 'blocked', message: 'The active account or document changed.' }
+    const account = ensureAccountMetadata(this.metadata, accountId)
+    const association = account.associations[localId]
+    this.inFlight.add(localId)
+    this.historyScheduler.cancel(localId)
+    const stale = (): ConflictResult => ({ ok: false, kind: 'stale', message: 'A version changed. Refresh both previews and choose again.' })
+    const currentLocal = () => getAuthoritativeDraftCollection().drafts.find((draft) => draft.docId === localId)
+    const matches = () => { const local = currentLocal(); return Boolean(local && conflictLocalMarker(local) === preview.localMarker) }
+    try {
+      if (!matches()) return stale()
+      if (!flushDraftPersistence().ok) return { ok: false, kind: 'failed', message: 'Save locally before resolving. Both versions were preserved.' }
+      await this.validateConflictAccount(accountId, account)
+      const cloud = await this.fetchConflictCloud(accountId, account, preview.cloud.id)
+      if (cloud.revision !== preview.cloud.revision || !matches()) return stale()
+      if (action === 'keep-local' && cloud.lifecycle !== 'DELETED') {
+        const response = await fetch(`/api/cloud/documents/${encodeURIComponent(cloud.id)}/resolve`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...draftToCloudInput(currentLocal()!), baseRevision: cloud.revision, intent: 'keep-local' }),
+        })
+        if (this.accountId !== accountId) return { ok: false, kind: 'blocked', message: 'Account changed. Local work was preserved.' }
+        if (response.status === 401) { this.pauseForAuthentication(account); return { ok: false, kind: 'blocked', message: 'Sign in again to resolve this conflict.' } }
+        if (response.status === 409) return stale()
+        if (!response.ok) throw new Error('The cloud resolution could not be confirmed. Refresh before trying again.')
+        const payload = await response.json() as { document: CloudDocumentDto }
+        await this.validateConflictAccount(accountId, account)
+        association.lastKnownServerRevision = payload.document.revision
+        if (!matches()) { this.persist(account); return stale() }
+        return this.finishConflict(account, association, payload.document, currentLocal())
+      }
+      // Recovery copies use the normal bootstrap; never bind them to the original cloud ID.
+      let collection = getAuthoritativeDraftCollection()
+      const local = currentLocal()!
+      const recovery = association.conflict
+      let copy = collection.drafts.find((draft) => draft.docId === recovery?.recoveryDocumentId)
+      if (!copy || recovery?.recoveryLocalMarker !== safeMarker(preview.localMarker) || recovery.recoveryCopyMarker !== safeMarker(conflictLocalMarker(copy))) {
+        let suffix = 1
+        let title = ''
+        do { title = `${(local.title?.trim() || 'Untitled').slice(0, 75)} — Conflict Copy${suffix === 1 ? '' : ` ${suffix}`}`; suffix++ }
+        while (collection.drafts.some((draft) => draft.title === title))
+        copy = { ...structuredClone(local), docId: createDocumentId(), title, createdAt: Date.now(), updatedAt: Date.now(), archived: false, archivedAt: null, deletedAt: null, isPinned: false, position: Date.now(), selection: undefined }
+        const saved = this.replaceFromCloud({ ...collection, drafts: [...collection.drafts, copy] }, true)
+        if (!saved?.ok) throw new Error('Recovery copy could not be saved. The original and conflict were preserved.')
+        association.conflict ??= { localKnownRevision: association.lastKnownServerRevision, serverRevisionAtConflict: cloud.revision, localVersionMarker: null, serverUpdatedAt: cloud.serverUpdatedAt, conflictDetectedAt: Date.now(), conflictReason: 'Cloud and local versions differ' }
+        Object.assign(association.conflict, { recoveryDocumentId: copy.docId, recoveryLocalMarker: safeMarker(preview.localMarker), recoveryCopyMarker: safeMarker(conflictLocalMarker(copy)) })
+        if (!this.persist(account)) throw new Error('Recovery copy is safe, but resolution metadata could not be saved. Conflict remains.')
+      }
+      // Revalidate again after preserving the copy, before replacing/removing the original.
+      const latest = await this.fetchConflictCloud(accountId, account, cloud.id)
+      await this.validateConflictAccount(accountId, account)
+      if (latest.revision !== preview.cloud.revision || !matches()) return stale()
+      collection = getAuthoritativeDraftCollection()
+      const adopted = latest.lifecycle === 'DELETED' ? undefined : cloudToDraft(latest, currentLocal())
+      const drafts = adopted ? collection.drafts.map((draft) => draft.docId === localId ? adopted : draft) : collection.drafts.filter((draft) => draft.docId !== localId)
+      const saved = this.replaceFromCloud({ ...collection, drafts, activeId: resolveActiveDraftId(drafts, collection.activeId) }, true)
+      if (!saved?.ok) throw new Error('Recovery copy is safe, but the original could not be saved. Conflict remains; refresh before retrying.')
+      const result = this.finishConflict(account, association, latest, adopted)
+      if (result.ok) this.queueAcknowledgedCollection()
+      return result
+    } catch (error) {
+      return { ok: false, kind: 'failed', message: error instanceof Error ? error.message : 'Resolution failed. Both versions were preserved.' }
+    } finally {
+      this.inFlight.delete(localId)
+      this.pump()
+    }
+  }
+
   signOut() {
     this.historyScheduler.clear()
     this.accountId = null
+    useCloudSyncStore.getState().actions.replaceDocumentStates({})
     useCloudSyncStore.getState().actions.setAccountState('anonymous')
   }
 

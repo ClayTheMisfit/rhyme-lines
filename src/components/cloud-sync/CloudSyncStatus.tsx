@@ -9,6 +9,7 @@ const aggregateState = (states: CloudSyncState[]): CloudSyncState | undefined =>
 }
 
 export function CloudSyncStatus({ documentId }: { documentId?: string | null }) {
+  const openConflictDialog = useCloudSyncStore((state) => state.actions.openConflictDialog)
   const accountState = useCloudSyncStore((state) => state.accountState)
   const documentState = useCloudSyncStore((state) => documentId ? state.documentStates[documentId] : undefined)
   const workspaceState = useCloudSyncStore((state) => documentId ? undefined : aggregateState(Object.values(state.documentStates)))
@@ -37,5 +38,19 @@ export function CloudSyncStatus({ documentId }: { documentId?: string | null }) 
                       : 'Cloud: Checking…'
 
   const urgent = syncState === 'conflict' || accountState === 'account-switch'
-  return <span role="status" aria-live="polite" className={urgent ? 'text-amber-300/90' : undefined}>{label}</span>
+  return <>
+    <span role="status" aria-live="polite" className={urgent ? 'text-amber-300/90' : undefined}>{label}</span>
+    {documentId && syncState === 'conflict' && accountState === 'ready'
+      ? <button
+          type="button"
+          onPointerDown={() => {
+            // Let editor blur persist first; its acknowledgement may remount this status bar
+            // before click, so schedule the durable store action independently of this node.
+            window.setTimeout(() => openConflictDialog(documentId), 0)
+          }}
+          onClick={() => openConflictDialog(documentId)}
+          className="ml-2 rounded-sm underline underline-offset-2 focus-visible:outline focus-visible:outline-2"
+        >Resolve</button>
+      : null}
+  </>
 }

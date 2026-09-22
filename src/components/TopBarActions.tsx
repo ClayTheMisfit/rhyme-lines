@@ -16,6 +16,7 @@ import { CommandPalette, type CommandPaletteItem } from '@/components/CommandPal
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { trackEvent } from '@/lib/analytics/events'
 import { isEditableShortcutTarget } from '@/lib/shortcuts/keyboard'
+import { useCloudSyncStore } from '@/store/cloudSyncStore'
 import { VersionHistoryDialog } from '@/components/history/VersionHistoryDialog'
 
 const buttonClass =
@@ -57,6 +58,8 @@ export default function TopBarActions() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const openConflictDialog = useCloudSyncStore((state) => state.actions.openConflictDialog)
+  const conflictDocument = useCloudSyncStore((state) => state.accountState === 'ready' && activeTabId && state.documentStates[activeTabId] === 'conflict' ? activeTabId : null)
   const [announcement, setAnnouncement] = useState('')
   const paletteTriggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -221,6 +224,7 @@ export default function TopBarActions() {
         keywords: ['export', 'download', 'save'],
         run: exportDraft,
       },
+      ...(conflictDocument ? [{ id: 'resolve-sync-conflict', title: 'Resolve Sync Conflict', description: 'Inspect local and cloud versions', keywords: ['cloud', 'sync', 'conflict'], run: () => openConflictDialog(conflictDocument) }] : []),
       {
         id: 'version-history',
         title: 'Version History',
@@ -267,7 +271,7 @@ export default function TopBarActions() {
       }))
 
     return [...base, ...draftCommands]
-  }, [densityMode, exportDraft, newTab, openSettings, panelVisible, router, setActive, setDensityMode, tabs, toggleRhymePanel, toggleTheme])
+  }, [conflictDocument, densityMode, exportDraft, newTab, openConflictDialog, openSettings, panelVisible, router, setActive, setDensityMode, tabs, toggleRhymePanel, toggleTheme])
 
   return (
     <div className="ml-auto flex items-center gap-1.5">
