@@ -1,6 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
+import { createDocumentId } from '@/lib/projects/documentId'
 import { isClient } from '@/lib/env/isClient'
 import {
   createDefaultDraftCollection,
@@ -99,12 +100,7 @@ const reorderGroup = (tabs: Tab[], id: TabId, targetIndex: number): Tab[] => {
   })
 }
 
-const makeId = (): TabId => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `tab-${Math.random().toString(16).slice(2)}-${Date.now().toString(16)}`
-}
+const makeId = createDocumentId
 
 const tabFromDraft = (draft: DraftSchema): Tab => ({
   id: draft.docId,

@@ -31,6 +31,8 @@ import {
 import { useAppStateHydration } from '@/hooks/useAppStateHydration'
 import { useCloudSync } from '@/hooks/useCloudSync'
 import { subscribeDraftCollection } from '@/lib/persist/draftCoordinator'
+import { ConflictResolutionDialog } from '@/components/cloud-sync/ConflictResolutionDialog'
+import { useCloudSyncStore } from '@/store/cloudSyncStore'
 
 export function DashboardShell() {
   const hydration = useAppStateHydration()
@@ -46,6 +48,8 @@ export function DashboardShell() {
   const [folderFilter, setFolderFilter] = useState<string | null>(null)
   const [newFolderName, setNewFolderName] = useState('')
   const [showOrganizeControls, setShowOrganizeControls] = useState(false)
+  const conflictDialogDocumentId = useCloudSyncStore((state) => state.conflictDialogDocumentId)
+  const closeConflictDialog = useCloudSyncStore((state) => state.actions.closeConflictDialog)
 
   const reloadProjects = useCallback(() => {
     const activeRows = listActiveProjectSummaries()
@@ -264,6 +268,13 @@ export function DashboardShell() {
           <DashboardFooter />
         </main>
       </div>
+      {conflictDialogDocumentId ? (
+        <ConflictResolutionDialog
+          documentId={conflictDialogDocumentId}
+          open
+          onOpenChange={(open) => { if (!open) closeConflictDialog() }}
+        />
+      ) : null}
     </div>
   )
 }

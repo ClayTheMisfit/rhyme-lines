@@ -230,6 +230,28 @@ export async function updateCloudDocument(userId: string, id: string, input: Clo
   throw new CloudDocumentConflictError(id, input.baseRevision, current.revision)
 }
 
+// Explicit whole-document resolution can change lifecycle; normal PUT cannot.
+// The revision is also the retry fence: replaying an accepted request cannot increment twice.
+export async function resolveKeepLocal(userId: string, id: string, input: CloudDocumentUpdateInput): Promise<CloudDocumentDto> {
+  return getDatabase().$transaction(async (transaction) => {
+    await lockHistoryDocument(transaction, userId, id)
+    const current = await transaction.cloudDocument.findFirst({ where: { id, userId } })
+    if (!current || current.clientDocumentId !== input.clientDocumentId) throw new CloudDocumentNotFoundError()
+    if (current.revision !== input.baseRevision || current.lifecycle === 'DELETED') {
+      throw new CloudDocumentConflictError(id, input.baseRevision, current.revision)
+    }
+    // AUTO is an immutable authoritative checkpoint, including the pre-resolution state.
+    await transaction.cloudDocumentVersion.createMany({ data: [snapshotData(current, 'AUTO')], skipDuplicates: true })
+    const records = await transaction.cloudDocument.updateManyAndReturn({
+      where: { id, userId, revision: input.baseRevision, lifecycle: { not: 'DELETED' } },
+      data: { ...writeData(input), revision: { increment: 1 } },
+    })
+    if (records.length !== 1) throw new CloudDocumentConflictError(id, input.baseRevision, current.revision)
+    await transaction.cloudDocumentVersion.createMany({ data: [snapshotData(records[0], 'AUTO')], skipDuplicates: true })
+    return recordToDto(records[0])
+  }, HISTORY_TRANSACTION_OPTIONS)
+}
+
 export async function transitionCloudDocument(
   userId: string,
   id: string,

@@ -4,6 +4,8 @@ import { useAutosaveStore } from '@/store/autosaveStore'
 import { useRhymeHighlightSettingsStore } from '@/store/rhymeHighlightSettingsStore'
 import { shallow } from 'zustand/shallow'
 import { CloudSyncStatus } from '@/components/cloud-sync/CloudSyncStatus'
+import { ConflictResolutionDialog } from '@/components/cloud-sync/ConflictResolutionDialog'
+import { useCloudSyncStore } from '@/store/cloudSyncStore'
 
 type StatusBarProps = {
   documentId: string | null
@@ -27,6 +29,8 @@ const countLines = (text: string) => {
 }
 
 export default function StatusBar({ documentId, text, cursor }: StatusBarProps) {
+  const conflictDialogDocumentId = useCloudSyncStore((state) => state.conflictDialogDocumentId)
+  const closeConflictDialog = useCloudSyncStore((state) => state.actions.closeConflictDialog)
   const { status } = useAutosaveStore((state) => ({ status: state.status }), shallow)
   const { highlightMode } = useRhymeHighlightSettingsStore((state) => ({ highlightMode: state.highlightMode }), shallow)
   const saveLabel = status === 'saving'
@@ -46,6 +50,7 @@ export default function StatusBar({ documentId, text, cursor }: StatusBarProps) 
         : 'text-[color:var(--rl-shell-muted)]'
 
   return (
+    <>
     <footer className="flex h-8 items-center justify-between border-t border-[color:var(--rl-shell-border)] bg-[color:var(--rl-shell-chrome)] px-4 text-[11px] text-[color:var(--rl-shell-muted)]">
       <div className="flex items-center gap-4">
         <span
@@ -62,5 +67,7 @@ export default function StatusBar({ documentId, text, cursor }: StatusBarProps) 
       </div>
       <span>{cursor ? `Ln ${cursor.line}, Col ${cursor.column}` : 'Ln —, Col —'}</span>
     </footer>
+    {conflictDialogDocumentId ? <ConflictResolutionDialog documentId={conflictDialogDocumentId} open onOpenChange={(open) => { if (!open) closeConflictDialog() }} /> : null}
+    </>
   )
 }

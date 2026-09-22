@@ -11,6 +11,7 @@ import {
   listCloudDocumentVersions,
   listCloudDocuments,
   restoreCloudDocumentVersion,
+  resolveKeepLocal,
   transitionCloudDocument,
   updateCloudDocument,
 } from '../src/lib/cloud-sync/service'
@@ -220,6 +221,36 @@ async function main() {
     await deletion
     await checkpointAfterDelete
     assert.equal(await db.cloudDocumentVersion.count({ where: { documentId: raceDocument.id } }), 0)
+    const resolution = await createCloudDocument(userA, input('resolution-doc'))
+    await updateCloudDocument(userA, resolution.id, { ...input('resolution-doc'), title: 'Cloud candidate', baseRevision: 1 })
+    const resolved = await resolveKeepLocal(userA, resolution.id, { ...input('resolution-doc'), title: 'Local candidate', lifecycle: 'ARCHIVED', lifecycleChangedAt: new Date().toISOString(), baseRevision: 2 })
+    assert.equal(resolved.revision, 3)
+    assert.equal(resolved.title, 'Local candidate')
+    assert.equal(resolved.lifecycle, 'ARCHIVED')
+    const resolutionHistory = await listCloudDocumentVersions(userA, resolution.id, { cursor: null, limit: 20 })
+    const previousVersion = resolutionHistory.versions.find((version) => version.sourceRevision === 2)!
+    assert.equal((await getCloudDocumentVersion(userA, resolution.id, previousVersion.id)).title, 'Cloud candidate')
+    assert.ok(resolutionHistory.versions.some((version) => version.sourceRevision === 3))
+    const historyBeforeStale = resolutionHistory.versions.length
+    await expectError(() => resolveKeepLocal(userA, resolution.id, { ...input('resolution-doc'), baseRevision: 2 }), CloudDocumentConflictError)
+    assert.equal((await getCloudDocument(userA, resolution.id)).revision, 3)
+    assert.equal((await listCloudDocumentVersions(userA, resolution.id, { cursor: null, limit: 20 })).versions.length, historyBeforeStale)
+    await expectError(() => resolveKeepLocal(userB, resolution.id, { ...input('resolution-doc'), baseRevision: 3 }), CloudDocumentNotFoundError)
+    await transitionCloudDocument(userA, resolution.id, 'trash', 3)
+    await transitionCloudDocument(userA, resolution.id, 'delete-permanently', 4)
+    await expectError(() => resolveKeepLocal(userA, resolution.id, { ...input('resolution-doc'), baseRevision: 5 }), CloudDocumentConflictError)
+    assert.equal(await db.cloudDocumentVersion.count({ where: { documentId: resolution.id } }), 0)
+
+    const concurrentResolution = await createCloudDocument(userA, input('concurrent-resolution'))
+    const competing = await Promise.allSettled([
+      resolveKeepLocal(userA, concurrentResolution.id, { ...input('concurrent-resolution'), title: 'A', baseRevision: 1 }),
+      resolveKeepLocal(userA, concurrentResolution.id, { ...input('concurrent-resolution'), title: 'B', baseRevision: 1 }),
+    ])
+    assert.equal(competing.filter((result) => result.status === 'fulfilled').length, 1)
+    assert.equal((await getCloudDocument(userA, concurrentResolution.id)).revision, 2)
+    await transitionCloudDocument(userA, concurrentResolution.id, 'trash', 2)
+    await transitionCloudDocument(userA, concurrentResolution.id, 'delete-permanently', 3)
+    console.log('Conflict resolution database integration: 6 scenarios passed (atomic/history, stale/replay, owner, tombstone, lifecycle, concurrent writers)')
     console.log('Cloud sync and version history database integration: 11 scenarios passed (including checkpoint/delete race)')
   } finally {
     await db.user.deleteMany({ where: { id: { in: [userA, userB] } } })

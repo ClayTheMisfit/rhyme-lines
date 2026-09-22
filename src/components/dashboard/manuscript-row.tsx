@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { ProjectFolder, ProjectSummary } from '@/lib/projects/storage'
+import { useCloudSyncStore } from '@/store/cloudSyncStore'
 
 type ManuscriptRowProps = {
   project: ProjectSummary
@@ -39,6 +40,9 @@ export function ManuscriptRow({
   onDelete,
   onOpen,
 }: ManuscriptRowProps) {
+  const accountState = useCloudSyncStore((state) => state.accountState)
+  const syncState = useCloudSyncStore((state) => state.documentStates[project.id])
+  const openConflictDialog = useCloudSyncStore((state) => state.actions.openConflictDialog)
   const [isRenaming, setIsRenaming] = useState(false)
   const [draftTitle, setDraftTitle] = useState(project.title)
 
@@ -92,6 +96,16 @@ export function ManuscriptRow({
         </p>
       </div>
       <div className="ml-2 flex items-center rounded-md bg-[#11161d] p-1">
+        {syncState === 'conflict' && accountState === 'ready' ? (
+          <button
+            type="button"
+            onClick={() => openConflictDialog(project.id)}
+            className={actionClassName}
+            aria-label={`Resolve sync conflict for ${project.title}`}
+          >
+            Resolve
+          </button>
+        ) : null}
         {view !== 'trash' ? (
           <Link
             href={`/editor/${project.id}`}

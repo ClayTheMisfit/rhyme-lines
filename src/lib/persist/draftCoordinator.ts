@@ -175,12 +175,29 @@ export const scheduleDraftPersistence = (delayMs = 250) => {
 
 export const replaceAuthoritativeDraftCollection = (
   nextCollection: DraftCollection,
-  options: { persist: 'debounced' | 'immediate'; notify?: boolean } = { persist: 'debounced' }
+  options: { persist: 'debounced' | 'immediate'; notify?: boolean; requireDurable?: boolean } = { persist: 'debounced' }
 ): DraftPersistenceResult | null => {
   ensureInitialized()
   if (!persistenceAllowed) return null
 
   const normalizedCollection = normalizeDraftCollectionLifecycle(nextCollection)
+  // Authoritative conflict replacement must leave the previous canonical collection
+  // intact if storage cannot acknowledge the candidate. Notify only after durability.
+  if (options.requireDurable) {
+    const writeResult = tryWriteVersioned('drafts', normalizedCollection)
+    if (!writeResult.ok) return { ok: false, revision: currentRevision, error: writeResult.error }
+    cancelScheduledPersistence()
+    collection = normalizedCollection
+    currentRevision += 1
+    acknowledgedRevision = currentRevision
+    savingRevision = null
+    lastError = null
+    lastErrorAt = null
+    lastSavedAt = Date.now()
+    if (options.notify !== false) collectionListeners.forEach((listener) => listener(normalizedCollection))
+    emitPersistence({ type: 'success', wrote: true, snapshot: getDraftPersistenceSnapshot() })
+    return { ok: true, revision: currentRevision, wrote: true }
+  }
   collection = normalizedCollection
   currentRevision += 1
   savingRevision = null
