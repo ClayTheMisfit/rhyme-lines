@@ -15,13 +15,14 @@ No update route exists for a historical version. Reasons are `INITIAL`, `AUTO`, 
 - New cloud documents receive an `INITIAL` checkpoint at revision 1 in the creation transaction.
 - Existing pre-history documents receive an idempotent `INITIAL` baseline the first time the current revision enters checkpoint flow. Opening Version History while fully synced also bootstraps an empty history.
 - Each successful cloud response schedules an `AUTO` checkpoint 60 seconds after the latest accepted activity. A newer accepted response resets the per-document timer. Reload may schedule the still-current revision again; server uniqueness prevents duplicates.
+- A transient automatic-checkpoint failure receives up to three independent, bounded retries. The route returns `Retry-After: 5` for temporary backend failures; otherwise the scheduler uses 5s, 10s, and 20s exponential delays. Authentication, validation, ownership/not-found, and stale-revision responses are terminal rather than retried. A newer accepted revision, account change, deletion, or explicit cancellation invalidates stale retry work. Reconnecting and a non-conflict restore failure schedule the current synced revision again.
 - Archive, unarchive, trash, and trash restore create immediate `LIFECYCLE` checkpoints in the lifecycle transaction.
 - Manual checkpoint UI is not implemented in Phase 1.
 - Automatic pruning is not implemented. Storage retention is a future product decision; permanent-deletion privacy is handled separately.
 
 The browser sends only document identity, expected server revision, and the allowed automatic intent. The authenticated server verifies ownership and revision, then copies the canonical `CloudDocument`. Client-supplied lyric content is never accepted as history.
 
-Checkpoint errors are secondary: they do not change local `Saved` acknowledgement, canonical cloud sync state, retry/conflict state, or editor usability.
+Checkpoint errors are secondary: their retry state is in-memory and separate from canonical sync metadata, so they do not change local `Saved` acknowledgement, canonical cloud sync state, sync retry/conflict state, or editor usability.
 
 Snapshot writers acquire the owned parent row lock before reading canonical content. This serializes checkpoint/bootstrap and restore with lifecycle mutations, so a concurrent permanent-delete purge cannot be followed by reinsertion of a stale lyrical snapshot.
 
