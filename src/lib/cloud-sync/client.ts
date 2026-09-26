@@ -19,7 +19,7 @@ import type {
   RestoreEligibility,
   RestoreVersionResult,
 } from './contracts'
-import { HistoryCheckpointScheduler } from './historyScheduler'
+import { HistoryCheckpointScheduler, type HistoryCheckpointAttemptResult } from './historyScheduler'
 import {
   emptyDocumentMetadata,
   ensureAccountMetadata,
@@ -69,16 +69,30 @@ export const evaluateRestoreEligibility = (input: {
   }
 }
 
-export const requestHistoryCheckpoint = async (cloudDocumentId: string, expectedRevision: number): Promise<boolean> => {
+const retryAfterMs = (response: Response): number | undefined => {
+  const raw = response.headers?.get('Retry-After')
+  if (!raw) return undefined
+  const seconds = Number(raw)
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1_000 : undefined
+}
+
+export const requestHistoryCheckpoint = async (
+  cloudDocumentId: string,
+  expectedRevision: number
+): Promise<HistoryCheckpointAttemptResult> => {
   try {
     const response = await fetch(`/api/cloud/documents/${encodeURIComponent(cloudDocumentId)}/versions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ expectedRevision, reason: 'AUTO' }),
     })
-    return response.ok
+    if (response.ok) return { outcome: 'success' }
+    if (response.status >= 500 || response.status === 429) {
+      return { outcome: 'retry', retryAfterMs: retryAfterMs(response) }
+    }
+    return { outcome: 'stop' }
   } catch {
-    return false
+    return { outcome: 'retry' }
   }
 }
 
@@ -188,6 +202,7 @@ class CloudSyncManager {
   private handleOnline = () => {
     if (!this.accountId) return
     this.queueAcknowledgedCollection()
+    this.scheduleCurrentHistoryCheckpoints()
     this.pump()
   }
 
@@ -601,13 +616,30 @@ class CloudSyncManager {
   }
 
   private scheduleHistoryCheckpoint(localId: string, expectedRevision: number) {
-    this.historyScheduler.schedule(localId, expectedRevision, (revision) => {
-      void this.createHistoryCheckpoint(localId, revision)
-    })
+    this.historyScheduler.schedule(localId, expectedRevision, (revision) =>
+      this.createHistoryCheckpoint(localId, revision)
+    )
   }
 
-  private async createHistoryCheckpoint(localId: string, expectedRevision: number) {
-    if (!this.accountId || !navigator.onLine) return
+  private scheduleCurrentHistoryCheckpoints() {
+    if (!this.accountId || useCloudSyncStore.getState().accountState !== 'ready') return
+    const account = ensureAccountMetadata(this.metadata, this.accountId)
+    for (const [localId, association] of Object.entries(account.associations)) {
+      if (association.state === 'synced'
+        && association.cloudDocumentId
+        && association.lastKnownServerRevision
+        && !association.pendingPermanentDelete) {
+        this.scheduleHistoryCheckpoint(localId, association.lastKnownServerRevision)
+      }
+    }
+  }
+
+  private async createHistoryCheckpoint(
+    localId: string,
+    expectedRevision: number
+  ): Promise<HistoryCheckpointAttemptResult> {
+    if (!this.accountId) return { outcome: 'stop' }
+    if (!navigator.onLine) return { outcome: 'retry' }
     const account = ensureAccountMetadata(this.metadata, this.accountId)
     const association = account.associations[localId]
     if (!association
@@ -615,9 +647,9 @@ class CloudSyncManager {
       || association.pendingPermanentDelete
       || association.lastKnownServerRevision !== expectedRevision
       || !association.cloudDocumentId
-      || this.inFlight.has(localId)) return
+      || this.inFlight.has(localId)) return { outcome: 'stop' }
     // History is secondary. The result never changes canonical sync state.
-    await requestHistoryCheckpoint(association.cloudDocumentId, expectedRevision)
+    return requestHistoryCheckpoint(association.cloudDocumentId, expectedRevision)
   }
 
   getRestoreEligibility(localId: string): RestoreEligibility {
@@ -711,6 +743,11 @@ class CloudSyncManager {
       return { ok: false, kind: 'failed', message: 'This version could not be restored.' }
     } finally {
       this.inFlight.delete(localId)
+      if (this.accountId === accountId
+        && association.state === 'synced'
+        && association.lastKnownServerRevision) {
+        this.scheduleHistoryCheckpoint(localId, association.lastKnownServerRevision)
+      }
       this.pump()
     }
   }

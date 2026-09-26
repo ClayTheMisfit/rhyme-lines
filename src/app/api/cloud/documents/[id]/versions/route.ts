@@ -17,6 +17,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const headers = { 'Cache-Control': 'private, no-store' }
+const transientHeaders = { ...headers, 'Retry-After': '5' }
 type Context = { params: Promise<{ id: string }> }
 
 const errorResponse = (error: unknown) => {
@@ -25,7 +26,10 @@ const errorResponse = (error: unknown) => {
   }
   if (error instanceof CloudDocumentNotFoundError) return Response.json({ error: 'Not found' }, { status: 404, headers })
   if (error instanceof CloudDocumentConflictError) return Response.json(error.details, { status: 409, headers })
-  return Response.json({ error: 'Version history is temporarily unavailable' }, { status: 503, headers })
+  return Response.json(
+    { error: 'Version history is temporarily unavailable', code: 'HISTORY_TEMPORARILY_UNAVAILABLE' },
+    { status: 503, headers: transientHeaders }
+  )
 }
 
 export async function GET(request: Request, { params }: Context) {

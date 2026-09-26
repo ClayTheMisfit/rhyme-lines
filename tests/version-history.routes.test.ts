@@ -66,6 +66,20 @@ describe('version history route authorization and payload boundaries', () => {
     expect(checkpointMock).toHaveBeenCalledWith('server-user', 'cloud-1', 8)
   })
 
+  it('marks unexpected checkpoint failures as transient for bounded client retry', async () => {
+    checkpointMock.mockRejectedValueOnce(new Error('database unavailable'))
+    const request = new Request('http://localhost/api/cloud/documents/cloud-1/versions', {
+      method: 'POST',
+      body: JSON.stringify({ expectedRevision: 8 }),
+    })
+
+    const response = await checkpointVersion(request, context)
+
+    expect(response.status).toBe(503)
+    expect(response.headers.get('Retry-After')).toBe('5')
+    await expect(response.json()).resolves.toMatchObject({ code: 'HISTORY_TEMPORARILY_UNAVAILABLE' })
+  })
+
   it('uses document plus version ownership scope for a selected snapshot', async () => {
     getMock.mockRejectedValue(new CloudDocumentNotFoundError())
     const response = await getVersion(new Request('http://localhost'), versionContext)
