@@ -60,6 +60,6 @@ export async function authenticatePasswordCredentials(
   const passwordHash = user?.credential?.passwordHash || await dependencies.dummyHash()
   const valid = await dependencies.verify(password, passwordHash)
   if (!user || !user.credential || !user.emailVerified || !valid) return null
-  await dependencies.clear('login', identity)
+  try { await dependencies.clear('login', identity) } catch { console.error('[auth-rate-limit] successful-login cleanup failed') }
   return { id: user.id, name: user.name, email: user.email, image: user.image, sessionVersion: user.sessionVersion }
 }
