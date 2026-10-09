@@ -36,10 +36,20 @@ describe('credentials authentication', () => {
     await expect(authenticatePasswordCredentials({ email: 'avery@example.com', password }, request, dependencies({ ...baseUser, emailVerified: null }, true))).resolves.toBeNull()
   })
 
-  it('returns null when rate limited', async () => {
+  it('preserves dummy verification when the identity limit rejects a request', async () => {
     const deps = dependencies(baseUser, true)
-    deps.consume.mockResolvedValueOnce(false)
+    deps.consume.mockImplementation((action) => Promise.resolve(action !== 'login'))
     await expect(authenticatePasswordCredentials({ email: 'avery@example.com', password }, request, deps)).resolves.toBeNull()
     expect(deps.findUser).not.toHaveBeenCalled()
+    expect(deps.verify).toHaveBeenCalledWith(password, 'dummy')
+  })
+
+  it('does not spend password-hashing work after the IP-wide limit rejects a request', async () => {
+    const deps = dependencies(baseUser, true)
+    deps.consume.mockImplementation((action) => Promise.resolve(action !== 'login-ip'))
+    await expect(authenticatePasswordCredentials({ email: 'avery@example.com', password }, request, deps)).resolves.toBeNull()
+    expect(deps.findUser).not.toHaveBeenCalled()
+    expect(deps.dummyHash).not.toHaveBeenCalled()
+    expect(deps.verify).not.toHaveBeenCalled()
   })
 })

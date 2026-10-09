@@ -1,11 +1,11 @@
 /** @jest-environment node */
 jest.mock('server-only', () => ({}))
 
-type MockDatabase = { $transaction?: jest.Mock; user?: { findFirst: jest.Mock }; [key: string]: unknown }
+type MockDatabase = { $transaction?: jest.Mock; user?: { findFirst: jest.Mock; deleteMany?: jest.Mock }; [key: string]: unknown }
 const mockDatabase: MockDatabase = {}
 jest.mock('@/lib/db', () => ({ getDatabase: () => mockDatabase }))
 
-import { registerPasswordAccount, requestPasswordReset, resetPasswordWithToken, verifyEmailToken } from '@/lib/auth/service'
+import { registerPasswordAccount, requestPasswordReset, resendVerificationEmail, resetPasswordWithToken, verifyEmailToken } from '@/lib/auth/service'
 import { verifyPassword } from '@/lib/auth/password'
 
 describe('password account service', () => {
@@ -13,7 +13,7 @@ describe('password account service', () => {
     for (const key of Object.keys(mockDatabase)) delete mockDatabase[key]
   })
 
-  it('creates a normalized account credential and stores only a token hash', async () => {
+  it('stores a pending password hash without creating an active credential', async () => {
     const sender = jest.fn().mockResolvedValue(undefined)
     const createUser = jest.fn().mockResolvedValue({ id: 'user-1' })
     const createToken = jest.fn().mockResolvedValue({ id: 'token-1' })
@@ -21,9 +21,10 @@ describe('password account service', () => {
     mockDatabase.$transaction = jest.fn((callback) => callback(transaction))
 
     await expect(registerPasswordAccount({ name: 'Avery', email: 'avery@example.com', password: 'this is a secure passphrase' }, sender)).resolves.toEqual({ ok: true })
-    const passwordHash = createUser.mock.calls[0][0].data.credential.create.passwordHash
+    const passwordHash = createUser.mock.calls[0][0].data.pendingPasswordHash
     expect(passwordHash).not.toContain('this is a secure passphrase')
     await expect(verifyPassword('this is a secure passphrase', passwordHash)).resolves.toBe(true)
+    expect(createUser.mock.calls[0][0].data.credential).toBeUndefined()
     const stored = createToken.mock.calls[0][0].data.tokenHash
     const delivered = sender.mock.calls[0][0].token
     expect(stored).toMatch(/^[a-f0-9]{64}$/)
@@ -59,20 +60,91 @@ describe('password account service', () => {
     expect(mockDatabase.$transaction).toHaveBeenCalledTimes(2)
   })
 
+  it('removes an untouched pending registration when initial email delivery fails', async () => {
+    const deleteMany = jest.fn().mockResolvedValue({ count: 1 })
+    mockDatabase.user = { findFirst: jest.fn(), deleteMany }
+    const transaction = {
+      user: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn().mockResolvedValue({ id: 'user-1' }) },
+      authToken: { create: jest.fn().mockResolvedValue({ id: 'token-1' }) },
+    }
+    mockDatabase.$transaction = jest.fn((callback) => callback(transaction))
+
+    await expect(registerPasswordAccount(
+      { name: 'Avery', email: 'avery@example.com', password: 'this is a secure passphrase' },
+      jest.fn().mockRejectedValue(new Error('provider unavailable')),
+    )).resolves.toEqual({ ok: false, reason: 'email' })
+
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: 'user-1',
+        emailVerified: null,
+        pendingPasswordHash: expect.any(String),
+        credential: { is: null },
+        accounts: { none: {} },
+      },
+    })
+  })
+
+  it('resends verification for a pending registration without replacing its password hash', async () => {
+    const sender = jest.fn().mockResolvedValue(undefined)
+    const deleteMany = jest.fn().mockResolvedValue({ count: 0 })
+    const create = jest.fn().mockResolvedValue({ id: 'new-token' })
+    mockDatabase.user = {
+      findFirst: jest.fn().mockResolvedValue({
+        id: 'user-1', email: 'avery@example.com', emailVerified: null,
+        pendingPasswordHash: 'pending-hash', credential: null,
+      }),
+    }
+    mockDatabase.authToken = { deleteMany, create }
+    mockDatabase.$transaction = jest.fn((operations) => Promise.all(operations))
+
+    await resendVerificationEmail('avery@example.com', sender)
+
+    expect(sender).toHaveBeenCalledTimes(1)
+    expect(mockDatabase.user.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({ pendingPasswordHash: true }),
+    }))
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ userId: 'user-1', type: 'VERIFY_EMAIL' }),
+    }))
+  })
+
   it('consumes verification tokens once and rejects expiry and replay', async () => {
     const now = new Date('2026-09-26T12:00:00Z')
     const userUpdate = jest.fn()
+    const credentialCreate = jest.fn()
     const makeDatabase = (record: Record<string, unknown> | null, claimed = 1) => {
-      const transaction = { authToken: { findUnique: jest.fn().mockResolvedValue(record), updateMany: jest.fn().mockResolvedValue({ count: claimed }) }, user: { update: userUpdate } }
+      const transaction = { authToken: { findUnique: jest.fn().mockResolvedValue(record), updateMany: jest.fn().mockResolvedValue({ count: claimed }) }, credential: { create: credentialCreate }, user: { update: userUpdate } }
       mockDatabase.$transaction = jest.fn((callback) => callback(transaction))
     }
-    makeDatabase({ id: 'token-1', userId: 'user-1', type: 'VERIFY_EMAIL', usedAt: null, expiresAt: new Date(now.getTime() + 1000) })
+    makeDatabase({ id: 'token-1', userId: 'user-1', type: 'VERIFY_EMAIL', usedAt: null, expiresAt: new Date(now.getTime() + 1000), user: { emailVerified: null, pendingPasswordHash: 'pending-hash', credential: null } })
     await expect(verifyEmailToken('secret', now)).resolves.toBe(true)
-    expect(userUpdate).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { emailVerified: now } })
-    makeDatabase({ id: 'token-1', userId: 'user-1', type: 'VERIFY_EMAIL', usedAt: now, expiresAt: new Date(now.getTime() + 1000) })
+    expect(credentialCreate).toHaveBeenCalledWith({ data: { userId: 'user-1', passwordHash: 'pending-hash' } })
+    expect(userUpdate).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { emailVerified: now, pendingPasswordHash: null } })
+    makeDatabase({ id: 'token-1', userId: 'user-1', type: 'VERIFY_EMAIL', usedAt: now, expiresAt: new Date(now.getTime() + 1000), user: { emailVerified: null, pendingPasswordHash: 'pending-hash', credential: null } })
     await expect(verifyEmailToken('secret', now)).resolves.toBe(false)
-    makeDatabase({ id: 'token-1', userId: 'user-1', type: 'VERIFY_EMAIL', usedAt: null, expiresAt: new Date(now.getTime() - 1) })
+    makeDatabase({ id: 'token-1', userId: 'user-1', type: 'VERIFY_EMAIL', usedAt: null, expiresAt: new Date(now.getTime() - 1), user: { emailVerified: null, pendingPasswordHash: 'pending-hash', credential: null } })
     await expect(verifyEmailToken('secret', now)).resolves.toBe(false)
+  })
+
+  it('does not activate a verification token without a pending password', async () => {
+    const now = new Date('2026-09-26T12:00:00Z')
+    const transaction = {
+      authToken: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'token-1', userId: 'user-1', type: 'VERIFY_EMAIL', usedAt: null,
+          expiresAt: new Date(now.getTime() + 1000),
+          user: { emailVerified: null, pendingPasswordHash: null, credential: null },
+        }),
+        updateMany: jest.fn(),
+      },
+      credential: { create: jest.fn() },
+      user: { update: jest.fn() },
+    }
+    mockDatabase.$transaction = jest.fn((callback) => callback(transaction))
+    await expect(verifyEmailToken('secret', now)).resolves.toBe(false)
+    expect(transaction.credential.create).not.toHaveBeenCalled()
+    expect(transaction.user.update).not.toHaveBeenCalled()
   })
 
   it('resets a password, invalidates reset tokens, and advances the session version', async () => {
