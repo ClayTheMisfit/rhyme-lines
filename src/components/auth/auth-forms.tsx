@@ -76,7 +76,7 @@ export function SignupForm() {
     setPending(true); setErrors({}); setError(''); setNeedsResend(false)
     try {
       const { response, data } = await postJson('/api/auth/signup', values)
-      if (!response.ok) { setErrors(data.fieldErrors || {}); setError(data.message || 'Account creation could not be completed.'); setNeedsResend(data.code === 'verification_delivery_failed_resend'); return }
+      if (!response.ok) { setErrors(data.fieldErrors || {}); setError(data.message || 'Account creation could not be completed.'); setNeedsResend(data.code === 'verification_delivery_failed_resend' || data.code === 'account_unavailable'); return }
       router.push('/verify-email?sent=1')
     } catch { setError('Account creation could not be completed. Check your connection and try again.') } finally { setPending(false) }
   }

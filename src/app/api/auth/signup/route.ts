@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     if (result.reason === 'server') {
       return Response.json({ ok: false, code: 'server', message: 'Account creation is temporarily unavailable.' }, { status: 503 })
     }
-    return Response.json({ ok: false, code: 'account_unavailable', message: 'An account cannot be created with those details. Try signing in or recovering your password.' }, { status: 400 })
+    return Response.json({ ok: false, code: 'account_unavailable', message: 'An account cannot be created with those details. If you already started signup, request a new verification link; otherwise try signing in or recovering your password.' }, { status: 400 })
   } catch (error) {
     if (error instanceof AuthRequestError) return Response.json({ ok: false, code: 'request', message: error.message }, { status: error.status })
     if (error instanceof AuthConfigurationError) {
