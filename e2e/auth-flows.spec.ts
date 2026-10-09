@@ -16,18 +16,17 @@ test.describe('authentication screens', () => {
     await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible()
     await expect(page.getByLabel('Name')).toHaveAttribute('autocomplete', 'name')
     await expect(page.getByLabel('Email')).toHaveAttribute('autocomplete', 'email')
-    await expect(page.getByRole('textbox', { name: 'Password', exact: true })).toHaveAttribute('autocomplete', 'new-password')
-    await page.getByRole('button', { name: 'Show password' }).first().click()
-    await expect(page.getByRole('button', { name: 'Hide password' }).first()).toBeVisible()
+    await expect(page.getByText('We will email you a secure link. Open it to verify your address and choose your password.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Continue with email' })).toBeEnabled()
     await page.getByRole('link', { name: 'Continue without an account' }).click()
     await expect.poll(() => page.evaluate(() => localStorage.getItem('rhyme-lines:persist:drafts'))).toContain('local-auth-draft')
   })
 
   test('returns inline validation and restores the signup button', async ({ page }) => {
     await page.goto('/signup')
-    await page.getByRole('button', { name: 'Create account' }).click()
+    await page.getByRole('button', { name: 'Continue with email' }).click()
     await expect(page.getByText('Enter a name between 1 and 80 characters.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Create account' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Continue with email' })).toBeEnabled()
   })
 
   test('renders recovery and confirmation states without dead links', async ({ page }) => {

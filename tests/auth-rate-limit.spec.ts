@@ -29,6 +29,16 @@ describe('authentication rate limiter', () => {
     expect(getClientAddress(request)).toBeNull()
   })
 
+  it('fails closed in production when no trusted client-address source is configured', () => {
+    const originalNodeEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    try {
+      expect(() => getClientAddress(new Request('https://example.test'))).toThrow('trusted client-address source')
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv
+    }
+  })
+
   it('uses the platform-owned client address on Vercel', () => {
     process.env.VERCEL = '1'
     const request = new Request('https://example.test', {

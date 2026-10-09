@@ -1,6 +1,7 @@
 import 'server-only'
 import { createHmac } from 'node:crypto'
 import { getDatabase } from '@/lib/db'
+import { AuthConfigurationError } from './environment'
 
 export type AuthRateLimitAction = 'login' | 'login-ip' | 'signup-ip' | 'recovery' | 'recovery-ip' | 'token'
 
@@ -21,9 +22,18 @@ let lastCleanupAt = 0
 export function getClientAddress(request: Request) {
   const configuredHeader = process.env.AUTH_TRUSTED_PROXY_HEADER?.trim().toLowerCase()
   const header = process.env.VERCEL === '1' ? 'x-vercel-forwarded-for' : configuredHeader
-  if (!header || !/^[a-z0-9-]+$/.test(header)) return null
+  if (!header || !/^[a-z0-9-]+$/.test(header)) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new AuthConfigurationError('A trusted client-address source is required for production password authentication')
+    }
+    return null
+  }
   const value = request.headers.get(header)
-  return value?.split(',', 1)[0].trim().slice(0, 128) || null
+  const address = value?.split(',', 1)[0].trim().slice(0, 128) || null
+  if (!address && process.env.NODE_ENV === 'production') {
+    throw new AuthConfigurationError(`Trusted client-address header ${header} is missing`)
+  }
+  return address
 }
 
 function rateLimitKey(action: AuthRateLimitAction, identity: string) {

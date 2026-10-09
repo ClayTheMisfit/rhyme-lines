@@ -94,6 +94,22 @@ describe('auth forms', () => {
     expect(screen.queryByRole('link', { name: 'Resend verification email' })).not.toBeInTheDocument()
   })
 
+  it('offers generic verification resend after an unavailable duplicate signup', async () => {
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      writable: true,
+      value: jest.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ ok: false, code: 'account_unavailable', message: 'If you already started signup, request a new verification link.' }),
+      }),
+    })
+    render(<SignupForm />)
+    await userEvent.type(screen.getByLabelText('Name'), 'Avery')
+    await userEvent.type(screen.getByLabelText('Email'), 'avery@example.com')
+    await userEvent.click(screen.getByRole('button', { name: 'Continue with email' }))
+    expect(await screen.findByRole('link', { name: 'Resend verification email' })).toHaveAttribute('href', '/verify-email')
+  })
+
   it('keeps Google OAuth available', async () => {
     signInMock.mockResolvedValue(undefined)
     render(<SignInForm configured redirectTo="/workspace" />)
