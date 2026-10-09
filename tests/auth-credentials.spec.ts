@@ -25,6 +25,18 @@ describe('credentials authentication', () => {
     expect(deps.findUser).toHaveBeenCalledWith('avery@example.com')
   })
 
+  it('does not reject valid credentials when limiter cleanup fails', async () => {
+    const deps = dependencies(baseUser, true)
+    deps.clear.mockRejectedValue(new Error('database unavailable'))
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    try {
+      await expect(authenticatePasswordCredentials({ email: 'avery@example.com', password }, request, deps)).resolves.toEqual(expect.objectContaining({ id: 'user-1' }))
+      expect(consoleError).toHaveBeenCalledWith('[auth-rate-limit] successful-login cleanup failed')
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
+
   it('returns the same public null result for a wrong password and an unknown email', async () => {
     await expect(authenticatePasswordCredentials({ email: 'avery@example.com', password }, request, dependencies(baseUser, false))).resolves.toBeNull()
     const unknown = dependencies(null, false)

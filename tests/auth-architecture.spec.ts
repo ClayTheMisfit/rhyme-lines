@@ -11,6 +11,7 @@ describe('authentication architecture', () => {
     expect(source).toContain('Credentials({')
     expect(source).toContain("strategy: 'jwt'")
     expect(source).toContain('allowDangerousEmailAccountLinking: false')
+    expect(source).toContain('isVerifiedGoogleProfile(profile)')
   })
 
   it('keeps downstream identity behind getCurrentUser', () => {

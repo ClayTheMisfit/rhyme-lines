@@ -2,30 +2,18 @@ import 'server-only'
 import NextAuth from 'next-auth'
 import Google from 'next-auth/providers/google'
 import Credentials from 'next-auth/providers/credentials'
-import { PrismaAdapter } from '@auth/prisma-adapter'
 import { getDatabase } from '@/lib/db'
+import { createAuthAdapter, isVerifiedGoogleProfile } from '@/lib/auth/adapter'
 import { getAuthEnvironment } from '@/lib/auth/environment'
 import { authenticatePasswordCredentials } from '@/lib/auth/credentials'
-import { normalizeEmail } from '@/lib/auth/validation'
 
 // Lazy initialization keeps static builds and local writing database-independent.
 export const { auth, handlers, signIn, signOut } = NextAuth(() => {
   const environment = getAuthEnvironment()
   const database = getDatabase()
-  const baseAdapter = PrismaAdapter(database)
   return {
     secret: environment.secret,
-    adapter: {
-      ...baseAdapter,
-      async createUser(user) {
-        return baseAdapter.createUser!({ ...user, email: normalizeEmail(user.email) })
-      },
-      async getUserByEmail(email) {
-        const user = await database.user.findFirst({ where: { email: { equals: normalizeEmail(email), mode: 'insensitive' } } })
-        if (!user?.email) return null
-        return { id: user.id, name: user.name, email: user.email, emailVerified: user.emailVerified, image: user.image }
-      },
-    },
+    adapter: createAuthAdapter(database),
     providers: [
       Google({
         clientId: environment.googleId,
@@ -45,6 +33,9 @@ export const { auth, handlers, signIn, signOut } = NextAuth(() => {
     session: { strategy: 'jwt' },
     pages: { signIn: '/signin', error: '/signin' },
     callbacks: {
+      signIn({ account, profile }) {
+        return account?.provider !== 'google' || isVerifiedGoogleProfile(profile)
+      },
       async jwt({ token, user }) {
         const userId = user?.id || token.sub
         if (!userId) return null
