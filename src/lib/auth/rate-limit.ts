@@ -19,10 +19,11 @@ const TRANSACTION_ATTEMPTS = 3
 let lastCleanupAt = 0
 
 export function getClientAddress(request: Request) {
-  // Vercel overwrites this platform header. Forwarding headers are untrusted elsewhere.
-  if (process.env.VERCEL !== '1') return 'unknown'
-  const value = request.headers.get('x-vercel-forwarded-for')
-  return value?.split(',', 1)[0].trim().slice(0, 128) || 'unknown'
+  const configuredHeader = process.env.AUTH_TRUSTED_PROXY_HEADER?.trim().toLowerCase()
+  const header = process.env.VERCEL === '1' ? 'x-vercel-forwarded-for' : configuredHeader
+  if (!header || !/^[a-z0-9-]+$/.test(header)) return null
+  const value = request.headers.get(header)
+  return value?.split(',', 1)[0].trim().slice(0, 128) || null
 }
 
 function rateLimitKey(action: AuthRateLimitAction, identity: string) {

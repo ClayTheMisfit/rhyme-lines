@@ -49,14 +49,10 @@ export function validateSignupInput(input: unknown) {
   const body = typeof input === 'object' && input !== null ? input as Record<string, unknown> : {}
   const name = validateName(body.name)
   const email = validateEmail(body.email)
-  const password = validatePassword(body.password)
-  const confirmPassword = typeof body.confirmPassword === 'string' ? body.confirmPassword : ''
   const errors: FieldErrors = {}
   if (!name) errors.name = 'Enter a name between 1 and 80 characters.'
   if (!email) errors.email = 'Enter a valid email address.'
-  if (!password) errors.password = `Use ${PASSWORD_MIN_LENGTH}–${PASSWORD_MAX_LENGTH} characters.`
-  if (!password || confirmPassword !== password) errors.confirmPassword = 'Passwords must match.'
-  return Object.keys(errors).length ? { ok: false as const, errors } : { ok: true as const, value: { name: name!, email: email!, password: password! } }
+  return Object.keys(errors).length ? { ok: false as const, errors } : { ok: true as const, value: { name: name!, email: email! } }
 }
 
 export function validatePasswordResetInput(input: unknown) {
@@ -65,7 +61,7 @@ export function validatePasswordResetInput(input: unknown) {
   const password = validatePassword(body.password)
   const confirmPassword = typeof body.confirmPassword === 'string' ? body.confirmPassword : ''
   const errors: FieldErrors = {}
-  if (!token) errors.token = 'This reset link is invalid.'
+  if (!token) errors.token = 'This link is invalid.'
   if (!password) errors.password = `Use ${PASSWORD_MIN_LENGTH}–${PASSWORD_MAX_LENGTH} characters.`
   if (!password || password !== confirmPassword) errors.confirmPassword = 'Passwords must match.'
   return Object.keys(errors).length ? { ok: false as const, errors } : { ok: true as const, value: { token: token!, password: password! } }

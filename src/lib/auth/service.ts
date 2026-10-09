@@ -25,20 +25,19 @@ async function serializableTransaction<T>(operation: (transaction: Prisma.Transa
   throw new Error('Authentication transaction did not complete')
 }
 
-export type RegistrationResult = { ok: true } | { ok: false; reason: 'duplicate' | 'email' | 'server' }
+export type RegistrationResult = { ok: true } | { ok: false; reason: 'duplicate' | 'server' } | { ok: false; reason: 'email'; accountPreserved: boolean }
 
 export async function registerPasswordAccount(
-  input: { name: string; email: string; password: string },
+  input: { name: string; email: string },
   sender: AuthEmailSender = sendAuthEmail,
 ): Promise<RegistrationResult> {
-  const passwordHash = await hashPassword(input.password)
   const { token, tokenHash } = createOneTimeToken()
   try {
     const created = await serializableTransaction(async (transaction) => {
       const existing = await transaction.user.findFirst({ where: { email: { equals: input.email, mode: 'insensitive' } }, select: { id: true } })
       if (existing) return null
       const user = await transaction.user.create({
-        data: { name: input.name, email: input.email, pendingPasswordHash: passwordHash },
+        data: { name: input.name, email: input.email, passwordSetupPending: true },
         select: { id: true },
       })
       await transaction.authToken.create({
@@ -51,19 +50,21 @@ export async function registerPasswordAccount(
       await sender({ kind: 'verify', to: input.email, token })
       return { ok: true }
     } catch {
+      let accountPreserved = true
       try {
-        await getDatabase().user.deleteMany({
+        const deleted = await getDatabase().user.deleteMany({
           where: {
             id: created.id,
             emailVerified: null,
-            pendingPasswordHash: passwordHash,
+            passwordSetupPending: true,
             credential: { is: null },
             accounts: { none: {} },
           },
         })
+        accountPreserved = deleted.count === 0
       } catch { console.error('[auth-signup] undelivered-registration cleanup failed') }
       console.error('[auth-email] verification delivery failed')
-      return { ok: false, reason: 'email' }
+      return { ok: false, reason: 'email', accountPreserved }
     }
   } catch (error) {
     if (isUniqueConstraintError(error)) return { ok: false, reason: 'duplicate' }
@@ -81,11 +82,11 @@ async function issueToken(email: string, type: 'VERIFY_EMAIL' | 'PASSWORD_RESET'
   }
   const user = await database.user.findFirst({
     where: { email: { equals: email, mode: 'insensitive' } },
-    select: { id: true, email: true, emailVerified: true, pendingPasswordHash: true, credential: { select: { userId: true } } },
+    select: { id: true, email: true, emailVerified: true, passwordSetupPending: true, credential: { select: { userId: true } } },
   })
   if (!user?.email) return
   if (type === 'VERIFY_EMAIL') {
-    if (user.emailVerified !== null || !user.pendingPasswordHash || user.credential) return
+    if (user.emailVerified !== null || !user.passwordSetupPending || user.credential) return
   } else if (user.emailVerified === null || !user.credential) return
   const { token, tokenHash } = createOneTimeToken()
   await database.$transaction([
@@ -110,19 +111,20 @@ export async function requestPasswordReset(email: string, sender: AuthEmailSende
   try { await issueToken(email, 'PASSWORD_RESET', sender) } catch { console.error('[auth-email] password reset delivery failed') }
 }
 
-export async function verifyEmailToken(token: string, now = new Date()) {
+export async function verifyEmailToken(token: string, password: string, now = new Date()) {
+  const passwordHash = await hashPassword(password)
   const tokenHash = hashOneTimeToken(token)
   return serializableTransaction(async (transaction) => {
     const record = await transaction.authToken.findUnique({
       where: { tokenHash },
-      include: { user: { select: { emailVerified: true, pendingPasswordHash: true, credential: { select: { userId: true } } } } },
+      include: { user: { select: { emailVerified: true, passwordSetupPending: true, credential: { select: { userId: true } } } } },
     })
     if (!record || record.type !== 'VERIFY_EMAIL' || record.usedAt || record.expiresAt <= now) return false
-    if (record.user.emailVerified || !record.user.pendingPasswordHash || record.user.credential) return false
+    if (record.user.emailVerified || !record.user.passwordSetupPending || record.user.credential) return false
     const claimed = await transaction.authToken.updateMany({ where: { id: record.id, usedAt: null, expiresAt: { gt: now } }, data: { usedAt: now } })
     if (claimed.count !== 1) return false
-    await transaction.credential.create({ data: { userId: record.userId, passwordHash: record.user.pendingPasswordHash } })
-    await transaction.user.update({ where: { id: record.userId }, data: { emailVerified: now, pendingPasswordHash: null } })
+    await transaction.credential.create({ data: { userId: record.userId, passwordHash } })
+    await transaction.user.update({ where: { id: record.userId }, data: { emailVerified: now, passwordSetupPending: false } })
     await transaction.authToken.updateMany({
       where: { userId: record.userId, type: 'VERIFY_EMAIL', usedAt: null },
       data: { usedAt: now },

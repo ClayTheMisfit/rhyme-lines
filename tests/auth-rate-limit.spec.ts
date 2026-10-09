@@ -26,7 +26,7 @@ describe('authentication rate limiter', () => {
         'x-real-ip': '192.0.2.3',
       },
     })
-    expect(getClientAddress(request)).toBe('unknown')
+    expect(getClientAddress(request)).toBeNull()
   })
 
   it('uses the platform-owned client address on Vercel', () => {
@@ -38,6 +38,13 @@ describe('authentication rate limiter', () => {
       },
     })
     expect(getClientAddress(request)).toBe('192.0.2.4')
+  })
+
+  it('uses an explicitly configured trusted-proxy header outside Vercel', () => {
+    process.env.AUTH_TRUSTED_PROXY_HEADER = 'x-real-ip'
+    const request = new Request('https://example.test', { headers: { 'x-real-ip': '198.51.100.8' } })
+    expect(getClientAddress(request)).toBe('198.51.100.8')
+    delete process.env.AUTH_TRUSTED_PROXY_HEADER
   })
 
   it('retries a serializable write conflict without allowing the request through unchecked', async () => {

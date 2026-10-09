@@ -1,15 +1,15 @@
 import { safeRedirectPath, validatePasswordResetInput, validateSignupInput } from '@/lib/auth/validation'
 
 describe('auth validation', () => {
-  it('normalizes signup email and accepts a long passphrase without arbitrary complexity rules', () => {
-    const result = validateSignupInput({ name: '  Avery  Stone ', email: ' Avery@Example.COM ', password: 'a calm long passphrase', confirmPassword: 'a calm long passphrase' })
-    expect(result).toEqual({ ok: true, value: { name: 'Avery Stone', email: 'avery@example.com', password: 'a calm long passphrase' } })
+  it('normalizes signup identity fields', () => {
+    const result = validateSignupInput({ name: '  Avery  Stone ', email: ' Avery@Example.COM ' })
+    expect(result).toEqual({ ok: true, value: { name: 'Avery Stone', email: 'avery@example.com' } })
   })
 
   it('returns structured errors for invalid signup input', () => {
-    const result = validateSignupInput({ name: '', email: 'not-email', password: 'short', confirmPassword: 'different' })
+    const result = validateSignupInput({ name: '', email: 'not-email' })
     expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.errors).toEqual(expect.objectContaining({ name: expect.any(String), email: expect.any(String), password: expect.any(String), confirmPassword: expect.any(String) }))
+    if (!result.ok) expect(result.errors).toEqual(expect.objectContaining({ name: expect.any(String), email: expect.any(String) }))
   })
 
   it('validates reset tokens and matching passwords', () => {

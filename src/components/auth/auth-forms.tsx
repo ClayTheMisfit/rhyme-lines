@@ -65,7 +65,7 @@ export function SignInForm({ configured, redirectTo, initialError }: { configure
 
 export function SignupForm() {
   const router = useRouter()
-  const [values, setValues] = useState({ name: '', email: '', password: '', confirmPassword: '' })
+  const [values, setValues] = useState({ name: '', email: '' })
   const [errors, setErrors] = useState<FieldErrors>({})
   const [error, setError] = useState('')
   const [needsResend, setNeedsResend] = useState(false)
@@ -76,11 +76,11 @@ export function SignupForm() {
     setPending(true); setErrors({}); setError(''); setNeedsResend(false)
     try {
       const { response, data } = await postJson('/api/auth/signup', values)
-      if (!response.ok) { setErrors(data.fieldErrors || {}); setError(data.message || 'Account creation could not be completed.'); setNeedsResend(data.code === 'verification_delivery_failed'); return }
+      if (!response.ok) { setErrors(data.fieldErrors || {}); setError(data.message || 'Account creation could not be completed.'); setNeedsResend(data.code === 'verification_delivery_failed_resend'); return }
       router.push('/verify-email?sent=1')
     } catch { setError('Account creation could not be completed. Check your connection and try again.') } finally { setPending(false) }
   }
-  return <form className="space-y-5" onSubmit={submit} noValidate><Status error={error} />{needsResend && <Link href="/verify-email" className={secondaryButtonClass}>Resend verification email</Link>}<Field label="Name" name="name" error={errors.name}><input id="name" name="name" className={inputClass} autoComplete="name" required maxLength={80} value={values.name} onChange={(event) => update('name')(event.target.value)} aria-invalid={!!errors.name} aria-describedby={errors.name ? 'name-error' : undefined} /></Field><Field label="Email" name="email" error={errors.email}><input id="email" name="email" className={inputClass} type="email" autoComplete="email" required maxLength={254} value={values.email} onChange={(event) => update('email')(event.target.value)} aria-invalid={!!errors.email} aria-describedby={errors.email ? 'email-error' : undefined} /></Field><PasswordField id="password" label="Password" autoComplete="new-password" value={values.password} onChange={update('password')} error={errors.password} /><p className="-mt-2 text-xs leading-5 text-white/38">Use at least {PASSWORD_MIN_LENGTH} characters. A long passphrase is welcome; symbol rules are not required.</p><PasswordField id="confirmPassword" label="Confirm password" autoComplete="new-password" value={values.confirmPassword} onChange={update('confirmPassword')} error={errors.confirmPassword} /><button className={buttonClass} disabled={pending}>{pending ? 'Creating account…' : 'Create account'}</button><p className="text-center text-sm text-white/48">Already have an account? <Link href="/signin" className="text-white/82 underline decoration-white/25 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Sign in</Link></p></form>
+  return <form className="space-y-5" onSubmit={submit} noValidate><Status error={error} />{needsResend && <Link href="/verify-email" className={secondaryButtonClass}>Resend verification email</Link>}<Field label="Name" name="name" error={errors.name}><input id="name" name="name" className={inputClass} autoComplete="name" required maxLength={80} value={values.name} onChange={(event) => update('name')(event.target.value)} aria-invalid={!!errors.name} aria-describedby={errors.name ? 'name-error' : undefined} /></Field><Field label="Email" name="email" error={errors.email}><input id="email" name="email" className={inputClass} type="email" autoComplete="email" required maxLength={254} value={values.email} onChange={(event) => update('email')(event.target.value)} aria-invalid={!!errors.email} aria-describedby={errors.email ? 'email-error' : undefined} /></Field><p className="text-sm leading-6 text-white/48">We will email you a secure link. Open it to verify your address and choose your password.</p><button className={buttonClass} disabled={pending}>{pending ? 'Sending verification…' : 'Continue with email'}</button><p className="text-center text-sm text-white/48">Already have an account? <Link href="/signin" className="text-white/82 underline decoration-white/25 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Sign in</Link></p></form>
 }
 
 export function RecoveryForm({ mode }: { mode: 'forgot' | 'resend' }) {
@@ -102,19 +102,28 @@ export function RecoveryForm({ mode }: { mode: 'forgot' | 'resend' }) {
 }
 
 export function VerifyEmailForm({ token }: { token?: string }) {
+  const [values, setValues] = useState({ password: '', confirmPassword: '' })
+  const [errors, setErrors] = useState<FieldErrors>({})
   const [pending, setPending] = useState(false)
   const [state, setState] = useState<'idle' | 'success' | 'error'>(token ? 'idle' : 'error')
   const [message, setMessage] = useState(token ? '' : 'This verification link is missing or invalid.')
-  async function verify() {
+  async function verify(event: FormEvent) {
+    event.preventDefault()
     if (!token || pending) return
-    setPending(true); setMessage('')
+    const password = validatePassword(values.password)
+    const nextErrors: FieldErrors = {}
+    if (!password) nextErrors.password = `Use ${PASSWORD_MIN_LENGTH}–${PASSWORD_MAX_LENGTH} characters.`
+    if (!password || values.confirmPassword !== password) nextErrors.confirmPassword = 'Passwords must match.'
+    setErrors(nextErrors); setMessage('')
+    if (Object.keys(nextErrors).length) return
+    setPending(true)
     try {
-      const { response, data } = await postJson('/api/auth/verify-email', { token })
-      if (!response.ok) { setState('error'); setMessage(data.message || 'Verification could not be completed.'); return }
-      setState('success'); setMessage('Your email is verified. You can now sign in.')
+      const { response, data } = await postJson('/api/auth/verify-email', { token, ...values })
+      if (!response.ok) { setErrors(data.fieldErrors || {}); setState('error'); setMessage(data.message || 'Verification could not be completed.'); return }
+      setState('success'); setMessage('Your email is verified and your password is ready. You can now sign in.')
     } catch { setState('error'); setMessage('Verification could not be completed. Check your connection and try again.') } finally { setPending(false) }
   }
-  return <div className="space-y-5"><Status error={state === 'error' ? message : undefined} success={state === 'success' ? message : undefined} />{state === 'idle' && <button className={buttonClass} disabled={pending} onClick={verify}>{pending ? 'Verifying…' : 'Verify email'}</button>}{state === 'success' && <Link href="/signin" className={buttonClass}>Continue to sign in</Link>}<div className="border-t border-white/10 pt-5"><p className="mb-4 text-sm text-white/48">Need a fresh verification link?</p><RecoveryForm mode="resend" /></div></div>
+  return <div className="space-y-5"><Status error={state === 'error' ? message : undefined} success={state === 'success' ? message : undefined} />{state !== 'success' && token && <form className="space-y-5" onSubmit={verify} noValidate><PasswordField id="password" label="Choose password" autoComplete="new-password" value={values.password} onChange={(password) => { setValues((current) => ({ ...current, password })); setErrors((current) => ({ ...current, password: undefined })) }} error={errors.password} /><p className="-mt-2 text-xs leading-5 text-white/38">Use at least {PASSWORD_MIN_LENGTH} characters. A long passphrase is welcome; symbol rules are not required.</p><PasswordField id="confirmPassword" label="Confirm password" autoComplete="new-password" value={values.confirmPassword} onChange={(confirmPassword) => { setValues((current) => ({ ...current, confirmPassword })); setErrors((current) => ({ ...current, confirmPassword: undefined })) }} error={errors.confirmPassword} /><button className={buttonClass} disabled={pending}>{pending ? 'Activating account…' : 'Verify email and set password'}</button></form>}{state === 'success' && <Link href="/signin" className={buttonClass}>Continue to sign in</Link>}<div className="border-t border-white/10 pt-5"><p className="mb-4 text-sm text-white/48">Need a fresh verification link?</p><RecoveryForm mode="resend" /></div></div>
 }
 
 export function ResetPasswordForm({ token }: { token?: string }) {
