@@ -45,11 +45,13 @@ describe('credentials authentication', () => {
   })
 
   it('does not spend password-hashing work after the IP-wide limit rejects a request', async () => {
+    process.env.AUTH_TRUSTED_PROXY_HEADER = 'x-forwarded-for'
     const deps = dependencies(baseUser, true)
     deps.consume.mockImplementation((action) => Promise.resolve(action !== 'login-ip'))
     await expect(authenticatePasswordCredentials({ email: 'avery@example.com', password }, request, deps)).resolves.toBeNull()
     expect(deps.findUser).not.toHaveBeenCalled()
     expect(deps.dummyHash).not.toHaveBeenCalled()
     expect(deps.verify).not.toHaveBeenCalled()
+    delete process.env.AUTH_TRUSTED_PROXY_HEADER
   })
 })

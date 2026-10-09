@@ -10,7 +10,8 @@ export async function POST(request: Request) {
     const body = await readAuthJson(request)
     const parsed = validatePasswordResetInput(body)
     if (!parsed.ok) return Response.json({ ok: false, code: 'validation', fieldErrors: parsed.errors }, { status: 400 })
-    if (!await consumeAuthRateLimit('token', getClientAddress(request))) {
+    const address = getClientAddress(request)
+    if (address && !await consumeAuthRateLimit('token', address)) {
       return Response.json({ ok: false, code: 'rate_limited', message: 'Too many attempts. Please try again later.' }, { status: 429 })
     }
     const reset = await resetPasswordWithToken(parsed.value.token, parsed.value.password)

@@ -13,13 +13,16 @@ export async function POST(request: Request) {
     if (!parsed.ok) return Response.json({ ok: false, code: 'validation', fieldErrors: parsed.errors }, { status: 400 })
     // Do not create an account that cannot receive its required verification link.
     getAuthEmailEnvironment()
-    if (!await consumeAuthRateLimit('signup-ip', getClientAddress(request))) {
+    const address = getClientAddress(request)
+    if (address && !await consumeAuthRateLimit('signup-ip', address)) {
       return Response.json({ ok: false, code: 'rate_limited', message: 'Too many attempts. Please try again later.' }, { status: 429 })
     }
     const result = await registerPasswordAccount(parsed.value)
     if (result.ok) return Response.json({ ok: true }, { status: 201 })
     if (result.reason === 'email') {
-      return Response.json({ ok: false, code: 'verification_delivery_failed', message: 'Your account was created, but the verification email could not be sent. Use resend verification to try again.' }, { status: 503 })
+      return result.accountPreserved
+        ? Response.json({ ok: false, code: 'verification_delivery_failed_resend', message: 'Your account is pending, but the verification email could not be sent. Use resend verification to try again.' }, { status: 503 })
+        : Response.json({ ok: false, code: 'verification_delivery_failed_retry', message: 'The verification email could not be sent. Please retry signup.' }, { status: 503 })
     }
     if (result.reason === 'server') {
       return Response.json({ ok: false, code: 'server', message: 'Account creation is temporarily unavailable.' }, { status: 503 })
