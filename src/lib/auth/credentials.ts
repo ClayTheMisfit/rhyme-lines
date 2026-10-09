@@ -51,7 +51,8 @@ export async function authenticatePasswordCredentials(
     dependencies.consume('login', identity),
     dependencies.consume('login-ip', address),
   ])
-  if (!identityAllowed || !addressAllowed || !email || !password) {
+  if (!addressAllowed) return null
+  if (!identityAllowed || !email || !password) {
     if (password) await dependencies.verify(password, await dependencies.dummyHash())
     return null
   }

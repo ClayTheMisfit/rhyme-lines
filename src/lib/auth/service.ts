@@ -36,29 +36,39 @@ export async function registerPasswordAccount(
   try {
     const created = await serializableTransaction(async (transaction) => {
       const existing = await transaction.user.findFirst({ where: { email: { equals: input.email, mode: 'insensitive' } }, select: { id: true } })
-      if (existing) return false
+      if (existing) return null
       const user = await transaction.user.create({
-        data: { name: input.name, email: input.email, credential: { create: { passwordHash } } },
+        data: { name: input.name, email: input.email, pendingPasswordHash: passwordHash },
         select: { id: true },
       })
       await transaction.authToken.create({
         data: { userId: user.id, type: 'VERIFY_EMAIL', tokenHash, expiresAt: new Date(Date.now() + VERIFY_TTL_MS) },
       })
-      return true
+      return user
     })
     if (!created) return { ok: false, reason: 'duplicate' }
+    try {
+      await sender({ kind: 'verify', to: input.email, token })
+      return { ok: true }
+    } catch {
+      try {
+        await getDatabase().user.deleteMany({
+          where: {
+            id: created.id,
+            emailVerified: null,
+            pendingPasswordHash: passwordHash,
+            credential: { is: null },
+            accounts: { none: {} },
+          },
+        })
+      } catch { console.error('[auth-signup] undelivered-registration cleanup failed') }
+      console.error('[auth-email] verification delivery failed')
+      return { ok: false, reason: 'email' }
+    }
   } catch (error) {
     if (isUniqueConstraintError(error)) return { ok: false, reason: 'duplicate' }
     console.error('[auth-signup] database operation failed')
     return { ok: false, reason: 'server' }
-  }
-  try {
-    await sender({ kind: 'verify', to: input.email, token })
-    return { ok: true }
-  } catch {
-    try { await getDatabase().authToken.deleteMany({ where: { tokenHash } }) } catch { console.error('[auth-token] undelivered-token cleanup failed') }
-    console.error('[auth-email] verification delivery failed')
-    return { ok: false, reason: 'email' }
   }
 }
 
@@ -71,10 +81,12 @@ async function issueToken(email: string, type: 'VERIFY_EMAIL' | 'PASSWORD_RESET'
   }
   const user = await database.user.findFirst({
     where: { email: { equals: email, mode: 'insensitive' } },
-    select: { id: true, email: true, emailVerified: true, credential: { select: { userId: true } } },
+    select: { id: true, email: true, emailVerified: true, pendingPasswordHash: true, credential: { select: { userId: true } } },
   })
-  if (!user?.email || !user.credential) return
-  if (type === 'VERIFY_EMAIL' ? user.emailVerified !== null : user.emailVerified === null) return
+  if (!user?.email) return
+  if (type === 'VERIFY_EMAIL') {
+    if (user.emailVerified !== null || !user.pendingPasswordHash || user.credential) return
+  } else if (user.emailVerified === null || !user.credential) return
   const { token, tokenHash } = createOneTimeToken()
   await database.$transaction([
     // Keep other live links until this email is known to have been delivered.
@@ -101,11 +113,16 @@ export async function requestPasswordReset(email: string, sender: AuthEmailSende
 export async function verifyEmailToken(token: string, now = new Date()) {
   const tokenHash = hashOneTimeToken(token)
   return serializableTransaction(async (transaction) => {
-    const record = await transaction.authToken.findUnique({ where: { tokenHash } })
+    const record = await transaction.authToken.findUnique({
+      where: { tokenHash },
+      include: { user: { select: { emailVerified: true, pendingPasswordHash: true, credential: { select: { userId: true } } } } },
+    })
     if (!record || record.type !== 'VERIFY_EMAIL' || record.usedAt || record.expiresAt <= now) return false
+    if (record.user.emailVerified || !record.user.pendingPasswordHash || record.user.credential) return false
     const claimed = await transaction.authToken.updateMany({ where: { id: record.id, usedAt: null, expiresAt: { gt: now } }, data: { usedAt: now } })
     if (claimed.count !== 1) return false
-    await transaction.user.update({ where: { id: record.userId }, data: { emailVerified: now } })
+    await transaction.credential.create({ data: { userId: record.userId, passwordHash: record.user.pendingPasswordHash } })
+    await transaction.user.update({ where: { id: record.userId }, data: { emailVerified: now, pendingPasswordHash: null } })
     await transaction.authToken.updateMany({
       where: { userId: record.userId, type: 'VERIFY_EMAIL', usedAt: null },
       data: { usedAt: now },

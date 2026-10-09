@@ -16,6 +16,7 @@ model User {
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   sessionVersion        Int                    @default(0)
+  pendingPasswordHash   String?                @db.Text
   accounts              Account[]
   sessions              Session[]
   credential            Credential?

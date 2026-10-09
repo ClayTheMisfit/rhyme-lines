@@ -7,10 +7,38 @@ const database = {
 }
 jest.mock('@/lib/db', () => ({ getDatabase: () => database }))
 
-import { consumeAuthRateLimit } from '@/lib/auth/rate-limit'
+import { consumeAuthRateLimit, getClientAddress } from '@/lib/auth/rate-limit'
 
 describe('authentication rate limiter', () => {
+  const originalVercel = process.env.VERCEL
+
   beforeAll(() => { process.env.AUTH_SECRET = 'test-auth-secret-that-is-at-least-32-characters' })
+  afterEach(() => {
+    if (originalVercel === undefined) delete process.env.VERCEL
+    else process.env.VERCEL = originalVercel
+  })
+
+  it('ignores client-controlled forwarding headers outside a trusted platform boundary', () => {
+    const request = new Request('https://example.test', {
+      headers: {
+        'x-vercel-forwarded-for': '192.0.2.1',
+        'x-forwarded-for': '192.0.2.2',
+        'x-real-ip': '192.0.2.3',
+      },
+    })
+    expect(getClientAddress(request)).toBe('unknown')
+  })
+
+  it('uses the platform-owned client address on Vercel', () => {
+    process.env.VERCEL = '1'
+    const request = new Request('https://example.test', {
+      headers: {
+        'x-vercel-forwarded-for': '192.0.2.4, 198.51.100.7',
+        'x-forwarded-for': '203.0.113.9',
+      },
+    })
+    expect(getClientAddress(request)).toBe('192.0.2.4')
+  })
 
   it('retries a serializable write conflict without allowing the request through unchecked', async () => {
     const transaction = {
