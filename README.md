@@ -169,6 +169,7 @@ Authentication uses Auth.js with Google OAuth, database-backed sessions, the Aut
 | `AUTH_GOOGLE_SECRET` | Server-only | Google OAuth client secret |
 | `AUTH_URL` | Server-only, optional | Canonical origin override; usually inferred by Auth.js v5 |
 | `AUTH_TRUST_HOST` | Server-only, conditional | Set to `true` behind an unsupported trusted reverse proxy |
+| `AUTH_TRUSTED_PROXY_HEADER` | Server-only, conditional | Required for production password authentication outside Vercel; exact client-IP header overwritten by your trusted reverse proxy |
 
 Configure Google's authorized callback URL as `<AUTH_URL>/api/auth/callback/google`. Do not prefix any of these values with `NEXT_PUBLIC_`.
 

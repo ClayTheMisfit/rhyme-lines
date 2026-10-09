@@ -35,6 +35,28 @@ export function getAuthEnvironment() {
   }
 }
 
+export function getAuthEmailEnvironment() {
+  const requiredEmail = ['AUTH_URL', 'AUTH_EMAIL_FROM', 'RESEND_API_KEY'] as const
+  const missing = requiredEmail.filter((key) => !process.env[key]?.trim())
+  if (missing.length) {
+    throw new AuthConfigurationError(`Authentication email configuration missing: ${missing.join(', ')}`)
+  }
+  let baseUrl: URL
+  try {
+    baseUrl = new URL(process.env.AUTH_URL!)
+  } catch {
+    throw new AuthConfigurationError('AUTH_URL must be an absolute HTTP(S) URL')
+  }
+  if (!['http:', 'https:'].includes(baseUrl.protocol)) {
+    throw new AuthConfigurationError('AUTH_URL must be an absolute HTTP(S) URL')
+  }
+  return {
+    baseUrl: baseUrl.origin,
+    from: process.env.AUTH_EMAIL_FROM!,
+    apiKey: process.env.RESEND_API_KEY!,
+  }
+}
+
 // An entirely unconfigured development checkout can still write locally.
 // Partial configuration and every production auth request fail explicitly.
 export function isLocalAnonymousMode() {
