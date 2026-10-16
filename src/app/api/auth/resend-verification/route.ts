@@ -1,3 +1,4 @@
+import { after } from 'next/server'
 import { readAuthJson, AuthRequestError } from '@/lib/auth/request'
 import { consumeAuthRateLimit, getClientAddress } from '@/lib/auth/rate-limit'
 import { resendVerificationEmail } from '@/lib/auth/service'
@@ -12,11 +13,8 @@ export async function POST(request: Request) {
     const email = validateEmail(body?.email)
     if (!email) return Response.json({ ok: false, code: 'validation', fieldErrors: { email: 'Enter a valid email address.' } }, { status: 400 })
     const address = getClientAddress(request)
-    const [identityAllowed, addressAllowed] = await Promise.all([
-      consumeAuthRateLimit('verification-resend', email),
-      address ? consumeAuthRateLimit('recovery-ip', address) : Promise.resolve(true),
-    ])
-    if (identityAllowed && addressAllowed) await resendVerificationEmail(email)
+    if (address && !await consumeAuthRateLimit('recovery-ip', address)) return Response.json(generic, { status: 202 })
+    if (await consumeAuthRateLimit('verification-resend', email)) after(() => resendVerificationEmail(email))
     return Response.json(generic, { status: 202 })
   } catch (error) {
     if (error instanceof AuthRequestError) return Response.json({ ok: false, code: 'request', message: error.message }, { status: error.status })

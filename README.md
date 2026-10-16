@@ -167,7 +167,9 @@ Authentication uses Auth.js with Google OAuth, database-backed sessions, the Aut
 | `AUTH_SECRET` | Server-only | Auth.js signing/encryption secret; generate with `npx auth secret` |
 | `AUTH_GOOGLE_ID` | Server-only | Google OAuth client ID |
 | `AUTH_GOOGLE_SECRET` | Server-only | Google OAuth client secret |
-| `AUTH_URL` | Server-only, optional | Canonical origin override; usually inferred by Auth.js v5 |
+| `AUTH_URL` | Server-only, required for password flows | Canonical public origin used to build verification and reset links |
+| `AUTH_EMAIL_FROM` | Server-only, required for password flows | Verified sender address used for authentication email |
+| `RESEND_API_KEY` | Server-only, required for password flows | Resend API key used for verification and password-recovery delivery |
 | `AUTH_TRUST_HOST` | Server-only, conditional | Set to `true` behind an unsupported trusted reverse proxy |
 | `AUTH_TRUSTED_PROXY_HEADER` | Server-only, conditional | Required for production password authentication outside Vercel; exact client-IP header overwritten by your trusted reverse proxy |
 
