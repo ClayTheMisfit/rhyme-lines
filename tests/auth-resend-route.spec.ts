@@ -26,16 +26,16 @@ describe('authentication recovery routes', () => {
     jest.mocked(consumeAuthRateLimit).mockResolvedValueOnce(true).mockResolvedValueOnce(false)
     const response = await resendVerification(request('resend-verification'))
     expect(response.status).toBe(202)
-    expect(consumeAuthRateLimit).toHaveBeenNthCalledWith(1, 'recovery', 'avery@example.com')
+    expect(consumeAuthRateLimit).toHaveBeenNthCalledWith(1, 'verification-resend', 'avery@example.com')
     expect(consumeAuthRateLimit).toHaveBeenNthCalledWith(2, 'recovery-ip', '192.0.2.4')
     expect(resendVerificationEmail).not.toHaveBeenCalled()
   })
 
-  it('applies the same recipient limit to password recovery across addresses', async () => {
+  it('applies an independent recipient limit to password recovery across addresses', async () => {
     jest.mocked(consumeAuthRateLimit).mockResolvedValueOnce(false).mockResolvedValueOnce(true)
     const response = await forgotPassword(request('forgot-password'))
     expect(response.status).toBe(202)
-    expect(consumeAuthRateLimit).toHaveBeenNthCalledWith(1, 'recovery', 'avery@example.com')
+    expect(consumeAuthRateLimit).toHaveBeenNthCalledWith(1, 'password-reset', 'avery@example.com')
     expect(consumeAuthRateLimit).toHaveBeenNthCalledWith(2, 'recovery-ip', '192.0.2.4')
     expect(requestPasswordReset).not.toHaveBeenCalled()
   })

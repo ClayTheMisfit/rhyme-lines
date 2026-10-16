@@ -3,13 +3,14 @@ import { createHmac } from 'node:crypto'
 import { getDatabase } from '@/lib/db'
 import { AuthConfigurationError } from './environment'
 
-export type AuthRateLimitAction = 'login' | 'login-ip' | 'signup-ip' | 'recovery' | 'recovery-ip' | 'token'
+export type AuthRateLimitAction = 'login' | 'login-ip' | 'signup-ip' | 'password-reset' | 'verification-resend' | 'recovery-ip' | 'token'
 
 const policies: Record<AuthRateLimitAction, { limit: number; windowMs: number; blockMs: number }> = {
   login: { limit: 8, windowMs: 15 * 60_000, blockMs: 15 * 60_000 },
   'login-ip': { limit: 40, windowMs: 15 * 60_000, blockMs: 15 * 60_000 },
   'signup-ip': { limit: 5, windowMs: 60 * 60_000, blockMs: 60 * 60_000 },
-  recovery: { limit: 5, windowMs: 60 * 60_000, blockMs: 60 * 60_000 },
+  'password-reset': { limit: 5, windowMs: 60 * 60_000, blockMs: 60 * 60_000 },
+  'verification-resend': { limit: 5, windowMs: 60 * 60_000, blockMs: 60 * 60_000 },
   'recovery-ip': { limit: 30, windowMs: 60 * 60_000, blockMs: 60 * 60_000 },
   token: { limit: 12, windowMs: 15 * 60_000, blockMs: 15 * 60_000 },
 }
