@@ -1,5 +1,6 @@
 /** @jest-environment node */
 jest.mock('server-only', () => ({}))
+jest.mock('next/server', () => ({ after: jest.fn() }))
 jest.mock('@/lib/auth/rate-limit', () => ({
   consumeAuthRateLimit: jest.fn(),
   getClientAddress: jest.fn(() => null),
@@ -11,6 +12,7 @@ jest.mock('@/lib/auth/environment', () => ({
 }))
 
 import { registerPasswordAccount } from '@/lib/auth/service'
+import { after } from 'next/server'
 import { POST } from '@/app/api/auth/signup/route'
 
 function signupRequest() {
@@ -32,8 +34,14 @@ describe('signup route', () => {
     const accepted = await POST(signupRequest())
     const duplicate = await POST(signupRequest())
 
+    expect(registerPasswordAccount).not.toHaveBeenCalled()
     expect(duplicate.status).toBe(accepted.status)
     expect(await duplicate.json()).toEqual(await accepted.json())
     expect(accepted.status).toBe(201)
+    expect(after).toHaveBeenCalledTimes(2)
+
+    await jest.mocked(after).mock.calls[0][0]()
+    await jest.mocked(after).mock.calls[1][0]()
+    expect(registerPasswordAccount).toHaveBeenCalledTimes(2)
   })
 })
