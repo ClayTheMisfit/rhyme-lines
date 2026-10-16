@@ -20,9 +20,17 @@ function dependencies(user: typeof baseUser | null, valid: boolean) {
 
 describe('credentials authentication', () => {
   it('returns the database user for valid verified credentials', async () => {
+    process.env.AUTH_TRUSTED_PROXY_HEADER = 'x-forwarded-for'
     const deps = dependencies(baseUser, true)
-    await expect(authenticatePasswordCredentials({ email: ' AVERY@EXAMPLE.COM ', password }, request, deps)).resolves.toEqual(expect.objectContaining({ id: 'user-1', sessionVersion: 0 }))
-    expect(deps.findUser).toHaveBeenCalledWith('avery@example.com')
+    try {
+      await expect(authenticatePasswordCredentials({ email: ' AVERY@EXAMPLE.COM ', password }, request, deps)).resolves.toEqual(expect.objectContaining({ id: 'user-1', sessionVersion: 0 }))
+      expect(deps.findUser).toHaveBeenCalledWith('avery@example.com')
+      expect(deps.consume).toHaveBeenNthCalledWith(1, 'login', 'avery@example.com')
+      expect(deps.consume).toHaveBeenNthCalledWith(2, 'login-ip', '192.0.2.4')
+      expect(deps.clear).toHaveBeenCalledWith('login', 'avery@example.com')
+    } finally {
+      delete process.env.AUTH_TRUSTED_PROXY_HEADER
+    }
   })
 
   it('does not reject valid credentials when limiter cleanup fails', async () => {

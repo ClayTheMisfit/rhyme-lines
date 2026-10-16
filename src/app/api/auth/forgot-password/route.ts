@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     if (!email) return Response.json({ ok: false, code: 'validation', fieldErrors: { email: 'Enter a valid email address.' } }, { status: 400 })
     const address = getClientAddress(request)
     const [identityAllowed, addressAllowed] = await Promise.all([
-      consumeAuthRateLimit('recovery', address ? `${address}:${email}` : email),
+      consumeAuthRateLimit('recovery', email),
       address ? consumeAuthRateLimit('recovery-ip', address) : Promise.resolve(true),
     ])
     if (identityAllowed && addressAllowed) await requestPasswordReset(email)
