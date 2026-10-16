@@ -6,6 +6,7 @@ import { getDatabase } from '@/lib/db'
 import { createAuthAdapter, isVerifiedGoogleProfile } from '@/lib/auth/adapter'
 import { getAuthEnvironment } from '@/lib/auth/environment'
 import { authenticatePasswordCredentials } from '@/lib/auth/credentials'
+import { createSessionJwt } from '@/lib/auth/session-jwt'
 
 // Lazy initialization keeps static builds and local writing database-independent.
 export const { auth, handlers, signIn, signOut } = NextAuth(() => {
@@ -14,6 +15,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth(() => {
   return {
     secret: environment.secret,
     adapter: createAuthAdapter(database),
+    jwt: createSessionJwt(database),
     providers: [
       Google({
         clientId: environment.googleId,
