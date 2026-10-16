@@ -25,8 +25,8 @@ describe('credentials authentication', () => {
     try {
       await expect(authenticatePasswordCredentials({ email: ' AVERY@EXAMPLE.COM ', password }, request, deps)).resolves.toEqual(expect.objectContaining({ id: 'user-1', sessionVersion: 0 }))
       expect(deps.findUser).toHaveBeenCalledWith('avery@example.com')
-      expect(deps.consume).toHaveBeenNthCalledWith(1, 'login', 'avery@example.com')
-      expect(deps.consume).toHaveBeenNthCalledWith(2, 'login-ip', '192.0.2.4')
+      expect(deps.consume).toHaveBeenNthCalledWith(1, 'login-ip', '192.0.2.4')
+      expect(deps.consume).toHaveBeenNthCalledWith(2, 'login', 'avery@example.com')
       expect(deps.clear).toHaveBeenCalledWith('login', 'avery@example.com')
     } finally {
       delete process.env.AUTH_TRUSTED_PROXY_HEADER
@@ -70,6 +70,8 @@ describe('credentials authentication', () => {
     deps.consume.mockImplementation((action) => Promise.resolve(action !== 'login-ip'))
     await expect(authenticatePasswordCredentials({ email: 'avery@example.com', password }, request, deps)).resolves.toBeNull()
     expect(deps.findUser).not.toHaveBeenCalled()
+    expect(deps.consume).toHaveBeenCalledTimes(1)
+    expect(deps.consume).toHaveBeenCalledWith('login-ip', '192.0.2.4')
     expect(deps.dummyHash).not.toHaveBeenCalled()
     expect(deps.verify).not.toHaveBeenCalled()
     delete process.env.AUTH_TRUSTED_PROXY_HEADER

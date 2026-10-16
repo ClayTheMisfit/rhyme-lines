@@ -47,11 +47,8 @@ export async function authenticatePasswordCredentials(
   const password = validatePassword(credentials.password)
   const address = getClientAddress(request)
   const identity = email || 'invalid'
-  const [identityAllowed, addressAllowed] = await Promise.all([
-    dependencies.consume('login', identity),
-    address ? dependencies.consume('login-ip', address) : Promise.resolve(true),
-  ])
-  if (!addressAllowed) return null
+  if (address && !await dependencies.consume('login-ip', address)) return null
+  const identityAllowed = await dependencies.consume('login', identity)
   if (!identityAllowed || !email || !password) {
     if (password) await dependencies.verify(password, await dependencies.dummyHash())
     return null
