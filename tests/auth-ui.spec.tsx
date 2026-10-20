@@ -43,7 +43,7 @@ describe('auth forms', () => {
 
   it('shows a generic credential failure and re-enables login', async () => {
     signInMock.mockResolvedValue({ error: 'CredentialsSignin', code: 'credentials', status: 200, ok: false, url: null })
-    render(<SignInForm configured redirectTo="/" />)
+    render(<SignInForm configured googleEnabled={false} redirectTo="/" />)
     await userEvent.type(screen.getByLabelText('Email'), 'unknown@example.com')
     await userEvent.type(screen.getByLabelText('Password'), 'this is a secure passphrase')
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
@@ -52,7 +52,7 @@ describe('auth forms', () => {
   })
 
   it('shows inline login validation without sending malformed credentials', async () => {
-    render(<SignInForm configured redirectTo="/" />)
+    render(<SignInForm configured googleEnabled={false} redirectTo="/" />)
     await userEvent.type(screen.getByLabelText('Email'), 'not-an-email')
     await userEvent.type(screen.getByLabelText('Password'), 'short')
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
@@ -112,8 +112,15 @@ describe('auth forms', () => {
 
   it('keeps Google OAuth available', async () => {
     signInMock.mockResolvedValue(undefined)
-    render(<SignInForm configured redirectTo="/workspace" />)
+    render(<SignInForm configured googleEnabled redirectTo="/workspace" />)
     await userEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
     expect(signInMock).toHaveBeenCalledWith('google', { redirectTo: '/workspace' })
+  })
+
+  it('hides Google OAuth when its credentials are not configured', () => {
+    render(<SignInForm configured googleEnabled={false} redirectTo="/" />)
+    expect(screen.queryByRole('button', { name: 'Continue with Google' })).not.toBeInTheDocument()
+    expect(screen.queryByText('OR CONTINUE WITH EMAIL')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled()
   })
 })

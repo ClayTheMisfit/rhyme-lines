@@ -1,9 +1,15 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('authentication screens', () => {
-  test('keeps Google available and validates email login accessibly', async ({ page }) => {
+  test('supports password-only login without exposing disabled Google OAuth', async ({ page }) => {
     await page.goto('/signin')
-    await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Continue with Google' })).toHaveCount(0)
+    await expect(page.getByText('OR CONTINUE WITH EMAIL')).toHaveCount(0)
+    const providersResponse = await page.request.get('/api/auth/providers')
+    expect(providersResponse.ok()).toBe(true)
+    const providers = await providersResponse.json() as Record<string, unknown>
+    expect(providers).toHaveProperty('credentials')
+    expect(providers).not.toHaveProperty('google')
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page.getByText('Enter a valid email address.')).toBeVisible()
     await expect(page.getByText('Use 12–128 characters.')).toBeVisible()
