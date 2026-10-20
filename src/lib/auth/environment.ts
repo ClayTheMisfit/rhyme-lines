@@ -1,6 +1,8 @@
 import 'server-only'
 
-const required = ['DATABASE_URL', 'AUTH_SECRET', 'AUTH_GOOGLE_ID', 'AUTH_GOOGLE_SECRET'] as const
+const required = ['DATABASE_URL', 'AUTH_SECRET'] as const
+const optionalGoogle = ['AUTH_GOOGLE_ID', 'AUTH_GOOGLE_SECRET'] as const
+const authConfigurationKeys = [...required, ...optionalGoogle] as const
 
 export class AuthConfigurationError extends Error {
   constructor(message: string) {
@@ -27,11 +29,37 @@ export function getAuthEnvironment() {
   if (process.env.AUTH_SECRET!.length < 32) {
     throw new AuthConfigurationError('AUTH_SECRET must contain at least 32 characters')
   }
+  const googleId = process.env.AUTH_GOOGLE_ID?.trim()
+  const googleSecret = process.env.AUTH_GOOGLE_SECRET?.trim()
+  if (Boolean(googleId) !== Boolean(googleSecret)) {
+    throw new AuthConfigurationError('AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET must be configured together')
+  }
   return {
     databaseUrl,
     secret: process.env.AUTH_SECRET!,
-    googleId: process.env.AUTH_GOOGLE_ID!,
-    googleSecret: process.env.AUTH_GOOGLE_SECRET!,
+    google: googleId && googleSecret ? { clientId: googleId, clientSecret: googleSecret } : null,
+  }
+}
+
+export function getAuthEmailEnvironment() {
+  const requiredEmail = ['AUTH_URL', 'AUTH_EMAIL_FROM', 'RESEND_API_KEY'] as const
+  const missing = requiredEmail.filter((key) => !process.env[key]?.trim())
+  if (missing.length) {
+    throw new AuthConfigurationError(`Authentication email configuration missing: ${missing.join(', ')}`)
+  }
+  let baseUrl: URL
+  try {
+    baseUrl = new URL(process.env.AUTH_URL!)
+  } catch {
+    throw new AuthConfigurationError('AUTH_URL must be an absolute HTTP(S) URL')
+  }
+  if (!['http:', 'https:'].includes(baseUrl.protocol)) {
+    throw new AuthConfigurationError('AUTH_URL must be an absolute HTTP(S) URL')
+  }
+  return {
+    baseUrl: baseUrl.origin,
+    from: process.env.AUTH_EMAIL_FROM!,
+    apiKey: process.env.RESEND_API_KEY!,
   }
 }
 
@@ -42,5 +70,5 @@ export function isLocalAnonymousMode() {
 }
 
 export function isAuthCompletelyUnconfigured() {
-  return required.every((key) => !process.env[key])
+  return authConfigurationKeys.every((key) => !process.env[key])
 }
