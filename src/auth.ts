@@ -17,11 +17,11 @@ export const { auth, handlers, signIn, signOut } = NextAuth(() => {
     adapter: createAuthAdapter(database),
     jwt: createSessionJwt(database),
     providers: [
-      Google({
-        clientId: environment.googleId,
-        clientSecret: environment.googleSecret,
+      ...(environment.google ? [Google({
+        clientId: environment.google.clientId,
+        clientSecret: environment.google.clientSecret,
         allowDangerousEmailAccountLinking: false,
-      }),
+      })] : []),
       Credentials({
         credentials: {
           email: { label: 'Email', type: 'email', autocomplete: 'email' },

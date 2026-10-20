@@ -159,21 +159,21 @@ Key implementation areas:
 
 ### Optional authentication setup
 
-Authentication uses Auth.js with Google OAuth, database-backed sessions, the Auth.js Prisma adapter, Prisma 7, and standard PostgreSQL. Copy `.env.example` to an ignored `.env` and provide:
+Authentication uses Auth.js with email/password credentials, optional Google OAuth, encrypted JWT sessions, the Auth.js Prisma adapter, Prisma 7, and standard PostgreSQL. Copy `.env.example` to an ignored `.env` and provide:
 
 | Variable | Visibility | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | Server-only | Standard PostgreSQL connection URL |
 | `AUTH_SECRET` | Server-only | Auth.js signing/encryption secret; generate with `npx auth secret` |
-| `AUTH_GOOGLE_ID` | Server-only | Google OAuth client ID |
-| `AUTH_GOOGLE_SECRET` | Server-only | Google OAuth client secret |
+| `AUTH_GOOGLE_ID` | Server-only, optional pair | Google OAuth client ID; omit with `AUTH_GOOGLE_SECRET` to disable Google |
+| `AUTH_GOOGLE_SECRET` | Server-only, optional pair | Google OAuth client secret; omit with `AUTH_GOOGLE_ID` to disable Google |
 | `AUTH_URL` | Server-only, required for password flows | Canonical public origin used to build verification and reset links |
 | `AUTH_EMAIL_FROM` | Server-only, required for password flows | Verified sender address used for authentication email |
 | `RESEND_API_KEY` | Server-only, required for password flows | Resend API key used for verification and password-recovery delivery |
 | `AUTH_TRUST_HOST` | Server-only, conditional | Set to `true` behind an unsupported trusted reverse proxy |
 | `AUTH_TRUSTED_PROXY_HEADER` | Server-only, conditional | Required for production password authentication outside Vercel; exact client-IP header overwritten by your trusted reverse proxy |
 
-Configure Google's authorized callback URL as `<AUTH_URL>/api/auth/callback/google`. Do not prefix any of these values with `NEXT_PUBLIC_`.
+Password-only production requires `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`, `AUTH_EMAIL_FROM`, and `RESEND_API_KEY`. Google OAuth is registered only when both Google variables are present; a partial pair is rejected. When Google is enabled for development, configure its authorized callback URL as `<AUTH_URL>/api/auth/callback/google`. Do not prefix any of these values with `NEXT_PUBLIC_`.
 
 Run `npm run db:generate` after installing dependencies, then `npm run db:migrate -- --name auth_foundation` against a development PostgreSQL database. Existing deployments can apply committed migrations with `npx prisma migrate deploy`. `npm run db:validate` validates the schema without connecting to PostgreSQL, and build/test do not require Google credentials or a live database.
 
@@ -284,7 +284,7 @@ scripts/              # Rhyme DB build/check scripts and script tests
 - Core editing, syllable analysis, autosave, and local rhyme suggestions do not require an account or cloud storage.
 - If local rhyme DB initialization fails, the active suggestion hook can send target words to Datamuse and RhymeBrain for online fallback suggestions.
 - The `/api/wordnik` route can send words to Wordnik when called and configured with `WORDNIK_API_KEY`, but it is not currently part of the active rhyme-panel provider list.
-- No authentication, cloud sync, collaboration, analytics service integration, or version history storage is currently implemented. Analytics events are local no-op/console-style app events in code, not a configured third-party service.
+- Optional accounts support email verification, password authentication and recovery, and account-backed cloud sync/version history. Password hashes, one-time token digests, rate-limit records, and account/session metadata are stored in PostgreSQL; verification and recovery addresses are sent to Resend for delivery. Analytics events remain local no-op/console-style app events, not a configured third-party analytics service.
 - Users can clear app data by clearing site data in the browser or removing the `rhyme-lines:persist:settings`, `rhyme-lines:persist:drafts`, and `rhyme-lines:persist:panel` localStorage keys.
 
 ## Performance Notes

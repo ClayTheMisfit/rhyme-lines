@@ -5,9 +5,10 @@ import path from 'node:path'
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8')
 
 describe('authentication architecture', () => {
-  it('keeps Google and credentials on Auth.js with JWT sessions and strict email linking', () => {
+  it('keeps optional Google and required credentials on Auth.js with JWT sessions and strict email linking', () => {
     const source = read('src/auth.ts')
     expect(source).toContain('Google({')
+    expect(source).toContain('...(environment.google ? [Google({')
     expect(source).toContain('Credentials({')
     expect(source).toContain("strategy: 'jwt'")
     expect(source).toContain('allowDangerousEmailAccountLinking: false')
