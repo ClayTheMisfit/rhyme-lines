@@ -11,7 +11,7 @@ export default function PrivacyPage() {
     <LegalDocument
       title="Privacy Policy"
       description="This policy explains what Rhyme Lines processes when you write locally, create an account, sync documents, or use online rhyme assistance."
-      effectiveDate="October 31, 2026"
+      effectiveDate="November 1, 2026"
     >
       <section>
         <h2>Local-first writing</h2>
@@ -25,16 +25,18 @@ export default function PrivacyPage() {
 
       <section>
         <h2>Information processed for accounts</h2>
-        <p>When email-and-password accounts are enabled and you register, Rhyme Lines processes:</p>
+        <p>In the current release, account access uses Google sign-in. When you choose Google sign-in, Rhyme Lines processes:</p>
         <ul>
-          <li>Your display name and email address, including whether the address has been verified.</li>
-          <li>A salted <strong>scrypt password hash</strong>. The application does not store your plaintext password.</li>
-          <li>Signed session information and a session-version value used to invalidate older sessions after a password reset.</li>
-          <li>Hashed, single-use verification and password-reset tokens, their purpose, creation time, expiration time, and whether they were used.</li>
-          <li>Hashed rate-limit keys and attempt timing used to protect registration, sign-in, verification, and recovery endpoints from abuse.</li>
+          <li>Your Google-provided display name, email address, email-verification status, and profile image, when available.</li>
+          <li>Your Google provider identifier and account identifier.</li>
+          <li>OAuth records returned for the connection, which can include access and refresh tokens, an ID token, token type, scope, expiration time, and provider session state.</li>
+          <li>A random database-backed session token, its expiration time, and the account it belongs to.</li>
         </ul>
         <p>
-          Verification links expire after 24 hours. Password-reset links expire after one hour. Expired and used token records are removed by best-effort application cleanup; Rhyme Lines does not promise immediate deletion at the moment a token expires.
+          OAuth and session records remain server-side and are used to connect the Google account, keep the browser signed in, and authorize account-backed features. Rhyme Lines does not receive your Google password.
+        </p>
+        <p>
+          Email-and-password registration, email verification, and password recovery are planned in a separate change but are <strong>not available in this release</strong>. Before those features are activated, this policy must be updated to describe the enabled sign-in providers, password hashes, verification and recovery records, abuse-prevention records, session controls, transactional-email provider, and applicable retention periods.
         </p>
       </section>
 
@@ -59,11 +61,11 @@ export default function PrivacyPage() {
       </section>
 
       <section>
-        <h2>Infrastructure and email delivery</h2>
+        <h2>Infrastructure and sign-in providers</h2>
         <ul>
           <li><a href="https://vercel.com/legal/privacy-notice" target="_blank" rel="noreferrer">Vercel</a> hosts the application and may process network, request, runtime, and security logs needed to deliver and protect it.</li>
           <li><a href="https://neon.com/security" target="_blank" rel="noreferrer">Neon</a> provides the PostgreSQL database used for account records, authentication records, cloud documents, and version history.</li>
-          <li><a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noreferrer">Resend</a> receives the destination email address, sender information, subject, and verification or password-reset message needed to deliver transactional account email.</li>
+          <li><a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">Google</a> provides the current sign-in service and processes the sign-in request under its own privacy policy.</li>
         </ul>
         <p>Rhyme Lines does not currently configure a third-party advertising or product-analytics service.</p>
       </section>
@@ -81,27 +83,27 @@ export default function PrivacyPage() {
           <li><strong>Local data:</strong> remains in the browser until you delete projects, clear the relevant Rhyme Lines site data, or the browser removes it.</li>
           <li><strong>Cloud documents:</strong> remain until you permanently delete them. Permanent deletion removes stored content and version history but retains a content-free deletion tombstone.</li>
           <li><strong>Account data:</strong> the current release does not include self-service account deletion or a published retention schedule for account records.</li>
-          <li><strong>Operational records:</strong> hosting, email, and database providers may retain logs and backups according to their own service policies and contractual obligations.</li>
+          <li><strong>Operational records:</strong> hosting, sign-in, and database providers may retain logs and backups according to their own service policies and contractual obligations.</li>
         </ul>
       </section>
 
       <section>
         <h2>Security and your responsibilities</h2>
         <p>
-          Rhyme Lines uses HTTPS in production, one-way password hashing, hashed one-time tokens, rate limiting, and session invalidation on password reset. No storage or transmission method is completely secure. Use a unique password, protect access to your email account and devices, and use password recovery if you suspect your password or session has been compromised.
+          Rhyme Lines uses HTTPS in production, HTTP-only session cookies, and server-side account and session records. No storage or transmission method is completely secure. Protect access to your Google account and devices, and sign out of Rhyme Lines on a shared device. If you suspect your Google account has been compromised, use Google&apos;s account-security and recovery controls.
         </p>
       </section>
 
       <section>
         <h2>Access, correction, and account-data requests</h2>
         <p>
-          There is not yet a self-service workflow for exporting or deleting an entire account. A monitored Rhyme Lines privacy and support address has not been confirmed. <strong>Public account registration must remain disabled until that contact method is published here and a request-handling process is established.</strong>
+          There is not yet a self-service workflow for exporting or deleting an entire account. A monitored Rhyme Lines privacy and support address has not been confirmed, so this page does not represent that an account-request channel is operational. Publishing a contact method, establishing a request-handling process, and identifying the responsible service operator remain public-launch prerequisites.
         </p>
       </section>
 
       <section>
         <h2>Policy changes</h2>
-        <p>Material changes will be posted on this page with a revised effective date. This page describes the application behavior reviewed for the password-authentication release and should be updated when data flows or providers change.</p>
+        <p>Material changes will be posted on this page with a revised effective date. This page describes the current Google sign-in release and must be updated before unreleased password authentication or a different provider configuration is activated.</p>
       </section>
     </LegalDocument>
   )

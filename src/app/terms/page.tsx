@@ -11,7 +11,7 @@ export default function TermsPage() {
     <LegalDocument
       title="Terms of Service"
       description="These terms govern use of the Rhyme Lines local writing workspace and optional account-backed services."
-      effectiveDate="October 31, 2026"
+      effectiveDate="November 1, 2026"
     >
       <section>
         <h2>Using Rhyme Lines</h2>
@@ -34,10 +34,10 @@ export default function TermsPage() {
       <section>
         <h2>Accounts and security</h2>
         <p>
-          Account registration requires a valid email address you can verify. Keep your password, email account, devices, and active sessions secure. You are responsible for activity performed through your account unless applicable law provides otherwise. Use the password-recovery flow promptly if you suspect compromise.
+          The current release offers account access through Google sign-in. Keep your Google account, devices, and active Rhyme Lines sessions secure. You are responsible for activity performed through your account unless applicable law provides otherwise. Sign out on shared devices and use Google&apos;s account-security and recovery controls if you suspect compromise.
         </p>
         <p>
-          Rhyme Lines may rate-limit or reject authentication traffic to protect accounts and infrastructure. Do not attempt to bypass verification, rate limits, session controls, or other security measures.
+          Email-and-password registration, email verification, and password recovery are planned separately but are not available in this release. If those features are introduced, the Privacy Policy and these Terms must be updated before activation. Do not attempt to bypass sign-in, session, or other security controls.
         </p>
       </section>
 
@@ -55,7 +55,7 @@ export default function TermsPage() {
       <section>
         <h2>Third-party services</h2>
         <p>
-          Hosting, database, transactional email, and online word-suggestion features depend on third parties including Vercel, Neon, Resend, Datamuse, RhymeBrain, and—when configured and called—Wordnik. Those services can change, impose limits, become unavailable, or apply their own terms and privacy practices. Rhyme Lines is not responsible for third-party services outside its control.
+          Hosting, database, sign-in, and online word-suggestion features depend on third parties including Vercel, Neon, Google, Datamuse, RhymeBrain, and—when configured and called—Wordnik. Those services can change, impose limits, become unavailable, or apply their own terms and privacy practices. Rhyme Lines is not responsible for third-party services outside its control.
         </p>
       </section>
 
@@ -72,7 +72,7 @@ export default function TermsPage() {
           You can stop using Rhyme Lines at any time and clear local site data through your browser. Signed-in users can permanently delete individual cloud documents from the trash; that removes their stored content and version history but keeps a content-free deletion tombstone for synchronization.
         </p>
         <p>
-          The current release does not provide self-service account deletion. A monitored support address and account-request procedure must be published before public registration is enabled. Until then, Rhyme Lines cannot represent that an account-deletion request channel is operational.
+          The current release does not provide self-service account deletion. A monitored support address and account-request procedure must be published before a public account launch. Until then, Rhyme Lines cannot represent that an account-deletion request channel is operational.
         </p>
       </section>
 
@@ -94,7 +94,7 @@ export default function TermsPage() {
       <section>
         <h2>Contact</h2>
         <p>
-          A monitored Rhyme Lines support address has not yet been confirmed. Publishing that address and identifying the responsible operator are launch prerequisites for public account registration.
+          A monitored Rhyme Lines support address and the responsible service operator have not yet been confirmed. This page does not represent that an account-request channel is operational. Publishing those details remains a prerequisite for a public account launch.
         </p>
       </section>
     </LegalDocument>

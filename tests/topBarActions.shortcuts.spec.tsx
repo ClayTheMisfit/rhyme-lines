@@ -96,4 +96,16 @@ describe('TopBarActions shortcuts', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Version History' }))
     expect(screen.getByText('History dialog open')).toBeInTheDocument()
   })
+
+  it('exposes keyboard-focusable legal links from the more-actions menu', () => {
+    render(<TopBarActions />)
+    fireEvent.click(screen.getByLabelText('More actions'))
+
+    const legalNavigation = screen.getByRole('navigation', { name: 'Legal' })
+    const privacyLink = legalNavigation.querySelector('a[href="/privacy"]')
+    const termsLink = legalNavigation.querySelector('a[href="/terms"]')
+
+    expect(privacyLink).toHaveClass('focus-visible:ring-2')
+    expect(termsLink).toHaveClass('focus-visible:ring-2')
+  })
 })
