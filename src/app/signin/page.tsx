@@ -24,6 +24,9 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           </form>
         ) : <p role="status" className="text-sm">Sign-in is not configured on this server. You can still use the local workspace.</p>}
         <Link href="/" className="block rounded-md py-3 text-center text-sm underline underline-offset-4 focus-visible:outline-2">Continue without an account</Link>
+        <p className="text-center text-xs leading-5 text-muted-foreground">
+          By continuing, you agree to the <Link href="/terms" className="underline underline-offset-4 focus-visible:outline-2">Terms of Service</Link> and acknowledge the <Link href="/privacy" className="underline underline-offset-4 focus-visible:outline-2">Privacy Policy</Link>.
+        </p>
       </section>
     </main>
   )

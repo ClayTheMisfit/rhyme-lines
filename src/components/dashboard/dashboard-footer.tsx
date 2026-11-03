@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 export function DashboardFooter() {
   return (
     <footer className="mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.045] pt-7 text-[11px] text-white/42">
@@ -5,7 +7,11 @@ export function DashboardFooter() {
         <span>Sync: All changes stored locally</span>
         <span>Storage: 63% available</span>
       </div>
-      <span className="text-right text-white/34">Build rhlines-0.1.0 · vNext workspace shell</span>
+      <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 text-right">
+        <Link href="/privacy" className="rounded-sm text-[#9da0a4] underline-offset-4 hover:text-[#c7c9cb] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/70">Privacy</Link>
+        <Link href="/terms" className="rounded-sm text-[#9da0a4] underline-offset-4 hover:text-[#c7c9cb] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]/70">Terms</Link>
+        <span className="text-white/34">Build rhlines-0.1.0 · vNext workspace shell</span>
+      </div>
     </footer>
   )
 }
