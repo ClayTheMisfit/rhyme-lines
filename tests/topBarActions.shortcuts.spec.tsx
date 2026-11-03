@@ -107,5 +107,6 @@ describe('TopBarActions shortcuts', () => {
 
     expect(privacyLink).toHaveClass('focus-visible:ring-2')
     expect(termsLink).toHaveClass('focus-visible:ring-2')
+    expect(legalNavigation).toHaveClass('text-[color:var(--rl-shell-text)]')
   })
 })

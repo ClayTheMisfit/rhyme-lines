@@ -1,8 +1,14 @@
 import { expect, test } from '@playwright/test'
+import { openTestEditor } from './fixtures/project'
+
+function colorChannels(color: string) {
+  const channels = color.match(/[\d.]+/g)?.map(Number)
+  if (!channels || channels.length < 3) throw new Error(`Unsupported color: ${color}`)
+  return { rgb: channels.slice(0, 3), alpha: channels[3] ?? 1 }
+}
 
 function relativeLuminance(color: string) {
-  const channels = color.match(/[\d.]+/g)?.slice(0, 3).map(Number)
-  if (!channels || channels.length !== 3) throw new Error(`Unsupported color: ${color}`)
+  const { rgb: channels } = colorChannels(color)
   const linear = channels.map((channel) => {
     const value = channel / 255
     return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
@@ -11,8 +17,14 @@ function relativeLuminance(color: string) {
 }
 
 function contrastRatio(foreground: string, background: string) {
-  const lighter = Math.max(relativeLuminance(foreground), relativeLuminance(background))
-  const darker = Math.min(relativeLuminance(foreground), relativeLuminance(background))
+  const foregroundChannels = colorChannels(foreground)
+  const backgroundChannels = colorChannels(background)
+  const compositedForeground = foregroundChannels.rgb.map((channel, index) =>
+    (channel * foregroundChannels.alpha) + (backgroundChannels.rgb[index] * (1 - foregroundChannels.alpha)))
+  const foregroundLuminance = relativeLuminance(`rgb(${compositedForeground.join(', ')})`)
+  const backgroundLuminance = relativeLuminance(background)
+  const lighter = Math.max(foregroundLuminance, backgroundLuminance)
+  const darker = Math.min(foregroundLuminance, backgroundLuminance)
   return (lighter + 0.05) / (darker + 0.05)
 }
 
@@ -68,5 +80,37 @@ test.describe('public legal pages', () => {
     await expect(page.getByRole('link', { name: 'Terms of Service' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Privacy Policy' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Continue without an account' })).toBeVisible()
+  })
+
+  test('keeps editor-menu legal links above WCAG AA contrast in both themes', async ({ page }) => {
+    await openTestEditor(page)
+    const backgrounds = new Set<string>()
+
+    for (let themeIndex = 0; themeIndex < 2; themeIndex += 1) {
+      await page.getByRole('button', { name: 'More actions' }).click()
+      const legalNavigation = page.getByRole('navigation', { name: 'Legal' })
+
+      for (const name of ['Privacy', 'Terms']) {
+        const link = legalNavigation.getByRole('link', { name, exact: true })
+        const colors = await link.evaluate((element) => {
+          const style = getComputedStyle(element)
+          const background = getComputedStyle(element.closest('nav')?.parentElement ?? document.body).backgroundColor
+          return { foreground: style.color, background }
+        })
+        backgrounds.add(colors.background)
+        expect(contrastRatio(colors.foreground, colors.background)).toBeGreaterThanOrEqual(4.5)
+        await link.focus()
+        await expect(link).toBeFocused()
+      }
+
+      if (themeIndex === 0) {
+        await page.getByRole('button', { name: 'More actions' }).click()
+        const currentBodyClass = await page.locator('body').getAttribute('class')
+        await page.getByRole('button', { name: 'Toggle theme' }).click()
+        await expect.poll(() => page.locator('body').getAttribute('class')).not.toBe(currentBodyClass)
+      }
+    }
+
+    expect(backgrounds.size).toBe(2)
   })
 })

@@ -361,7 +361,7 @@ export default function TopBarActions() {
               <span>Editor settings</span>
               <span className="text-[color:var(--rl-shell-muted)]">↗</span>
             </button>
-            <nav aria-label="Legal" className="mt-1 flex items-center gap-3 border-t border-[color:var(--rl-shell-border)] px-2.5 py-2 text-[11px] text-[color:var(--rl-shell-muted)]">
+            <nav aria-label="Legal" className="mt-1 flex items-center gap-3 border-t border-[color:var(--rl-shell-border)] px-2.5 py-2 text-[11px] text-[color:var(--rl-shell-text)]">
               <Link href="/privacy" onClick={() => setMenuOpen(false)} className="rounded-sm underline-offset-4 hover:text-[color:var(--rl-shell-text)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-accent)]">Privacy</Link>
               <Link href="/terms" onClick={() => setMenuOpen(false)} className="rounded-sm underline-offset-4 hover:text-[color:var(--rl-shell-text)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--rl-accent)]">Terms</Link>
             </nav>
