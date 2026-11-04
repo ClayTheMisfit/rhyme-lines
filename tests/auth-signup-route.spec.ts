@@ -19,7 +19,7 @@ function signupRequest() {
   return new Request('https://example.test/api/auth/signup', {
     method: 'POST',
     headers: { 'content-type': 'application/json', origin: 'https://example.test' },
-    body: JSON.stringify({ name: 'Avery', email: 'avery@example.com' }),
+    body: JSON.stringify({ name: 'Avery', email: 'avery@example.com', acceptedTerms: true }),
   })
 }
 
@@ -43,5 +43,23 @@ describe('signup route', () => {
     await jest.mocked(after).mock.calls[0][0]()
     await jest.mocked(after).mock.calls[1][0]()
     expect(registerPasswordAccount).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects registration without explicit legal acknowledgement', async () => {
+    const request = new Request('https://example.test/api/auth/signup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: 'https://example.test' },
+      body: JSON.stringify({ name: 'Avery', email: 'avery@example.com', acceptedTerms: false }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual(expect.objectContaining({
+      ok: false,
+      code: 'validation',
+      fieldErrors: expect.objectContaining({ terms: expect.any(String) }),
+    }))
+    expect(after).not.toHaveBeenCalled()
   })
 })

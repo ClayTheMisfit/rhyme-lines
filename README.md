@@ -175,9 +175,9 @@ Authentication uses Auth.js with email/password credentials, optional Google OAu
 
 Password-only production requires `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`, `AUTH_EMAIL_FROM`, and `RESEND_API_KEY`. Google OAuth is registered only when both Google variables are present; a partial pair is rejected. When Google is enabled for development, configure its authorized callback URL as `<AUTH_URL>/api/auth/callback/google`. Do not prefix any of these values with `NEXT_PUBLIC_`.
 
-Run `npm run db:generate` after installing dependencies, then `npm run db:migrate -- --name auth_foundation` against a development PostgreSQL database. Existing deployments can apply committed migrations with `npx prisma migrate deploy`. `npm run db:validate` validates the schema without connecting to PostgreSQL, and build/test do not require Google credentials or a live database.
+Run `npm run db:generate` after installing dependencies. Use an isolated development PostgreSQL database for migration development and integration tests. Before any deployment, reconcile the target database's `_prisma_migrations` history and schema with the committed migration; do not blindly reapply a migration that may already be recorded or partially present. `npm run db:validate` validates the schema without connecting to PostgreSQL, and build/test do not require Google credentials or a live database.
 
-The App Router handler lives at `src/app/api/auth/[...nextauth]/route.ts`. `src/auth.ts` centralizes Auth.js and exposes database-session operations; `src/lib/auth/current-user.ts` is the canonical server-only identity accessor. Account UI receives only name/email, while provider tokens and session records remain server-side. Missing configuration leaves the local editor usable and makes authentication endpoints fail clearly.
+The App Router handler lives at `src/app/api/auth/[...nextauth]/route.ts`. `src/auth.ts` centralizes Auth.js and encrypted JWT-session operations; `src/lib/auth/current-user.ts` is the canonical server-only identity accessor. Account UI receives only name/email, while provider tokens and session-version records remain server-side. Missing configuration leaves the local editor usable and makes authentication endpoints fail clearly.
 
 ### Prerequisites
 
@@ -284,7 +284,7 @@ scripts/              # Rhyme DB build/check scripts and script tests
 - Core editing, syllable analysis, autosave, and local rhyme suggestions do not require an account or cloud storage.
 - If local rhyme DB initialization fails, the active suggestion hook can send target words to Datamuse and RhymeBrain for online fallback suggestions.
 - The `/api/wordnik` route can send words to Wordnik when called and configured with `WORDNIK_API_KEY`, but it is not currently part of the active rhyme-panel provider list.
-- Optional accounts support email verification, password authentication and recovery, and account-backed cloud sync/version history. Password hashes, one-time token digests, rate-limit records, and account/session metadata are stored in PostgreSQL; verification and recovery addresses are sent to Resend for delivery. Analytics events remain local no-op/console-style app events, not a configured third-party analytics service.
+- Optional accounts support email verification, password authentication and recovery, optional Google OAuth, and account-backed cloud sync/version history. Password hashes, one-time token digests, rate-limit records, and account/session-version metadata are stored in PostgreSQL; encrypted JWT sessions are stored in HTTP-only browser cookies, and verification and recovery addresses are sent to Resend for delivery. Analytics events remain local no-op/console-style app events, not a configured third-party analytics service.
 - Users can clear app data by clearing site data in the browser or removing the `rhyme-lines:persist:settings`, `rhyme-lines:persist:drafts`, and `rhyme-lines:persist:panel` localStorage keys.
 
 ## Performance Notes

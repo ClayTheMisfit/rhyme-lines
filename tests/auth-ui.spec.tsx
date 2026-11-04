@@ -20,6 +20,9 @@ describe('auth forms', () => {
     expect(screen.getByLabelText('Name')).toHaveAttribute('autocomplete', 'name')
     expect(screen.getByLabelText('Email')).toHaveAttribute('autocomplete', 'email')
     expect(screen.getByText(/choose your password/i)).toBeVisible()
+    expect(screen.getByRole('checkbox', { name: /I agree to the Terms of Service/i })).toBeRequired()
+    expect(screen.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', '/terms')
+    expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy')
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/signin')
   })
 
@@ -36,6 +39,7 @@ describe('auth forms', () => {
     render(<SignupForm />)
     await userEvent.type(screen.getByLabelText('Name'), 'Avery')
     await userEvent.type(screen.getByLabelText('Email'), 'avery@example.com')
+    await userEvent.click(screen.getByRole('checkbox', { name: /I agree to the Terms of Service/i }))
     await userEvent.click(screen.getByRole('button', { name: 'Continue with email' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Check your connection')
     await waitFor(() => expect(screen.getByRole('button', { name: 'Continue with email' })).toBeEnabled())
@@ -73,6 +77,7 @@ describe('auth forms', () => {
     render(<SignupForm />)
     await userEvent.type(screen.getByLabelText('Name'), 'Avery')
     await userEvent.type(screen.getByLabelText('Email'), 'avery@example.com')
+    await userEvent.click(screen.getByRole('checkbox', { name: /I agree to the Terms of Service/i }))
     await userEvent.click(screen.getByRole('button', { name: 'Continue with email' }))
     expect(await screen.findByRole('link', { name: 'Resend verification email' })).toHaveAttribute('href', '/verify-email')
   })
@@ -89,6 +94,7 @@ describe('auth forms', () => {
     render(<SignupForm />)
     await userEvent.type(screen.getByLabelText('Name'), 'Avery')
     await userEvent.type(screen.getByLabelText('Email'), 'avery@example.com')
+    await userEvent.click(screen.getByRole('checkbox', { name: /I agree to the Terms of Service/i }))
     await userEvent.click(screen.getByRole('button', { name: 'Continue with email' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Please retry signup.')
     expect(screen.queryByRole('link', { name: 'Resend verification email' })).not.toBeInTheDocument()
@@ -106,8 +112,21 @@ describe('auth forms', () => {
     render(<SignupForm />)
     await userEvent.type(screen.getByLabelText('Name'), 'Avery')
     await userEvent.type(screen.getByLabelText('Email'), 'avery@example.com')
+    await userEvent.click(screen.getByRole('checkbox', { name: /I agree to the Terms of Service/i }))
     await userEvent.click(screen.getByRole('button', { name: 'Continue with email' }))
     expect(await screen.findByRole('link', { name: 'Resend verification email' })).toHaveAttribute('href', '/verify-email')
+  })
+
+  it('does not submit registration until legal acknowledgement is affirmative', async () => {
+    const fetchMock = jest.fn()
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: fetchMock })
+    render(<SignupForm />)
+    await userEvent.type(screen.getByLabelText('Name'), 'Avery')
+    await userEvent.type(screen.getByLabelText('Email'), 'avery@example.com')
+    await userEvent.click(screen.getByRole('button', { name: 'Continue with email' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('You must agree to the Terms of Service')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('keeps Google OAuth available', async () => {

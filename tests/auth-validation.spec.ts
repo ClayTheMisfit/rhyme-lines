@@ -2,14 +2,14 @@ import { safeRedirectPath, validatePasswordResetInput, validateSignupInput } fro
 
 describe('auth validation', () => {
   it('normalizes signup identity fields', () => {
-    const result = validateSignupInput({ name: '  Avery  Stone ', email: ' Avery@Example.COM ' })
+    const result = validateSignupInput({ name: '  Avery  Stone ', email: ' Avery@Example.COM ', acceptedTerms: true })
     expect(result).toEqual({ ok: true, value: { name: 'Avery Stone', email: 'avery@example.com' } })
   })
 
   it('returns structured errors for invalid signup input', () => {
-    const result = validateSignupInput({ name: '', email: 'not-email' })
+    const result = validateSignupInput({ name: '', email: 'not-email', acceptedTerms: false })
     expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.errors).toEqual(expect.objectContaining({ name: expect.any(String), email: expect.any(String) }))
+    if (!result.ok) expect(result.errors).toEqual(expect.objectContaining({ name: expect.any(String), email: expect.any(String), terms: expect.any(String) }))
   })
 
   it('validates reset tokens and matching passwords', () => {

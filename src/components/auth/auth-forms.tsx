@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { signIn } from 'next-auth/react'
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, validateEmail, validatePassword, type FieldErrors } from '@/lib/auth/validation'
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, validateEmail, validateName, validatePassword, type FieldErrors } from '@/lib/auth/validation'
 
 const inputClass = 'min-h-12 w-full rounded-lg border border-white/12 bg-white/[0.035] px-3.5 text-base text-white outline-none placeholder:text-white/24 hover:border-white/20 focus:border-[#d6b85d]/75 focus:ring-2 focus:ring-[#d6b85d]/18 disabled:opacity-50 sm:text-sm'
 const buttonClass = 'flex min-h-12 w-full items-center justify-center rounded-lg bg-[#ece9df] px-4 text-sm font-semibold text-[#111216] transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d] focus-visible:ring-offset-3 focus-visible:ring-offset-[#090a0d] disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none'
@@ -66,6 +66,7 @@ export function SignInForm({ configured, googleEnabled, redirectTo, initialError
 export function SignupForm() {
   const router = useRouter()
   const [values, setValues] = useState({ name: '', email: '' })
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [error, setError] = useState('')
   const [needsResend, setNeedsResend] = useState(false)
@@ -73,14 +74,23 @@ export function SignupForm() {
   const update = (key: keyof typeof values) => (value: string) => setValues((current) => ({ ...current, [key]: value }))
   async function submit(event: FormEvent) {
     event.preventDefault(); if (pending) return
+    const nextErrors: FieldErrors = {}
+    if (!validateName(values.name)) nextErrors.name = 'Enter a name between 1 and 80 characters.'
+    if (!validateEmail(values.email)) nextErrors.email = 'Enter a valid email address.'
+    if (!acceptedTerms) nextErrors.terms = 'You must agree to the Terms of Service and acknowledge the Privacy Policy to register.'
+    if (Object.keys(nextErrors).length) {
+      setErrors(nextErrors)
+      setError(''); setNeedsResend(false)
+      return
+    }
     setPending(true); setErrors({}); setError(''); setNeedsResend(false)
     try {
-      const { response, data } = await postJson('/api/auth/signup', values)
+      const { response, data } = await postJson('/api/auth/signup', { ...values, acceptedTerms })
       if (!response.ok) { setErrors(data.fieldErrors || {}); setError(data.message || 'Account creation could not be completed.'); setNeedsResend(data.code === 'verification_delivery_failed_resend' || data.code === 'account_unavailable'); return }
       router.push('/verify-email?sent=1')
     } catch { setError('Account creation could not be completed. Check your connection and try again.') } finally { setPending(false) }
   }
-  return <form className="space-y-5" onSubmit={submit} noValidate><Status error={error} />{needsResend && <Link href="/verify-email" className={secondaryButtonClass}>Resend verification email</Link>}<Field label="Name" name="name" error={errors.name}><input id="name" name="name" className={inputClass} autoComplete="name" required maxLength={80} value={values.name} onChange={(event) => update('name')(event.target.value)} aria-invalid={!!errors.name} aria-describedby={errors.name ? 'name-error' : undefined} /></Field><Field label="Email" name="email" error={errors.email}><input id="email" name="email" className={inputClass} type="email" autoComplete="email" required maxLength={254} value={values.email} onChange={(event) => update('email')(event.target.value)} aria-invalid={!!errors.email} aria-describedby={errors.email ? 'email-error' : undefined} /></Field><p className="text-sm leading-6 text-white/48">We will email you a secure link. Open it to verify your address and choose your password.</p><button className={buttonClass} disabled={pending}>{pending ? 'Sending verification…' : 'Continue with email'}</button><p className="text-center text-sm text-white/48">Already have an account? <Link href="/signin" className="text-white/82 underline decoration-white/25 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Sign in</Link></p></form>
+  return <form className="space-y-5" onSubmit={submit} noValidate><Status error={error} />{needsResend && <Link href="/verify-email" className={secondaryButtonClass}>Resend verification email</Link>}<Field label="Name" name="name" error={errors.name}><input id="name" name="name" className={inputClass} autoComplete="name" required maxLength={80} value={values.name} onChange={(event) => update('name')(event.target.value)} aria-invalid={!!errors.name} aria-describedby={errors.name ? 'name-error' : undefined} /></Field><Field label="Email" name="email" error={errors.email}><input id="email" name="email" className={inputClass} type="email" autoComplete="email" required maxLength={254} value={values.email} onChange={(event) => update('email')(event.target.value)} aria-invalid={!!errors.email} aria-describedby={errors.email ? 'email-error' : undefined} /></Field><p className="text-sm leading-6 text-white/48">We will email you a secure link. Open it to verify your address and choose your password.</p><div><div className="flex items-start gap-3"><input id="acceptedTerms" name="acceptedTerms" type="checkbox" required checked={acceptedTerms} onChange={(event) => { setAcceptedTerms(event.target.checked); setErrors((current) => ({ ...current, terms: undefined })) }} aria-invalid={!!errors.terms} aria-describedby={errors.terms ? 'terms-error' : undefined} className="mt-1 size-4 shrink-0 accent-[#d6b85d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d] focus-visible:ring-offset-2 focus-visible:ring-offset-[#090a0d]" /><label htmlFor="acceptedTerms" className="text-sm leading-6 text-white/58">I agree to the <Link href="/terms" className="text-white/82 underline decoration-white/25 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Terms of Service</Link> and acknowledge the <Link href="/privacy" className="text-white/82 underline decoration-white/25 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Privacy Policy</Link>.</label></div>{errors.terms && <p id="terms-error" role="alert" className="mt-2 text-sm text-[#e8a8a8]">{errors.terms}</p>}</div><button className={buttonClass} disabled={pending}>{pending ? 'Sending verification…' : 'Continue with email'}</button><p className="text-center text-sm text-white/48">Already have an account? <Link href="/signin" className="text-white/82 underline decoration-white/25 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Sign in</Link></p></form>
 }
 
 export function RecoveryForm({ mode }: { mode: 'forgot' | 'resend' }) {

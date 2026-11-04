@@ -11,7 +11,7 @@ export default function PrivacyPage() {
     <LegalDocument
       title="Privacy Policy"
       description="This policy explains what Rhyme Lines processes when you write locally, create an account, sync documents, or use online rhyme assistance."
-      effectiveDate="November 1, 2026"
+      effectiveDate="November 3, 2026"
     >
       <section>
         <h2>Local-first writing</h2>
@@ -25,18 +25,27 @@ export default function PrivacyPage() {
 
       <section>
         <h2>Information processed for accounts</h2>
-        <p>In the current release, account access uses Google sign-in. When you choose Google sign-in, Rhyme Lines processes:</p>
+        <p>Rhyme Lines supports email-and-password accounts and can also offer Google sign-in when that provider is configured. For an email-and-password registration, Rhyme Lines processes:</p>
+        <ul>
+          <li>The name and email address you submit, and whether the email address has been verified.</li>
+          <li>A salted scrypt password hash after you use a verification link and choose a password. Rhyme Lines does not store the password itself.</li>
+          <li>Hashed, single-use verification and password-reset token records, including their type, creation time, expiration time, and whether they have been used. Verification links expire after 24 hours; password-reset links expire after one hour.</li>
+          <li>Hashed rate-limit keys, attempt counts, time windows, and temporary block times used to limit login, registration, verification, and recovery abuse. The rate-limit table does not store the raw email address or client address used to derive a key.</li>
+        </ul>
+        <p>
+          Registration first creates a pending account and emails a verification link through Resend. No password or password hash is stored until the person using that link chooses a password. Completing a password reset changes the password hash and invalidates earlier Rhyme Lines sign-in sessions for that account.
+        </p>
+        <p>When Google sign-in is configured and you choose it, Rhyme Lines can also process:</p>
         <ul>
           <li>Your Google-provided display name, email address, email-verification status, and profile image, when available.</li>
           <li>Your Google provider identifier and account identifier.</li>
           <li>OAuth records returned for the connection, which can include access and refresh tokens, an ID token, token type, scope, expiration time, and provider session state.</li>
-          <li>A random database-backed session token, its expiration time, and the account it belongs to.</li>
         </ul>
         <p>
-          OAuth and session records remain server-side and are used to connect the Google account, keep the browser signed in, and authorize account-backed features. Rhyme Lines does not receive your Google password.
+          OAuth records remain server-side and are used to connect the Google account and authorize account-backed features. Rhyme Lines does not receive your Google password. A matching email address does not generally cause an existing password identity and Google identity to be linked automatically. A verified Google identity can complete a still-pending registration for the same email address before a password credential has been created.
         </p>
         <p>
-          Email-and-password registration, email verification, and password recovery are planned in a separate change but are <strong>not available in this release</strong>. Before those features are activated, this policy must be updated to describe the enabled sign-in providers, password hashes, verification and recovery records, abuse-prevention records, session controls, transactional-email provider, and applicable retention periods.
+          Signed-in browsers use an encrypted, HTTP-only JSON Web Token cookie. The application database stores a session-version number for each user so a password reset can reject older cookies. The previous database-session table remains in the schema for compatibility, but the proposed authentication flow does not create new database session-token records.
         </p>
       </section>
 
@@ -65,7 +74,8 @@ export default function PrivacyPage() {
         <ul>
           <li><a href="https://vercel.com/legal/privacy-notice" target="_blank" rel="noreferrer">Vercel</a> hosts the application and may process network, request, runtime, and security logs needed to deliver and protect it.</li>
           <li><a href="https://neon.com/security" target="_blank" rel="noreferrer">Neon</a> provides the PostgreSQL database used for account records, authentication records, cloud documents, and version history.</li>
-          <li><a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">Google</a> provides the current sign-in service and processes the sign-in request under its own privacy policy.</li>
+          <li><a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noreferrer">Resend</a> receives the destination email address, authentication message content, and ordinary delivery metadata when Rhyme Lines sends a verification or password-reset email.</li>
+          <li><a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">Google</a> processes a Google sign-in request under its own privacy policy when that optional provider is configured and selected.</li>
         </ul>
         <p>Rhyme Lines does not currently configure a third-party advertising or product-analytics service.</p>
       </section>
@@ -73,7 +83,7 @@ export default function PrivacyPage() {
       <section>
         <h2>Cookies and browser storage</h2>
         <p>
-          Authentication uses an HTTP-only session cookie so the server can recognize a signed-in browser. Local drafts and preferences use browser local storage rather than an account cookie. Your browser controls whether cookies and local storage are available; blocking them can prevent account or persistence features from working.
+          Authentication uses an encrypted, HTTP-only session cookie so the server can recognize a signed-in browser. Local drafts and preferences use browser local storage rather than an account cookie. Your browser controls whether cookies and local storage are available; blocking them can prevent account or persistence features from working.
         </p>
       </section>
 
@@ -82,7 +92,9 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Local data:</strong> remains in the browser until you delete projects, clear the relevant Rhyme Lines site data, or the browser removes it.</li>
           <li><strong>Cloud documents:</strong> remain until you permanently delete them. Permanent deletion removes stored content and version history but retains a content-free deletion tombstone.</li>
-          <li><strong>Account data:</strong> the current release does not include self-service account deletion or a published retention schedule for account records.</li>
+          <li><strong>Verification and recovery tokens:</strong> expire after 24 hours and one hour respectively. Used or expired records are marked or removed as authentication requests run; cleanup is not represented as immediate deletion at the moment of expiration.</li>
+          <li><strong>Rate-limit records:</strong> the application attempts to remove entries that have not been updated for 24 hours. Cleanup is best-effort and runs during later authentication traffic.</li>
+          <li><strong>Account data:</strong> there is no self-service account deletion or published retention schedule for the remaining account and credential records.</li>
           <li><strong>Operational records:</strong> hosting, sign-in, and database providers may retain logs and backups according to their own service policies and contractual obligations.</li>
         </ul>
       </section>
@@ -90,7 +102,7 @@ export default function PrivacyPage() {
       <section>
         <h2>Security and your responsibilities</h2>
         <p>
-          Rhyme Lines uses HTTPS in production, HTTP-only session cookies, and server-side account and session records. No storage or transmission method is completely secure. Protect access to your Google account and devices, and sign out of Rhyme Lines on a shared device. If you suspect your Google account has been compromised, use Google&apos;s account-security and recovery controls.
+          Rhyme Lines uses HTTPS in production, salted password hashes, single-use expiring links, encrypted HTTP-only session cookies, rate limits, and server-side session-version checks. No storage or transmission method is completely secure. Use a unique password, protect your email or Google account and devices, and sign out on shared devices.
         </p>
       </section>
 
@@ -103,7 +115,7 @@ export default function PrivacyPage() {
 
       <section>
         <h2>Policy changes</h2>
-        <p>Material changes will be posted on this page with a revised effective date. This page describes the current Google sign-in release and must be updated before unreleased password authentication or a different provider configuration is activated.</p>
+        <p>Material changes will be posted on this page with a revised effective date. The sign-in methods actually available can depend on server configuration; this policy describes the email-and-password flow and the optional Google provider implemented by this release candidate.</p>
       </section>
     </LegalDocument>
   )

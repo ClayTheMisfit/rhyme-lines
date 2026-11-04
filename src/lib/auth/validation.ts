@@ -2,7 +2,7 @@ export const AUTH_PAYLOAD_LIMIT = 16 * 1024
 export const PASSWORD_MIN_LENGTH = 12
 export const PASSWORD_MAX_LENGTH = 128
 
-export type FieldErrors = Partial<Record<'name' | 'email' | 'password' | 'confirmPassword' | 'token', string>>
+export type FieldErrors = Partial<Record<'name' | 'email' | 'password' | 'confirmPassword' | 'token' | 'terms', string>>
 
 export function normalizeEmail(value: string) {
   return value.trim().toLowerCase()
@@ -52,6 +52,7 @@ export function validateSignupInput(input: unknown) {
   const errors: FieldErrors = {}
   if (!name) errors.name = 'Enter a name between 1 and 80 characters.'
   if (!email) errors.email = 'Enter a valid email address.'
+  if (body.acceptedTerms !== true) errors.terms = 'You must agree to the Terms of Service and acknowledge the Privacy Policy to register.'
   return Object.keys(errors).length ? { ok: false as const, errors } : { ok: true as const, value: { name: name!, email: email! } }
 }
 

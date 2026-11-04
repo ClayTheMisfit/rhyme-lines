@@ -28,6 +28,9 @@ export function AuthShell({ title, description, children }: { title: string; des
             <Link href="/" className="mt-7 flex min-h-12 items-center justify-center rounded-lg text-sm text-white/62 underline decoration-white/25 underline-offset-4 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">
               Continue without an account
             </Link>
+            <p className="mt-4 text-center text-xs leading-5 text-white/42">
+              Account use is governed by the <Link href="/terms" className="underline decoration-white/25 underline-offset-4 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Terms of Service</Link> and <Link href="/privacy" className="underline decoration-white/25 underline-offset-4 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Privacy Policy</Link>.
+            </p>
           </div>
         </section>
       </div>

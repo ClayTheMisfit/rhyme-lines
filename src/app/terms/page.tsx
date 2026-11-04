@@ -11,7 +11,7 @@ export default function TermsPage() {
     <LegalDocument
       title="Terms of Service"
       description="These terms govern use of the Rhyme Lines local writing workspace and optional account-backed services."
-      effectiveDate="November 1, 2026"
+      effectiveDate="November 3, 2026"
     >
       <section>
         <h2>Using Rhyme Lines</h2>
@@ -34,10 +34,13 @@ export default function TermsPage() {
       <section>
         <h2>Accounts and security</h2>
         <p>
-          The current release offers account access through Google sign-in. Keep your Google account, devices, and active Rhyme Lines sessions secure. You are responsible for activity performed through your account unless applicable law provides otherwise. Sign out on shared devices and use Google&apos;s account-security and recovery controls if you suspect compromise.
+          Rhyme Lines supports email-and-password accounts and can also offer Google sign-in when that provider is configured. Registration requires you to agree to these Terms and acknowledge the <a href="/privacy">Privacy Policy</a>. You must provide information you are authorized to use and complete the applicable email or provider verification.
         </p>
         <p>
-          Email-and-password registration, email verification, and password recovery are planned separately but are not available in this release. If those features are introduced, the Privacy Policy and these Terms must be updated before activation. Do not attempt to bypass sign-in, session, or other security controls.
+          Keep your password, email or Google account, devices, and active Rhyme Lines sessions secure. Use a unique password, sign out on shared devices, and use the password-reset flow or your provider&apos;s recovery controls if you suspect compromise. You are responsible for activity performed through your account unless applicable law provides otherwise.
+        </p>
+        <p>
+          Rhyme Lines does not generally link an existing password identity to a Google identity merely because the email addresses match. Do not attempt to bypass email verification, account-linking restrictions, rate limits, session controls, or other security measures.
         </p>
       </section>
 
@@ -55,7 +58,7 @@ export default function TermsPage() {
       <section>
         <h2>Third-party services</h2>
         <p>
-          Hosting, database, sign-in, and online word-suggestion features depend on third parties including Vercel, Neon, Google, Datamuse, RhymeBrain, and—when configured and called—Wordnik. Those services can change, impose limits, become unavailable, or apply their own terms and privacy practices. Rhyme Lines is not responsible for third-party services outside its control.
+          Hosting, database, authentication email, sign-in, and online word-suggestion features depend on third parties including Vercel, Neon, Resend, Google when configured, Datamuse, RhymeBrain, and—when configured and called—Wordnik. Those services can change, impose limits, become unavailable, or apply their own terms and privacy practices. Rhyme Lines is not responsible for third-party services outside its control.
         </p>
       </section>
 
