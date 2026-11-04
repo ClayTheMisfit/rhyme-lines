@@ -47,6 +47,9 @@ export default function PrivacyPage() {
         <p>
           Signed-in browsers use an encrypted, HTTP-only JSON Web Token cookie. The application database stores a session-version number for each user so a password reset can reject older cookies. The previous database-session table remains in the schema for compatibility, but the proposed authentication flow does not create new database session-token records.
         </p>
+        <p>
+          If you acknowledge the legal terms before starting a first-time Google registration, Rhyme Lines places a signed, HTTP-only acknowledgement cookie in your browser for up to ten minutes. It is used only to allow that registration attempt; existing Google-linked accounts do not require it to sign in.
+        </p>
       </section>
 
       <section>

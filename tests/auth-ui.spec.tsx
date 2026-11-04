@@ -136,6 +136,20 @@ describe('auth forms', () => {
     expect(signInMock).toHaveBeenCalledWith('google', { redirectTo: '/workspace' })
   })
 
+  it('records legal acknowledgement before starting a first-time Google registration', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) })
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: fetchMock })
+    signInMock.mockResolvedValue(undefined)
+    render(<SignInForm configured googleEnabled redirectTo="/workspace" />)
+    await userEvent.click(screen.getByRole('checkbox', { name: /Creating a new account with Google/i }))
+    await userEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/oauth-consent', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ acceptedTerms: true }),
+    }))
+    expect(signInMock).toHaveBeenCalledWith('google', { redirectTo: '/workspace' })
+  })
+
   it('hides Google OAuth when its credentials are not configured', () => {
     render(<SignInForm configured googleEnabled={false} redirectTo="/" />)
     expect(screen.queryByRole('button', { name: 'Continue with Google' })).not.toBeInTheDocument()

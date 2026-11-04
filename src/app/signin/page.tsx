@@ -15,5 +15,8 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
     if (!(cause instanceof AuthConfigurationError)) throw cause
     configured = false
   }
-  return <AuthShell title="Welcome back" description="Return to your writing workspace, or keep working locally without signing in."><SignInForm configured={configured} googleEnabled={googleEnabled} redirectTo={safeRedirectPath(query.callbackUrl)} initialError={query.error ? 'Sign-in could not be completed. Please try again.' : undefined} /></AuthShell>
+  const initialError = query.error === 'GoogleTermsRequired'
+    ? 'Creating a new account with Google requires agreeing to the Terms of Service and acknowledging the Privacy Policy.'
+    : query.error ? 'Sign-in could not be completed. Please try again.' : undefined
+  return <AuthShell title="Welcome back" description="Return to your writing workspace, or keep working locally without signing in."><SignInForm configured={configured} googleEnabled={googleEnabled} redirectTo={safeRedirectPath(query.callbackUrl)} initialError={initialError} /></AuthShell>
 }

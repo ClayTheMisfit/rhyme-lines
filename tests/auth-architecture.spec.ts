@@ -13,6 +13,8 @@ describe('authentication architecture', () => {
     expect(source).toContain("strategy: 'jwt'")
     expect(source).toContain('allowDangerousEmailAccountLinking: false')
     expect(source).toContain('isVerifiedGoogleProfile(profile)')
+    expect(source).toContain('verifyOAuthConsentToken')
+    expect(source).toContain("authenticatedVersion !== current.sessionVersion")
     expect(source).toContain('jwt: createSessionJwt(database)')
   })
 
