@@ -165,6 +165,7 @@ Authentication uses Auth.js with email/password credentials, optional Google OAu
 | --- | --- | --- |
 | `DATABASE_URL` | Server-only | Standard PostgreSQL connection URL |
 | `AUTH_SECRET` | Server-only | Auth.js signing/encryption secret; generate with `npx auth secret` |
+| `AUTH_REGISTRATION_ENABLED` | Server-only, optional | Release gate; only `true` permits new email or Google registrations. Missing and all other values keep registration disabled |
 | `AUTH_GOOGLE_ID` | Server-only, optional pair | Google OAuth client ID; omit with `AUTH_GOOGLE_SECRET` to disable Google |
 | `AUTH_GOOGLE_SECRET` | Server-only, optional pair | Google OAuth client secret; omit with `AUTH_GOOGLE_ID` to disable Google |
 | `AUTH_URL` | Server-only, required for password flows | Canonical public origin used to build verification and reset links |
@@ -173,7 +174,7 @@ Authentication uses Auth.js with email/password credentials, optional Google OAu
 | `AUTH_TRUST_HOST` | Server-only, conditional | Set to `true` behind an unsupported trusted reverse proxy |
 | `AUTH_TRUSTED_PROXY_HEADER` | Server-only, conditional | Required for production password authentication outside Vercel; exact client-IP header overwritten by your trusted reverse proxy |
 
-Password-only production requires `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`, `AUTH_EMAIL_FROM`, and `RESEND_API_KEY`. Google OAuth is registered only when both Google variables are present; a partial pair is rejected. When Google is enabled for development, configure its authorized callback URL as `<AUTH_URL>/api/auth/callback/google`. Do not prefix any of these values with `NEXT_PUBLIC_`.
+Password-only production requires `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`, `AUTH_EMAIL_FROM`, and `RESEND_API_KEY`. Those credentials do not enable registration: `AUTH_REGISTRATION_ENABLED=true` is a separate explicit release action, and the missing flag is disabled. Google OAuth is registered only when both Google variables are present; a partial pair is rejected. When Google is enabled for development, configure its authorized callback URL as `<AUTH_URL>/api/auth/callback/google`. Do not prefix any of these values with `NEXT_PUBLIC_`.
 
 Run `npm run db:generate` after installing dependencies. Use an isolated development PostgreSQL database for migration development and integration tests. Before any deployment, reconcile the target database's `_prisma_migrations` history and schema with the committed migration; do not blindly reapply a migration that may already be recorded or partially present. `npm run db:validate` validates the schema without connecting to PostgreSQL, and build/test do not require Google credentials or a live database.
 

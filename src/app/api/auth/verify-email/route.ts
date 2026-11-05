@@ -2,11 +2,15 @@ import { readAuthJson, AuthRequestError } from '@/lib/auth/request'
 import { consumeAuthRateLimit, getClientAddress } from '@/lib/auth/rate-limit'
 import { verifyEmailToken } from '@/lib/auth/service'
 import { validatePasswordResetInput } from '@/lib/auth/validation'
+import { isRegistrationEnabled } from '@/lib/auth/environment'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
   try {
+    if (!isRegistrationEnabled()) {
+      return Response.json({ ok: false, code: 'registration_disabled', message: 'Account registration is not currently available.' }, { status: 403 })
+    }
     const parsed = validatePasswordResetInput(await readAuthJson(request))
     if (!parsed.ok) return Response.json({ ok: false, code: 'validation', fieldErrors: parsed.errors }, { status: 400 })
     const address = getClientAddress(request)

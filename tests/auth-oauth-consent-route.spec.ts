@@ -1,7 +1,11 @@
 /** @jest-environment node */
 jest.mock('server-only', () => ({}))
-jest.mock('@/lib/auth/environment', () => ({ getAuthEnvironment: () => ({ secret: 'a sufficiently long authentication secret' }) }))
+jest.mock('@/lib/auth/environment', () => ({
+  getAuthEnvironment: jest.fn(() => ({ secret: 'a sufficiently long authentication secret' })),
+  isRegistrationEnabled: jest.fn(() => true),
+}))
 
+import { getAuthEnvironment, isRegistrationEnabled } from '@/lib/auth/environment'
 import { POST } from '@/app/api/auth/oauth-consent/route'
 
 function request(headers: Record<string, string>, body = JSON.stringify({ acceptedTerms: true })) {
@@ -9,6 +13,11 @@ function request(headers: Record<string, string>, body = JSON.stringify({ accept
 }
 
 describe('OAuth consent route', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    jest.mocked(isRegistrationEnabled).mockReturnValue(true)
+  })
+
   it('rejects cross-origin requests without issuing a cookie', async () => {
     const response = await POST(request({ 'content-type': 'application/json', origin: 'https://evil.example' }))
     expect(response.status).toBe(403)
@@ -25,5 +34,15 @@ describe('OAuth consent route', () => {
     const response = await POST(request({ 'content-type': 'application/json', origin: 'https://example.test' }))
     expect(response.status).toBe(200)
     expect(response.headers.get('set-cookie')).toMatch(/rhyme-lines-oauth-consent=.*HttpOnly.*SameSite=Lax/i)
+  })
+
+  it('does not issue a consent token when registration is disabled', async () => {
+    jest.mocked(isRegistrationEnabled).mockReturnValue(false)
+    const response = await POST(request({ 'content-type': 'application/json', origin: 'https://example.test' }))
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual(expect.objectContaining({ code: 'registration_disabled' }))
+    expect(getAuthEnvironment).not.toHaveBeenCalled()
+    expect(response.headers.get('set-cookie')).toBeNull()
   })
 })

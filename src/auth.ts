@@ -5,7 +5,7 @@ import Credentials from 'next-auth/providers/credentials'
 import { cookies } from 'next/headers'
 import { getDatabase } from '@/lib/db'
 import { createAuthAdapter, isUnclaimedPendingRegistration, isVerifiedGoogleProfile } from '@/lib/auth/adapter'
-import { getAuthEnvironment } from '@/lib/auth/environment'
+import { getAuthEnvironment, isRegistrationEnabled } from '@/lib/auth/environment'
 import { authenticatePasswordCredentials } from '@/lib/auth/credentials'
 import { OAUTH_CONSENT_COOKIE, verifyOAuthConsentToken } from '@/lib/auth/oauth-consent'
 import { createSessionJwt } from '@/lib/auth/session-jwt'
@@ -53,6 +53,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth(() => {
           },
         })
         if (existing && !isUnclaimedPendingRegistration(existing)) return true
+        if (!isRegistrationEnabled()) return '/signin?error=RegistrationDisabled'
         const cookieStore = await cookies()
         return verifyOAuthConsentToken(cookieStore.get(OAUTH_CONSENT_COOKIE)?.value, environment.secret)
           || '/signin?error=GoogleTermsRequired'

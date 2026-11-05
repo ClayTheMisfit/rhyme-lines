@@ -2,7 +2,7 @@
 
 jest.mock('server-only', () => ({}))
 
-import { AuthConfigurationError, getAuthEnvironment, isAuthCompletelyUnconfigured } from '@/lib/auth/environment'
+import { AuthConfigurationError, getAuthEnvironment, isAuthCompletelyUnconfigured, isRegistrationEnabled } from '@/lib/auth/environment'
 
 const originalEnvironment = process.env
 
@@ -16,6 +16,7 @@ describe('authentication environment', () => {
     process.env = { ...originalEnvironment }
     delete process.env.AUTH_GOOGLE_ID
     delete process.env.AUTH_GOOGLE_SECRET
+    delete process.env.AUTH_REGISTRATION_ENABLED
     configureCoreAuth()
   })
 
@@ -52,5 +53,16 @@ describe('authentication environment', () => {
     delete process.env.AUTH_SECRET
     process.env.AUTH_GOOGLE_ID = 'google-client-id'
     expect(isAuthCompletelyUnconfigured()).toBe(false)
+  })
+
+  it.each([undefined, '', 'false', 'TRUE', ' true ', '1', 'yes', 'enabled'])('keeps registration disabled for %p', (value) => {
+    if (value === undefined) delete process.env.AUTH_REGISTRATION_ENABLED
+    else process.env.AUTH_REGISTRATION_ENABLED = value
+    expect(isRegistrationEnabled()).toBe(false)
+  })
+
+  it('enables registration only for an explicit true value', () => {
+    process.env.AUTH_REGISTRATION_ENABLED = 'true'
+    expect(isRegistrationEnabled()).toBe(true)
   })
 })

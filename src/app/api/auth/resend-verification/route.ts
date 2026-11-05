@@ -3,12 +3,16 @@ import { readAuthJson, AuthRequestError } from '@/lib/auth/request'
 import { consumeAuthRateLimit, getClientAddress } from '@/lib/auth/rate-limit'
 import { resendVerificationEmail } from '@/lib/auth/service'
 import { validateEmail } from '@/lib/auth/validation'
+import { isRegistrationEnabled } from '@/lib/auth/environment'
 
 export const runtime = 'nodejs'
 const generic = { ok: true, message: 'If an unverified account exists, a new link is on its way.' }
 
 export async function POST(request: Request) {
   try {
+    if (!isRegistrationEnabled()) {
+      return Response.json({ ok: false, code: 'registration_disabled', message: 'Account registration is not currently available.' }, { status: 403 })
+    }
     const body = await readAuthJson(request) as Record<string, unknown>
     const email = validateEmail(body?.email)
     if (!email) return Response.json({ ok: false, code: 'validation', fieldErrors: { email: 'Enter a valid email address.' } }, { status: 400 })

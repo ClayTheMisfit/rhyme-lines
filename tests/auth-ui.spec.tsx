@@ -26,6 +26,15 @@ describe('auth forms', () => {
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/signin')
   })
 
+  it('replaces registration controls with an existing-account path while registration is disabled', () => {
+    render(<SignupForm registrationEnabled={false} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Account registration is not currently available.')
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Continue with email' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Sign in to an existing account' })).toHaveAttribute('href', '/signin')
+  })
+
   it('requires the email owner to choose a password during verification', () => {
     render(<VerifyEmailForm token="verification-token" />)
     expect(screen.getByLabelText('Choose password')).toHaveAttribute('autocomplete', 'new-password')
@@ -134,6 +143,15 @@ describe('auth forms', () => {
     render(<SignInForm configured googleEnabled redirectTo="/workspace" />)
     await userEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
     expect(signInMock).toHaveBeenCalledWith('google', { redirectTo: '/workspace' })
+  })
+
+  it('keeps established Google sign-in available without offering Google registration while closed', () => {
+    render(<SignInForm configured googleEnabled registrationEnabled={false} redirectTo="/workspace" />)
+    expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeEnabled()
+    expect(screen.queryByRole('checkbox', { name: /Creating a new account with Google/i })).not.toBeInTheDocument()
+    expect(screen.getByText(/New Google registrations are currently closed/i)).toBeVisible()
+    expect(screen.queryByRole('link', { name: 'Create an account' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled()
   })
 
   it('records legal acknowledgement before starting a first-time Google registration', async () => {

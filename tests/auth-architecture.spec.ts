@@ -15,8 +15,19 @@ describe('authentication architecture', () => {
     expect(source).toContain('isVerifiedGoogleProfile(profile)')
     expect(source).toContain('verifyOAuthConsentToken')
     expect(source).toContain('!isUnclaimedPendingRegistration(existing)')
+    expect(source).toContain("if (!isRegistrationEnabled()) return '/signin?error=RegistrationDisabled'")
+    expect(source.indexOf('!isUnclaimedPendingRegistration(existing)')).toBeLessThan(source.indexOf('if (!isRegistrationEnabled())'))
     expect(source).toContain("authenticatedVersion !== current.sessionVersion")
     expect(source).toContain('jwt: createSessionJwt(database)')
+  })
+
+  it('enforces the registration gate on every server-side account activation path', () => {
+    for (const file of [
+      'src/app/api/auth/signup/route.ts',
+      'src/app/api/auth/oauth-consent/route.ts',
+      'src/app/api/auth/resend-verification/route.ts',
+      'src/app/api/auth/verify-email/route.ts',
+    ]) expect(read(file)).toContain('if (!isRegistrationEnabled())')
   })
 
   it('keeps downstream identity behind getCurrentUser', () => {

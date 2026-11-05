@@ -33,7 +33,7 @@ async function postJson(url: string, body: unknown): Promise<{ response: Respons
   return { response, data }
 }
 
-export function SignInForm({ configured, googleEnabled, redirectTo, initialError }: { configured: boolean; googleEnabled: boolean; redirectTo: string; initialError?: string }) {
+export function SignInForm({ configured, googleEnabled, registrationEnabled = true, redirectTo, initialError }: { configured: boolean; googleEnabled: boolean; registrationEnabled?: boolean; redirectTo: string; initialError?: string }) {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -67,10 +67,21 @@ export function SignInForm({ configured, googleEnabled, redirectTo, initialError
     } catch { setError('Google sign-in could not be started. Please try again.'); setPending(null) }
   }
   if (!configured) return <Status error="Sign-in is not configured on this server. You can keep writing locally." />
-  return <div className="space-y-6"><Status error={error} />{googleEnabled && <><button type="button" className={secondaryButtonClass} disabled={!!pending} onClick={google}><span aria-hidden="true" className="font-semibold text-[#d6b85d]">G</span>{pending === 'google' ? 'Opening Google…' : 'Continue with Google'}</button><div className="flex items-start gap-3"><input id="acceptedGoogleTerms" type="checkbox" checked={acceptedGoogleTerms} onChange={(event) => setAcceptedGoogleTerms(event.target.checked)} className="mt-1 size-4 shrink-0 accent-[#d6b85d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d] focus-visible:ring-offset-2 focus-visible:ring-offset-[#090a0d]" /><label htmlFor="acceptedGoogleTerms" className="text-xs leading-5 text-white/48">Creating a new account with Google? I agree to the <Link href="/terms" className="text-white/78 underline decoration-white/25 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Terms of Service</Link> and acknowledge the <Link href="/privacy" className="text-white/78 underline decoration-white/25 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Privacy Policy</Link>. Existing users can continue without checking this box.</label></div><div className="flex items-center gap-3 text-[0.68rem] tracking-[0.12em] text-white/34"><span className="h-px flex-1 bg-white/10" />OR CONTINUE WITH EMAIL<span className="h-px flex-1 bg-white/10" /></div></>}<form className="space-y-5" onSubmit={submit} noValidate><Field label="Email" name="email" error={errors.email}><input id="email" name="email" className={inputClass} type="email" autoComplete="email" required maxLength={254} value={email} onChange={(event) => { setEmail(event.target.value); setErrors((current) => ({ ...current, email: undefined })) }} aria-invalid={!!errors.email} aria-describedby={errors.email ? 'email-error' : undefined} /></Field><PasswordField id="password" label="Password" autoComplete="current-password" value={password} onChange={(value) => { setPassword(value); setErrors((current) => ({ ...current, password: undefined })) }} error={errors.password} /><div className="flex justify-end"><Link href="/forgot-password" className="text-sm text-white/60 underline decoration-white/20 underline-offset-4 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Forgot password?</Link></div><button className={buttonClass} disabled={!!pending}>{pending === 'credentials' ? 'Signing in…' : 'Sign in'}</button></form><p className="text-center text-sm text-white/48">New to Rhyme Lines? <Link href="/signup" className="text-white/82 underline decoration-white/25 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Create an account</Link></p></div>
+  return <div className="space-y-6">
+    <Status error={error} />
+    {googleEnabled ? <>
+      <button type="button" className={secondaryButtonClass} disabled={!!pending} onClick={google}><span aria-hidden="true" className="font-semibold text-[#d6b85d]">G</span>{pending === 'google' ? 'Opening Google…' : 'Continue with Google'}</button>
+      {registrationEnabled
+        ? <div className="flex items-start gap-3"><input id="acceptedGoogleTerms" type="checkbox" checked={acceptedGoogleTerms} onChange={(event) => setAcceptedGoogleTerms(event.target.checked)} className="mt-1 size-4 shrink-0 accent-[#d6b85d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d] focus-visible:ring-offset-2 focus-visible:ring-offset-[#090a0d]" /><label htmlFor="acceptedGoogleTerms" className="text-xs leading-5 text-white/48">Creating a new account with Google? I agree to the <Link href="/terms" className="text-white/78 underline decoration-white/25 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Terms of Service</Link> and acknowledge the <Link href="/privacy" className="text-white/78 underline decoration-white/25 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Privacy Policy</Link>. Existing users can continue without checking this box.</label></div>
+        : <p className="text-xs leading-5 text-white/48">Google sign-in remains available for existing accounts. New Google registrations are currently closed.</p>}
+      <div className="flex items-center gap-3 text-[0.68rem] tracking-[0.12em] text-white/34"><span className="h-px flex-1 bg-white/10" />OR CONTINUE WITH EMAIL<span className="h-px flex-1 bg-white/10" /></div>
+    </> : null}
+    <form className="space-y-5" onSubmit={submit} noValidate><Field label="Email" name="email" error={errors.email}><input id="email" name="email" className={inputClass} type="email" autoComplete="email" required maxLength={254} value={email} onChange={(event) => { setEmail(event.target.value); setErrors((current) => ({ ...current, email: undefined })) }} aria-invalid={!!errors.email} aria-describedby={errors.email ? 'email-error' : undefined} /></Field><PasswordField id="password" label="Password" autoComplete="current-password" value={password} onChange={(value) => { setPassword(value); setErrors((current) => ({ ...current, password: undefined })) }} error={errors.password} /><div className="flex justify-end"><Link href="/forgot-password" className="text-sm text-white/60 underline decoration-white/20 underline-offset-4 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Forgot password?</Link></div><button className={buttonClass} disabled={!!pending}>{pending === 'credentials' ? 'Signing in…' : 'Sign in'}</button></form>
+    {registrationEnabled ? <p className="text-center text-sm text-white/48">New to Rhyme Lines? <Link href="/signup" className="text-white/82 underline decoration-white/25 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d6b85d]">Create an account</Link></p> : null}
+  </div>
 }
 
-export function SignupForm() {
+export function SignupForm({ registrationEnabled = true }: { registrationEnabled?: boolean }) {
   const router = useRouter()
   const [values, setValues] = useState({ name: '', email: '' })
   const [acceptedTerms, setAcceptedTerms] = useState(false)
@@ -78,6 +89,7 @@ export function SignupForm() {
   const [error, setError] = useState('')
   const [needsResend, setNeedsResend] = useState(false)
   const [pending, setPending] = useState(false)
+  if (!registrationEnabled) return <div className="space-y-5"><Status error="Account registration is not currently available." /><Link href="/signin" className={buttonClass}>Sign in to an existing account</Link></div>
   const update = (key: keyof typeof values) => (value: string) => setValues((current) => ({ ...current, [key]: value }))
   async function submit(event: FormEvent) {
     event.preventDefault(); if (pending) return

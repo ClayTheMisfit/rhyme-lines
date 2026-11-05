@@ -3,6 +3,8 @@ import { expect, test } from '@playwright/test'
 test.describe('authentication screens', () => {
   test('supports password-only login without exposing disabled Google OAuth', async ({ page }) => {
     await page.goto('/signin')
+    await expect(page.getByText('New account registration is not currently available. Existing users can continue to sign in.')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Create an account' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Continue with Google' })).toHaveCount(0)
     await expect(page.getByText('OR CONTINUE WITH EMAIL')).toHaveCount(0)
     const providersResponse = await page.request.get('/api/auth/providers')
@@ -19,20 +21,19 @@ test.describe('authentication screens', () => {
   test('keeps anonymous local drafts intact while moving through signup and back', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('rhyme-lines:persist:drafts', JSON.stringify({ version: 3, drafts: [{ id: 'local-auth-draft' }] })))
     await page.goto('/signup')
-    await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible()
-    await expect(page.getByLabel('Name')).toHaveAttribute('autocomplete', 'name')
-    await expect(page.getByLabel('Email')).toHaveAttribute('autocomplete', 'email')
-    await expect(page.getByText('We will email you a secure link. Open it to verify your address and choose your password.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Continue with email' })).toBeEnabled()
+    await expect(page.getByRole('heading', { name: 'Account registration is closed' })).toBeVisible()
+    await expect(page.getByText('Account registration is not currently available.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Continue with email' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Sign in to an existing account' })).toHaveAttribute('href', '/signin')
     await page.getByRole('link', { name: 'Continue without an account' }).click()
     await expect.poll(() => page.evaluate(() => localStorage.getItem('rhyme-lines:persist:drafts'))).toContain('local-auth-draft')
   })
 
-  test('returns inline validation and restores the signup button', async ({ page }) => {
+  test('does not expose registration controls when the release flag is missing', async ({ page }) => {
     await page.goto('/signup')
-    await page.getByRole('button', { name: 'Continue with email' }).click()
-    await expect(page.getByText('Enter a name between 1 and 80 characters.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Continue with email' })).toBeEnabled()
+    await expect(page.getByLabel('Name')).toHaveCount(0)
+    await expect(page.getByLabel('Email')).toHaveCount(0)
+    await expect(page.getByRole('checkbox', { name: /Terms of Service/i })).toHaveCount(0)
   })
 
   test('renders recovery and confirmation states without dead links', async ({ page }) => {

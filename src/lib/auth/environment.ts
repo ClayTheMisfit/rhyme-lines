@@ -11,6 +11,12 @@ export class AuthConfigurationError extends Error {
   }
 }
 
+// Registration is a release gate, not a general auth configuration switch.
+// Missing, malformed, and false-like values must all keep new accounts disabled.
+export function isRegistrationEnabled() {
+  return process.env.AUTH_REGISTRATION_ENABLED === 'true'
+}
+
 export function getAuthEnvironment() {
   const missing = required.filter((key) => !process.env[key]?.trim())
   if (missing.length) {
