@@ -10,6 +10,15 @@ export function isVerifiedGoogleProfile(profile: unknown) {
   return typeof profile === 'object' && profile !== null && (profile as Record<string, unknown>).email_verified === true
 }
 
+export function isUnclaimedPendingRegistration(user: {
+  emailVerified: Date | null
+  passwordSetupPending: boolean
+  credential: unknown | null
+  accounts: unknown[]
+}) {
+  return user.passwordSetupPending && !user.emailVerified && !user.credential && user.accounts.length === 0
+}
+
 export function createAuthAdapter(database: AuthDatabase): Adapter {
   const baseAdapter = PrismaAdapter(database)
   return {
@@ -66,7 +75,7 @@ export function createAuthAdapter(database: AuthDatabase): Adapter {
         },
       })
       if (!user?.email) return null
-      if (user.passwordSetupPending && !user.emailVerified && !user.credential && user.accounts.length === 0) return null
+      if (isUnclaimedPendingRegistration(user)) return null
       return { id: user.id, name: user.name, email: user.email, emailVerified: user.emailVerified, image: user.image }
     },
   }

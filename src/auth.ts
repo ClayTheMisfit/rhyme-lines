@@ -4,7 +4,7 @@ import Google from 'next-auth/providers/google'
 import Credentials from 'next-auth/providers/credentials'
 import { cookies } from 'next/headers'
 import { getDatabase } from '@/lib/db'
-import { createAuthAdapter, isVerifiedGoogleProfile } from '@/lib/auth/adapter'
+import { createAuthAdapter, isUnclaimedPendingRegistration, isVerifiedGoogleProfile } from '@/lib/auth/adapter'
 import { getAuthEnvironment } from '@/lib/auth/environment'
 import { authenticatePasswordCredentials } from '@/lib/auth/credentials'
 import { OAUTH_CONSENT_COOKIE, verifyOAuthConsentToken } from '@/lib/auth/oauth-consent'
@@ -43,8 +43,16 @@ export const { auth, handlers, signIn, signOut } = NextAuth(() => {
         if (!isVerifiedGoogleProfile(profile)) return false
         const email = typeof profile?.email === 'string' ? normalizeEmail(profile.email) : ''
         if (!email) return false
-        const existing = await database.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true } })
-        if (existing) return true
+        const existing = await database.user.findFirst({
+          where: { email: { equals: email, mode: 'insensitive' } },
+          select: {
+            emailVerified: true,
+            passwordSetupPending: true,
+            credential: { select: { userId: true } },
+            accounts: { select: { id: true }, take: 1 },
+          },
+        })
+        if (existing && !isUnclaimedPendingRegistration(existing)) return true
         const cookieStore = await cookies()
         return verifyOAuthConsentToken(cookieStore.get(OAUTH_CONSENT_COOKIE)?.value, environment.secret)
           || '/signin?error=GoogleTermsRequired'

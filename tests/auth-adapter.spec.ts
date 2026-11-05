@@ -2,7 +2,7 @@
 jest.mock('server-only', () => ({}))
 jest.mock('@auth/prisma-adapter', () => ({ PrismaAdapter: () => ({}) }))
 
-import { createAuthAdapter, isVerifiedGoogleProfile } from '@/lib/auth/adapter'
+import { createAuthAdapter, isUnclaimedPendingRegistration, isVerifiedGoogleProfile } from '@/lib/auth/adapter'
 
 const pendingUser = {
   id: 'pending-user',
@@ -20,6 +20,12 @@ describe('authentication adapter', () => {
     expect(isVerifiedGoogleProfile({ email_verified: true })).toBe(true)
     expect(isVerifiedGoogleProfile({ email_verified: false })).toBe(false)
     expect(isVerifiedGoogleProfile(undefined)).toBe(false)
+  })
+
+  it('distinguishes unclaimed pending registrations from established identities', () => {
+    expect(isUnclaimedPendingRegistration({ emailVerified: null, passwordSetupPending: true, credential: null, accounts: [] })).toBe(true)
+    expect(isUnclaimedPendingRegistration({ emailVerified: new Date(), passwordSetupPending: false, credential: null, accounts: [{ id: 'google' }] })).toBe(false)
+    expect(isUnclaimedPendingRegistration({ emailVerified: new Date(), passwordSetupPending: false, credential: { userId: 'user-1' }, accounts: [] })).toBe(false)
   })
 
   it('hides an unclaimed pending signup from the OAuth email collision check', async () => {
