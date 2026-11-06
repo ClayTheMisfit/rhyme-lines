@@ -11,12 +11,15 @@ export default function TermsPage() {
     <LegalDocument
       title="Terms of Service"
       description="These terms govern use of the Rhyme Lines local writing workspace and optional account-backed services."
-      effectiveDate="November 3, 2026"
+      effectiveDate="November 5, 2026"
     >
       <section>
         <h2>Using Rhyme Lines</h2>
         <p>
           By using Rhyme Lines, you agree to these Terms and the <a href="/privacy">Privacy Policy</a>. If you do not agree, do not create an account or use account-backed services. You may continue to evaluate the public, local-first workspace subject to these Terms.
+        </p>
+        <p>
+          Rhyme Lines is the public-facing name of an independently operated personal software project. It is not presented as a corporation, limited liability company, or other registered legal entity.
         </p>
         <p>You must be legally able to enter into this agreement in the place where you live. Do not use Rhyme Lines where doing so would violate applicable law.</p>
       </section>
@@ -75,7 +78,7 @@ export default function TermsPage() {
           You can stop using Rhyme Lines at any time and clear local site data through your browser. Signed-in users can permanently delete individual cloud documents from the trash; that removes their stored content and version history but keeps a content-free deletion tombstone for synchronization.
         </p>
         <p>
-          The current release does not provide self-service account deletion. A monitored support address and account-request procedure must be published before a public account launch. Until then, Rhyme Lines cannot represent that an account-deletion request channel is operational.
+          The current release does not provide self-service account deletion. To request access to or deletion of account data, email <a href="mailto:support@rhymelines.net">support@rhymelines.net</a>, preferably from the address associated with the account. Requests are handled manually and require reasonable account-ownership verification. Local browser data must be cleared separately on each browser or device, and provider logs or backups may remain subject to provider retention and recovery processes.
         </p>
       </section>
 
@@ -97,7 +100,7 @@ export default function TermsPage() {
       <section>
         <h2>Contact</h2>
         <p>
-          A monitored Rhyme Lines support address and the responsible service operator have not yet been confirmed. This page does not represent that an account-request channel is operational. Publishing those details remains a prerequisite for a public account launch.
+          For account support, privacy inquiries, questions about these Terms, or dispute-related contact, email <a href="mailto:support@rhymelines.net">support@rhymelines.net</a>. Do not send passwords or authentication links or tokens by email.
         </p>
       </section>
     </LegalDocument>

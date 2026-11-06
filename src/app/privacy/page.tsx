@@ -11,8 +11,15 @@ export default function PrivacyPage() {
     <LegalDocument
       title="Privacy Policy"
       description="This policy explains what Rhyme Lines processes when you write locally, create an account, sync documents, or use online rhyme assistance."
-      effectiveDate="November 3, 2026"
+      effectiveDate="November 5, 2026"
     >
+      <section>
+        <h2>Who operates Rhyme Lines</h2>
+        <p>
+          Rhyme Lines is the public-facing name of an independently operated personal software project. It is not presented as a corporation, limited liability company, or other registered legal entity. Privacy and support inquiries can be sent to <a href="mailto:support@rhymelines.net">support@rhymelines.net</a>.
+        </p>
+      </section>
+
       <section>
         <h2>Local-first writing</h2>
         <p>
@@ -78,6 +85,7 @@ export default function PrivacyPage() {
           <li><a href="https://vercel.com/legal/privacy-notice" target="_blank" rel="noreferrer">Vercel</a> hosts the application and may process network, request, runtime, and security logs needed to deliver and protect it.</li>
           <li><a href="https://neon.com/security" target="_blank" rel="noreferrer">Neon</a> provides the PostgreSQL database used for account records, authentication records, cloud documents, and version history.</li>
           <li><a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noreferrer">Resend</a> receives the destination email address, authentication message content, and ordinary delivery metadata when Rhyme Lines sends a verification or password-reset email.</li>
+          <li><a href="https://www.zoho.com/privacy.html" target="_blank" rel="noreferrer">Zoho Mail</a> processes messages, sender details, attachments, and ordinary email metadata when you contact the Rhyme Lines support address.</li>
           <li><a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">Google</a> processes a Google sign-in request under its own privacy policy when that optional provider is configured and selected.</li>
         </ul>
         <p>Rhyme Lines does not currently configure a third-party advertising or product-analytics service.</p>
@@ -112,7 +120,13 @@ export default function PrivacyPage() {
       <section>
         <h2>Access, correction, and account-data requests</h2>
         <p>
-          There is not yet a self-service workflow for exporting or deleting an entire account. A monitored Rhyme Lines privacy and support address has not been confirmed, so this page does not represent that an account-request channel is operational. Publishing a contact method, establishing a request-handling process, and identifying the responsible service operator remain public-launch prerequisites.
+          To ask about personal data associated with an account, request a correction, or request access to or deletion of account data, email <a href="mailto:support@rhymelines.net">support@rhymelines.net</a>. If possible, write from the email address associated with the account and describe the request. Do not send your password, authentication links or tokens, or identity documents unless support explains why additional information is necessary for a particular request.
+        </p>
+        <p>
+          There is no self-service workflow for exporting or deleting an entire account. Requests are handled manually and require reasonable verification that the requester controls the affected account before account or cloud data is disclosed or deleted. The verification method and any rights or limitations that apply can depend on the request and applicable law; this policy does not promise a fixed response deadline.
+        </p>
+        <p>
+          Deleting an account from the application database can remove its password credential, linked OAuth account records and provider tokens, authentication tokens, compatible database-session rows, cloud documents, and cloud version history through database relationships. Hashed rate-limit records are not directly linked to a user account and follow their separate best-effort cleanup process. Account deletion does not clear local drafts or settings from your browsers, and provider logs or backups can remain subject to the providers&apos; retention and recovery processes.
         </p>
       </section>
 
