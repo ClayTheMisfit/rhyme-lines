@@ -19,6 +19,22 @@ export function isUnclaimedPendingRegistration(user: {
   return user.passwordSetupPending && !user.emailVerified && !user.credential && user.accounts.length === 0
 }
 
+export async function hasLinkedProviderAccount(
+  database: AuthDatabase,
+  account: { provider: string; providerAccountId: string },
+) {
+  const linked = await database.account.findUnique({
+    where: {
+      provider_providerAccountId: {
+        provider: account.provider,
+        providerAccountId: account.providerAccountId,
+      },
+    },
+    select: { userId: true },
+  })
+  return linked !== null
+}
+
 export function createAuthAdapter(database: AuthDatabase): Adapter {
   const baseAdapter = PrismaAdapter(database)
   return {

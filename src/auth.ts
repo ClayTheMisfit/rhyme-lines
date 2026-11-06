@@ -4,7 +4,7 @@ import Google from 'next-auth/providers/google'
 import Credentials from 'next-auth/providers/credentials'
 import { cookies } from 'next/headers'
 import { getDatabase } from '@/lib/db'
-import { createAuthAdapter, isUnclaimedPendingRegistration, isVerifiedGoogleProfile } from '@/lib/auth/adapter'
+import { createAuthAdapter, hasLinkedProviderAccount, isUnclaimedPendingRegistration, isVerifiedGoogleProfile } from '@/lib/auth/adapter'
 import { getAuthEnvironment, isRegistrationEnabled } from '@/lib/auth/environment'
 import { authenticatePasswordCredentials } from '@/lib/auth/credentials'
 import { OAUTH_CONSENT_COOKIE, verifyOAuthConsentToken } from '@/lib/auth/oauth-consent'
@@ -41,6 +41,8 @@ export const { auth, handlers, signIn, signOut } = NextAuth(() => {
       async signIn({ account, profile }) {
         if (account?.provider !== 'google') return true
         if (!isVerifiedGoogleProfile(profile)) return false
+        // A stable provider-account link identifies an established user even if Google later changes their email.
+        if (await hasLinkedProviderAccount(database, account)) return true
         const email = typeof profile?.email === 'string' ? normalizeEmail(profile.email) : ''
         if (!email) return false
         const existing = await database.user.findFirst({

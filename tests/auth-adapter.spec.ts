@@ -2,7 +2,7 @@
 jest.mock('server-only', () => ({}))
 jest.mock('@auth/prisma-adapter', () => ({ PrismaAdapter: () => ({}) }))
 
-import { createAuthAdapter, isUnclaimedPendingRegistration, isVerifiedGoogleProfile } from '@/lib/auth/adapter'
+import { createAuthAdapter, hasLinkedProviderAccount, isUnclaimedPendingRegistration, isVerifiedGoogleProfile } from '@/lib/auth/adapter'
 
 const pendingUser = {
   id: 'pending-user',
@@ -26,6 +26,35 @@ describe('authentication adapter', () => {
     expect(isUnclaimedPendingRegistration({ emailVerified: null, passwordSetupPending: true, credential: null, accounts: [] })).toBe(true)
     expect(isUnclaimedPendingRegistration({ emailVerified: new Date(), passwordSetupPending: false, credential: null, accounts: [{ id: 'google' }] })).toBe(false)
     expect(isUnclaimedPendingRegistration({ emailVerified: new Date(), passwordSetupPending: false, credential: { userId: 'user-1' }, accounts: [] })).toBe(false)
+  })
+
+  it('recognizes an established identity by its stable provider account id', async () => {
+    const database = {
+      account: { findUnique: jest.fn().mockResolvedValue({ userId: 'user-1' }) },
+    }
+
+    await expect(hasLinkedProviderAccount(database as never, {
+      provider: 'google',
+      providerAccountId: 'stable-google-subject',
+    })).resolves.toBe(true)
+    expect(database.account.findUnique).toHaveBeenCalledWith({
+      where: {
+        provider_providerAccountId: {
+          provider: 'google',
+          providerAccountId: 'stable-google-subject',
+        },
+      },
+      select: { userId: true },
+    })
+  })
+
+  it('does not treat an unlinked provider profile as an established identity', async () => {
+    const database = { account: { findUnique: jest.fn().mockResolvedValue(null) } }
+
+    await expect(hasLinkedProviderAccount(database as never, {
+      provider: 'google',
+      providerAccountId: 'new-google-subject',
+    })).resolves.toBe(false)
   })
 
   it('hides an unclaimed pending signup from the OAuth email collision check', async () => {
