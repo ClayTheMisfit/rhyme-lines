@@ -34,10 +34,12 @@ test.describe('public legal pages', () => {
     await expect(page).toHaveTitle(/Privacy Policy/)
     await expect(page.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Local-first writing' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'support@rhymelines.net' }).first()).toHaveAttribute('href', 'mailto:support@rhymelines.net')
 
     await page.getByRole('link', { name: 'Terms', exact: true }).first().click()
     await expect(page).toHaveURL('/terms')
     await expect(page.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'support@rhymelines.net' }).first()).toHaveAttribute('href', 'mailto:support@rhymelines.net')
   })
 
   for (const path of ['/privacy', '/terms']) {

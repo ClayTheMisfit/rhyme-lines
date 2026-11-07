@@ -38,5 +38,12 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 180 * 1000,
+    env: {
+      DATABASE_URL: 'postgresql://playwright:playwright@127.0.0.1:1/rhyme_lines',
+      AUTH_SECRET: 'playwright-password-only-secret-at-least-32-characters',
+      AUTH_GOOGLE_ID: '',
+      AUTH_GOOGLE_SECRET: '',
+      AUTH_TRUST_HOST: 'true',
+    },
   },
 })
