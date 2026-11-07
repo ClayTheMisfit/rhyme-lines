@@ -32,6 +32,11 @@ describe('authentication architecture', () => {
     ]) expect(read(file)).toContain('if (!isRegistrationEnabled())')
   })
 
+  it('renders registration-dependent auth pages from the runtime environment', () => {
+    expect(read('src/app/signup/page.tsx')).toContain("export const dynamic = 'force-dynamic'")
+    expect(read('src/app/signin/page.tsx')).toContain("export const dynamic = 'force-dynamic'")
+  })
+
   it('keeps downstream identity behind getCurrentUser', () => {
     expect(read('src/lib/auth/current-user.ts')).toContain('const session = await auth()')
     expect(read('src/app/api/account/route.ts')).toContain('getCurrentUser()')
