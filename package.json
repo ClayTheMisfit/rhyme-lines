@@ -12,6 +12,8 @@
     "lint": "eslint",
     "test": "jest",
     "test:db": "node --conditions=react-server --import tsx scripts/test-cloud-sync-db.ts",
+    "test:admin-delete-account-db": "node --conditions=react-server --import tsx scripts/test-admin-delete-account-db.ts",
+    "admin:delete-account": "node --conditions=react-server --import tsx scripts/admin-delete-account.ts",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
