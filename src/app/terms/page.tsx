@@ -11,12 +11,15 @@ export default function TermsPage() {
     <LegalDocument
       title="Terms of Service"
       description="These terms govern use of the Rhyme Lines local writing workspace and optional account-backed services."
-      effectiveDate="November 1, 2026"
+      effectiveDate="November 5, 2026"
     >
       <section>
         <h2>Using Rhyme Lines</h2>
         <p>
           By using Rhyme Lines, you agree to these Terms and the <a href="/privacy">Privacy Policy</a>. If you do not agree, do not create an account or use account-backed services. You may continue to evaluate the public, local-first workspace subject to these Terms.
+        </p>
+        <p>
+          Rhyme Lines is the public-facing name of an independently operated personal software project. It is not presented as a corporation, limited liability company, or other registered legal entity.
         </p>
         <p>You must be legally able to enter into this agreement in the place where you live. Do not use Rhyme Lines where doing so would violate applicable law.</p>
       </section>
@@ -34,10 +37,13 @@ export default function TermsPage() {
       <section>
         <h2>Accounts and security</h2>
         <p>
-          The current release offers account access through Google sign-in. Keep your Google account, devices, and active Rhyme Lines sessions secure. You are responsible for activity performed through your account unless applicable law provides otherwise. Sign out on shared devices and use Google&apos;s account-security and recovery controls if you suspect compromise.
+          Rhyme Lines supports email-and-password accounts and can also offer Google sign-in when that provider is configured. Registration requires you to agree to these Terms and acknowledge the <a href="/privacy">Privacy Policy</a>. You must provide information you are authorized to use and complete the applicable email or provider verification.
         </p>
         <p>
-          Email-and-password registration, email verification, and password recovery are planned separately but are not available in this release. If those features are introduced, the Privacy Policy and these Terms must be updated before activation. Do not attempt to bypass sign-in, session, or other security controls.
+          Keep your password, email or Google account, devices, and active Rhyme Lines sessions secure. Use a unique password, sign out on shared devices, and use the password-reset flow or your provider&apos;s recovery controls if you suspect compromise. You are responsible for activity performed through your account unless applicable law provides otherwise.
+        </p>
+        <p>
+          Rhyme Lines does not generally link an existing password identity to a Google identity merely because the email addresses match. Do not attempt to bypass email verification, account-linking restrictions, rate limits, session controls, or other security measures.
         </p>
       </section>
 
@@ -55,7 +61,7 @@ export default function TermsPage() {
       <section>
         <h2>Third-party services</h2>
         <p>
-          Hosting, database, sign-in, and online word-suggestion features depend on third parties including Vercel, Neon, Google, Datamuse, RhymeBrain, and—when configured and called—Wordnik. Those services can change, impose limits, become unavailable, or apply their own terms and privacy practices. Rhyme Lines is not responsible for third-party services outside its control.
+          Hosting, database, authentication email, sign-in, and online word-suggestion features depend on third parties including Vercel, Neon, Resend, Google when configured, Datamuse, RhymeBrain, and—when configured and called—Wordnik. Those services can change, impose limits, become unavailable, or apply their own terms and privacy practices. Rhyme Lines is not responsible for third-party services outside its control.
         </p>
       </section>
 
@@ -72,7 +78,7 @@ export default function TermsPage() {
           You can stop using Rhyme Lines at any time and clear local site data through your browser. Signed-in users can permanently delete individual cloud documents from the trash; that removes their stored content and version history but keeps a content-free deletion tombstone for synchronization.
         </p>
         <p>
-          The current release does not provide self-service account deletion. A monitored support address and account-request procedure must be published before a public account launch. Until then, Rhyme Lines cannot represent that an account-deletion request channel is operational.
+          The current release does not provide self-service account deletion. To request access to or deletion of account data, email <a href="mailto:support@rhymelines.net">support@rhymelines.net</a>, preferably from the address associated with the account. Requests are handled manually and require reasonable account-ownership verification. Local browser data must be cleared separately on each browser or device, and provider logs or backups may remain subject to provider retention and recovery processes.
         </p>
       </section>
 
@@ -94,7 +100,7 @@ export default function TermsPage() {
       <section>
         <h2>Contact</h2>
         <p>
-          A monitored Rhyme Lines support address and the responsible service operator have not yet been confirmed. This page does not represent that an account-request channel is operational. Publishing those details remains a prerequisite for a public account launch.
+          For account support, privacy inquiries, questions about these Terms, or dispute-related contact, email <a href="mailto:support@rhymelines.net">support@rhymelines.net</a>. Do not send passwords or authentication links or tokens by email.
         </p>
       </section>
     </LegalDocument>
