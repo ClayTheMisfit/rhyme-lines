@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../src/generated/prisma/client'
 import { authRateLimitKey } from '../src/lib/auth/rate-limit-key'
+import { getSyntheticIpRateLimitIdentity } from './admin-delete-account-test-fixtures'
 import {
   AccountDeletionError,
   executeAccountDeletion,
@@ -60,16 +61,17 @@ async function main() {
   const targetId = `delete-test-${runId}`
   const otherId = `preserve-test-${runId}`
   const rollbackId = `rollback-test-${runId}`
-  const targetEmail = `target-${runId}@example.test`
+  const targetEmail = `target-${runId}@ExAmPlE.Test`
+  const targetLookupEmail = targetEmail.toLowerCase()
   const otherEmail = `other-${runId}@example.test`
   const rollbackEmail = `rollback-${runId}@example.test`
   const caseId = `case-${runId}`
   const rateHashes = [
-    authRateLimitKey('login', targetEmail, TEST_AUTH_SECRET),
-    authRateLimitKey('password-reset', targetEmail, TEST_AUTH_SECRET),
-    authRateLimitKey('verification-resend', targetEmail, TEST_AUTH_SECRET),
+    authRateLimitKey('login', targetLookupEmail, TEST_AUTH_SECRET),
+    authRateLimitKey('password-reset', targetLookupEmail, TEST_AUTH_SECRET),
+    authRateLimitKey('verification-resend', targetLookupEmail, TEST_AUTH_SECRET),
   ]
-  const ipRateHash = authRateLimitKey('login-ip', '192.0.2.77', TEST_AUTH_SECRET)
+  const ipRateHash = authRateLimitKey('login-ip', getSyntheticIpRateLimitIdentity(runId), TEST_AUTH_SECRET)
   const otherRateHash = authRateLimitKey('password-reset', otherEmail, TEST_AUTH_SECRET)
   const triggerFunction = `account_deletion_test_${runId}`
   const triggerName = `account_deletion_test_${runId}`
@@ -143,7 +145,7 @@ async function main() {
     })
 
     const previewInput = {
-      email: targetEmail,
+      email: targetLookupEmail,
       caseId,
       confirmationSecret: TEST_CONFIRMATION_SECRET,
       databaseIdentity: dbFingerprint,
@@ -192,7 +194,7 @@ async function main() {
     assert.equal(await db.user.count({ where: { id: targetId } }), 1)
 
     const executionInput = {
-      email: targetEmail,
+      email: targetLookupEmail,
       caseId,
       userId: firstPreview.userId,
       confirmation: firstPreview.confirmation,

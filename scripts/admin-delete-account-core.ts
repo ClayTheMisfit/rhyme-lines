@@ -178,7 +178,7 @@ function confirmationMac(
     databaseIdentity: details.databaseIdentity,
     caseId: details.caseId,
     userId: details.userId,
-    email: details.email,
+    email: normalizeAccountEmail(details.email),
     scopeFingerprint: details.scopeFingerprint,
   }), 'utf8').digest('base64url')
 }

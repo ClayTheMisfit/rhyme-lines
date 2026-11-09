@@ -7,6 +7,8 @@ import {
   verifyConfirmationArtifact,
 } from '../scripts/admin-delete-account-core'
 import { parseAdminDeleteAccountOptions } from '../scripts/admin-delete-account-args'
+import { getSyntheticIpRateLimitIdentity } from '../scripts/admin-delete-account-test-fixtures'
+import { authRateLimitKey } from '../src/lib/auth/rate-limit-key'
 
 const confirmationSecret = 'test-only-account-deletion-secret-000000000000'
 const details = {
@@ -64,6 +66,35 @@ describe('administrator account deletion safeguards', () => {
       `.${mac[0] === 'A' ? 'B' : 'A'}${mac.slice(1)}`)
     expect(verifyConfirmationArtifact(alteredMac, identity, confirmationSecret)).toBe(false)
     expect(() => verifyConfirmationArtifact('forged', identity, confirmationSecret)).toThrow()
+  })
+
+  it('normalizes stored email casing when signing and verifying deletion confirmations', () => {
+    const mixedCaseDetails = { ...details, email: 'Writer@Example.Test' }
+    const artifact = createConfirmationArtifact(mixedCaseDetails, confirmationSecret)
+    const identity = {
+      databaseIdentity: details.databaseIdentity,
+      caseId: details.caseId,
+      userId: details.userId,
+      email: 'writer@example.test',
+    }
+
+    expect(verifyConfirmationArtifact(artifact, identity, confirmationSecret)).toBe(true)
+    expect(verifyConfirmationArtifact(
+      createConfirmationArtifact({ ...details, email: 'writer@example.test' }, confirmationSecret),
+      { ...identity, email: 'Writer@Example.Test' },
+      confirmationSecret,
+    )).toBe(true)
+  })
+
+  it('isolates synthetic IP rate-limit keys across concurrent test runs', () => {
+    const firstIdentity = getSyntheticIpRateLimitIdentity('run-one')
+    const secondIdentity = getSyntheticIpRateLimitIdentity('run-two')
+    const firstHash = authRateLimitKey('login-ip', firstIdentity, confirmationSecret)
+    const secondHash = authRateLimitKey('login-ip', secondIdentity, confirmationSecret)
+
+    expect(firstIdentity).not.toBe(secondIdentity)
+    expect(firstHash).not.toBe(secondHash)
+    expect(getSyntheticIpRateLimitIdentity('run-one')).toBe(firstIdentity)
   })
 
   it('creates a database fingerprint without exposing connection credentials', () => {
