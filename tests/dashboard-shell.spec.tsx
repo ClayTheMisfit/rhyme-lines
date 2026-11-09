@@ -109,6 +109,7 @@ describe('DashboardShell', () => {
   })
 
   beforeEach(() => {
+    localStorage.clear()
     jest.clearAllMocks()
     useCloudSyncStore.getState().actions.reset()
     storageMocks.listActiveProjectSummaries.mockReturnValue([newest, older])
@@ -131,6 +132,38 @@ describe('DashboardShell', () => {
     const organizeButton = screen.getByRole('button', { name: 'ORGANIZE PROJECTS' })
     expect(organizeButton).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByPlaceholderText('New folder')).not.toBeInTheDocument()
+  })
+
+  it('collapses the workspace sidebar, expands it, and saves the preference', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<DashboardShell />)
+
+    const collapse = screen.getByRole('button', { name: 'Collapse workspace sidebar' })
+    expect(collapse).toHaveAttribute('aria-expanded', 'true')
+    await user.click(collapse)
+
+    expect(screen.getByRole('button', { name: 'Expand workspace sidebar' })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByRole('link', { name: 'Workspace' })).toBeInTheDocument()
+    expect(container.querySelector('.lg\\:grid-cols-\\[52px_minmax\\(0\\,1fr\\)\\]')).not.toBeNull()
+    await waitFor(() => {
+      expect(localStorage.getItem('rhyme-lines:dashboard-sidebar-collapsed')).toBe('true')
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Expand workspace sidebar' }))
+    expect(screen.getByRole('button', { name: 'Collapse workspace sidebar' })).toHaveAttribute('aria-expanded', 'true')
+    await waitFor(() => {
+      expect(localStorage.getItem('rhyme-lines:dashboard-sidebar-collapsed')).toBe('false')
+    })
+  })
+
+  it('restores the saved workspace sidebar preference without changing editor sidebar storage', async () => {
+    localStorage.setItem('rhyme-lines:dashboard-sidebar-collapsed', 'true')
+    localStorage.setItem('rhyme-lines:editor-sidebar-collapsed', 'false')
+    render(<DashboardShell />)
+
+    expect(await screen.findByRole('button', { name: 'Expand workspace sidebar' })).toHaveAttribute('aria-expanded', 'false')
+    expect(localStorage.getItem('rhyme-lines:dashboard-sidebar-collapsed')).toBe('true')
+    expect(localStorage.getItem('rhyme-lines:editor-sidebar-collapsed')).toBe('false')
   })
 
   it('updates last-open metadata for resume block and project-row open paths', async () => {
