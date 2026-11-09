@@ -144,7 +144,7 @@ describe('DashboardShell', () => {
 
     expect(screen.getByRole('button', { name: 'Expand workspace sidebar' })).toHaveAttribute('aria-expanded', 'false')
     expect(screen.getByRole('link', { name: 'Workspace' })).toBeInTheDocument()
-    expect(container.querySelector('.lg\\:grid-cols-\\[52px_minmax\\(0\\,1fr\\)\\]')).not.toBeNull()
+    expect(container.querySelector('.grid')?.className).toContain('lg:grid-cols-[52px_minmax(0,1fr)]')
     await waitFor(() => {
       expect(localStorage.getItem('rhyme-lines:dashboard-sidebar-collapsed')).toBe('true')
     })
