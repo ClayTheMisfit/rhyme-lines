@@ -1,9 +1,9 @@
 import 'server-only'
-import { createHmac } from 'node:crypto'
 import { getDatabase } from '@/lib/db'
 import { AuthConfigurationError } from './environment'
+import { authRateLimitKey, type AuthRateLimitAction } from './rate-limit-key'
 
-export type AuthRateLimitAction = 'login' | 'login-ip' | 'signup-ip' | 'password-reset' | 'verification-resend' | 'recovery-ip' | 'token'
+export type { AuthRateLimitAction } from './rate-limit-key'
 
 const policies: Record<AuthRateLimitAction, { limit: number; windowMs: number; blockMs: number }> = {
   login: { limit: 8, windowMs: 15 * 60_000, blockMs: 15 * 60_000 },
@@ -37,10 +37,10 @@ export function getClientAddress(request: Request) {
   return address
 }
 
-function rateLimitKey(action: AuthRateLimitAction, identity: string) {
+function getRateLimitKey(action: AuthRateLimitAction, identity: string) {
   const secret = process.env.AUTH_SECRET
   if (!secret) throw new Error('AUTH_SECRET is required for authentication rate limiting')
-  return createHmac('sha256', secret).update(`${action}:${identity}`).digest('hex')
+  return authRateLimitKey(action, identity, secret)
 }
 
 function isRetryableTransactionError(error: unknown) {
@@ -60,7 +60,7 @@ async function cleanupStaleEntries(now: Date) {
 
 export async function consumeAuthRateLimit(action: AuthRateLimitAction, identity: string, now = new Date()) {
   const policy = policies[action]
-  const keyHash = rateLimitKey(action, identity)
+  const keyHash = getRateLimitKey(action, identity)
   const database = getDatabase()
   await cleanupStaleEntries(now)
   for (let attempt = 1; attempt <= TRANSACTION_ATTEMPTS; attempt += 1) {
@@ -90,6 +90,6 @@ export async function consumeAuthRateLimit(action: AuthRateLimitAction, identity
 }
 
 export async function clearAuthRateLimit(action: AuthRateLimitAction, identity: string) {
-  const keyHash = rateLimitKey(action, identity)
+  const keyHash = getRateLimitKey(action, identity)
   await getDatabase().authRateLimit.deleteMany({ where: { keyHash } })
 }
