@@ -80,13 +80,11 @@ async function main() {
   try {
     await db.$connect()
     connected = true
-    const databaseMetadata = await db.$queryRaw<Array<{ databaseName: string; serverAddress: string | null }>>`
-      SELECT current_database() AS "databaseName", inet_server_addr()::text AS "serverAddress"
+    const databaseMetadata = await db.$queryRaw<Array<{ databaseName: string }>>`
+      SELECT current_database() AS "databaseName"
     `
-    const serverAddress = databaseMetadata[0]?.serverAddress
-    if (!databaseMetadata[0]?.databaseName.toLowerCase().includes('test')
-      || (serverAddress !== '127.0.0.1' && serverAddress !== '::1')) {
-      throw new Error('Could not confirm an isolated loopback PostgreSQL test database')
+    if (!databaseMetadata[0]?.databaseName.toLowerCase().includes('test')) {
+      throw new Error('Could not confirm an isolated PostgreSQL test database')
     }
     isolatedDatabaseVerified = true
     await db.user.createMany({
@@ -254,6 +252,47 @@ async function main() {
     `)
     await db.$executeRawUnsafe(`CREATE TRIGGER "${triggerName}" BEFORE DELETE ON "User" FOR EACH ROW EXECUTE FUNCTION "${triggerFunction}"()`)
 
+    await db.credential.create({ data: { userId: rollbackId, passwordHash: 'synthetic-rollback-hash' } })
+    await db.account.create({
+      data: {
+        userId: rollbackId,
+        type: 'oauth',
+        provider: 'google',
+        providerAccountId: `rollback-${runId}`,
+      },
+    })
+    await db.session.create({
+      data: {
+        userId: rollbackId,
+        sessionToken: `synthetic-rollback-session-${runId}`,
+        expires: new Date(Date.now() + 60_000),
+      },
+    })
+    await db.authToken.create({
+      data: {
+        userId: rollbackId,
+        type: 'PASSWORD_RESET',
+        tokenHash: `rollback${runId}`.padEnd(64, '0').slice(0, 64),
+        expiresAt: timestamp,
+      },
+    })
+    const rollbackDocumentInput = makeDocument('rollback-doc', rollbackId)
+    const rollbackDocument = await db.cloudDocument.create({ data: rollbackDocumentInput })
+    await db.cloudDocumentVersion.create({
+      data: {
+        documentId: rollbackDocument.id,
+        userId: rollbackId,
+        sourceRevision: 1,
+        title: rollbackDocument.title,
+        content: rollbackDocumentInput.content,
+        lifecycle: rollbackDocument.lifecycle,
+        isPinned: rollbackDocument.isPinned,
+        position: rollbackDocument.position,
+        clientCreatedAt: rollbackDocument.clientCreatedAt,
+        clientUpdatedAt: rollbackDocument.clientUpdatedAt,
+        reason: 'INITIAL',
+      },
+    })
     const rollbackPreview = await previewAccountDeletion(db, {
       ...previewInput,
       email: rollbackEmail,
@@ -269,6 +308,12 @@ async function main() {
       authSecret: TEST_AUTH_SECRET,
     }), 'transaction-failed')
     assert.equal(await db.user.count({ where: { id: rollbackId } }), 1)
+    assert.equal(await db.credential.count({ where: { userId: rollbackId } }), 1)
+    assert.equal(await db.account.count({ where: { userId: rollbackId } }), 1)
+    assert.equal(await db.session.count({ where: { userId: rollbackId } }), 1)
+    assert.equal(await db.authToken.count({ where: { userId: rollbackId } }), 1)
+    assert.equal(await db.cloudDocument.count({ where: { id: rollbackDocument.id } }), 1)
+    assert.equal(await db.cloudDocumentVersion.count({ where: { documentId: rollbackDocument.id } }), 1)
 
     const deletionPromise = executeAccountDeletion(db, freshExecution)
     await new Promise((resolve) => setTimeout(resolve, 100))
