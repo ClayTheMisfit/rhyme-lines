@@ -34,6 +34,8 @@ import { subscribeDraftCollection } from '@/lib/persist/draftCoordinator'
 import { ConflictResolutionDialog } from '@/components/cloud-sync/ConflictResolutionDialog'
 import { useCloudSyncStore } from '@/store/cloudSyncStore'
 
+const DASHBOARD_SIDEBAR_COLLAPSED_KEY = 'rhyme-lines:dashboard-sidebar-collapsed'
+
 export function DashboardShell() {
   const hydration = useAppStateHydration()
   useCloudSync(hydration)
@@ -48,8 +50,28 @@ export function DashboardShell() {
   const [folderFilter, setFolderFilter] = useState<string | null>(null)
   const [newFolderName, setNewFolderName] = useState('')
   const [showOrganizeControls, setShowOrganizeControls] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarPreferenceLoaded, setSidebarPreferenceLoaded] = useState(false)
   const conflictDialogDocumentId = useCloudSyncStore((state) => state.conflictDialogDocumentId)
   const closeConflictDialog = useCloudSyncStore((state) => state.actions.closeConflictDialog)
+
+  useEffect(() => {
+    try {
+      setSidebarCollapsed(window.localStorage.getItem(DASHBOARD_SIDEBAR_COLLAPSED_KEY) === 'true')
+    } catch {
+      // Keep the dashboard usable when storage is unavailable.
+    }
+    setSidebarPreferenceLoaded(true)
+  }, [])
+
+  useEffect(() => {
+    if (!sidebarPreferenceLoaded) return
+    try {
+      window.localStorage.setItem(DASHBOARD_SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed))
+    } catch {
+      // The toggle remains functional without persistence.
+    }
+  }, [sidebarCollapsed, sidebarPreferenceLoaded])
 
   const reloadProjects = useCallback(() => {
     const activeRows = listActiveProjectSummaries()
@@ -174,8 +196,8 @@ export function DashboardShell() {
         search={search}
         onSearchChange={setSearch}
       />
-      <div className="grid min-h-[calc(100vh-56px)] grid-cols-1 lg:grid-cols-[248px_minmax(0,1fr)]">
-        <DashboardSidebar />
+      <div className={`grid min-h-[calc(100vh-56px)] grid-cols-1 transition-[grid-template-columns] duration-150 motion-reduce:transition-none ${sidebarCollapsed ? 'lg:grid-cols-[52px_minmax(0,1fr)]' : 'lg:grid-cols-[248px_minmax(0,1fr)]'}`}>
+        <DashboardSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((current) => !current)} />
 
         <main className="flex min-w-0 flex-col border-l border-white/[0.035] bg-[#111418] px-6 py-9 sm:px-10 sm:py-11 lg:px-12">
           <DashboardHero
