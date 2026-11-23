@@ -7,7 +7,6 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace: jest.fn(), prefetch: jest.fn() }),
 }))
 
-jest.mock('next-themes', () => ({ useTheme: () => ({ setTheme: jest.fn() }) }))
 jest.mock('framer-motion', () => ({
   motion: new Proxy(
     {},

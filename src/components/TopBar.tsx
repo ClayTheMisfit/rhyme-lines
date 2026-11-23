@@ -3,9 +3,7 @@
 import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useMounted } from '@/hooks/useMounted'
-import { useTheme } from 'next-themes'
-import { resolveTheme } from '@/lib/theme/resolveTheme'
-import { useSettingsStore } from '@/store/settingsStore'
+import { useTheme } from '@/lib/theme/ThemeProvider'
 import { layers } from '@/lib/layers'
 import DocumentHeader from '@/components/DocumentHeader'
 import TopBarActions from '@/components/TopBarActions'
@@ -36,8 +34,7 @@ function applyBodyTheme(theme: 'light' | 'dark') {
 export default function TopBar() {
   const mounted = useMounted()
   const headerRef = useRef<HTMLElement>(null)
-  const { theme } = useSettingsStore((state) => ({ theme: state.theme }))
-  const { resolvedTheme, setTheme: setResolvedTheme } = useTheme()
+  const { resolvedTheme } = useTheme()
   const { mode, width } = useRhymePanel((state) => ({
     mode: state.mode,
     width: state.width,
@@ -77,16 +74,12 @@ export default function TopBar() {
 
   useEffect(() => {
     if (!mounted) return
-    const resolved = resolveTheme(theme, { hydrated: mounted })
-    applyBodyTheme(resolved)
-    if (resolvedTheme !== resolved) {
-      setResolvedTheme(resolved)
-    }
+    applyBodyTheme(resolvedTheme)
 
     return () => {
       resetBodyThemeToDashboardDefault()
     }
-  }, [mounted, resolvedTheme, setResolvedTheme, theme])
+  }, [mounted, resolvedTheme])
 
   return (
     <header

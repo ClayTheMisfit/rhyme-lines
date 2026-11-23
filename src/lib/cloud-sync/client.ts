@@ -1,6 +1,7 @@
 'use client'
 
 import type { PersistenceLoadStatus } from '@/lib/persist/migrations'
+import { isClient } from '@/lib/env/isClient'
 import type { DraftCollection, DraftSchema } from '@/lib/persist/schema'
 import {
   getAuthoritativeDraftCollection,
@@ -621,6 +622,7 @@ class CloudSyncManager {
   }
 
   getRestoreEligibility(localId: string): RestoreEligibility {
+    if (!isClient()) return { allowed: false, reason: 'Version history is available after the page loads.' }
     const association = this.accountId
       ? ensureAccountMetadata(this.metadata, this.accountId).associations[localId]
       : undefined
@@ -736,6 +738,7 @@ class CloudSyncManager {
   }
 
   getConflictBlock(localId: string): string | null {
+    if (!isClient()) return 'Conflict resolution is available after the page loads.'
     if (!navigator.onLine) return 'Reconnect to resolve this conflict.'
     if (!this.accountId || useCloudSyncStore.getState().accountState !== 'ready') return 'Sign in with the original account to resolve this conflict.'
     if (this.inFlight.has(localId)) return 'A document operation is still running.'
