@@ -9,13 +9,6 @@ jest.mock('next/navigation', () => ({
   }),
 }))
 
-jest.mock('next-themes', () => ({
-  useTheme: () => ({
-    resolvedTheme: 'dark',
-    setTheme: jest.fn(),
-  }),
-}))
-
 describe('TopBar', () => {
   test('does not render the detach toggle in the top nav', () => {
     render(<TopBar />)

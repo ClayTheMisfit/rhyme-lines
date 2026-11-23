@@ -23,15 +23,19 @@ function ConflictSession({ documentId, open, onOpenChange, onCloseAutoFocus }: P
   const active = useRef(true)
   const request = useRef(0)
   const returnFocus = useRef<HTMLElement | null>(null)
-  const localAtInspection = useRef(getAuthoritativeDraftCollection().drafts.find((draft) => draft.docId === documentId))
+  const localAtInspection = useRef(typeof window === 'undefined'
+    ? undefined
+    : getAuthoritativeDraftCollection().drafts.find((draft) => draft.docId === documentId))
   const [preview, setPreview] = useState<ConflictPreview | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<ConflictAction | null>(null)
   const [localChanged, setLocalChanged] = useState(false)
-  const [online, setOnline] = useState(() => navigator.onLine)
+  const [online, setOnline] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine)
   const accountState = useCloudSyncStore((state) => state.accountState)
-  const local = preview?.local ?? getAuthoritativeDraftCollection().drafts.find((draft) => draft.docId === documentId)
+  const local = preview?.local ?? (typeof window === 'undefined'
+    ? undefined
+    : getAuthoritativeDraftCollection().drafts.find((draft) => draft.docId === documentId))
 
   useEffect(() => {
     active.current = true

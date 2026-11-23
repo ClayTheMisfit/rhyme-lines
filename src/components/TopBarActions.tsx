@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, useReducedMotion } from 'framer-motion'
-import { useTheme } from 'next-themes'
+import { useTheme } from '@/lib/theme/ThemeProvider'
 import { useRhymePanel } from '@/lib/state/rhymePanel'
 import { useRhymePanelStore } from '@/store/rhymePanelStore'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -36,7 +36,7 @@ export default function TopBarActions() {
     }),
     shallow
   )
-  const { setTheme: setResolvedTheme } = useTheme()
+  const { resolvedTheme } = useTheme()
   const { togglePanel } = useRhymePanelStore((state) => ({ togglePanel: state.togglePanel }), shallow)
   const mode = useRhymePanel((state) => state.mode)
   const tabs = useTabsStore((state) => state.tabs)
@@ -88,12 +88,11 @@ export default function TopBarActions() {
   }, [focusSettingsPanel])
 
   const toggleTheme = useCallback(() => {
-    const next = theme === 'dark' ? 'light' : 'dark'
+    const next = resolvedTheme === 'dark' ? 'light' : 'dark'
     setThemePreference(next)
-    setResolvedTheme(next)
     trackEvent('theme_switched', { theme: next })
     setAnnouncement(`Theme switched to ${next} mode`)
-  }, [setResolvedTheme, setThemePreference, theme])
+  }, [resolvedTheme, setThemePreference])
 
   const exportDraft = useCallback(() => {
     const target = activeTab

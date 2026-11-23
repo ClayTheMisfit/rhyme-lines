@@ -1,7 +1,7 @@
 'use client'
 
 import { isClient } from '@/lib/env/isClient'
-import { type DraftCollection } from '@/lib/persist/schema'
+import { createDefaultDraftCollection, type DraftCollection } from '@/lib/persist/schema'
 import { readWithMigrations, tryWriteVersioned } from '@/lib/persist/storage'
 import { normalizeDraftCollectionLifecycle } from '@/lib/projects/lifecycle'
 
@@ -66,6 +66,9 @@ export const getDraftPersistenceSnapshot = (): DraftPersistenceSnapshot => {
 
 const ensureInitialized = (): DraftCollection => {
   if (collection) return collection
+  if (!isClient()) {
+    return createDefaultDraftCollection()
+  }
 
   const loaded = readWithMigrations('drafts')
   collection = normalizeDraftCollectionLifecycle(loaded.data)
@@ -88,6 +91,7 @@ export const initializeDraftPersistence = (
   initialCollection: DraftCollection,
   options: { allowPersistence: boolean; alreadyPersisted?: boolean }
 ) => {
+  if (!isClient()) return
   cancelScheduledPersistence()
   collection = normalizeDraftCollectionLifecycle(initialCollection)
   persistenceAllowed = options.allowPersistence
@@ -104,6 +108,7 @@ export const initializeDraftPersistence = (
 export const getAuthoritativeDraftCollection = (): DraftCollection => ensureInitialized()
 
 export const isDraftPersistenceAllowed = (): boolean => {
+  if (!isClient()) return false
   ensureInitialized()
   return persistenceAllowed
 }
@@ -114,6 +119,13 @@ export const getDraftPersistenceRevision = () => ({
 })
 
 export const flushDraftPersistence = (): DraftPersistenceResult => {
+  if (!isClient()) {
+    return {
+      ok: false,
+      revision: currentRevision,
+      error: 'Draft persistence is unavailable outside the browser',
+    }
+  }
   cancelScheduledPersistence()
   const current = ensureInitialized()
 
@@ -177,6 +189,13 @@ export const replaceAuthoritativeDraftCollection = (
   nextCollection: DraftCollection,
   options: { persist: 'debounced' | 'immediate'; notify?: boolean; requireDurable?: boolean } = { persist: 'debounced' }
 ): DraftPersistenceResult | null => {
+  if (!isClient()) {
+    return {
+      ok: false,
+      revision: currentRevision,
+      error: 'Draft persistence is unavailable outside the browser',
+    }
+  }
   ensureInitialized()
   if (!persistenceAllowed) return null
 
@@ -217,6 +236,13 @@ export const replaceAuthoritativeDraftCollection = (
 export const mutateAuthoritativeDraftCollection = (
   mutate: (current: DraftCollection) => DraftCollection
 ): DraftPersistenceResult | null => {
+  if (!isClient()) {
+    return {
+      ok: false,
+      revision: currentRevision,
+      error: 'Draft persistence is unavailable outside the browser',
+    }
+  }
   const current = ensureInitialized()
   if (!persistenceAllowed) return null
   return replaceAuthoritativeDraftCollection(mutate(current), { persist: 'immediate' })
