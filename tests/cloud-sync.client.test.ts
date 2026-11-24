@@ -6,6 +6,7 @@ import {
   resetCloudSyncForTests,
 } from '@/lib/cloud-sync/client'
 import { CLOUD_SYNC_STORAGE_KEY, emptyDocumentMetadata, readCloudSyncMetadata } from '@/lib/cloud-sync/metadata'
+import { HistoryCheckpointScheduler } from '@/lib/cloud-sync/historyScheduler'
 import {
   getAuthoritativeDraftCollection,
   initializeDraftPersistence,
@@ -347,6 +348,51 @@ describe('cloud sync queue', () => {
     expect(useCloudSyncStore.getState().documentStates['local-1']).toBe('synced')
     expect(readCloudSyncMetadata().accounts['user-a'].associations['local-1'].lastKnownServerRevision).toBe(9)
     expect(fetchMock.mock.calls.filter((call) => call[1]?.method === 'PUT')).toHaveLength(0)
+  })
+
+  it('reschedules the current checkpoint after a temporary restore failure', async () => {
+    const initial = { ...draft('current revision eight'), updatedAt: 800 }
+    initializeLocal(initial)
+    localStorage.setItem(CLOUD_SYNC_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      lastAccountId: 'user-a',
+      accounts: {
+        'user-a': {
+          initialized: true,
+          associations: {
+            'local-1': {
+              ...emptyDocumentMetadata(),
+              cloudDocumentId: 'cloud-1',
+              lastKnownServerRevision: 8,
+              lastKnownLifecycle: 'ACTIVE',
+              lastSyncedLocalVersion: localDocumentVersion(initial),
+              state: 'synced',
+            },
+          },
+        },
+      },
+    }))
+    fetchMock.mockImplementation(async (url, init) => {
+      if (String(url) === '/api/account') return response(200, { user: { id: 'user-a', name: null, email: null } })
+      if (String(url) === '/api/cloud/documents' && !init?.method) return response(200, { documents: [dto(initial, 8)], tombstones: [] })
+      if (String(url).endsWith('/restore')) return response(503, { error: 'temporary' })
+      return response(201, { version: { id: 'version-8' } })
+    })
+    const schedule = jest.spyOn(HistoryCheckpointScheduler.prototype, 'schedule')
+
+    try {
+      cloudSyncManager.start('ok')
+      await waitFor(() => expect(useCloudSyncStore.getState().accountState).toBe('ready'))
+      schedule.mockClear()
+
+      await expect(cloudSyncManager.restoreVersion('local-1', 'version-3')).resolves.toMatchObject({
+        ok: false,
+        kind: 'failed',
+      })
+      expect(schedule).toHaveBeenCalledWith('local-1', 8, expect.any(Function))
+    } finally {
+      schedule.mockRestore()
+    }
   })
 
   it('preserves local work that changes while a server restore is in flight', async () => {
